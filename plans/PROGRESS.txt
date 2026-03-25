@@ -122,3 +122,37 @@
 - `ReadonlyArray<readonly [canonical: string, ...aliases: string[]]>` pattern works well for declaring mapping tables
 
 ---
+
+[Ralph Loop] 2026-03-25 22:59 UTC - Iteration 1: US-003 (Team name mapping) completed
+
+## 2026-03-26 - US-004
+
+**Story:** Date utilities
+
+### What was implemented
+- Implemented `src/lib/date-utils.ts` with four date utility functions
+- `parseAflApiDate(iso)` — parses UTC ISO 8601 strings from the AFL API (e.g. `"2024-03-14T06:20:00.000Z"`)
+- `parseFootyWireDate(dateStr)` — parses FootyWire formats: `"Sat 16 Mar 2024"`, `"16 Mar 2024"`, `"16-Mar-2024"`, full day/month names
+- `parseAflTablesDate(dateStr)` — parses AFL Tables formats: `"16-Mar-2024"`, `"Sat 16-Mar-2024"`, `"16/Mar/2024"`, handles dates back to 1897
+- `toAestString(date)` — formats Date using `Intl.DateTimeFormat` with `Australia/Melbourne` timezone (auto AEST/AEDT)
+- All functions return `Date | null` (null on invalid input), use only Web Standard APIs
+- Internal helper: `MONTH_ABBREV_TO_INDEX` Map covers 3-letter abbreviations and full month names
+- Re-exported all four functions from `src/index.ts`
+
+### Tests written
+- test/lib/date-utils.test.ts — 25 tests covering:
+  - parseAflApiDate: ISO with/without milliseconds, date-only, invalid strings
+  - parseFootyWireDate: day-of-week prefix, no prefix, hyphens, full names, single-digit day, whitespace, empty, invalid format, Feb 30 rejection
+  - parseAflTablesDate: DD-Mon-YYYY, with day-of-week, spaces, slashes, 1897 historical, empty, year-only, invalid month
+  - toAestString: AEDT formatting (March/summer), AEST formatting (July/winter), non-empty output
+
+### Files changed
+- src/lib/date-utils.ts (implemented)
+- src/index.ts (added date-utils exports)
+- test/lib/date-utils.test.ts (created)
+
+### Learnings for future iterations
+- `Intl.DateTimeFormat` with `Australia/Melbourne` timezone automatically handles AEST/AEDT transitions
+- Date validation via component round-trip (compare getUTCFullYear/Month/Date back to inputs) catches invalid dates like Feb 30
+
+---

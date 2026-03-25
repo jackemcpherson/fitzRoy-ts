@@ -64,8 +64,8 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented parseAflApiDate (UTC ISO strings), parseFootyWireDate (DD Mon YYYY variants), parseAflTablesDate (DD-Mon-YYYY variants), and toAestString (Intl.DateTimeFormat with Australia/Melbourne). All use only Web Standard APIs. Returns null for invalid inputs."
     },
     {
       "id": "US-005",
