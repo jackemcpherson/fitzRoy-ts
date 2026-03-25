@@ -320,3 +320,53 @@
 ---
 
 [Manual] 2026-03-26 10:25 UTC - Live API smoke test: all schemas and client methods validated against real AFL API
+
+## 2026-03-26 - US-008 through US-026 (batch implementation)
+
+**Stories completed:** US-008 through US-026 (19 stories)
+
+### What was implemented
+
+**Source clients (US-008, US-009, US-013, US-014, US-015):**
+- AFL API: fetchRoundMatchItems, fetchSeasonMatchItems, fetchPlayerStats, fetchMatchRoster, fetchTeams, fetchSquad
+- FootyWire: HTML scraper for match results using Cheerio
+- AFL Tables: HTML scraper for historical season results (1897-present)
+- Fryzigg: Stubbed as unsupported (RDS binary format only)
+
+**Transforms (US-010, US-011, US-012):**
+- transformMatchItems: flattens /cfs/ match items to MatchResult[]
+- transformPlayerStats: flattens nested player stats to PlayerStats[]
+- transformMatchRoster: maps team players to Lineup
+
+**Public API (US-016, US-017, US-018, US-019):**
+- fetchMatchResults: routes to AFL API, FootyWire, or AFL Tables
+- fetchPlayerStats: AFL API with round/match resolution
+- fetchFixture: AFL API fixture data
+- fetchLineup: AFL API match roster
+- fetchLadder: stub (no direct API endpoint)
+- fetchTeams, fetchSquad: team and roster queries
+
+**Schemas (US-020):**
+- Scrapers parse directly to typed domain objects, no intermediate Zod schemas needed
+
+**Tests (US-021, US-022, US-023, US-024, US-025):**
+- 192 tests across 14 test files
+- Transform tests with real API fixture data
+- Source client tests with HTML fixtures and mock fetch
+- Validation schema tests against real API response shapes
+- Public API integration tests for source routing
+
+**Final (US-026):**
+- All public types, schemas, functions, clients, transforms exported from index.ts
+- All quality checks pass: typecheck, biome check, vitest
+
+### Key patterns
+- /cfs/ endpoints use providerId strings (CD_R*, CD_M*), auth via x-media-mis-token
+- aflapi.afl.com.au is public (no auth), api.afl.com.au/cfs/* needs WMCTok token
+- Entity IDs are numbers in public API, providerId strings in /cfs/ API
+- Competition code for AFLM is "AFL" in the API
+- test/fixtures excluded from Biome lint via biome.json
+
+---
+
+[Manual] 2026-03-26 11:00 UTC - All 26 user stories completed. 192 tests passing.
