@@ -51,3 +51,35 @@
 - bun.lock will update when deps change; vitest exits with code 1 if no test files exist
 
 ---
+
+[Ralph CLI] 2026-03-25 22:48 UTC - US-001 (Project restructure and dependency setup) completed successfully
+
+## 2026-03-26 - US-002
+
+**Story:** Domain types and type aliases
+
+### What was implemented
+- Defined all shared domain types in src/types.ts
+- Union types: CompetitionCode ('AFLM' | 'AFLW'), RoundType, DataSource, MatchStatus
+- Core interfaces: MatchResult (with per-quarter QuarterScore), PlayerStats (30+ stat fields), Fixture
+- Lineup types: Lineup, LineupPlayer (with isEmergency/isSubstitute flags)
+- Ladder types: Ladder, LadderEntry (with all standing fields)
+- Team/Squad types: Team, Squad, SquadPlayer (with bio fields)
+- Query parameter types: SeasonRoundQuery, MatchQuery, PlayerStatsQuery, LineupQuery, LadderQuery, TeamQuery, SquadQuery
+- Re-exported all types from src/index.ts (alphabetical order)
+
+### Tests written
+- test/types.test.ts — 13 tests verifying all type shapes are constructible
+- Tests cover: union type values, MatchResult with/without quarter scores, PlayerStats with nullable fields, Fixture, Lineup with emergency/substitute flags, Ladder entries, Team/Squad, all query parameter types
+
+### Files changed
+- src/types.ts (populated with all domain types)
+- src/index.ts (added type re-exports)
+- test/types.test.ts (created)
+
+### Learnings for future iterations
+- Use `readonly` on all interface fields for domain types (immutable data)
+- Optional properties need explicit `| undefined` for exactOptionalPropertyTypes
+- Biome auto-formats on file write (hook), so written code is formatted automatically
+
+---

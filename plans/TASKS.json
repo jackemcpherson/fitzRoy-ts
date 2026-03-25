@@ -33,8 +33,8 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Defined all domain types in src/types.ts: MatchResult, PlayerStats, Fixture, Lineup, Ladder, Squad, Team, plus union types (CompetitionCode, RoundType, DataSource, MatchStatus) and query parameter types (SeasonRoundQuery, MatchQuery, PlayerStatsQuery, LineupQuery, LadderQuery, TeamQuery, SquadQuery). Re-exported all types from src/index.ts."
     },
     {
       "id": "US-003",
