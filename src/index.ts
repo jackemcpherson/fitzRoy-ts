@@ -4,6 +4,12 @@
  * @packageDocumentation
  */
 
+export { fetchFixture } from "./api/fixture";
+export { fetchLadder } from "./api/ladder";
+export { fetchLineup } from "./api/lineup";
+export { fetchMatchResults } from "./api/match-results";
+export { fetchPlayerStats } from "./api/player-stats";
+export { fetchSquad, fetchTeams } from "./api/teams";
 export {
   parseAflApiDate,
   parseAflTablesDate,
@@ -70,6 +76,12 @@ export {
   TeamScoreSchema,
 } from "./lib/validation";
 export { AflApiClient, type AflApiClientOptions } from "./sources/afl-api";
+export { AflTablesClient, type AflTablesClientOptions } from "./sources/afl-tables";
+export { FootyWireClient, type FootyWireClientOptions } from "./sources/footywire";
+export { fetchFryziggStats } from "./sources/fryzigg";
+export { transformMatchRoster } from "./transforms/lineup";
+export { transformMatchItems } from "./transforms/match-results";
+export { transformPlayerStats } from "./transforms/player-stats";
 export type {
   CompetitionCode,
   DataSource,
