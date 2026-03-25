@@ -432,32 +432,42 @@ export type TeamItem = z.infer<typeof TeamItemSchema>;
 export type TeamList = z.infer<typeof TeamListSchema>;
 
 // ---------------------------------------------------------------------------
-// Squad (/afl/v2/squads)
+// Squad (/afl/v2/squads?teamId={}&compSeasonId={})
 // ---------------------------------------------------------------------------
+
+/** Schema for a player's inner identity within a squad. */
+export const SquadPlayerInnerSchema = z
+  .object({
+    id: z.number(),
+    providerId: z.string().optional(),
+    firstName: z.string(),
+    surname: z.string(),
+    dateOfBirth: z.string().optional(),
+    heightInCm: z.number().optional(),
+    weightInKg: z.number().optional(),
+  })
+  .passthrough();
 
 /** Schema for a single squad player entry. */
 export const SquadPlayerItemSchema = z
   .object({
-    playerId: z.string(),
-    playerName: z
-      .object({
-        givenName: z.string(),
-        surname: z.string(),
-        displayName: z.string().optional(),
-      })
-      .passthrough(),
+    player: SquadPlayerInnerSchema,
     jumperNumber: z.number().optional(),
     position: z.string().optional(),
-    dateOfBirth: z.string().optional(),
-    heightCm: z.number().optional(),
-    weightKg: z.number().optional(),
+  })
+  .passthrough();
+
+/** Schema for the squad wrapper object. */
+export const SquadSchema = z
+  .object({
+    players: z.array(SquadPlayerItemSchema),
   })
   .passthrough();
 
 /** Schema for the squad response. */
 export const SquadListSchema = z
   .object({
-    squad: z.array(SquadPlayerItemSchema),
+    squad: SquadSchema,
   })
   .passthrough();
 

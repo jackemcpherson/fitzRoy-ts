@@ -630,4 +630,141 @@ describe("AflApiClient", () => {
       }
     });
   });
+
+  describe("fetchPlayerStats", () => {
+    it("returns player stats for a match", async () => {
+      const playerStats = {
+        homeTeamPlayerStats: [
+          {
+            player: {
+              player: {
+                position: "FWD",
+                player: {
+                  playerId: "CD_I1",
+                  playerName: { givenName: "Test", surname: "Player" },
+                },
+              },
+              jumperNumber: 1,
+            },
+            teamId: "CD_T1",
+            playerStats: { stats: { goals: 3.0, kicks: 15.0 } },
+          },
+        ],
+        awayTeamPlayerStats: [],
+      };
+      const fetchFn = vi
+        .fn()
+        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
+        .mockResolvedValueOnce(mockResponse(playerStats));
+      const client = new AflApiClient({ fetchFn });
+
+      const result = await client.fetchPlayerStats("CD_M1");
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.homeTeamPlayerStats).toHaveLength(1);
+        expect(result.data.awayTeamPlayerStats).toHaveLength(0);
+      }
+    });
+  });
+
+  describe("fetchMatchRoster", () => {
+    it("returns match roster for a match", async () => {
+      const roster = {
+        match: {
+          matchId: "CD_M1",
+          status: "CONCLUDED",
+          utcStartTime: "2025-03-13",
+          homeTeamId: "CD_T120",
+          awayTeamId: "CD_T30",
+          homeTeam: { name: "Richmond", teamId: "CD_T120" },
+          awayTeam: { name: "Carlton", teamId: "CD_T30" },
+        },
+        teamPlayers: [
+          { teamId: "CD_T120", players: [] },
+          { teamId: "CD_T30", players: [] },
+        ],
+      };
+      const fetchFn = vi
+        .fn()
+        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
+        .mockResolvedValueOnce(mockResponse(roster));
+      const client = new AflApiClient({ fetchFn });
+
+      const result = await client.fetchMatchRoster("CD_M1");
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.teamPlayers).toHaveLength(2);
+      }
+    });
+  });
+
+  describe("fetchTeams", () => {
+    it("returns all teams when no filter provided", async () => {
+      const teams = {
+        teams: [
+          { id: 1, name: "Adelaide Crows", teamType: "MEN" },
+          { id: 2, name: "Adelaide Crows W", teamType: "WOMEN" },
+        ],
+      };
+      const fetchFn = vi.fn().mockResolvedValueOnce(mockResponse(teams));
+      const client = new AflApiClient({ fetchFn });
+
+      const result = await client.fetchTeams();
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data).toHaveLength(2);
+      }
+    });
+
+    it("filters by team type when provided", async () => {
+      const teams = {
+        teams: [
+          { id: 1, name: "Adelaide Crows", teamType: "MEN" },
+          { id: 2, name: "Adelaide Crows W", teamType: "WOMEN" },
+        ],
+      };
+      const fetchFn = vi.fn().mockResolvedValueOnce(mockResponse(teams));
+      const client = new AflApiClient({ fetchFn });
+
+      const result = await client.fetchTeams("MEN");
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data).toHaveLength(1);
+        expect(result.data[0]?.name).toBe("Adelaide Crows");
+      }
+    });
+  });
+
+  describe("fetchSquad", () => {
+    it("returns squad for a team and season", async () => {
+      const squad = {
+        squad: {
+          players: [
+            {
+              player: {
+                id: 1910,
+                firstName: "Chris",
+                surname: "Burgess",
+              },
+              jumperNumber: 21,
+              position: "KEY_FORWARD",
+            },
+          ],
+        },
+      };
+      const fetchFn = vi.fn().mockResolvedValueOnce(mockResponse(squad));
+      const client = new AflApiClient({ fetchFn });
+
+      const result = await client.fetchSquad(1, 73);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.squad.players).toHaveLength(1);
+      }
+    });
+  });
 });

@@ -399,38 +399,51 @@ describe("TeamListSchema", () => {
 });
 
 describe("SquadListSchema", () => {
-  it("parses a valid squad response", () => {
+  it("parses a valid squad response with nested player structure", () => {
     const data = {
-      squad: [
-        {
-          playerId: "p1",
-          playerName: { givenName: "Dustin", surname: "Martin" },
-          jumperNumber: 4,
-          position: "Forward",
-          dateOfBirth: "1991-06-26",
-          heightCm: 185,
-          weightKg: 85,
-        },
-      ],
+      squad: {
+        players: [
+          {
+            player: {
+              id: 1910,
+              providerId: "CD_I1000068",
+              firstName: "Chris",
+              surname: "Burgess",
+              dateOfBirth: "1995-11-26",
+              heightInCm: 193,
+              weightInKg: 0,
+            },
+            jumperNumber: 21,
+            position: "KEY_FORWARD",
+          },
+        ],
+      },
     };
     expect(SquadListSchema.parse(data)).toEqual(data);
   });
 
   it("parses a squad player with only required fields", () => {
     const data = {
-      squad: [
-        {
-          playerId: "p1",
-          playerName: { givenName: "Dustin", surname: "Martin" },
-        },
-      ],
+      squad: {
+        players: [
+          {
+            player: {
+              id: 1,
+              firstName: "Test",
+              surname: "Player",
+            },
+          },
+        ],
+      },
     };
     expect(SquadListSchema.parse(data)).toEqual(data);
   });
 
-  it("rejects missing playerName", () => {
+  it("rejects missing player object", () => {
     const data = {
-      squad: [{ playerId: "p1" }],
+      squad: {
+        players: [{ jumperNumber: 4 }],
+      },
     };
     expect(() => SquadListSchema.parse(data)).toThrow();
   });

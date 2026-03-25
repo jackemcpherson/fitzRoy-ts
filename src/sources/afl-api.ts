@@ -16,8 +16,16 @@ import {
   CompseasonListSchema,
   type MatchItem,
   MatchItemListSchema,
+  type MatchRoster,
+  MatchRosterSchema,
+  type PlayerStatsList,
+  PlayerStatsListSchema,
   type Round,
   RoundListSchema,
+  type SquadList,
+  SquadListSchema,
+  type TeamItem,
+  TeamListSchema,
 } from "../lib/validation";
 import type { CompetitionCode } from "../types";
 
@@ -413,5 +421,69 @@ export class AflApiClient {
     }
 
     return ok(allItems);
+  }
+
+  /**
+   * Fetch per-player statistics for a match.
+   *
+   * @param matchProviderId - The match provider ID (e.g. "CD_M20250140101").
+   * @returns Player stats list with home and away arrays.
+   */
+  async fetchPlayerStats(
+    matchProviderId: string,
+  ): Promise<Result<PlayerStatsList, AflApiError | ValidationError>> {
+    return this.fetchJson(
+      `${CFS_BASE}/playerStats/match/${matchProviderId}`,
+      PlayerStatsListSchema,
+    );
+  }
+
+  /**
+   * Fetch match roster (lineup) for a match.
+   *
+   * @param matchProviderId - The match provider ID (e.g. "CD_M20250140101").
+   * @returns Match roster with team players.
+   */
+  async fetchMatchRoster(
+    matchProviderId: string,
+  ): Promise<Result<MatchRoster, AflApiError | ValidationError>> {
+    return this.fetchJson(`${CFS_BASE}/matchRoster/full/${matchProviderId}`, MatchRosterSchema);
+  }
+
+  /**
+   * Fetch team list, optionally filtered by team type.
+   *
+   * @param teamType - Optional filter (e.g. "MEN", "WOMEN").
+   * @returns Array of team items.
+   */
+  async fetchTeams(teamType?: string): Promise<Result<TeamItem[], AflApiError | ValidationError>> {
+    const result = await this.fetchJson(`${API_BASE}/teams?pageSize=100`, TeamListSchema);
+
+    if (!result.success) {
+      return result;
+    }
+
+    if (teamType) {
+      return ok(result.data.teams.filter((t) => t.teamType === teamType));
+    }
+
+    return ok(result.data.teams);
+  }
+
+  /**
+   * Fetch squad (roster) for a team in a specific season.
+   *
+   * @param teamId - The numeric team ID.
+   * @param compSeasonId - The compseason ID.
+   * @returns Squad list response.
+   */
+  async fetchSquad(
+    teamId: number,
+    compSeasonId: number,
+  ): Promise<Result<SquadList, AflApiError | ValidationError>> {
+    return this.fetchJson(
+      `${API_BASE}/squads?teamId=${teamId}&compSeasonId=${compSeasonId}`,
+      SquadListSchema,
+    );
   }
 }
