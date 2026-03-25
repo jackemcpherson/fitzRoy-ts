@@ -156,3 +156,52 @@
 - Date validation via component round-trip (compare getUTCFullYear/Month/Date back to inputs) catches invalid dates like Feb 30
 
 ---
+
+[Ralph Loop] 2026-03-25 23:02 UTC - Iteration 2: US-004 (Date utilities) completed
+
+## 2026-03-26 - US-005
+
+**Story:** Zod validation schemas for AFL API responses
+
+### What was implemented
+- Created `src/lib/validation.ts` with Zod schemas for all AFL API response shapes
+- Token response schema (`AflApiTokenSchema`) for WMCTok endpoint
+- Competition list and compseason list schemas for metadata resolution
+- Round list schema with round number and UTC time fields
+- Match items schema with nested `MatchTeamSchema` and `PeriodScoreSchema` for quarter scores
+- Match detail schema extending match item with compSeason and round references
+- Player stats schema with dot-prefixed field names (`playerStats.kicks`, `playerName.givenName`, etc.)
+- Match roster schema with nested team rosters and player entries
+- Team list and squad schemas with player bio fields
+- All schemas use `.passthrough()` for forward compatibility with API changes
+- Exported all schemas and inferred TypeScript types from `src/index.ts`
+
+### Tests written
+- test/lib/validation.test.ts — 30 tests covering:
+  - AflApiTokenSchema: valid parse, passthrough extra fields, reject missing fields
+  - CompetitionListSchema: valid parse, reject missing competitions array
+  - CompseasonListSchema: valid parse with optional year
+  - RoundListSchema: valid parse, reject missing roundNumber
+  - PeriodScoreSchema: valid parse
+  - MatchTeamSchema: with/without score and period scores
+  - MatchItemSchema: full match, without optional fields, reject missing matchProviderId
+  - MatchItemListSchema: list and empty list
+  - MatchDetailSchema: with compSeason and round extensions
+  - PlayerStatsItemSchema: full stats with prefixed fields, minimal required fields, reject missing playerId
+  - PlayerStatsListSchema: list of player stats
+  - MatchRosterSchema: full roster, reject missing homeTeam
+  - TeamListSchema: full and minimal team entries
+  - SquadListSchema: full squad, minimal player, reject missing playerName
+  - TeamItemSchema: reject missing id, reject wrong type
+
+### Files changed
+- src/lib/validation.ts (implemented — replaced placeholder)
+- src/index.ts (added schema and type re-exports)
+- test/lib/validation.test.ts (created)
+
+### Learnings for future iterations
+- Biome requires `type` exports sorted before value exports within a mixed export block
+- Zod v4 uses `import { z } from "zod/v4"` import path
+- `.passthrough()` on object schemas allows extra API fields without breaking validation
+
+---

@@ -80,8 +80,8 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created Zod schemas for all AFL API response shapes: token, competition list, compseason list, round list, match items, match detail, player stats (with dot-prefixed fields), match roster, team list, and squad. All schemas use .passthrough() for forward compatibility. Exported inferred types alongside schemas from index.ts."
     },
     {
       "id": "US-006",
