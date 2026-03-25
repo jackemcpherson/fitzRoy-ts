@@ -4,6 +4,12 @@
  * @packageDocumentation
  */
 
+export {
+  parseAflApiDate,
+  parseAflTablesDate,
+  parseFootyWireDate,
+  toAestString,
+} from "./lib/date-utils";
 export { AflApiError, ScrapeError, ValidationError } from "./lib/errors";
 export { type Err, err, type Ok, ok, type Result } from "./lib/result";
 export { normaliseTeamName } from "./lib/team-mapping";
