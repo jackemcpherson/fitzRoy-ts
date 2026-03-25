@@ -1,0 +1,1520 @@
+{
+  "roundId": "CD_R202501401",
+  "byes": [],
+  "items": [
+    {
+      "match": {
+        "name": "Richmond Vs Carlton",
+        "date": "2025-03-13T08:30:00.000+0000",
+        "status": "CONCLUDED",
+        "matchId": "CD_M20250140101",
+        "venue": "CD_V40",
+        "utcStartTime": "2025-03-13T08:30:00",
+        "homeTeamId": "CD_T120",
+        "awayTeamId": "CD_T30",
+        "homeTeam": {
+          "name": "Richmond",
+          "timeZone": null,
+          "teamId": "CD_T120",
+          "abbr": "RICH",
+          "nickname": "Tigers",
+          "badgeAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/team_logos/400x400/richmond_a.png",
+          "flagAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/team_flags/small/Richmond.png"
+        },
+        "awayTeam": {
+          "name": "Carlton",
+          "timeZone": null,
+          "teamId": "CD_T30",
+          "abbr": "CARL",
+          "nickname": "Blues",
+          "badgeAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/Carlton-A.png",
+          "flagAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/flag-carlton-sml.png"
+        },
+        "round": "CD_R202501401",
+        "venueLocalStartTime": "2025-03-13T19:30:00",
+        "abbr": "RICH V CARL",
+        "thanksTicketLink": null,
+        "twitterHashTag": "#afltigersblues"
+      },
+      "venue": {
+        "address": "Melbourne",
+        "name": "MCG",
+        "state": "VIC",
+        "timeZone": "Australia/Melbourne",
+        "venueId": "CD_V40",
+        "abbreviation": "MCG",
+        "imageURL": null,
+        "capacity": null,
+        "groundDimension": null,
+        "latitude": null,
+        "longitude": null,
+        "ticketProviderLink": null,
+        "androidStadiumLink": null,
+        "iosStadiumLink": null,
+        "landOwner": "Wurundjeri"
+      },
+      "round": {
+        "name": "Round 1",
+        "year": "2025",
+        "roundId": "CD_R202501401",
+        "abbreviation": "Rd 1",
+        "competitionId": "CD_S2025014",
+        "roundNumber": 1
+      },
+      "liveVideos": [],
+      "score": {
+        "status": "CONCLUDED",
+        "matchId": "CD_M20250140101",
+        "homeTeamScore": {
+          "matchScore": { "totalScore": 82, "goals": 13, "behinds": 4, "superGoals": null },
+          "periodScore": [
+            {
+              "periodNumber": 1,
+              "score": { "totalScore": 7, "goals": 1, "behinds": 1, "superGoals": null }
+            },
+            {
+              "periodNumber": 2,
+              "score": { "totalScore": 18, "goals": 3, "behinds": 0, "superGoals": null }
+            },
+            {
+              "periodNumber": 3,
+              "score": { "totalScore": 32, "goals": 5, "behinds": 2, "superGoals": null }
+            },
+            {
+              "periodNumber": 4,
+              "score": { "totalScore": 25, "goals": 4, "behinds": 1, "superGoals": null }
+            }
+          ],
+          "rushedBehinds": 2,
+          "minutesInFront": 32
+        },
+        "awayTeamScore": {
+          "matchScore": { "totalScore": 69, "goals": 9, "behinds": 15, "superGoals": null },
+          "periodScore": [
+            {
+              "periodNumber": 1,
+              "score": { "totalScore": 34, "goals": 5, "behinds": 4, "superGoals": null }
+            },
+            {
+              "periodNumber": 2,
+              "score": { "totalScore": 16, "goals": 2, "behinds": 4, "superGoals": null }
+            },
+            {
+              "periodNumber": 3,
+              "score": { "totalScore": 7, "goals": 1, "behinds": 1, "superGoals": null }
+            },
+            {
+              "periodNumber": 4,
+              "score": { "totalScore": 12, "goals": 1, "behinds": 6, "superGoals": null }
+            }
+          ],
+          "rushedBehinds": 3,
+          "minutesInFront": 94
+        },
+        "matchClock": {
+          "periods": [
+            {
+              "periodNumber": 1,
+              "periodSeconds": 1885,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            },
+            {
+              "periodNumber": 2,
+              "periodSeconds": 1952,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            },
+            {
+              "periodNumber": 3,
+              "periodSeconds": 1980,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            },
+            {
+              "periodNumber": 4,
+              "periodSeconds": 2103,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            }
+          ]
+        },
+        "weather": { "description": "Cloudy", "tempInCelsius": 25.0, "weatherType": "OVERCAST" },
+        "scoreWorm": null,
+        "scoreMap": null,
+        "homeTeamScoreChart": {
+          "goals": 13,
+          "leftBehinds": 2,
+          "rightBehinds": 0,
+          "leftPosters": 0,
+          "rightPosters": 0,
+          "rushedBehinds": 2,
+          "touchedBehinds": 0
+        },
+        "awayTeamScoreChart": {
+          "goals": 9,
+          "leftBehinds": 4,
+          "rightBehinds": 7,
+          "leftPosters": 1,
+          "rightPosters": 0,
+          "rushedBehinds": 3,
+          "touchedBehinds": 0
+        },
+        "lastUpdated": "2025-03-13T11:29:33.682+0000"
+      },
+      "k2kSponsored": false
+    },
+    {
+      "match": {
+        "name": "Hawthorn Vs Essendon",
+        "date": "2025-03-14T08:40:00.000+0000",
+        "status": "CONCLUDED",
+        "matchId": "CD_M20250140102",
+        "venue": "CD_V40",
+        "utcStartTime": "2025-03-14T08:40:00",
+        "homeTeamId": "CD_T80",
+        "awayTeamId": "CD_T50",
+        "homeTeam": {
+          "name": "Hawthorn",
+          "timeZone": null,
+          "teamId": "CD_T80",
+          "abbr": "HAW",
+          "nickname": "Hawks",
+          "badgeAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/team_logos/400x400/hawthorn_a.png",
+          "flagAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/team_flags/small/Hawthorn.png"
+        },
+        "awayTeam": {
+          "name": "Essendon",
+          "timeZone": null,
+          "teamId": "CD_T50",
+          "abbr": "ESS",
+          "nickname": "Bombers",
+          "badgeAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/team_logos/400x400/essendon_a.png",
+          "flagAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/team_flags/small/Essendon.png"
+        },
+        "round": "CD_R202501401",
+        "venueLocalStartTime": "2025-03-14T19:40:00",
+        "abbr": "HAW V ESS",
+        "thanksTicketLink": null,
+        "twitterHashTag": "#aflhawksdons"
+      },
+      "venue": {
+        "address": "Melbourne",
+        "name": "MCG",
+        "state": "VIC",
+        "timeZone": "Australia/Melbourne",
+        "venueId": "CD_V40",
+        "abbreviation": "MCG",
+        "imageURL": null,
+        "capacity": null,
+        "groundDimension": null,
+        "latitude": null,
+        "longitude": null,
+        "ticketProviderLink": null,
+        "androidStadiumLink": null,
+        "iosStadiumLink": null,
+        "landOwner": "Wurundjeri"
+      },
+      "round": {
+        "name": "Round 1",
+        "year": "2025",
+        "roundId": "CD_R202501401",
+        "abbreviation": "Rd 1",
+        "competitionId": "CD_S2025014",
+        "roundNumber": 1
+      },
+      "liveVideos": [],
+      "score": {
+        "status": "CONCLUDED",
+        "matchId": "CD_M20250140102",
+        "homeTeamScore": {
+          "matchScore": { "totalScore": 111, "goals": 17, "behinds": 9, "superGoals": null },
+          "periodScore": [
+            {
+              "periodNumber": 1,
+              "score": { "totalScore": 37, "goals": 6, "behinds": 1, "superGoals": null }
+            },
+            {
+              "periodNumber": 2,
+              "score": { "totalScore": 27, "goals": 4, "behinds": 3, "superGoals": null }
+            },
+            {
+              "periodNumber": 3,
+              "score": { "totalScore": 21, "goals": 3, "behinds": 3, "superGoals": null }
+            },
+            {
+              "periodNumber": 4,
+              "score": { "totalScore": 26, "goals": 4, "behinds": 2, "superGoals": null }
+            }
+          ],
+          "rushedBehinds": 1,
+          "minutesInFront": 118
+        },
+        "awayTeamScore": {
+          "matchScore": { "totalScore": 85, "goals": 12, "behinds": 13, "superGoals": null },
+          "periodScore": [
+            {
+              "periodNumber": 1,
+              "score": { "totalScore": 10, "goals": 1, "behinds": 4, "superGoals": null }
+            },
+            {
+              "periodNumber": 2,
+              "score": { "totalScore": 19, "goals": 3, "behinds": 1, "superGoals": null }
+            },
+            {
+              "periodNumber": 3,
+              "score": { "totalScore": 24, "goals": 3, "behinds": 6, "superGoals": null }
+            },
+            {
+              "periodNumber": 4,
+              "score": { "totalScore": 32, "goals": 5, "behinds": 2, "superGoals": null }
+            }
+          ],
+          "rushedBehinds": 2,
+          "minutesInFront": 7
+        },
+        "matchClock": {
+          "periods": [
+            {
+              "periodNumber": 1,
+              "periodSeconds": 1943,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            },
+            {
+              "periodNumber": 2,
+              "periodSeconds": 2006,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            },
+            {
+              "periodNumber": 3,
+              "periodSeconds": 1915,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            },
+            {
+              "periodNumber": 4,
+              "periodSeconds": 2018,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            }
+          ]
+        },
+        "weather": {
+          "description": "Partly cloudy",
+          "tempInCelsius": 27.0,
+          "weatherType": "MOSTLY_SUNNY"
+        },
+        "scoreWorm": null,
+        "scoreMap": null,
+        "homeTeamScoreChart": {
+          "goals": 17,
+          "leftBehinds": 0,
+          "rightBehinds": 8,
+          "leftPosters": 0,
+          "rightPosters": 0,
+          "rushedBehinds": 1,
+          "touchedBehinds": 0
+        },
+        "awayTeamScoreChart": {
+          "goals": 12,
+          "leftBehinds": 3,
+          "rightBehinds": 7,
+          "leftPosters": 0,
+          "rightPosters": 0,
+          "rushedBehinds": 2,
+          "touchedBehinds": 1
+        },
+        "lastUpdated": "2025-03-14T11:37:27.956+0000"
+      },
+      "k2kSponsored": false
+    },
+    {
+      "match": {
+        "name": "Geelong Cats Vs Fremantle",
+        "date": "2025-03-15T02:20:00.000+0000",
+        "status": "CONCLUDED",
+        "matchId": "CD_M20250140103",
+        "venue": "CD_V30",
+        "utcStartTime": "2025-03-15T02:20:00",
+        "homeTeamId": "CD_T70",
+        "awayTeamId": "CD_T60",
+        "homeTeam": {
+          "name": "Geelong Cats",
+          "timeZone": null,
+          "teamId": "CD_T70",
+          "abbr": "GEEL",
+          "nickname": "Cats",
+          "badgeAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/team_logos/400x400/geelong_a.png",
+          "flagAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/team_flags/small/Geelong.png"
+        },
+        "awayTeam": {
+          "name": "Fremantle",
+          "timeZone": null,
+          "teamId": "CD_T60",
+          "abbr": "FRE",
+          "nickname": "Freo",
+          "badgeAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/team_logos/400x400/fremantle_a.png",
+          "flagAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/team_flags/small/Fremantle.png"
+        },
+        "round": "CD_R202501401",
+        "venueLocalStartTime": "2025-03-15T13:20:00",
+        "abbr": "GEEL V FRE",
+        "thanksTicketLink": null,
+        "twitterHashTag": "#aflcatsfreo"
+      },
+      "venue": {
+        "address": "Geelong",
+        "name": "GMHBA Stadium",
+        "state": "VIC",
+        "timeZone": "Australia/Melbourne",
+        "venueId": "CD_V30",
+        "abbreviation": "GMHBA",
+        "imageURL": null,
+        "capacity": null,
+        "groundDimension": null,
+        "latitude": null,
+        "longitude": null,
+        "ticketProviderLink": null,
+        "androidStadiumLink": null,
+        "iosStadiumLink": null,
+        "landOwner": "Wadawurrung"
+      },
+      "round": {
+        "name": "Round 1",
+        "year": "2025",
+        "roundId": "CD_R202501401",
+        "abbreviation": "Rd 1",
+        "competitionId": "CD_S2025014",
+        "roundNumber": 1
+      },
+      "liveVideos": [],
+      "score": {
+        "status": "CONCLUDED",
+        "matchId": "CD_M20250140103",
+        "homeTeamScore": {
+          "matchScore": { "totalScore": 147, "goals": 23, "behinds": 9, "superGoals": null },
+          "periodScore": [
+            {
+              "periodNumber": 1,
+              "score": { "totalScore": 34, "goals": 5, "behinds": 4, "superGoals": null }
+            },
+            {
+              "periodNumber": 2,
+              "score": { "totalScore": 42, "goals": 7, "behinds": 0, "superGoals": null }
+            },
+            {
+              "periodNumber": 3,
+              "score": { "totalScore": 8, "goals": 1, "behinds": 2, "superGoals": null }
+            },
+            {
+              "periodNumber": 4,
+              "score": { "totalScore": 63, "goals": 10, "behinds": 3, "superGoals": null }
+            }
+          ],
+          "rushedBehinds": 1,
+          "minutesInFront": 132
+        },
+        "awayTeamScore": {
+          "matchScore": { "totalScore": 69, "goals": 10, "behinds": 9, "superGoals": null },
+          "periodScore": [
+            {
+              "periodNumber": 1,
+              "score": { "totalScore": 7, "goals": 1, "behinds": 1, "superGoals": null }
+            },
+            {
+              "periodNumber": 2,
+              "score": { "totalScore": 15, "goals": 2, "behinds": 3, "superGoals": null }
+            },
+            {
+              "periodNumber": 3,
+              "score": { "totalScore": 41, "goals": 6, "behinds": 5, "superGoals": null }
+            },
+            {
+              "periodNumber": 4,
+              "score": { "totalScore": 6, "goals": 1, "behinds": 0, "superGoals": null }
+            }
+          ],
+          "rushedBehinds": 5,
+          "minutesInFront": 0
+        },
+        "matchClock": {
+          "periods": [
+            {
+              "periodNumber": 1,
+              "periodSeconds": 2035,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            },
+            {
+              "periodNumber": 2,
+              "periodSeconds": 2087,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            },
+            {
+              "periodNumber": 3,
+              "periodSeconds": 1933,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            },
+            {
+              "periodNumber": 4,
+              "periodSeconds": 2081,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            }
+          ]
+        },
+        "weather": {
+          "description": "Partly cloudy",
+          "tempInCelsius": 32.0,
+          "weatherType": "MOSTLY_SUNNY"
+        },
+        "scoreWorm": null,
+        "scoreMap": null,
+        "homeTeamScoreChart": {
+          "goals": 23,
+          "leftBehinds": 3,
+          "rightBehinds": 3,
+          "leftPosters": 1,
+          "rightPosters": 1,
+          "rushedBehinds": 1,
+          "touchedBehinds": 0
+        },
+        "awayTeamScoreChart": {
+          "goals": 10,
+          "leftBehinds": 2,
+          "rightBehinds": 2,
+          "leftPosters": 0,
+          "rightPosters": 0,
+          "rushedBehinds": 5,
+          "touchedBehinds": 0
+        },
+        "lastUpdated": "2025-03-15T05:22:43.551+0000"
+      },
+      "k2kSponsored": false
+    },
+    {
+      "match": {
+        "name": "Sydney Swans Vs Brisbane Lions",
+        "date": "2025-03-15T05:15:00.000+0000",
+        "status": "CONCLUDED",
+        "matchId": "CD_M20250140104",
+        "venue": "CD_V60",
+        "utcStartTime": "2025-03-15T05:15:00",
+        "homeTeamId": "CD_T160",
+        "awayTeamId": "CD_T20",
+        "homeTeam": {
+          "name": "Sydney Swans",
+          "timeZone": null,
+          "teamId": "CD_T160",
+          "abbr": "SYD",
+          "nickname": "Swans",
+          "badgeAssetURL": "https://resources.afl.com.au/afl/photo/2020/11/18/6f409f02-2e1c-403a-8164-132a9178ccf5/Sydney-Swans-A.png",
+          "flagAssetURL": "https://resources.afl.com.au/afl/photo/2020/11/18/14fda5d8-4b35-4352-8076-c1fa3075f9a4/Sydney-Swans-Flag.png"
+        },
+        "awayTeam": {
+          "name": "Brisbane Lions",
+          "timeZone": null,
+          "teamId": "CD_T20",
+          "abbr": "BL",
+          "nickname": "Lions",
+          "badgeAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/team_logos/400x400/brisbane_a.png",
+          "flagAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/team_flags/small/Brisbane.png"
+        },
+        "round": "CD_R202501401",
+        "venueLocalStartTime": "2025-03-15T16:15:00",
+        "abbr": "SYD V BL",
+        "thanksTicketLink": null,
+        "twitterHashTag": "#aflswanslions"
+      },
+      "venue": {
+        "address": "Sydney",
+        "name": "SCG",
+        "state": "NSW",
+        "timeZone": "Australia/Sydney",
+        "venueId": "CD_V60",
+        "abbreviation": "SCG",
+        "imageURL": null,
+        "capacity": null,
+        "groundDimension": null,
+        "latitude": null,
+        "longitude": null,
+        "ticketProviderLink": null,
+        "androidStadiumLink": null,
+        "iosStadiumLink": null,
+        "landOwner": "Gadigal"
+      },
+      "round": {
+        "name": "Round 1",
+        "year": "2025",
+        "roundId": "CD_R202501401",
+        "abbreviation": "Rd 1",
+        "competitionId": "CD_S2025014",
+        "roundNumber": 1
+      },
+      "liveVideos": [],
+      "score": {
+        "status": "CONCLUDED",
+        "matchId": "CD_M20250140104",
+        "homeTeamScore": {
+          "matchScore": { "totalScore": 82, "goals": 12, "behinds": 10, "superGoals": null },
+          "periodScore": [
+            {
+              "periodNumber": 1,
+              "score": { "totalScore": 24, "goals": 4, "behinds": 0, "superGoals": null }
+            },
+            {
+              "periodNumber": 2,
+              "score": { "totalScore": 21, "goals": 3, "behinds": 3, "superGoals": null }
+            },
+            {
+              "periodNumber": 3,
+              "score": { "totalScore": 15, "goals": 2, "behinds": 3, "superGoals": null }
+            },
+            {
+              "periodNumber": 4,
+              "score": { "totalScore": 22, "goals": 3, "behinds": 4, "superGoals": null }
+            }
+          ],
+          "rushedBehinds": 3,
+          "minutesInFront": 79
+        },
+        "awayTeamScore": {
+          "matchScore": { "totalScore": 86, "goals": 12, "behinds": 14, "superGoals": null },
+          "periodScore": [
+            {
+              "periodNumber": 1,
+              "score": { "totalScore": 9, "goals": 1, "behinds": 3, "superGoals": null }
+            },
+            {
+              "periodNumber": 2,
+              "score": { "totalScore": 23, "goals": 3, "behinds": 5, "superGoals": null }
+            },
+            {
+              "periodNumber": 3,
+              "score": { "totalScore": 38, "goals": 6, "behinds": 2, "superGoals": null }
+            },
+            {
+              "periodNumber": 4,
+              "score": { "totalScore": 16, "goals": 2, "behinds": 4, "superGoals": null }
+            }
+          ],
+          "rushedBehinds": 1,
+          "minutesInFront": 46
+        },
+        "matchClock": {
+          "periods": [
+            {
+              "periodNumber": 1,
+              "periodSeconds": 2149,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            },
+            {
+              "periodNumber": 2,
+              "periodSeconds": 2024,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            },
+            {
+              "periodNumber": 3,
+              "periodSeconds": 2040,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            },
+            {
+              "periodNumber": 4,
+              "periodSeconds": 1781,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            }
+          ]
+        },
+        "weather": {
+          "description": "Partly cloudy",
+          "tempInCelsius": 32.0,
+          "weatherType": "MOSTLY_SUNNY"
+        },
+        "scoreWorm": null,
+        "scoreMap": null,
+        "homeTeamScoreChart": {
+          "goals": 12,
+          "leftBehinds": 4,
+          "rightBehinds": 2,
+          "leftPosters": 0,
+          "rightPosters": 0,
+          "rushedBehinds": 3,
+          "touchedBehinds": 1
+        },
+        "awayTeamScoreChart": {
+          "goals": 12,
+          "leftBehinds": 10,
+          "rightBehinds": 2,
+          "leftPosters": 0,
+          "rightPosters": 1,
+          "rushedBehinds": 1,
+          "touchedBehinds": 0
+        },
+        "lastUpdated": "2025-03-15T08:18:40.064+0000"
+      },
+      "k2kSponsored": false
+    },
+    {
+      "match": {
+        "name": "Western Bulldogs Vs North Melbourne",
+        "date": "2025-03-15T08:35:00.000+0000",
+        "status": "CONCLUDED",
+        "matchId": "CD_M20250140105",
+        "venue": "CD_V190",
+        "utcStartTime": "2025-03-15T08:35:00",
+        "homeTeamId": "CD_T140",
+        "awayTeamId": "CD_T100",
+        "homeTeam": {
+          "name": "Western Bulldogs",
+          "timeZone": null,
+          "teamId": "CD_T140",
+          "abbr": "WB",
+          "nickname": "Bulldogs",
+          "badgeAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/team_logos/400x400/western_bulldogs_a.png",
+          "flagAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/team_flags/small/Western-Bulldogs.png"
+        },
+        "awayTeam": {
+          "name": "North Melbourne",
+          "timeZone": null,
+          "teamId": "CD_T100",
+          "abbr": "NMFC",
+          "nickname": "Kangaroos",
+          "badgeAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/team_logos/400x400/north_melbourne_a.png",
+          "flagAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/team_flags/small/North-Melbourne.png"
+        },
+        "round": "CD_R202501401",
+        "venueLocalStartTime": "2025-03-15T19:35:00",
+        "abbr": "WB V NMFC",
+        "thanksTicketLink": null,
+        "twitterHashTag": "#afldogsnorth"
+      },
+      "venue": {
+        "address": "Melbourne",
+        "name": "Marvel Stadium",
+        "state": "VIC",
+        "timeZone": "Australia/Melbourne",
+        "venueId": "CD_V190",
+        "abbreviation": "MRVL",
+        "imageURL": null,
+        "capacity": null,
+        "groundDimension": null,
+        "latitude": null,
+        "longitude": null,
+        "ticketProviderLink": null,
+        "androidStadiumLink": null,
+        "iosStadiumLink": null,
+        "landOwner": "Wurundjeri"
+      },
+      "round": {
+        "name": "Round 1",
+        "year": "2025",
+        "roundId": "CD_R202501401",
+        "abbreviation": "Rd 1",
+        "competitionId": "CD_S2025014",
+        "roundNumber": 1
+      },
+      "liveVideos": [],
+      "score": {
+        "status": "CONCLUDED",
+        "matchId": "CD_M20250140105",
+        "homeTeamScore": {
+          "matchScore": { "totalScore": 113, "goals": 17, "behinds": 11, "superGoals": null },
+          "periodScore": [
+            {
+              "periodNumber": 1,
+              "score": { "totalScore": 33, "goals": 5, "behinds": 3, "superGoals": null }
+            },
+            {
+              "periodNumber": 2,
+              "score": { "totalScore": 20, "goals": 3, "behinds": 2, "superGoals": null }
+            },
+            {
+              "periodNumber": 3,
+              "score": { "totalScore": 26, "goals": 4, "behinds": 2, "superGoals": null }
+            },
+            {
+              "periodNumber": 4,
+              "score": { "totalScore": 34, "goals": 5, "behinds": 4, "superGoals": null }
+            }
+          ],
+          "rushedBehinds": 2,
+          "minutesInFront": 133
+        },
+        "awayTeamScore": {
+          "matchScore": { "totalScore": 97, "goals": 14, "behinds": 13, "superGoals": null },
+          "periodScore": [
+            {
+              "periodNumber": 1,
+              "score": { "totalScore": 10, "goals": 1, "behinds": 4, "superGoals": null }
+            },
+            {
+              "periodNumber": 2,
+              "score": { "totalScore": 33, "goals": 5, "behinds": 3, "superGoals": null }
+            },
+            {
+              "periodNumber": 3,
+              "score": { "totalScore": 29, "goals": 4, "behinds": 5, "superGoals": null }
+            },
+            {
+              "periodNumber": 4,
+              "score": { "totalScore": 25, "goals": 4, "behinds": 1, "superGoals": null }
+            }
+          ],
+          "rushedBehinds": 3,
+          "minutesInFront": 0
+        },
+        "matchClock": {
+          "periods": [
+            {
+              "periodNumber": 1,
+              "periodSeconds": 1963,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            },
+            {
+              "periodNumber": 2,
+              "periodSeconds": 1981,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            },
+            {
+              "periodNumber": 3,
+              "periodSeconds": 1778,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            },
+            {
+              "periodNumber": 4,
+              "periodSeconds": 2446,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            }
+          ]
+        },
+        "weather": {
+          "description": "Partly cloudy",
+          "tempInCelsius": 34.0,
+          "weatherType": "MOSTLY_SUNNY"
+        },
+        "scoreWorm": null,
+        "scoreMap": null,
+        "homeTeamScoreChart": {
+          "goals": 17,
+          "leftBehinds": 3,
+          "rightBehinds": 5,
+          "leftPosters": 0,
+          "rightPosters": 1,
+          "rushedBehinds": 2,
+          "touchedBehinds": 0
+        },
+        "awayTeamScoreChart": {
+          "goals": 14,
+          "leftBehinds": 6,
+          "rightBehinds": 3,
+          "leftPosters": 0,
+          "rightPosters": 1,
+          "rushedBehinds": 3,
+          "touchedBehinds": 0
+        },
+        "lastUpdated": "2025-03-15T11:35:33.024+0000"
+      },
+      "k2kSponsored": false
+    },
+    {
+      "match": {
+        "name": "Collingwood Vs Port Adelaide",
+        "date": "2025-03-15T08:35:00.000+0000",
+        "status": "CONCLUDED",
+        "matchId": "CD_M20250140106",
+        "venue": "CD_V40",
+        "utcStartTime": "2025-03-15T08:35:00",
+        "homeTeamId": "CD_T40",
+        "awayTeamId": "CD_T110",
+        "homeTeam": {
+          "name": "Collingwood",
+          "timeZone": null,
+          "teamId": "CD_T40",
+          "abbr": "COLL",
+          "nickname": "Magpies",
+          "badgeAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/team_logos/400x400/collingwood_a.png",
+          "flagAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/team_flags/small/Collingwood.png"
+        },
+        "awayTeam": {
+          "name": "Port Adelaide",
+          "timeZone": null,
+          "teamId": "CD_T110",
+          "abbr": "PORT",
+          "nickname": "Power",
+          "badgeAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/Port-logo-a.png",
+          "flagAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/flag-port-adelaide-sml.png"
+        },
+        "round": "CD_R202501401",
+        "venueLocalStartTime": "2025-03-15T19:35:00",
+        "abbr": "COLL V PORT",
+        "thanksTicketLink": null,
+        "twitterHashTag": "#aflpiespower"
+      },
+      "venue": {
+        "address": "Melbourne",
+        "name": "MCG",
+        "state": "VIC",
+        "timeZone": "Australia/Melbourne",
+        "venueId": "CD_V40",
+        "abbreviation": "MCG",
+        "imageURL": null,
+        "capacity": null,
+        "groundDimension": null,
+        "latitude": null,
+        "longitude": null,
+        "ticketProviderLink": null,
+        "androidStadiumLink": null,
+        "iosStadiumLink": null,
+        "landOwner": "Wurundjeri"
+      },
+      "round": {
+        "name": "Round 1",
+        "year": "2025",
+        "roundId": "CD_R202501401",
+        "abbreviation": "Rd 1",
+        "competitionId": "CD_S2025014",
+        "roundNumber": 1
+      },
+      "liveVideos": [],
+      "score": {
+        "status": "CONCLUDED",
+        "matchId": "CD_M20250140106",
+        "homeTeamScore": {
+          "matchScore": { "totalScore": 136, "goals": 21, "behinds": 10, "superGoals": null },
+          "periodScore": [
+            {
+              "periodNumber": 1,
+              "score": { "totalScore": 41, "goals": 6, "behinds": 5, "superGoals": null }
+            },
+            {
+              "periodNumber": 2,
+              "score": { "totalScore": 20, "goals": 3, "behinds": 2, "superGoals": null }
+            },
+            {
+              "periodNumber": 3,
+              "score": { "totalScore": 44, "goals": 7, "behinds": 2, "superGoals": null }
+            },
+            {
+              "periodNumber": 4,
+              "score": { "totalScore": 31, "goals": 5, "behinds": 1, "superGoals": null }
+            }
+          ],
+          "rushedBehinds": 1,
+          "minutesInFront": 118
+        },
+        "awayTeamScore": {
+          "matchScore": { "totalScore": 45, "goals": 6, "behinds": 9, "superGoals": null },
+          "periodScore": [
+            {
+              "periodNumber": 1,
+              "score": { "totalScore": 20, "goals": 3, "behinds": 2, "superGoals": null }
+            },
+            {
+              "periodNumber": 2,
+              "score": { "totalScore": 7, "goals": 1, "behinds": 1, "superGoals": null }
+            },
+            {
+              "periodNumber": 3,
+              "score": { "totalScore": 8, "goals": 1, "behinds": 2, "superGoals": null }
+            },
+            {
+              "periodNumber": 4,
+              "score": { "totalScore": 10, "goals": 1, "behinds": 4, "superGoals": null }
+            }
+          ],
+          "rushedBehinds": 1,
+          "minutesInFront": 8
+        },
+        "matchClock": {
+          "periods": [
+            {
+              "periodNumber": 1,
+              "periodSeconds": 2140,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            },
+            {
+              "periodNumber": 2,
+              "periodSeconds": 1718,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            },
+            {
+              "periodNumber": 3,
+              "periodSeconds": 1955,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            },
+            {
+              "periodNumber": 4,
+              "periodSeconds": 1860,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            }
+          ]
+        },
+        "weather": {
+          "description": "Partly cloudy",
+          "tempInCelsius": 34.0,
+          "weatherType": "MOSTLY_SUNNY"
+        },
+        "scoreWorm": null,
+        "scoreMap": null,
+        "homeTeamScoreChart": {
+          "goals": 21,
+          "leftBehinds": 4,
+          "rightBehinds": 2,
+          "leftPosters": 2,
+          "rightPosters": 1,
+          "rushedBehinds": 1,
+          "touchedBehinds": 0
+        },
+        "awayTeamScoreChart": {
+          "goals": 6,
+          "leftBehinds": 3,
+          "rightBehinds": 3,
+          "leftPosters": 1,
+          "rightPosters": 0,
+          "rushedBehinds": 1,
+          "touchedBehinds": 1
+        },
+        "lastUpdated": "2025-03-15T11:28:19.660+0000"
+      },
+      "k2kSponsored": false
+    },
+    {
+      "match": {
+        "name": "Adelaide Crows Vs St Kilda",
+        "date": "2025-03-16T01:35:00.000+0000",
+        "status": "CONCLUDED",
+        "matchId": "CD_M20250140107",
+        "venue": "CD_V6",
+        "utcStartTime": "2025-03-16T01:35:00",
+        "homeTeamId": "CD_T10",
+        "awayTeamId": "CD_T130",
+        "homeTeam": {
+          "name": "Adelaide Crows",
+          "timeZone": null,
+          "teamId": "CD_T10",
+          "abbr": "ADEL",
+          "nickname": "Crows",
+          "badgeAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/team_logos/400x400/adelaide_a.png",
+          "flagAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/team_flags/small/Adelaide.png"
+        },
+        "awayTeam": {
+          "name": "St Kilda",
+          "timeZone": null,
+          "teamId": "CD_T130",
+          "abbr": "STK",
+          "nickname": "Saints",
+          "badgeAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/team_logos/400x400/st_kilda_a.png",
+          "flagAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/team_flags/small/St-Kilda.png"
+        },
+        "round": "CD_R202501401",
+        "venueLocalStartTime": "2025-03-16T12:05:00",
+        "abbr": "ADEL V STK",
+        "thanksTicketLink": null,
+        "twitterHashTag": "#aflcrowssaints"
+      },
+      "venue": {
+        "address": "Adelaide",
+        "name": "Adelaide Oval",
+        "state": "SA",
+        "timeZone": "Australia/Adelaide",
+        "venueId": "CD_V6",
+        "abbreviation": "AO",
+        "imageURL": null,
+        "capacity": null,
+        "groundDimension": null,
+        "latitude": null,
+        "longitude": null,
+        "ticketProviderLink": null,
+        "androidStadiumLink": null,
+        "iosStadiumLink": null,
+        "landOwner": "Kaurna"
+      },
+      "round": {
+        "name": "Round 1",
+        "year": "2025",
+        "roundId": "CD_R202501401",
+        "abbreviation": "Rd 1",
+        "competitionId": "CD_S2025014",
+        "roundNumber": 1
+      },
+      "liveVideos": [],
+      "score": {
+        "status": "CONCLUDED",
+        "matchId": "CD_M20250140107",
+        "homeTeamScore": {
+          "matchScore": { "totalScore": 135, "goals": 21, "behinds": 9, "superGoals": null },
+          "periodScore": [
+            {
+              "periodNumber": 1,
+              "score": { "totalScore": 44, "goals": 7, "behinds": 2, "superGoals": null }
+            },
+            {
+              "periodNumber": 2,
+              "score": { "totalScore": 20, "goals": 3, "behinds": 2, "superGoals": null }
+            },
+            {
+              "periodNumber": 3,
+              "score": { "totalScore": 45, "goals": 7, "behinds": 3, "superGoals": null }
+            },
+            {
+              "periodNumber": 4,
+              "score": { "totalScore": 26, "goals": 4, "behinds": 2, "superGoals": null }
+            }
+          ],
+          "rushedBehinds": 1,
+          "minutesInFront": 126
+        },
+        "awayTeamScore": {
+          "matchScore": { "totalScore": 72, "goals": 10, "behinds": 12, "superGoals": null },
+          "periodScore": [
+            {
+              "periodNumber": 1,
+              "score": { "totalScore": 14, "goals": 2, "behinds": 2, "superGoals": null }
+            },
+            {
+              "periodNumber": 2,
+              "score": { "totalScore": 13, "goals": 2, "behinds": 1, "superGoals": null }
+            },
+            {
+              "periodNumber": 3,
+              "score": { "totalScore": 22, "goals": 3, "behinds": 4, "superGoals": null }
+            },
+            {
+              "periodNumber": 4,
+              "score": { "totalScore": 23, "goals": 3, "behinds": 5, "superGoals": null }
+            }
+          ],
+          "rushedBehinds": 2,
+          "minutesInFront": 0
+        },
+        "matchClock": {
+          "periods": [
+            {
+              "periodNumber": 1,
+              "periodSeconds": 1984,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            },
+            {
+              "periodNumber": 2,
+              "periodSeconds": 1843,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            },
+            {
+              "periodNumber": 3,
+              "periodSeconds": 2126,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            },
+            {
+              "periodNumber": 4,
+              "periodSeconds": 1938,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            }
+          ]
+        },
+        "weather": { "description": "Shower or two", "tempInCelsius": 26.0, "weatherType": "RAIN" },
+        "scoreWorm": null,
+        "scoreMap": null,
+        "homeTeamScoreChart": {
+          "goals": 21,
+          "leftBehinds": 4,
+          "rightBehinds": 2,
+          "leftPosters": 2,
+          "rightPosters": 0,
+          "rushedBehinds": 1,
+          "touchedBehinds": 0
+        },
+        "awayTeamScoreChart": {
+          "goals": 10,
+          "leftBehinds": 3,
+          "rightBehinds": 5,
+          "leftPosters": 1,
+          "rightPosters": 0,
+          "rushedBehinds": 2,
+          "touchedBehinds": 1
+        },
+        "lastUpdated": "2025-03-16T04:40:04.056+0000"
+      },
+      "k2kSponsored": false
+    },
+    {
+      "match": {
+        "name": "Melbourne Vs GWS GIANTS",
+        "date": "2025-03-16T04:20:00.000+0000",
+        "status": "CONCLUDED",
+        "matchId": "CD_M20250140108",
+        "venue": "CD_V40",
+        "utcStartTime": "2025-03-16T04:20:00",
+        "homeTeamId": "CD_T90",
+        "awayTeamId": "CD_T1010",
+        "homeTeam": {
+          "name": "Melbourne",
+          "timeZone": null,
+          "teamId": "CD_T90",
+          "abbr": "MELB",
+          "nickname": "Demons",
+          "badgeAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/team_logos/400x400/melbourne_a.png",
+          "flagAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/team_flags/small/Melbourne.png"
+        },
+        "awayTeam": {
+          "name": "GWS GIANTS",
+          "timeZone": null,
+          "teamId": "CD_T1010",
+          "abbr": "GWS",
+          "nickname": "GIANTS",
+          "badgeAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/team_logos/400x400/gws_a.png",
+          "flagAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/team_flags/small/GWS.png"
+        },
+        "round": "CD_R202501401",
+        "venueLocalStartTime": "2025-03-16T15:20:00",
+        "abbr": "MELB V GWS",
+        "thanksTicketLink": null,
+        "twitterHashTag": "#afldeesgiants"
+      },
+      "venue": {
+        "address": "Melbourne",
+        "name": "MCG",
+        "state": "VIC",
+        "timeZone": "Australia/Melbourne",
+        "venueId": "CD_V40",
+        "abbreviation": "MCG",
+        "imageURL": null,
+        "capacity": null,
+        "groundDimension": null,
+        "latitude": null,
+        "longitude": null,
+        "ticketProviderLink": null,
+        "androidStadiumLink": null,
+        "iosStadiumLink": null,
+        "landOwner": "Wurundjeri"
+      },
+      "round": {
+        "name": "Round 1",
+        "year": "2025",
+        "roundId": "CD_R202501401",
+        "abbreviation": "Rd 1",
+        "competitionId": "CD_S2025014",
+        "roundNumber": 1
+      },
+      "liveVideos": [],
+      "score": {
+        "status": "CONCLUDED",
+        "matchId": "CD_M20250140108",
+        "homeTeamScore": {
+          "matchScore": { "totalScore": 74, "goals": 11, "behinds": 8, "superGoals": null },
+          "periodScore": [
+            {
+              "periodNumber": 1,
+              "score": { "totalScore": 14, "goals": 2, "behinds": 2, "superGoals": null }
+            },
+            {
+              "periodNumber": 2,
+              "score": { "totalScore": 20, "goals": 3, "behinds": 2, "superGoals": null }
+            },
+            {
+              "periodNumber": 3,
+              "score": { "totalScore": 32, "goals": 5, "behinds": 2, "superGoals": null }
+            },
+            {
+              "periodNumber": 4,
+              "score": { "totalScore": 8, "goals": 1, "behinds": 2, "superGoals": null }
+            }
+          ],
+          "rushedBehinds": 2,
+          "minutesInFront": 86
+        },
+        "awayTeamScore": {
+          "matchScore": { "totalScore": 77, "goals": 11, "behinds": 11, "superGoals": null },
+          "periodScore": [
+            {
+              "periodNumber": 1,
+              "score": { "totalScore": 19, "goals": 3, "behinds": 1, "superGoals": null }
+            },
+            {
+              "periodNumber": 2,
+              "score": { "totalScore": 22, "goals": 3, "behinds": 4, "superGoals": null }
+            },
+            {
+              "periodNumber": 3,
+              "score": { "totalScore": 14, "goals": 2, "behinds": 2, "superGoals": null }
+            },
+            {
+              "periodNumber": 4,
+              "score": { "totalScore": 22, "goals": 3, "behinds": 4, "superGoals": null }
+            }
+          ],
+          "rushedBehinds": 3,
+          "minutesInFront": 39
+        },
+        "matchClock": {
+          "periods": [
+            {
+              "periodNumber": 1,
+              "periodSeconds": 1841,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            },
+            {
+              "periodNumber": 2,
+              "periodSeconds": 2066,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            },
+            {
+              "periodNumber": 3,
+              "periodSeconds": 2038,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            },
+            {
+              "periodNumber": 4,
+              "periodSeconds": 1895,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            }
+          ]
+        },
+        "weather": { "description": "Showers", "tempInCelsius": 26.0, "weatherType": "RAIN" },
+        "scoreWorm": null,
+        "scoreMap": null,
+        "homeTeamScoreChart": {
+          "goals": 11,
+          "leftBehinds": 2,
+          "rightBehinds": 4,
+          "leftPosters": 0,
+          "rightPosters": 0,
+          "rushedBehinds": 2,
+          "touchedBehinds": 0
+        },
+        "awayTeamScoreChart": {
+          "goals": 11,
+          "leftBehinds": 5,
+          "rightBehinds": 2,
+          "leftPosters": 0,
+          "rightPosters": 1,
+          "rushedBehinds": 3,
+          "touchedBehinds": 0
+        },
+        "lastUpdated": "2025-03-16T07:26:58.888+0000"
+      },
+      "k2kSponsored": false
+    },
+    {
+      "match": {
+        "name": "West Coast Eagles Vs Gold Coast SUNS",
+        "date": "2025-03-16T07:10:00.000+0000",
+        "status": "CONCLUDED",
+        "matchId": "CD_M20250140109",
+        "venue": "CD_V2925",
+        "utcStartTime": "2025-03-16T07:10:00",
+        "homeTeamId": "CD_T150",
+        "awayTeamId": "CD_T1000",
+        "homeTeam": {
+          "name": "West Coast Eagles",
+          "timeZone": null,
+          "teamId": "CD_T150",
+          "abbr": "WCE",
+          "nickname": "Eagles",
+          "badgeAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/team_logos/400x400/west_coast_a.png",
+          "flagAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/team_flags/small/West-Coast.png"
+        },
+        "awayTeam": {
+          "name": "Gold Coast SUNS",
+          "timeZone": null,
+          "teamId": "CD_T1000",
+          "abbr": "GCFC",
+          "nickname": "SUNS",
+          "badgeAssetURL": "https://resources.afl.com.au/afl/photo/2024/11/06/16858184-4d3f-49ec-9346-c949970f6b07/GCS_logo_A.png",
+          "flagAssetURL": "https://s.afl.com.au/staticfile/AFL%20Tenant/AFLMobile/Static%20Files/GC-flag-sml.png"
+        },
+        "round": "CD_R202501401",
+        "venueLocalStartTime": "2025-03-16T15:10:00",
+        "abbr": "WCE V GCFC",
+        "thanksTicketLink": null,
+        "twitterHashTag": "#afleaglessuns"
+      },
+      "venue": {
+        "address": "Perth",
+        "name": "Optus Stadium",
+        "state": "WA",
+        "timeZone": "Australia/Perth",
+        "venueId": "CD_V2925",
+        "abbreviation": "OS",
+        "imageURL": null,
+        "capacity": null,
+        "groundDimension": null,
+        "latitude": null,
+        "longitude": null,
+        "ticketProviderLink": null,
+        "androidStadiumLink": null,
+        "iosStadiumLink": null,
+        "landOwner": "Whadjuk"
+      },
+      "round": {
+        "name": "Round 1",
+        "year": "2025",
+        "roundId": "CD_R202501401",
+        "abbreviation": "Rd 1",
+        "competitionId": "CD_S2025014",
+        "roundNumber": 1
+      },
+      "liveVideos": [],
+      "score": {
+        "status": "CONCLUDED",
+        "matchId": "CD_M20250140109",
+        "homeTeamScore": {
+          "matchScore": { "totalScore": 49, "goals": 7, "behinds": 7, "superGoals": null },
+          "periodScore": [
+            {
+              "periodNumber": 1,
+              "score": { "totalScore": 13, "goals": 2, "behinds": 1, "superGoals": null }
+            },
+            {
+              "periodNumber": 2,
+              "score": { "totalScore": 3, "goals": 0, "behinds": 3, "superGoals": null }
+            },
+            {
+              "periodNumber": 3,
+              "score": { "totalScore": 19, "goals": 3, "behinds": 1, "superGoals": null }
+            },
+            {
+              "periodNumber": 4,
+              "score": { "totalScore": 14, "goals": 2, "behinds": 2, "superGoals": null }
+            }
+          ],
+          "rushedBehinds": 1,
+          "minutesInFront": 5
+        },
+        "awayTeamScore": {
+          "matchScore": { "totalScore": 136, "goals": 20, "behinds": 16, "superGoals": null },
+          "periodScore": [
+            {
+              "periodNumber": 1,
+              "score": { "totalScore": 29, "goals": 4, "behinds": 5, "superGoals": null }
+            },
+            {
+              "periodNumber": 2,
+              "score": { "totalScore": 32, "goals": 5, "behinds": 2, "superGoals": null }
+            },
+            {
+              "periodNumber": 3,
+              "score": { "totalScore": 34, "goals": 5, "behinds": 4, "superGoals": null }
+            },
+            {
+              "periodNumber": 4,
+              "score": { "totalScore": 41, "goals": 6, "behinds": 5, "superGoals": null }
+            }
+          ],
+          "rushedBehinds": 6,
+          "minutesInFront": 117
+        },
+        "matchClock": {
+          "periods": [
+            {
+              "periodNumber": 1,
+              "periodSeconds": 1860,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            },
+            {
+              "periodNumber": 2,
+              "periodSeconds": 1939,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            },
+            {
+              "periodNumber": 3,
+              "periodSeconds": 2021,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            },
+            {
+              "periodNumber": 4,
+              "periodSeconds": 1925,
+              "periodCompleted": true,
+              "periodStart": null,
+              "nextPeriodStart": null
+            }
+          ]
+        },
+        "weather": { "description": "Sunny", "tempInCelsius": 29.0, "weatherType": "SUNNY" },
+        "scoreWorm": null,
+        "scoreMap": null,
+        "homeTeamScoreChart": {
+          "goals": 7,
+          "leftBehinds": 3,
+          "rightBehinds": 3,
+          "leftPosters": 0,
+          "rightPosters": 0,
+          "rushedBehinds": 1,
+          "touchedBehinds": 0
+        },
+        "awayTeamScoreChart": {
+          "goals": 20,
+          "leftBehinds": 3,
+          "rightBehinds": 5,
+          "leftPosters": 2,
+          "rightPosters": 0,
+          "rushedBehinds": 6,
+          "touchedBehinds": 0
+        },
+        "lastUpdated": "2025-03-16T10:01:12.860+0000"
+      },
+      "k2kSponsored": false
+    }
+  ]
+}

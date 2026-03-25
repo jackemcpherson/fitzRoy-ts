@@ -15,12 +15,11 @@ import { z } from "zod/v4";
 // Token response (WMCTok endpoint)
 // ---------------------------------------------------------------------------
 
-/** Schema for the AFL API OAuth token response. */
+/** Schema for the AFL API WMCTok token response. */
 export const AflApiTokenSchema = z
   .object({
-    access_token: z.string(),
-    token_type: z.string(),
-    expires_in: z.number(),
+    token: z.string(),
+    disclaimer: z.string().optional(),
   })
   .passthrough();
 
@@ -34,9 +33,9 @@ export type AflApiToken = z.infer<typeof AflApiTokenSchema>;
 /** Schema for a single competition entry. */
 export const CompetitionSchema = z
   .object({
-    id: z.string(),
+    id: z.number(),
     name: z.string(),
-    code: z.string(),
+    code: z.string().optional(),
   })
   .passthrough();
 
@@ -60,16 +59,17 @@ export type CompetitionList = z.infer<typeof CompetitionListSchema>;
 /** Schema for a single compseason (competition-season) entry. */
 export const CompseasonSchema = z
   .object({
-    id: z.string(),
+    id: z.number(),
     name: z.string(),
-    year: z.string().optional(),
+    shortName: z.string().optional(),
+    currentRoundNumber: z.number().optional(),
   })
   .passthrough();
 
 /** Schema for the compseason list response. */
 export const CompseasonListSchema = z
   .object({
-    compseasons: z.array(CompseasonSchema),
+    compSeasons: z.array(CompseasonSchema),
   })
   .passthrough();
 
@@ -86,11 +86,12 @@ export type CompseasonList = z.infer<typeof CompseasonListSchema>;
 /** Schema for a single round entry. */
 export const RoundSchema = z
   .object({
-    id: z.string(),
+    id: z.number(),
+    /** Provider ID used by /cfs/ endpoints (e.g. "CD_R202501401"). */
+    providerId: z.string().optional(),
     name: z.string(),
     abbreviation: z.string().optional(),
     roundNumber: z.number(),
-    /** Whether the round has been completed. */
     utcStartTime: z.string().optional(),
     utcEndTime: z.string().optional(),
   })
@@ -110,82 +111,145 @@ export type Round = z.infer<typeof RoundSchema>;
 export type RoundList = z.infer<typeof RoundListSchema>;
 
 // ---------------------------------------------------------------------------
-// Period score (nested within match items)
+// Shared /cfs/ score schemas
 // ---------------------------------------------------------------------------
+
+/** Schema for a goals/behinds/total score object (used in match and period scores). */
+export const ScoreSchema = z
+  .object({
+    totalScore: z.number(),
+    goals: z.number(),
+    behinds: z.number(),
+    superGoals: z.number().nullable().optional(),
+  })
+  .passthrough();
 
 /** Schema for a period (quarter) score entry within a match. */
 export const PeriodScoreSchema = z
   .object({
     periodNumber: z.number(),
-    periodGoals: z.number(),
-    periodBehinds: z.number(),
-    periodScore: z.number(),
+    score: ScoreSchema,
   })
   .passthrough();
+
+/** Schema for a team's total score (match + period breakdown). */
+export const TeamScoreSchema = z
+  .object({
+    matchScore: ScoreSchema,
+    periodScore: z.array(PeriodScoreSchema).optional(),
+    rushedBehinds: z.number().optional(),
+    minutesInFront: z.number().optional(),
+  })
+  .passthrough();
+
+/** Inferred type for a score object. */
+export type Score = z.infer<typeof ScoreSchema>;
 
 /** Inferred type for a period score. */
 export type PeriodScore = z.infer<typeof PeriodScoreSchema>;
 
+/** Inferred type for a team score. */
+export type TeamScore = z.infer<typeof TeamScoreSchema>;
+
 // ---------------------------------------------------------------------------
-// Match team (nested within match items)
+// /cfs/ match team schema (nested within match items)
 // ---------------------------------------------------------------------------
 
-/** Schema for a team entry within a match item. */
-export const MatchTeamSchema = z
+/** Schema for a team entry within a /cfs/ match object. */
+export const CfsMatchTeamSchema = z
   .object({
+    name: z.string(),
     teamId: z.string(),
-    teamName: z.string(),
-    teamAbbr: z.string().optional(),
-    /** Total score for the match. */
-    score: z
-      .object({
-        goals: z.number(),
-        behinds: z.number(),
-        totalScore: z.number(),
-        superGoals: z.number().optional(),
-      })
-      .passthrough()
-      .optional(),
-    /** Per-quarter scores. */
-    periodScore: z.array(PeriodScoreSchema).optional(),
+    abbr: z.string().optional(),
+    nickname: z.string().optional(),
   })
   .passthrough();
 
-/** Inferred type for a match team. */
-export type MatchTeam = z.infer<typeof MatchTeamSchema>;
+/** Inferred type for a /cfs/ match team. */
+export type CfsMatchTeam = z.infer<typeof CfsMatchTeamSchema>;
 
 // ---------------------------------------------------------------------------
-// Match items — round results (/cfs/afl/matchItems/round/{roundId})
+// /cfs/ match inner object (nested within match items)
+// ---------------------------------------------------------------------------
+
+/** Schema for the inner match object within a /cfs/ match item. */
+export const CfsMatchSchema = z
+  .object({
+    matchId: z.string(),
+    name: z.string().optional(),
+    status: z.string(),
+    utcStartTime: z.string(),
+    homeTeamId: z.string(),
+    awayTeamId: z.string(),
+    homeTeam: CfsMatchTeamSchema,
+    awayTeam: CfsMatchTeamSchema,
+    round: z.string().optional(),
+    abbr: z.string().optional(),
+  })
+  .passthrough();
+
+/** Inferred type for a /cfs/ match. */
+export type CfsMatch = z.infer<typeof CfsMatchSchema>;
+
+// ---------------------------------------------------------------------------
+// /cfs/ score wrapper (nested within match items)
+// ---------------------------------------------------------------------------
+
+/** Schema for the score wrapper within a /cfs/ match item. */
+export const CfsScoreSchema = z
+  .object({
+    status: z.string(),
+    matchId: z.string(),
+    homeTeamScore: TeamScoreSchema,
+    awayTeamScore: TeamScoreSchema,
+  })
+  .passthrough();
+
+/** Inferred type for a /cfs/ score wrapper. */
+export type CfsScore = z.infer<typeof CfsScoreSchema>;
+
+// ---------------------------------------------------------------------------
+// /cfs/ venue schema
+// ---------------------------------------------------------------------------
+
+/** Schema for venue info in /cfs/ responses. */
+export const CfsVenueSchema = z
+  .object({
+    name: z.string(),
+    venueId: z.string().optional(),
+    state: z.string().optional(),
+    timeZone: z.string().optional(),
+  })
+  .passthrough();
+
+/** Inferred type for a /cfs/ venue. */
+export type CfsVenue = z.infer<typeof CfsVenueSchema>;
+
+// ---------------------------------------------------------------------------
+// Match items — round results (/cfs/afl/matchItems/round/{roundProviderId})
 // ---------------------------------------------------------------------------
 
 /** Schema for a single match item in round results. */
 export const MatchItemSchema = z
   .object({
-    /** Unique match identifier used for detail/stats lookups. */
-    matchProviderId: z.string(),
-    roundNumber: z.number(),
-    /** Match status: "C" (complete), "UP" (upcoming), etc. */
-    status: z.string(),
-    /** UTC start time as ISO string. */
-    utcStartTime: z.string(),
-    /** Venue information. */
-    venue: z
+    match: CfsMatchSchema,
+    score: CfsScoreSchema.optional(),
+    venue: CfsVenueSchema.optional(),
+    round: z
       .object({
         name: z.string(),
+        roundId: z.string(),
+        roundNumber: z.number(),
       })
       .passthrough()
       .optional(),
-    /** Home and away team data. */
-    homeTeam: MatchTeamSchema,
-    awayTeam: MatchTeamSchema,
-    /** Attendance count (may be absent for upcoming matches). */
-    attendance: z.number().optional(),
   })
   .passthrough();
 
 /** Schema for the match items (round results) response. */
 export const MatchItemListSchema = z
   .object({
+    roundId: z.string().optional(),
     items: z.array(MatchItemSchema),
   })
   .passthrough();
@@ -197,100 +261,103 @@ export type MatchItem = z.infer<typeof MatchItemSchema>;
 export type MatchItemList = z.infer<typeof MatchItemListSchema>;
 
 // ---------------------------------------------------------------------------
-// Single match detail (/cfs/afl/matchItem/{matchProviderId})
-// ---------------------------------------------------------------------------
-
-/** Schema for a single match detail response (same shape as MatchItem with more fields). */
-export const MatchDetailSchema = MatchItemSchema.extend({
-  /** Additional detail fields may be present. */
-  compSeason: z
-    .object({
-      id: z.string(),
-      name: z.string().optional(),
-    })
-    .passthrough()
-    .optional(),
-  round: z
-    .object({
-      id: z.string(),
-      name: z.string().optional(),
-      roundNumber: z.number().optional(),
-    })
-    .passthrough()
-    .optional(),
-}).passthrough();
-
-/** Inferred type for a match detail response. */
-export type MatchDetail = z.infer<typeof MatchDetailSchema>;
-
-// ---------------------------------------------------------------------------
 // Player stats (/cfs/afl/playerStats/match/{matchProviderId})
 // ---------------------------------------------------------------------------
+
+/** Schema for the inner player identity within player stats. */
+const CfsPlayerInnerSchema = z
+  .object({
+    playerId: z.string(),
+    playerName: z
+      .object({
+        givenName: z.string(),
+        surname: z.string(),
+      })
+      .passthrough(),
+    captain: z.boolean().optional(),
+    playerJumperNumber: z.number().optional(),
+  })
+  .passthrough();
+
+/** Schema for stat values (clearances is nested). */
+export const PlayerGameStatsSchema = z
+  .object({
+    goals: z.number().optional(),
+    behinds: z.number().optional(),
+    kicks: z.number().optional(),
+    handballs: z.number().optional(),
+    disposals: z.number().optional(),
+    marks: z.number().optional(),
+    bounces: z.number().optional(),
+    tackles: z.number().optional(),
+    contestedPossessions: z.number().optional(),
+    uncontestedPossessions: z.number().optional(),
+    totalPossessions: z.number().optional(),
+    inside50s: z.number().optional(),
+    marksInside50: z.number().optional(),
+    contestedMarks: z.number().optional(),
+    hitouts: z.number().optional(),
+    onePercenters: z.number().optional(),
+    disposalEfficiency: z.number().optional(),
+    clangers: z.number().optional(),
+    freesFor: z.number().optional(),
+    freesAgainst: z.number().optional(),
+    dreamTeamPoints: z.number().optional(),
+    clearances: z
+      .object({
+        centreClearances: z.number().optional(),
+        stoppageClearances: z.number().optional(),
+        totalClearances: z.number().optional(),
+      })
+      .passthrough()
+      .optional(),
+    rebound50s: z.number().optional(),
+    goalAssists: z.number().optional(),
+    goalAccuracy: z.number().optional(),
+    turnovers: z.number().optional(),
+    intercepts: z.number().optional(),
+    tacklesInside50: z.number().optional(),
+    shotsAtGoal: z.number().optional(),
+    metresGained: z.number().optional(),
+  })
+  .passthrough();
 
 /** Schema for a single player's statistics in a match. */
 export const PlayerStatsItemSchema = z
   .object({
-    /** Player identification fields (prefixed with playerName. in raw API). */
-    "playerName.givenName": z.string().optional(),
-    "playerName.surname": z.string().optional(),
-    "playerName.displayName": z.string().optional(),
-
-    /** Player metadata. */
-    playerId: z.string(),
+    player: z
+      .object({
+        player: z
+          .object({
+            position: z.string().optional(),
+            player: CfsPlayerInnerSchema,
+          })
+          .passthrough(),
+        jumperNumber: z.number().optional(),
+      })
+      .passthrough(),
     teamId: z.string(),
-    teamName: z.string().optional(),
-    jumperNumber: z.number().optional(),
-
-    /** Core stats (prefixed with playerStats. in raw API). */
-    "playerStats.kicks": z.number().optional(),
-    "playerStats.handballs": z.number().optional(),
-    "playerStats.disposals": z.number().optional(),
-    "playerStats.marks": z.number().optional(),
-    "playerStats.goals": z.number().optional(),
-    "playerStats.behinds": z.number().optional(),
-    "playerStats.tackles": z.number().optional(),
-    "playerStats.hitouts": z.number().optional(),
-    "playerStats.freesFor": z.number().optional(),
-    "playerStats.freesAgainst": z.number().optional(),
-
-    /** Contested/uncontested. */
-    "playerStats.contestedPossessions": z.number().optional(),
-    "playerStats.uncontestedPossessions": z.number().optional(),
-    "playerStats.contestedMarks": z.number().optional(),
-    "playerStats.intercepts": z.number().optional(),
-
-    /** Clearances. */
-    "playerStats.centreClearances": z.number().optional(),
-    "playerStats.stoppageClearances": z.number().optional(),
-    "playerStats.totalClearances": z.number().optional(),
-
-    /** Other stats. */
-    "playerStats.inside50s": z.number().optional(),
-    "playerStats.rebound50s": z.number().optional(),
-    "playerStats.clangers": z.number().optional(),
-    "playerStats.turnovers": z.number().optional(),
-    "playerStats.onePercenters": z.number().optional(),
-    "playerStats.bounces": z.number().optional(),
-    "playerStats.goalAssists": z.number().optional(),
-    "playerStats.disposalEfficiency": z.number().optional(),
-    "playerStats.metresGained": z.number().optional(),
-
-    /** Fantasy and awards. */
-    "playerStats.dreamTeamPoints": z.number().optional(),
-    "playerStats.supercoachPoints": z.number().optional(),
+    playerStats: z
+      .object({
+        stats: PlayerGameStatsSchema,
+      })
+      .passthrough(),
   })
   .passthrough();
 
 /** Schema for the player stats response. */
 export const PlayerStatsListSchema = z
   .object({
-    /** List of player stat entries for the match. */
-    items: z.array(PlayerStatsItemSchema),
+    homeTeamPlayerStats: z.array(PlayerStatsItemSchema),
+    awayTeamPlayerStats: z.array(PlayerStatsItemSchema),
   })
   .passthrough();
 
 /** Inferred type for a single player stats item. */
 export type PlayerStatsItem = z.infer<typeof PlayerStatsItemSchema>;
+
+/** Inferred type for player game stats. */
+export type PlayerGameStats = z.infer<typeof PlayerGameStatsSchema>;
 
 /** Inferred type for the player stats list response. */
 export type PlayerStatsList = z.infer<typeof PlayerStatsListSchema>;
@@ -302,26 +369,20 @@ export type PlayerStatsList = z.infer<typeof PlayerStatsListSchema>;
 /** Schema for a player entry within a match roster. */
 export const RosterPlayerSchema = z
   .object({
-    playerId: z.string(),
-    playerName: z
+    player: z
       .object({
-        givenName: z.string(),
-        surname: z.string(),
-        displayName: z.string().optional(),
+        position: z.string().optional(),
+        player: CfsPlayerInnerSchema,
       })
       .passthrough(),
     jumperNumber: z.number().optional(),
-    position: z.string().optional(),
-    isEmergency: z.boolean().optional(),
-    isSubstitute: z.boolean().optional(),
   })
   .passthrough();
 
-/** Schema for a team roster within a match. */
-export const TeamRosterSchema = z
+/** Schema for a team's player list in the roster. */
+export const TeamPlayersSchema = z
   .object({
     teamId: z.string(),
-    teamName: z.string(),
     players: z.array(RosterPlayerSchema),
   })
   .passthrough();
@@ -329,16 +390,16 @@ export const TeamRosterSchema = z
 /** Schema for the full match roster response. */
 export const MatchRosterSchema = z
   .object({
-    homeTeam: TeamRosterSchema,
-    awayTeam: TeamRosterSchema,
+    match: CfsMatchSchema,
+    teamPlayers: z.array(TeamPlayersSchema),
   })
   .passthrough();
 
 /** Inferred type for a roster player. */
 export type RosterPlayer = z.infer<typeof RosterPlayerSchema>;
 
-/** Inferred type for a team roster. */
-export type TeamRoster = z.infer<typeof TeamRosterSchema>;
+/** Inferred type for a team's player list. */
+export type TeamPlayers = z.infer<typeof TeamPlayersSchema>;
 
 /** Inferred type for the match roster response. */
 export type MatchRoster = z.infer<typeof MatchRosterSchema>;
@@ -350,7 +411,7 @@ export type MatchRoster = z.infer<typeof MatchRosterSchema>;
 /** Schema for a single team entry. */
 export const TeamItemSchema = z
   .object({
-    id: z.string(),
+    id: z.number(),
     name: z.string(),
     abbreviation: z.string().optional(),
     teamType: z.string().optional(),

@@ -1,44 +1,46 @@
 import { describe, expect, it } from "vitest";
 import {
   AflApiTokenSchema,
+  CfsMatchSchema,
+  CfsScoreSchema,
   CompetitionListSchema,
   CompseasonListSchema,
-  MatchDetailSchema,
   MatchItemListSchema,
   MatchItemSchema,
   MatchRosterSchema,
-  MatchTeamSchema,
   PeriodScoreSchema,
+  PlayerGameStatsSchema,
   PlayerStatsItemSchema,
   PlayerStatsListSchema,
   RoundListSchema,
+  ScoreSchema,
   SquadListSchema,
   TeamItemSchema,
   TeamListSchema,
+  TeamPlayersSchema,
+  TeamScoreSchema,
 } from "../../src/lib/validation";
 
 describe("AflApiTokenSchema", () => {
   it("parses a valid token response", () => {
     const data = {
-      access_token: "abc123",
-      token_type: "Bearer",
-      expires_in: 3600,
+      token: "abc123",
+      disclaimer: "Some disclaimer text",
     };
     expect(AflApiTokenSchema.parse(data)).toEqual(data);
   });
 
   it("passes through extra fields", () => {
     const data = {
-      access_token: "abc123",
-      token_type: "Bearer",
-      expires_in: 3600,
-      scope: "read",
+      token: "abc123",
+      disclaimer: "Some disclaimer",
+      extra: "field",
     };
     expect(AflApiTokenSchema.parse(data)).toEqual(data);
   });
 
-  it("rejects missing access_token", () => {
-    expect(() => AflApiTokenSchema.parse({ token_type: "Bearer", expires_in: 3600 })).toThrow();
+  it("rejects missing token", () => {
+    expect(() => AflApiTokenSchema.parse({ disclaimer: "text" })).toThrow();
   });
 });
 
@@ -46,8 +48,8 @@ describe("CompetitionListSchema", () => {
   it("parses a valid competition list", () => {
     const data = {
       competitions: [
-        { id: "1", name: "AFL Premiership", code: "AFLM" },
-        { id: "2", name: "AFL Womens", code: "AFLW" },
+        { id: 1, name: "AFL Premiership", code: "AFL" },
+        { id: 3, name: "NAB AFLW", code: "AFLW" },
       ],
     };
     expect(CompetitionListSchema.parse(data)).toEqual(data);
@@ -61,9 +63,9 @@ describe("CompetitionListSchema", () => {
 describe("CompseasonListSchema", () => {
   it("parses a valid compseason list", () => {
     const data = {
-      compseasons: [
-        { id: "101", name: "2024 Toyota AFL Premiership Season" },
-        { id: "102", name: "2023 Toyota AFL Premiership Season", year: "2023" },
+      compSeasons: [
+        { id: 62, name: "2024 Toyota AFL Premiership" },
+        { id: 52, name: "2023 Toyota AFL Premiership", currentRoundNumber: 24 },
       ],
     };
     expect(CompseasonListSchema.parse(data)).toEqual(data);
@@ -71,16 +73,17 @@ describe("CompseasonListSchema", () => {
 });
 
 describe("RoundListSchema", () => {
-  it("parses a valid round list", () => {
+  it("parses a valid round list with providerId", () => {
     const data = {
       rounds: [
         {
-          id: "201",
+          id: 1146,
+          providerId: "CD_R202501400",
           name: "Round 1",
           roundNumber: 1,
           utcStartTime: "2024-03-14T06:20:00.000Z",
         },
-        { id: "202", name: "Round 2", roundNumber: 2 },
+        { id: 1147, name: "Round 2", roundNumber: 2 },
       ],
     };
     expect(RoundListSchema.parse(data)).toEqual(data);
@@ -88,9 +91,16 @@ describe("RoundListSchema", () => {
 
   it("rejects a round without roundNumber", () => {
     const data = {
-      rounds: [{ id: "201", name: "Round 1" }],
+      rounds: [{ id: 1146, name: "Round 1" }],
     };
     expect(() => RoundListSchema.parse(data)).toThrow();
+  });
+});
+
+describe("ScoreSchema", () => {
+  it("parses a valid score", () => {
+    const data = { totalScore: 82, goals: 13, behinds: 4, superGoals: null };
+    expect(ScoreSchema.parse(data)).toEqual(data);
   });
 });
 
@@ -98,77 +108,106 @@ describe("PeriodScoreSchema", () => {
   it("parses a valid period score", () => {
     const data = {
       periodNumber: 1,
-      periodGoals: 3,
-      periodBehinds: 2,
-      periodScore: 20,
+      score: { totalScore: 7, goals: 1, behinds: 1, superGoals: null },
     };
     expect(PeriodScoreSchema.parse(data)).toEqual(data);
   });
 });
 
-describe("MatchTeamSchema", () => {
-  it("parses a team with score and period scores", () => {
+describe("TeamScoreSchema", () => {
+  it("parses a team score with period breakdown", () => {
     const data = {
-      teamId: "t1",
-      teamName: "Richmond",
-      score: { goals: 10, behinds: 8, totalScore: 68 },
-      periodScore: [{ periodNumber: 1, periodGoals: 3, periodBehinds: 2, periodScore: 20 }],
+      matchScore: { totalScore: 82, goals: 13, behinds: 4 },
+      periodScore: [
+        { periodNumber: 1, score: { totalScore: 7, goals: 1, behinds: 1 } },
+        { periodNumber: 2, score: { totalScore: 18, goals: 3, behinds: 0 } },
+      ],
+      rushedBehinds: 2,
+      minutesInFront: 32,
     };
-    expect(MatchTeamSchema.parse(data)).toEqual(data);
+    expect(TeamScoreSchema.parse(data)).toEqual(data);
+  });
+});
+
+describe("CfsMatchSchema", () => {
+  it("parses a valid /cfs/ match object", () => {
+    const data = {
+      matchId: "CD_M20250140101",
+      name: "Richmond Vs Carlton",
+      status: "CONCLUDED",
+      utcStartTime: "2025-03-13T08:30:00",
+      homeTeamId: "CD_T120",
+      awayTeamId: "CD_T30",
+      homeTeam: { name: "Richmond", teamId: "CD_T120", abbr: "RICH", nickname: "Tigers" },
+      awayTeam: { name: "Carlton", teamId: "CD_T30", abbr: "CARL", nickname: "Blues" },
+    };
+    expect(CfsMatchSchema.parse(data)).toEqual(data);
   });
 
-  it("parses a team without score (upcoming match)", () => {
-    const data = { teamId: "t1", teamName: "Richmond" };
-    expect(MatchTeamSchema.parse(data)).toEqual(data);
+  it("rejects missing matchId", () => {
+    expect(() =>
+      CfsMatchSchema.parse({
+        status: "CONCLUDED",
+        utcStartTime: "2025-03-13",
+        homeTeamId: "t1",
+        awayTeamId: "t2",
+        homeTeam: { name: "A", teamId: "t1" },
+        awayTeam: { name: "B", teamId: "t2" },
+      }),
+    ).toThrow();
   });
 });
 
 describe("MatchItemSchema", () => {
-  const validMatch = {
-    matchProviderId: "CD_M20240140101",
-    roundNumber: 1,
-    status: "C",
-    utcStartTime: "2024-03-14T06:20:00.000Z",
+  const validItem = {
+    match: {
+      matchId: "CD_M20250140101",
+      status: "CONCLUDED",
+      utcStartTime: "2025-03-13T08:30:00",
+      homeTeamId: "CD_T120",
+      awayTeamId: "CD_T30",
+      homeTeam: { name: "Richmond", teamId: "CD_T120" },
+      awayTeam: { name: "Carlton", teamId: "CD_T30" },
+    },
+    score: {
+      status: "CONCLUDED",
+      matchId: "CD_M20250140101",
+      homeTeamScore: {
+        matchScore: { totalScore: 82, goals: 13, behinds: 4 },
+      },
+      awayTeamScore: {
+        matchScore: { totalScore: 69, goals: 9, behinds: 15 },
+      },
+    },
     venue: { name: "MCG" },
-    homeTeam: {
-      teamId: "t1",
-      teamName: "Richmond",
-      score: { goals: 10, behinds: 8, totalScore: 68 },
-    },
-    awayTeam: {
-      teamId: "t2",
-      teamName: "Carlton",
-      score: { goals: 12, behinds: 5, totalScore: 77 },
-    },
-    attendance: 85000,
+    round: { name: "Round 1", roundId: "CD_R202501401", roundNumber: 1 },
   };
 
   it("parses a valid match item", () => {
-    expect(MatchItemSchema.parse(validMatch)).toEqual(validMatch);
+    expect(MatchItemSchema.parse(validItem)).toEqual(validItem);
   });
 
-  it("parses without optional venue and attendance", () => {
-    const { venue, attendance, ...minimal } = validMatch;
+  it("parses without optional score and venue", () => {
+    const { score, venue, round, ...minimal } = validItem;
     expect(MatchItemSchema.parse(minimal)).toEqual(minimal);
-  });
-
-  it("rejects missing matchProviderId", () => {
-    const { matchProviderId, ...invalid } = validMatch;
-    expect(() => MatchItemSchema.parse(invalid)).toThrow();
   });
 });
 
 describe("MatchItemListSchema", () => {
   it("parses a list of match items", () => {
     const data = {
+      roundId: "CD_R202501401",
       items: [
         {
-          matchProviderId: "CD_M1",
-          roundNumber: 1,
-          status: "C",
-          utcStartTime: "2024-03-14T06:20:00.000Z",
-          homeTeam: { teamId: "t1", teamName: "Richmond" },
-          awayTeam: { teamId: "t2", teamName: "Carlton" },
+          match: {
+            matchId: "CD_M1",
+            status: "CONCLUDED",
+            utcStartTime: "2025-03-13",
+            homeTeamId: "t1",
+            awayTeamId: "t2",
+            homeTeam: { name: "Richmond", teamId: "t1" },
+            awayTeam: { name: "Carlton", teamId: "t2" },
+          },
         },
       ],
     };
@@ -180,103 +219,159 @@ describe("MatchItemListSchema", () => {
   });
 });
 
-describe("MatchDetailSchema", () => {
-  it("parses a match detail with compSeason and round", () => {
+describe("CfsScoreSchema", () => {
+  it("parses a full score with period breakdown", () => {
     const data = {
-      matchProviderId: "CD_M1",
-      roundNumber: 1,
-      status: "C",
-      utcStartTime: "2024-03-14T06:20:00.000Z",
-      homeTeam: { teamId: "t1", teamName: "Richmond" },
-      awayTeam: { teamId: "t2", teamName: "Carlton" },
-      compSeason: { id: "cs1", name: "2024 Season" },
-      round: { id: "r1", name: "Round 1", roundNumber: 1 },
+      status: "CONCLUDED",
+      matchId: "CD_M1",
+      homeTeamScore: {
+        matchScore: { totalScore: 82, goals: 13, behinds: 4 },
+        periodScore: [{ periodNumber: 1, score: { totalScore: 7, goals: 1, behinds: 1 } }],
+      },
+      awayTeamScore: {
+        matchScore: { totalScore: 69, goals: 9, behinds: 15 },
+      },
     };
-    expect(MatchDetailSchema.parse(data)).toEqual(data);
+    expect(CfsScoreSchema.parse(data)).toEqual(data);
+  });
+});
+
+describe("PlayerGameStatsSchema", () => {
+  it("parses player game stats with nested clearances", () => {
+    const data = {
+      goals: 2.0,
+      kicks: 15.0,
+      disposals: 22.0,
+      clearances: {
+        centreClearances: 1.0,
+        stoppageClearances: 2.0,
+        totalClearances: 3.0,
+      },
+    };
+    expect(PlayerGameStatsSchema.parse(data)).toEqual(data);
+  });
+
+  it("parses with all optional fields missing", () => {
+    expect(PlayerGameStatsSchema.parse({})).toEqual({});
   });
 });
 
 describe("PlayerStatsItemSchema", () => {
-  it("parses a valid player stats item with prefixed fields", () => {
+  it("parses a valid player stats item with nested structure", () => {
     const data = {
-      playerId: "p1",
-      teamId: "t1",
-      teamName: "Richmond",
-      "playerName.givenName": "Dustin",
-      "playerName.surname": "Martin",
-      "playerName.displayName": "Dustin Martin",
-      jumperNumber: 4,
-      "playerStats.kicks": 20,
-      "playerStats.handballs": 10,
-      "playerStats.disposals": 30,
-      "playerStats.goals": 3,
-      "playerStats.dreamTeamPoints": 120,
+      player: {
+        player: {
+          position: "INT",
+          player: {
+            playerId: "CD_I1028525",
+            playerName: { givenName: "Harry", surname: "Armstrong" },
+            captain: false,
+            playerJumperNumber: 34,
+          },
+        },
+        jumperNumber: 34,
+      },
+      teamId: "CD_T120",
+      playerStats: {
+        stats: {
+          goals: 0.0,
+          kicks: 2.0,
+          disposals: 5.0,
+        },
+      },
     };
     expect(PlayerStatsItemSchema.parse(data)).toEqual(data);
-  });
-
-  it("parses with only required fields", () => {
-    const data = { playerId: "p1", teamId: "t1" };
-    expect(PlayerStatsItemSchema.parse(data)).toEqual(data);
-  });
-
-  it("rejects missing playerId", () => {
-    expect(() => PlayerStatsItemSchema.parse({ teamId: "t1" })).toThrow();
   });
 });
 
 describe("PlayerStatsListSchema", () => {
-  it("parses a player stats list response", () => {
+  it("parses a player stats list with home and away arrays", () => {
+    const playerEntry = {
+      player: {
+        player: {
+          position: "FWD",
+          player: {
+            playerId: "CD_I1",
+            playerName: { givenName: "Test", surname: "Player" },
+          },
+        },
+        jumperNumber: 1,
+      },
+      teamId: "CD_T1",
+      playerStats: { stats: { goals: 3.0 } },
+    };
     const data = {
-      items: [
-        { playerId: "p1", teamId: "t1", "playerStats.kicks": 20 },
-        { playerId: "p2", teamId: "t1", "playerStats.kicks": 15 },
-      ],
+      homeTeamPlayerStats: [playerEntry],
+      awayTeamPlayerStats: [playerEntry],
     };
     expect(PlayerStatsListSchema.parse(data)).toEqual(data);
+  });
+});
+
+describe("TeamPlayersSchema", () => {
+  it("parses a team players entry", () => {
+    const data = {
+      teamId: "CD_T120",
+      players: [
+        {
+          player: {
+            position: "BPL",
+            player: {
+              playerId: "CD_I1002403",
+              playerName: { givenName: "Ben", surname: "Miller" },
+            },
+          },
+          jumperNumber: 12,
+        },
+      ],
+    };
+    expect(TeamPlayersSchema.parse(data)).toEqual(data);
   });
 });
 
 describe("MatchRosterSchema", () => {
   it("parses a valid match roster", () => {
     const data = {
-      homeTeam: {
-        teamId: "t1",
-        teamName: "Richmond",
-        players: [
-          {
-            playerId: "p1",
-            playerName: { givenName: "Dustin", surname: "Martin" },
-            jumperNumber: 4,
-            position: "Forward",
-          },
-        ],
+      match: {
+        matchId: "CD_M1",
+        status: "CONCLUDED",
+        utcStartTime: "2025-03-13",
+        homeTeamId: "CD_T120",
+        awayTeamId: "CD_T30",
+        homeTeam: { name: "Richmond", teamId: "CD_T120" },
+        awayTeam: { name: "Carlton", teamId: "CD_T30" },
       },
-      awayTeam: {
-        teamId: "t2",
-        teamName: "Carlton",
-        players: [
-          {
-            playerId: "p2",
-            playerName: {
-              givenName: "Patrick",
-              surname: "Cripps",
-              displayName: "Patrick Cripps",
+      teamPlayers: [
+        {
+          teamId: "CD_T120",
+          players: [
+            {
+              player: {
+                position: "FWD",
+                player: {
+                  playerId: "CD_I1",
+                  playerName: { givenName: "Dustin", surname: "Martin" },
+                },
+              },
+              jumperNumber: 4,
             },
-            isEmergency: false,
-            isSubstitute: false,
-          },
-        ],
-      },
+          ],
+        },
+        {
+          teamId: "CD_T30",
+          players: [],
+        },
+      ],
     };
     expect(MatchRosterSchema.parse(data)).toEqual(data);
   });
 
-  it("rejects missing homeTeam", () => {
-    const data = {
-      awayTeam: { teamId: "t2", teamName: "Carlton", players: [] },
-    };
-    expect(() => MatchRosterSchema.parse(data)).toThrow();
+  it("rejects missing match", () => {
+    expect(() =>
+      MatchRosterSchema.parse({
+        teamPlayers: [],
+      }),
+    ).toThrow();
   });
 });
 
@@ -285,10 +380,10 @@ describe("TeamListSchema", () => {
     const data = {
       teams: [
         {
-          id: "t1",
+          id: 1,
           name: "Richmond",
           abbreviation: "RICH",
-          teamType: "club",
+          teamType: "MEN",
         },
       ],
     };
@@ -297,7 +392,7 @@ describe("TeamListSchema", () => {
 
   it("parses a team with only required fields", () => {
     const data = {
-      teams: [{ id: "t1", name: "Richmond" }],
+      teams: [{ id: 1, name: "Richmond" }],
     };
     expect(TeamListSchema.parse(data)).toEqual(data);
   });
@@ -347,6 +442,6 @@ describe("TeamItemSchema", () => {
   });
 
   it("rejects wrong type for id", () => {
-    expect(() => TeamItemSchema.parse({ id: 123, name: "Richmond" })).toThrow();
+    expect(() => TeamItemSchema.parse({ id: "not-a-number", name: "Richmond" })).toThrow();
   });
 });

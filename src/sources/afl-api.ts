@@ -14,6 +14,8 @@ import {
   AflApiTokenSchema,
   CompetitionListSchema,
   CompseasonListSchema,
+  type MatchItem,
+  MatchItemListSchema,
   type Round,
   RoundListSchema,
 } from "../lib/validation";
@@ -22,8 +24,11 @@ import type { CompetitionCode } from "../types";
 /** WMCTok token endpoint used by the AFL website. */
 const TOKEN_URL = "https://api.afl.com.au/cfs/afl/WMCTok";
 
-/** Base URL for AFL API v2 endpoints. */
-const API_BASE = "https://api.afl.com.au/afl/v2";
+/** Base URL for AFL API v2 data endpoints (no auth required). */
+const API_BASE = "https://aflapi.afl.com.au/afl/v2";
+
+/** Base URL for /cfs/ endpoints (requires WMCTok token). */
+const CFS_BASE = "https://api.afl.com.au/cfs/afl";
 
 /** Cached token with expiry tracking. */
 interface CachedToken {
@@ -66,7 +71,10 @@ export class AflApiClient {
    */
   async authenticate(): Promise<Result<string, AflApiError>> {
     try {
-      const response = await this.fetchFn(this.tokenUrl, { method: "POST" });
+      const response = await this.fetchFn(this.tokenUrl, {
+        method: "POST",
+        headers: { "Content-Length": "0" },
+      });
 
       if (!response.ok) {
         return err(new AflApiError(`Token request failed: ${response.status}`, response.status));
@@ -79,13 +87,14 @@ export class AflApiClient {
         return err(new AflApiError("Invalid token response format"));
       }
 
-      const bufferMs = 60_000;
+      // Token endpoint doesn't provide expiry; assume 30 minutes.
+      const ttlMs = 30 * 60 * 1000;
       this.cachedToken = {
-        accessToken: parsed.data.access_token,
-        expiresAt: Date.now() + parsed.data.expires_in * 1000 - bufferMs,
+        accessToken: parsed.data.token,
+        expiresAt: Date.now() + ttlMs,
       };
 
-      return ok(parsed.data.access_token);
+      return ok(parsed.data.token);
     } catch (cause) {
       return err(
         new AflApiError(
@@ -124,7 +133,7 @@ export class AflApiClient {
         throw new AflApiError("No cached token available");
       }
       const headers = new Headers(init?.headers);
-      headers.set("Authorization", `Bearer ${token.accessToken}`);
+      headers.set("x-media-mis-token", token.accessToken);
       return this.fetchFn(url, { ...init, headers });
     };
 
@@ -169,14 +178,39 @@ export class AflApiClient {
     url: string,
     schema: z.ZodType<T>,
   ): Promise<Result<T, AflApiError | ValidationError>> {
-    const fetchResult = await this.authedFetch(url);
+    // Public API endpoints (aflapi.afl.com.au) don't require auth.
+    // Only api.afl.com.au/cfs/... endpoints need the WMCTok token.
+    const isPublic = url.includes("aflapi.afl.com.au");
 
-    if (!fetchResult.success) {
-      return fetchResult;
+    let response: Response;
+    if (isPublic) {
+      try {
+        response = await this.fetchFn(url);
+        if (!response.ok) {
+          return err(
+            new AflApiError(
+              `Request failed: ${response.status} ${response.statusText}`,
+              response.status,
+            ),
+          );
+        }
+      } catch (cause) {
+        return err(
+          new AflApiError(
+            `Request failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+          ),
+        );
+      }
+    } else {
+      const fetchResult = await this.authedFetch(url);
+      if (!fetchResult.success) {
+        return fetchResult;
+      }
+      response = fetchResult.data;
     }
 
     try {
-      const json: unknown = await fetchResult.data.json();
+      const json: unknown = await response.json();
       const parsed = schema.safeParse(json);
 
       if (!parsed.success) {
@@ -205,14 +239,19 @@ export class AflApiClient {
    */
   async resolveCompetitionId(
     code: CompetitionCode,
-  ): Promise<Result<string, AflApiError | ValidationError>> {
-    const result = await this.fetchJson(`${API_BASE}/competitions`, CompetitionListSchema);
+  ): Promise<Result<number, AflApiError | ValidationError>> {
+    const result = await this.fetchJson(
+      `${API_BASE}/competitions?pageSize=50`,
+      CompetitionListSchema,
+    );
 
     if (!result.success) {
       return result;
     }
 
-    const competition = result.data.competitions.find((c) => c.code === code);
+    // The API uses "AFL" for AFLM; map our domain code to the API code.
+    const apiCode = code === "AFLM" ? "AFL" : code;
+    const competition = result.data.competitions.find((c) => c.code === apiCode);
 
     if (!competition) {
       return err(new AflApiError(`Competition not found for code: ${code}`));
@@ -229,11 +268,11 @@ export class AflApiClient {
    * @returns The compseason ID string on success.
    */
   async resolveSeasonId(
-    competitionId: string,
+    competitionId: number,
     year: number,
-  ): Promise<Result<string, AflApiError | ValidationError>> {
+  ): Promise<Result<number, AflApiError | ValidationError>> {
     const result = await this.fetchJson(
-      `${API_BASE}/competitions/${competitionId}/compseasons`,
+      `${API_BASE}/competitions/${competitionId}/compseasons?pageSize=100`,
       CompseasonListSchema,
     );
 
@@ -242,9 +281,7 @@ export class AflApiClient {
     }
 
     const yearStr = String(year);
-    const season = result.data.compseasons.find(
-      (cs) => cs.name.includes(yearStr) || cs.year === yearStr,
-    );
+    const season = result.data.compSeasons.find((cs) => cs.name.includes(yearStr));
 
     if (!season) {
       return err(new AflApiError(`Season not found for year: ${year}`));
@@ -259,7 +296,7 @@ export class AflApiClient {
    * @param seasonId - The compseason ID (from {@link resolveSeasonId}).
    * @returns Array of round objects on success.
    */
-  async resolveRounds(seasonId: string): Promise<Result<Round[], AflApiError | ValidationError>> {
+  async resolveRounds(seasonId: number): Promise<Result<Round[], AflApiError | ValidationError>> {
     const result = await this.fetchJson(
       `${API_BASE}/compseasons/${seasonId}/rounds`,
       RoundListSchema,
@@ -280,9 +317,9 @@ export class AflApiClient {
    * @returns The round ID string on success.
    */
   async resolveRoundId(
-    seasonId: string,
+    seasonId: number,
     roundNumber: number,
-  ): Promise<Result<string, AflApiError | ValidationError>> {
+  ): Promise<Result<number, AflApiError | ValidationError>> {
     const roundsResult = await this.resolveRounds(seasonId);
 
     if (!roundsResult.success) {
@@ -296,5 +333,85 @@ export class AflApiClient {
     }
 
     return ok(round.id);
+  }
+
+  /**
+   * Fetch match items for a round using the /cfs/ endpoint.
+   *
+   * @param roundProviderId - The round provider ID (e.g. "CD_R202501401").
+   * @returns Array of match items on success.
+   */
+  async fetchRoundMatchItems(
+    roundProviderId: string,
+  ): Promise<Result<MatchItem[], AflApiError | ValidationError>> {
+    const result = await this.fetchJson(
+      `${CFS_BASE}/matchItems/round/${roundProviderId}`,
+      MatchItemListSchema,
+    );
+
+    if (!result.success) {
+      return result;
+    }
+
+    return ok(result.data.items);
+  }
+
+  /**
+   * Fetch match items for a round by resolving the round provider ID from season and round number.
+   *
+   * @param seasonId - The compseason ID.
+   * @param roundNumber - The round number.
+   * @returns Array of match items on success.
+   */
+  async fetchRoundMatchItemsByNumber(
+    seasonId: number,
+    roundNumber: number,
+  ): Promise<Result<MatchItem[], AflApiError | ValidationError>> {
+    const roundsResult = await this.resolveRounds(seasonId);
+    if (!roundsResult.success) {
+      return roundsResult;
+    }
+
+    const round = roundsResult.data.find((r) => r.roundNumber === roundNumber);
+    if (!round?.providerId) {
+      return err(new AflApiError(`Round not found or missing providerId: round ${roundNumber}`));
+    }
+
+    return this.fetchRoundMatchItems(round.providerId);
+  }
+
+  /**
+   * Fetch match items for all completed rounds in a season.
+   *
+   * @param seasonId - The compseason ID.
+   * @returns Aggregated array of match items from all completed rounds.
+   */
+  async fetchSeasonMatchItems(
+    seasonId: number,
+  ): Promise<Result<MatchItem[], AflApiError | ValidationError>> {
+    const roundsResult = await this.resolveRounds(seasonId);
+    if (!roundsResult.success) {
+      return roundsResult;
+    }
+
+    const allItems: MatchItem[] = [];
+    for (const round of roundsResult.data) {
+      if (!round.providerId) {
+        continue;
+      }
+
+      const result = await this.fetchRoundMatchItems(round.providerId);
+      if (!result.success) {
+        return result;
+      }
+
+      // Only include concluded matches.
+      const concluded = result.data.filter(
+        (item) => item.match.status === "CONCLUDED" || item.match.status === "COMPLETE",
+      );
+      allItems.push(...concluded);
+    }
+
+    return ok(allItems);
   }
 }

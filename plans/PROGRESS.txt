@@ -270,3 +270,53 @@
 - `resolveRoundId` delegates to `resolveRounds` rather than duplicating the fetch — keeps logic DRY
 
 ---
+
+[Ralph Loop] 2026-03-25 23:16 UTC - Iteration 5: US-007 (AFL API metadata resolution (competitions, seasons, rounds)) completed
+
+## 2026-03-26 - Live API smoke test and schema/client corrections
+
+**Context:** Ran smoke tests against the real AFL API to validate the client and schemas built in US-005 through US-007.
+
+### Issues found and fixed
+
+1. **Wrong base URL for data endpoints**: Was `api.afl.com.au/afl/v2`, should be `aflapi.afl.com.au/afl/v2`. The `aflapi.*` endpoints are public (no auth needed). Only `api.afl.com.au/cfs/afl/*` endpoints require the WMCTok token.
+
+2. **Wrong token response schema**: Assumed OAuth format `{access_token, token_type, expires_in}`. Actual response is `{token, disclaimer}`. No expiry provided — now assumes 30-minute TTL.
+
+3. **Token endpoint requires `Content-Length: 0` header**: Without it, Akamai CDN returns 400 Bad Request.
+
+4. **All entity IDs are numbers, not strings**: Competitions, compseasons, rounds, and teams all use numeric `id` fields. Updated all Zod schemas and client method signatures (`string` → `number`).
+
+5. **Compseason list key is `compSeasons` (camelCase)**: Schema had `compseasons` (lowercase). Fixed in `CompseasonListSchema` and all references.
+
+6. **AFLM competition uses code `"AFL"` in the API**: Added mapping in `resolveCompetitionId`: `"AFLM"` → `"AFL"`.
+
+7. **Compseason has no `year` field**: Removed from schema. Year is extracted from the `name` field (e.g. "2025 Toyota AFL Premiership"). Added `shortName` and `currentRoundNumber` fields.
+
+8. **Public endpoints don't need auth**: `fetchJson` now skips `authedFetch` for `aflapi.afl.com.au` URLs and uses plain fetch instead.
+
+### Files changed
+- src/lib/validation.ts (schema corrections: token, ids, compSeasons key)
+- src/sources/afl-api.ts (base URL, token handling, public/authed fetch split, AFLM→AFL mapping, numeric IDs)
+- test/lib/validation.test.ts (updated fixtures to match real API shapes)
+- test/sources/afl-api.test.ts (updated token format, numeric IDs, removed unnecessary token mocks for public endpoints)
+- scripts/smoke-test.ts (created — live API smoke test)
+- plans/SPEC.md (added detailed AFL API integration notes)
+
+### Smoke test results (2025 AFLM season)
+- Token: obtained successfully
+- AFLM competition ID: 1
+- 2025 season ID: 73
+- Rounds: 10 found (Opening Round through Round 9)
+- Round 1 ID: 1147
+- AFLW competition ID: 3
+
+### Learnings for future iterations
+- Always validate schemas against real API responses early — the initial schemas were built from assumptions/docs that didn't match reality
+- The R fitzRoy package source (`R/helpers-afl.R`) is the authoritative reference for AFL API behaviour
+- `aflapi.afl.com.au` is fully public; `api.afl.com.au/cfs/` needs the WMCTok token
+- Round numbering starts at 0 for seasons with an Opening Round
+
+---
+
+[Manual] 2026-03-26 10:25 UTC - Live API smoke test: all schemas and client methods validated against real AFL API
