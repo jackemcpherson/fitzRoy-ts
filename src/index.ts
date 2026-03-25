@@ -57,6 +57,7 @@ export {
   type TeamRoster,
   TeamRosterSchema,
 } from "./lib/validation";
+export { AflApiClient, type AflApiClientOptions } from "./sources/afl-api";
 export type {
   CompetitionCode,
   DataSource,
