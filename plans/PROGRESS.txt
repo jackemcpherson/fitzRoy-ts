@@ -205,3 +205,36 @@
 - `.passthrough()` on object schemas allows extra API fields without breaking validation
 
 ---
+
+[Ralph Loop] 2026-03-25 23:08 UTC - Iteration 3: US-005 (Zod validation schemas for AFL API responses) completed
+
+## 2026-03-26 - US-006
+
+**Story:** AFL API authentication and base client
+
+### What was implemented
+- Created `src/sources/afl-api.ts` with `AflApiClient` class
+- `AflApiClient` accepts an injectable `fetch` function via `AflApiClientOptions` for testability
+- `authenticate()` calls the WMCTok token endpoint, validates with `AflApiTokenSchema`, and caches token with expiry tracking (60s buffer)
+- `authedFetch(url, init?)` adds bearer token header and retries once on 401 by re-authenticating
+- `fetchJson<T>(url, schema)` fetches, parses JSON, validates with Zod schema, returns `Result<T, AflApiError | ValidationError>`
+- `isAuthenticated` getter checks token cache validity
+- Exported `AflApiClient` and `AflApiClientOptions` from `src/index.ts`
+
+### Tests written
+- test/sources/afl-api.test.ts — 17 tests covering:
+  - authenticate: success, caching/isAuthenticated, non-OK response, invalid format, network failure, custom tokenUrl
+  - authedFetch: auto-authenticate, bearer token header, 401 retry with re-auth, re-auth failure, non-401 error, network failure
+  - fetchJson: valid schema parse, validation error, fetch failure, invalid JSON
+  - isAuthenticated: no token, expired token
+
+### Files changed
+- src/sources/afl-api.ts (created)
+- src/index.ts (added AflApiClient export)
+- test/sources/afl-api.test.ts (created)
+
+### Learnings for future iterations
+- Biome warns on non-null assertions; use a local variable guard instead of `!`
+- Biome requires `type` imports sorted after value imports within a single import statement (e.g., `{ err, ok, type Result }`)
+
+---

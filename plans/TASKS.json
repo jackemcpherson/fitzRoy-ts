@@ -95,8 +95,8 @@
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented AflApiClient class with injectable fetch function, WMCTok token authentication with caching, authedFetch with 401 retry, and fetchJson<T> with Zod validation returning Result<T>. Exported from index.ts."
     },
     {
       "id": "US-007",
