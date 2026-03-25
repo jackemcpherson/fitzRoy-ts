@@ -48,8 +48,8 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented canonical team name lookup with case-insensitive matching. Covers all 18 current AFL teams plus historical/defunct VFL teams (Fitzroy, University). Maps abbreviations, full names with mascots, mascot-only names, and historical names (Footscray, South Melbourne, Brisbane Bears). Exported normaliseTeamName from index.ts."
     },
     {
       "id": "US-004",

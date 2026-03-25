@@ -83,3 +83,42 @@
 - Biome auto-formats on file write (hook), so written code is formatted automatically
 
 ---
+
+[Ralph CLI] 2026-03-25 22:52 UTC - US-002 (Domain types and type aliases) completed successfully
+
+## 2026-03-26 - US-003
+
+**Story:** Team name mapping
+
+### What was implemented
+- Implemented `src/lib/team-mapping.ts` with a canonical team name lookup covering all 18 current AFL teams plus historical/defunct VFL teams (Fitzroy, University)
+- Maps abbreviations (GWS, ADEL, WCE, etc.), full names with mascots (Adelaide Crows, Sydney Swans), mascot-only names (Crows, Swans), and historical names (Footscray -> Western Bulldogs, South Melbourne -> Sydney, Brisbane Bears -> Brisbane Lions)
+- Exported `normaliseTeamName(raw: string): string` that returns the canonical name or trimmed input if unknown
+- Case-insensitive lookups via pre-built Map with lowercased keys
+- O(1) lookup performance using a Map built at module load time
+- Re-exported `normaliseTeamName` from `src/index.ts`
+
+### Tests written
+- test/lib/team-mapping.test.ts — 14 tests covering:
+  - Known team canonical name passthrough
+  - Case-insensitive lookups (mixed case)
+  - Abbreviation mappings (short and long forms)
+  - Full names with mascots
+  - Mascot-only names for all 18 teams
+  - Historical name mappings (Footscray, South Melbourne, Brisbane Bears)
+  - Defunct VFL teams (Fitzroy, University)
+  - Unknown team names returned as-is
+  - Whitespace trimming
+  - All 18 current AFL teams verified
+  - Specific edge cases (North Melbourne variants, Saint Kilda, Port Adelaide short forms)
+
+### Files changed
+- src/lib/team-mapping.ts (implemented)
+- src/index.ts (added normaliseTeamName export)
+- test/lib/team-mapping.test.ts (created)
+
+### Learnings for future iterations
+- Using a pre-built Map at module load time gives O(1) lookups with no runtime overhead per call
+- `ReadonlyArray<readonly [canonical: string, ...aliases: string[]]>` pattern works well for declaring mapping tables
+
+---
