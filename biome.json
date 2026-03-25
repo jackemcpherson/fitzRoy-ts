@@ -1,5 +1,8 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.4.9/schema.json",
+  "files": {
+    "includes": ["**", "!!**/.wrangler", "!!**/dist"]
+  },
   "linter": {
     "enabled": true,
     "rules": {
@@ -29,7 +32,7 @@
   },
   "overrides": [
     {
-      "includes": ["src/worker.ts", "*.config.ts"],
+      "includes": ["*.config.ts"],
       "linter": {
         "rules": {
           "style": {

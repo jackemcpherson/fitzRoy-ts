@@ -1,0 +1,53 @@
+# Ralph Progress Log
+
+## Codebase Patterns
+
+- Biome v2 uses `files.includes` with `!!**/folder` negation patterns (not `files.ignore`)
+- tsconfig.json `types` array should be empty now (no @cloudflare/workers-types)
+- Biome enforces import ordering; exports from index.ts must be alphabetical by module path
+
+---
+
+## Log
+
+(Iteration entries will be appended below)
+
+---
+
+## 2026-03-26 - US-001
+
+**Story:** Project restructure and dependency setup
+
+### What was implemented
+- Removed hono, drizzle-orm from dependencies; removed @cloudflare/workers-types, drizzle-kit, wrangler from devDependencies
+- Added cheerio as a dependency
+- Removed worker scripts (dev, deploy) from package.json; added main and exports fields pointing to src/index.ts
+- Removed src/worker.ts, src/db.ts, wrangler.toml, src/etl/, src/mcp/
+- Created directory structure: src/sources/, src/transforms/, src/api/ (empty for now)
+- Created src/lib/result.ts with Result<T, E> discriminated union type and ok()/err() helpers
+- Created src/lib/errors.ts with AflApiError, ScrapeError, and ValidationError custom error classes
+- Created src/index.ts re-exporting result types and error classes
+- Updated tsconfig.json to remove @cloudflare/workers-types
+- Fixed biome.json for v2 compatibility (files.includes with negation patterns)
+
+### Tests written
+- test/lib/result.test.ts — ok() creates success result, err() creates failure result
+- test/lib/errors.test.ts — AflApiError, ScrapeError, ValidationError set correct name/message/fields and extend Error
+
+### Files changed
+- package.json (updated)
+- tsconfig.json (updated)
+- biome.json (updated)
+- src/index.ts (created)
+- src/types.ts (updated, removed Env interface)
+- src/lib/result.ts (created)
+- src/lib/errors.ts (created)
+- test/lib/result.test.ts (created)
+- test/lib/errors.test.ts (created)
+- src/worker.ts, src/db.ts, wrangler.toml, src/etl/*, src/mcp/* (deleted)
+
+### Learnings for future iterations
+- Biome v2 changed config: use `files.includes` with `!!**/folder` negation instead of `files.ignore`
+- bun.lock will update when deps change; vitest exits with code 1 if no test files exist
+
+---
