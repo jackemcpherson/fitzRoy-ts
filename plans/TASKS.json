@@ -111,8 +111,8 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added resolveCompetitionId, resolveSeasonId, resolveRounds, and resolveRoundId methods to AflApiClient. Each uses fetchJson with Zod-validated schemas. Matches competitions by code, seasons by year in name or year field, rounds by roundNumber."
     },
     {
       "id": "US-008",

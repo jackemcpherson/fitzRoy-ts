@@ -238,3 +238,35 @@
 - Biome requires `type` imports sorted after value imports within a single import statement (e.g., `{ err, ok, type Result }`)
 
 ---
+
+[Ralph Loop] 2026-03-25 23:13 UTC - Iteration 4: US-006 (AFL API authentication and base client) completed
+
+## 2026-03-26 - US-007
+
+**Story:** AFL API metadata resolution (competitions, seasons, rounds)
+
+### What was implemented
+- Added `resolveCompetitionId(code: CompetitionCode)` to `AflApiClient` — fetches `/afl/v2/competitions` and matches by `code` field
+- Added `resolveSeasonId(competitionId, year)` — fetches compseasons and matches by year in `name` or `year` field
+- Added `resolveRounds(seasonId)` — fetches all rounds for a season, returns `Round[]`
+- Added `resolveRoundId(seasonId, roundNumber)` — delegates to `resolveRounds` then finds by `roundNumber`
+- All methods use the Zod-validated `fetchJson` helper and return `Result<T>`
+- Added `API_BASE` constant for the AFL API v2 base URL
+
+### Tests written
+- resolveCompetitionId: matching code returns ID, unknown code returns error, fetch error propagation
+- resolveSeasonId: match by name containing year, match by year field, unknown year returns error, fetch error propagation
+- resolveRounds: returns all rounds, empty rounds array, fetch error propagation
+- resolveRoundId: matching round number returns ID, unknown round returns error, fetch error propagation
+- Total: 14 new tests (122 total)
+
+### Files changed
+- src/sources/afl-api.ts (added 4 resolver methods, new imports)
+- test/sources/afl-api.test.ts (added 14 tests for resolvers)
+- plans/TASKS.json (US-007 passes: true)
+
+### Learnings for future iterations
+- Biome requires type imports sorted after value imports within a combined import statement (e.g., `{ AflApiTokenSchema, CompetitionListSchema, type Round }`)
+- `resolveRoundId` delegates to `resolveRounds` rather than duplicating the fetch — keeps logic DRY
+
+---

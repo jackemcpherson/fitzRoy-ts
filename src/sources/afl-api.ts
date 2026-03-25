@@ -10,10 +10,20 @@
 import type { z } from "zod/v4";
 import { AflApiError, ValidationError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
-import { AflApiTokenSchema } from "../lib/validation";
+import {
+  AflApiTokenSchema,
+  CompetitionListSchema,
+  CompseasonListSchema,
+  type Round,
+  RoundListSchema,
+} from "../lib/validation";
+import type { CompetitionCode } from "../types";
 
 /** WMCTok token endpoint used by the AFL website. */
 const TOKEN_URL = "https://api.afl.com.au/cfs/afl/WMCTok";
+
+/** Base URL for AFL API v2 endpoints. */
+const API_BASE = "https://api.afl.com.au/afl/v2";
 
 /** Cached token with expiry tracking. */
 interface CachedToken {
@@ -185,5 +195,106 @@ export class AflApiClient {
         ),
       );
     }
+  }
+
+  /**
+   * Resolve a competition code (e.g. "AFLM") to its API competition ID.
+   *
+   * @param code - The competition code to resolve.
+   * @returns The competition ID string on success.
+   */
+  async resolveCompetitionId(
+    code: CompetitionCode,
+  ): Promise<Result<string, AflApiError | ValidationError>> {
+    const result = await this.fetchJson(`${API_BASE}/competitions`, CompetitionListSchema);
+
+    if (!result.success) {
+      return result;
+    }
+
+    const competition = result.data.competitions.find((c) => c.code === code);
+
+    if (!competition) {
+      return err(new AflApiError(`Competition not found for code: ${code}`));
+    }
+
+    return ok(competition.id);
+  }
+
+  /**
+   * Resolve a season (compseason) ID from a competition ID and year.
+   *
+   * @param competitionId - The competition ID (from {@link resolveCompetitionId}).
+   * @param year - The season year (e.g. 2024).
+   * @returns The compseason ID string on success.
+   */
+  async resolveSeasonId(
+    competitionId: string,
+    year: number,
+  ): Promise<Result<string, AflApiError | ValidationError>> {
+    const result = await this.fetchJson(
+      `${API_BASE}/competitions/${competitionId}/compseasons`,
+      CompseasonListSchema,
+    );
+
+    if (!result.success) {
+      return result;
+    }
+
+    const yearStr = String(year);
+    const season = result.data.compseasons.find(
+      (cs) => cs.name.includes(yearStr) || cs.year === yearStr,
+    );
+
+    if (!season) {
+      return err(new AflApiError(`Season not found for year: ${year}`));
+    }
+
+    return ok(season.id);
+  }
+
+  /**
+   * Fetch all rounds for a season with their metadata.
+   *
+   * @param seasonId - The compseason ID (from {@link resolveSeasonId}).
+   * @returns Array of round objects on success.
+   */
+  async resolveRounds(seasonId: string): Promise<Result<Round[], AflApiError | ValidationError>> {
+    const result = await this.fetchJson(
+      `${API_BASE}/compseasons/${seasonId}/rounds`,
+      RoundListSchema,
+    );
+
+    if (!result.success) {
+      return result;
+    }
+
+    return ok(result.data.rounds);
+  }
+
+  /**
+   * Resolve a specific round ID from a season ID and round number.
+   *
+   * @param seasonId - The compseason ID (from {@link resolveSeasonId}).
+   * @param roundNumber - The round number to find.
+   * @returns The round ID string on success.
+   */
+  async resolveRoundId(
+    seasonId: string,
+    roundNumber: number,
+  ): Promise<Result<string, AflApiError | ValidationError>> {
+    const roundsResult = await this.resolveRounds(seasonId);
+
+    if (!roundsResult.success) {
+      return roundsResult;
+    }
+
+    const round = roundsResult.data.find((r) => r.roundNumber === roundNumber);
+
+    if (!round) {
+      return err(new AflApiError(`Round not found: round ${roundNumber}`));
+    }
+
+    return ok(round.id);
   }
 }

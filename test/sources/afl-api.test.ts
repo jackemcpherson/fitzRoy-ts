@@ -255,6 +255,249 @@ describe("AflApiClient", () => {
     });
   });
 
+  describe("resolveCompetitionId", () => {
+    it("returns the competition ID for a matching code", async () => {
+      const competitions = {
+        competitions: [
+          { id: "comp-1", name: "AFL Men's", code: "AFLM" },
+          { id: "comp-2", name: "AFL Women's", code: "AFLW" },
+        ],
+      };
+      const fetchFn = vi
+        .fn()
+        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
+        .mockResolvedValueOnce(mockResponse(competitions));
+      const client = new AflApiClient({ fetchFn });
+
+      const result = await client.resolveCompetitionId("AFLM");
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data).toBe("comp-1");
+      }
+    });
+
+    it("returns error when competition code is not found", async () => {
+      const competitions = {
+        competitions: [{ id: "comp-1", name: "AFL Men's", code: "AFLM" }],
+      };
+      const fetchFn = vi
+        .fn()
+        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
+        .mockResolvedValueOnce(mockResponse(competitions));
+      const client = new AflApiClient({ fetchFn });
+
+      const result = await client.resolveCompetitionId("AFLW");
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(AflApiError);
+        expect(result.error.message).toContain("AFLW");
+      }
+    });
+
+    it("propagates fetch errors", async () => {
+      const fetchFn = vi
+        .fn()
+        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
+        .mockResolvedValueOnce(mockResponse({}, { status: 500, statusText: "Server Error" }));
+      const client = new AflApiClient({ fetchFn });
+
+      const result = await client.resolveCompetitionId("AFLM");
+
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("resolveSeasonId", () => {
+    it("returns the season ID matching by name containing year", async () => {
+      const compseasons = {
+        compseasons: [
+          { id: "season-1", name: "2023 Toyota AFL Premiership Season" },
+          { id: "season-2", name: "2024 Toyota AFL Premiership Season" },
+        ],
+      };
+      const fetchFn = vi
+        .fn()
+        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
+        .mockResolvedValueOnce(mockResponse(compseasons));
+      const client = new AflApiClient({ fetchFn });
+
+      const result = await client.resolveSeasonId("comp-1", 2024);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data).toBe("season-2");
+      }
+    });
+
+    it("returns the season ID matching by year field", async () => {
+      const compseasons = {
+        compseasons: [{ id: "season-1", name: "Some Season", year: "2024" }],
+      };
+      const fetchFn = vi
+        .fn()
+        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
+        .mockResolvedValueOnce(mockResponse(compseasons));
+      const client = new AflApiClient({ fetchFn });
+
+      const result = await client.resolveSeasonId("comp-1", 2024);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data).toBe("season-1");
+      }
+    });
+
+    it("returns error when season year is not found", async () => {
+      const compseasons = {
+        compseasons: [{ id: "season-1", name: "2023 Season" }],
+      };
+      const fetchFn = vi
+        .fn()
+        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
+        .mockResolvedValueOnce(mockResponse(compseasons));
+      const client = new AflApiClient({ fetchFn });
+
+      const result = await client.resolveSeasonId("comp-1", 2024);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(AflApiError);
+        expect(result.error.message).toContain("2024");
+      }
+    });
+
+    it("propagates fetch errors", async () => {
+      const fetchFn = vi
+        .fn()
+        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
+        .mockResolvedValueOnce(mockResponse({}, { status: 500, statusText: "Server Error" }));
+      const client = new AflApiClient({ fetchFn });
+
+      const result = await client.resolveSeasonId("comp-1", 2024);
+
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("resolveRounds", () => {
+    it("returns all rounds for a season", async () => {
+      const rounds = {
+        rounds: [
+          {
+            id: "round-1",
+            name: "Round 1",
+            roundNumber: 1,
+            utcStartTime: "2024-03-14T06:20:00.000Z",
+          },
+          {
+            id: "round-2",
+            name: "Round 2",
+            roundNumber: 2,
+            utcStartTime: "2024-03-21T06:20:00.000Z",
+          },
+        ],
+      };
+      const fetchFn = vi
+        .fn()
+        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
+        .mockResolvedValueOnce(mockResponse(rounds));
+      const client = new AflApiClient({ fetchFn });
+
+      const result = await client.resolveRounds("season-1");
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data).toHaveLength(2);
+        expect(result.data[0]?.roundNumber).toBe(1);
+        expect(result.data[1]?.roundNumber).toBe(2);
+      }
+    });
+
+    it("returns empty array when no rounds exist", async () => {
+      const rounds = { rounds: [] };
+      const fetchFn = vi
+        .fn()
+        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
+        .mockResolvedValueOnce(mockResponse(rounds));
+      const client = new AflApiClient({ fetchFn });
+
+      const result = await client.resolveRounds("season-1");
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data).toHaveLength(0);
+      }
+    });
+
+    it("propagates fetch errors", async () => {
+      const fetchFn = vi
+        .fn()
+        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
+        .mockResolvedValueOnce(mockResponse({}, { status: 500, statusText: "Server Error" }));
+      const client = new AflApiClient({ fetchFn });
+
+      const result = await client.resolveRounds("season-1");
+
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("resolveRoundId", () => {
+    it("returns the round ID for a matching round number", async () => {
+      const rounds = {
+        rounds: [
+          { id: "round-1", name: "Round 1", roundNumber: 1 },
+          { id: "round-5", name: "Round 5", roundNumber: 5 },
+        ],
+      };
+      const fetchFn = vi
+        .fn()
+        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
+        .mockResolvedValueOnce(mockResponse(rounds));
+      const client = new AflApiClient({ fetchFn });
+
+      const result = await client.resolveRoundId("season-1", 5);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data).toBe("round-5");
+      }
+    });
+
+    it("returns error when round number is not found", async () => {
+      const rounds = {
+        rounds: [{ id: "round-1", name: "Round 1", roundNumber: 1 }],
+      };
+      const fetchFn = vi
+        .fn()
+        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
+        .mockResolvedValueOnce(mockResponse(rounds));
+      const client = new AflApiClient({ fetchFn });
+
+      const result = await client.resolveRoundId("season-1", 99);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(AflApiError);
+        expect(result.error.message).toContain("99");
+      }
+    });
+
+    it("propagates fetch errors", async () => {
+      const fetchFn = vi
+        .fn()
+        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
+        .mockResolvedValueOnce(mockResponse({}, { status: 500, statusText: "Server Error" }));
+      const client = new AflApiClient({ fetchFn });
+
+      const result = await client.resolveRoundId("season-1", 1);
+
+      expect(result.success).toBe(false);
+    });
+  });
+
   describe("isAuthenticated", () => {
     it("returns false when no token is cached", () => {
       const client = new AflApiClient({ fetchFn: vi.fn() });
