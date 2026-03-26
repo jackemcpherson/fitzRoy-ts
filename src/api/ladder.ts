@@ -5,7 +5,11 @@
 import { UnsupportedSourceError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { AflApiClient } from "../sources/afl-api";
+import { AflTablesClient } from "../sources/afl-tables";
+import { SquiggleClient } from "../sources/squiggle";
+import { computeLadder } from "../transforms/computed-ladder";
 import { transformLadderEntries } from "../transforms/ladder";
+import { transformSquiggleStandings } from "../transforms/squiggle";
 import type { Ladder, LadderQuery } from "../types";
 
 /**
@@ -22,10 +26,38 @@ import type { Ladder, LadderQuery } from "../types";
 export async function fetchLadder(query: LadderQuery): Promise<Result<Ladder, Error>> {
   const competition = query.competition ?? "AFLM";
 
+  if (query.source === "squiggle") {
+    const client = new SquiggleClient();
+    const result = await client.fetchStandings(query.season, query.round ?? undefined);
+    if (!result.success) return result;
+
+    return ok({
+      season: query.season,
+      roundNumber: query.round ?? null,
+      entries: transformSquiggleStandings(result.data.standings),
+      competition,
+    });
+  }
+
+  if (query.source === "afl-tables") {
+    const atClient = new AflTablesClient();
+    const resultsResult = await atClient.fetchSeasonResults(query.season);
+    if (!resultsResult.success) return resultsResult;
+
+    const entries = computeLadder(resultsResult.data, query.round ?? undefined);
+
+    return ok({
+      season: query.season,
+      roundNumber: query.round ?? null,
+      entries,
+      competition,
+    });
+  }
+
   if (query.source !== "afl-api") {
     return err(
       new UnsupportedSourceError(
-        "Ladder data is only available from the AFL API source.",
+        "Ladder data is only available from the AFL API, AFL Tables, or Squiggle sources.",
         query.source,
       ),
     );

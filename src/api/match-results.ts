@@ -7,7 +7,9 @@ import { err, ok, type Result } from "../lib/result";
 import { AflApiClient } from "../sources/afl-api";
 import { AflTablesClient } from "../sources/afl-tables";
 import { FootyWireClient } from "../sources/footywire";
+import { SquiggleClient } from "../sources/squiggle";
 import { transformMatchItems } from "../transforms/match-results";
+import { transformSquiggleGamesToResults } from "../transforms/squiggle";
 import type { MatchResult, SeasonRoundQuery } from "../types";
 
 /**
@@ -67,6 +69,13 @@ export async function fetchMatchResults(
         return ok(result.data.filter((m) => m.roundNumber === query.round));
       }
       return result;
+    }
+
+    case "squiggle": {
+      const client = new SquiggleClient();
+      const result = await client.fetchGames(query.season, query.round ?? undefined, 100);
+      if (!result.success) return result;
+      return ok(transformSquiggleGamesToResults(result.data.games, query.season));
     }
 
     default:

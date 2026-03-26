@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-03-27
+
+### Added
+
+- **Squiggle data source** — new `SquiggleClient` for the Squiggle API, supporting match results, fixture, and ladder standings via `fetchMatchResults`, `fetchFixture`, and `fetchLadder` with `source: "squiggle"`
+- **`fetchTeamStats`** — team aggregate statistics from FootyWire (2010+) and AFL Tables (1965+), with totals/averages summary types
+- **`fetchPlayerDetails`** — player biographical data (DOB, height, weight, draft info, games played) from AFL API, FootyWire, and AFL Tables
+- **`fetchAwards`** — Brownlow Medal votes, All-Australian selections, and Rising Star nominations from FootyWire
+- **`fetchCoachesVotes`** — AFLCA coaches votes scraped from aflcoaches.com.au (2006+ AFLM, 2018+ AFLW)
+- **Computed ladder from AFL Tables** — `fetchLadder` with `source: "afl-tables"` computes standings from historical match results
+- **FootyWire fixture support** — `fetchFixture` with `source: "footywire"` scrapes scheduled and completed matches
+- **FootyWire player stats** — `fetchPlayerStats` with `source: "footywire"` scrapes per-match basic and advanced player statistics (2010+)
+- **AFL Tables player stats** — `fetchPlayerStats` with `source: "afl-tables"` scrapes individual game pages for per-match player statistics (1965+)
+- CLI commands: `team-stats`, `player-details`, `coaches-votes`
+- Squiggle Zod validation schemas (`SquiggleGameSchema`, `SquiggleStandingSchema`, etc.)
+- `AFL_SENIOR_TEAMS` set of the 18 current senior AFL club names
+- Shared parsing utilities (`safeInt`, `parseIntOr0`, `parseFloatOr0`) in `src/lib/parse-utils.ts`
+- "Lions" alias for Brisbane Lions in team name normalisation
+
+### Fixed
+
+- AFL Tables season page parser now correctly extracts round numbers (was returning 0 for all matches due to `border` attribute check skipping round header tables)
+- AFL Tables team stats URL corrected to summary page (`{year}s.html`) which has actual team-level aggregates
+- AFL Tables player list URL corrected to all-time page (`stats/alltime/{slug}.html`) with proper column parsing for `Games (W-D-L)` format
+- FootyWire team stats URL corrected from removed `ft_team_statistics` to `ft_team_rankings` (matching R package)
+- FootyWire team stats parser rewritten to use 11th table with column indices matching the R package
+- FootyWire player details URL corrected from `th-` (team history) to `tp-` (team profile) with parser updated for `No, Name, Games, Age, DOB, Height, Origin, Position` column layout
+- FootyWire player list parser no longer matches the settings form table instead of the player data table
+- `score` field in `MatchItemSchema` changed from `.optional()` to `.nullish()` to handle null scores from AFL API
+- Ladder and player stats round filtering now works correctly for AFL Tables source
+
+### Changed
+
+- `DataSource` union type expanded: `"squiggle"` added alongside existing `"afl-api" | "footywire" | "afl-tables"`
+- `fetchTeams` now filters to the 18 senior AFL clubs using `AFL_SENIOR_TEAMS`
+
+### Removed
+
+- `scripts/smoke-test.ts` — replaced by comprehensive CLI testing
+
 ## [1.0.2] - 2026-03-26
 
 ### Fixed

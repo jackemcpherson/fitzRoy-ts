@@ -19,7 +19,7 @@
  */
 const TEAM_ALIASES: ReadonlyArray<readonly [canonical: string, ...aliases: string[]]> = [
   ["Adelaide Crows", "Adelaide", "Crows", "ADEL", "AD"],
-  ["Brisbane Lions", "Brisbane", "Brisbane Bears", "Bears", "Fitzroy Lions", "BL", "BRIS"],
+  ["Brisbane Lions", "Brisbane", "Brisbane Bears", "Bears", "Lions", "Fitzroy Lions", "BL", "BRIS"],
   ["Carlton", "Carlton Blues", "Blues", "CARL", "CA"],
   ["Collingwood", "Collingwood Magpies", "Magpies", "COLL", "CW"],
   ["Essendon", "Essendon Bombers", "Bombers", "ESS", "ES"],
@@ -57,6 +57,28 @@ const TEAM_ALIASES: ReadonlyArray<readonly [canonical: string, ...aliases: strin
   ["Fitzroy", "Fitzroy Reds", "Fitzroy Gorillas", "Fitzroy Maroons", "FI"],
   ["University", "University Blacks"],
 ] as const;
+
+/** The 18 current senior AFL club names (canonical form). */
+export const AFL_SENIOR_TEAMS: ReadonlySet<string> = new Set([
+  "Adelaide Crows",
+  "Brisbane Lions",
+  "Carlton",
+  "Collingwood",
+  "Essendon",
+  "Fremantle",
+  "Geelong Cats",
+  "Gold Coast Suns",
+  "GWS Giants",
+  "Hawthorn",
+  "Melbourne",
+  "North Melbourne",
+  "Port Adelaide",
+  "Richmond",
+  "St Kilda",
+  "Sydney Swans",
+  "West Coast Eagles",
+  "Western Bulldogs",
+]);
 
 /**
  * Pre-built lookup map from lowercased alias to canonical name.

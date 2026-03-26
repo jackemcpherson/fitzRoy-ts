@@ -233,7 +233,7 @@ export type CfsVenue = z.infer<typeof CfsVenueSchema>;
 export const MatchItemSchema = z
   .object({
     match: CfsMatchSchema,
-    score: CfsScoreSchema.optional(),
+    score: CfsScoreSchema.nullish(),
     venue: CfsVenueSchema.optional(),
     round: z
       .object({

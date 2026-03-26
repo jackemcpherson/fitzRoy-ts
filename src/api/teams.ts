@@ -4,7 +4,7 @@
 
 import { ValidationError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
-import { normaliseTeamName } from "../lib/team-mapping";
+import { AFL_SENIOR_TEAMS, normaliseTeamName } from "../lib/team-mapping";
 import { AflApiClient } from "../sources/afl-api";
 import type { CompetitionCode, Squad, SquadPlayer, SquadQuery, Team, TeamQuery } from "../types";
 
@@ -21,22 +21,23 @@ function teamTypeForComp(comp: CompetitionCode): string {
  */
 export async function fetchTeams(query?: TeamQuery): Promise<Result<Team[], Error>> {
   const client = new AflApiClient();
-  const teamType =
-    query?.teamType ?? (query?.competition ? teamTypeForComp(query.competition) : undefined);
+  const teamType = query?.teamType ?? teamTypeForComp(query?.competition ?? "AFLM");
 
   const result = await client.fetchTeams(teamType);
   if (!result.success) return result;
 
   const competition = query?.competition ?? "AFLM";
 
-  return ok(
-    result.data.map((t) => ({
+  const teams = result.data
+    .map((t) => ({
       teamId: String(t.id),
       name: normaliseTeamName(t.name),
       abbreviation: t.abbreviation ?? "",
       competition,
-    })),
-  );
+    }))
+    .filter((t) => AFL_SENIOR_TEAMS.has(t.name));
+
+  return ok(teams);
 }
 
 /**

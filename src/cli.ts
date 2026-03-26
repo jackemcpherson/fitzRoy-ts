@@ -20,6 +20,11 @@ const main = defineCommand({
     lineup: () => import("./cli/commands/lineup").then((m) => m.lineupCommand),
     squad: () => import("./cli/commands/squad").then((m) => m.squadCommand),
     teams: () => import("./cli/commands/teams").then((m) => m.teamsCommand),
+    "team-stats": () => import("./cli/commands/team-stats").then((m) => m.teamStatsCommand),
+    "player-details": () =>
+      import("./cli/commands/player-details").then((m) => m.playerDetailsCommand),
+    "coaches-votes": () =>
+      import("./cli/commands/coaches-votes").then((m) => m.coachesVotesCommand),
   },
 });
 

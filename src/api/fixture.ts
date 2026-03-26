@@ -7,7 +7,10 @@ import { err, ok, type Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
 import type { MatchItem } from "../lib/validation";
 import { AflApiClient } from "../sources/afl-api";
+import { FootyWireClient } from "../sources/footywire";
+import { SquiggleClient } from "../sources/squiggle";
 import { inferRoundType, toMatchStatus } from "../transforms/match-results";
+import { transformSquiggleGamesToFixture } from "../transforms/squiggle";
 import type { CompetitionCode, Fixture, SeasonRoundQuery } from "../types";
 
 /** Map a raw match item to a Fixture domain object. */
@@ -40,10 +43,28 @@ function toFixture(
 export async function fetchFixture(query: SeasonRoundQuery): Promise<Result<Fixture[], Error>> {
   const competition = query.competition ?? "AFLM";
 
+  if (query.source === "squiggle") {
+    const client = new SquiggleClient();
+    const result = await client.fetchGames(query.season, query.round ?? undefined);
+    if (!result.success) return result;
+    return ok(transformSquiggleGamesToFixture(result.data.games, query.season));
+  }
+
+  if (query.source === "footywire") {
+    const fwClient = new FootyWireClient();
+    const result = await fwClient.fetchSeasonFixture(query.season);
+    if (!result.success) return result;
+
+    if (query.round != null) {
+      return ok(result.data.filter((f) => f.roundNumber === query.round));
+    }
+    return result;
+  }
+
   if (query.source !== "afl-api") {
     return err(
       new UnsupportedSourceError(
-        "Fixture data is only available from the AFL API source.",
+        "Fixture data is only available from the AFL API, FootyWire, or Squiggle sources.",
         query.source,
       ),
     );

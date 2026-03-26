@@ -16,7 +16,7 @@ export type CompetitionCode = "AFLM" | "AFLW";
 export type RoundType = "HomeAndAway" | "Finals";
 
 /** Supported data sources mirroring the R package's `source` parameter. */
-export type DataSource = "afl-api" | "footywire" | "afl-tables";
+export type DataSource = "afl-api" | "footywire" | "afl-tables" | "squiggle";
 
 /** Match status as reported by the AFL API. */
 export type MatchStatus = "Upcoming" | "Live" | "Complete" | "Postponed" | "Cancelled";
@@ -308,6 +308,119 @@ export interface Squad {
 }
 
 // ---------------------------------------------------------------------------
+// Player details (biographical data)
+// ---------------------------------------------------------------------------
+
+/** Biographical details for a single player. */
+export interface PlayerDetails {
+  readonly playerId: string;
+  readonly givenName: string;
+  readonly surname: string;
+  readonly displayName: string;
+  readonly team: string;
+  readonly jumperNumber: number | null;
+  readonly position: string | null;
+  readonly dateOfBirth: string | null;
+  readonly heightCm: number | null;
+  readonly weightKg: number | null;
+  readonly gamesPlayed: number | null;
+  readonly goals: number | null;
+  readonly draftYear: number | null;
+  readonly draftPosition: number | null;
+  readonly draftType: string | null;
+  readonly debutYear: number | null;
+  readonly recruitedFrom: string | null;
+  readonly source: DataSource;
+  readonly competition: CompetitionCode;
+}
+
+/** Query parameters for fetching player details. */
+export interface PlayerDetailsQuery {
+  readonly source: DataSource;
+  readonly team: string;
+  readonly season?: number | undefined;
+  readonly current?: boolean | undefined;
+  readonly competition?: CompetitionCode | undefined;
+}
+
+// ---------------------------------------------------------------------------
+// Awards
+// ---------------------------------------------------------------------------
+
+/** Types of awards available. */
+export type AwardType = "brownlow" | "all-australian" | "rising-star";
+
+/** A Brownlow Medal vote tally for a player. */
+export interface BrownlowVote {
+  readonly type: "brownlow";
+  readonly season: number;
+  readonly player: string;
+  readonly team: string;
+  readonly votes: number;
+  readonly votes3: number;
+  readonly votes2: number;
+  readonly votes1: number;
+  readonly gamesPolled: number | null;
+}
+
+/** An All-Australian team selection. */
+export interface AllAustralianSelection {
+  readonly type: "all-australian";
+  readonly season: number;
+  readonly position: string;
+  readonly player: string;
+  readonly team: string;
+}
+
+/** A Rising Star nomination with stats. */
+export interface RisingStarNomination {
+  readonly type: "rising-star";
+  readonly season: number;
+  readonly round: number;
+  readonly player: string;
+  readonly team: string;
+  readonly opponent: string;
+  readonly kicks: number | null;
+  readonly handballs: number | null;
+  readonly disposals: number | null;
+  readonly marks: number | null;
+  readonly goals: number | null;
+  readonly behinds: number | null;
+  readonly tackles: number | null;
+}
+
+/** Discriminated union of award types. */
+export type Award = BrownlowVote | AllAustralianSelection | RisingStarNomination;
+
+/** Query parameters for fetching awards. */
+export interface AwardQuery {
+  readonly award: AwardType;
+  readonly season: number;
+}
+
+// ---------------------------------------------------------------------------
+// Coaches votes
+// ---------------------------------------------------------------------------
+
+/** AFLCA coaches votes for a player in a single match. */
+export interface CoachesVote {
+  readonly season: number;
+  readonly round: number;
+  readonly homeTeam: string;
+  readonly awayTeam: string;
+  readonly playerName: string;
+  readonly votes: number;
+}
+
+/** Query parameters for fetching coaches votes. */
+export interface CoachesVoteQuery {
+  readonly season: number;
+  readonly round?: number | undefined;
+  readonly competition?: CompetitionCode | undefined;
+  readonly team?: string | undefined;
+}
+
+// ---------------------------------------------------------------------------
 // Query parameter types
 // ---------------------------------------------------------------------------
 
@@ -362,4 +475,32 @@ export interface SquadQuery {
   readonly teamId: string;
   readonly season: number;
   readonly competition?: CompetitionCode | undefined;
+}
+
+// ---------------------------------------------------------------------------
+// Team statistics (aggregate per-team stats)
+// ---------------------------------------------------------------------------
+
+/** Summary type for team statistics. */
+export type TeamStatsSummaryType = "totals" | "averages";
+
+/**
+ * Aggregate statistics for a single team in a season.
+ *
+ * The `stats` record uses flexible string keys because stat columns
+ * differ between data sources (FootyWire vs AFL Tables).
+ */
+export interface TeamStatsEntry {
+  readonly season: number;
+  readonly team: string;
+  readonly gamesPlayed: number;
+  readonly stats: Readonly<Record<string, number>>;
+  readonly source: DataSource;
+}
+
+/** Query parameters for fetching team statistics. */
+export interface TeamStatsQuery {
+  readonly source: DataSource;
+  readonly season: number;
+  readonly summaryType?: TeamStatsSummaryType | undefined;
 }

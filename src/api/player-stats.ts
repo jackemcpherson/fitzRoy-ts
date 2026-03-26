@@ -5,6 +5,8 @@
 import { AflApiError, UnsupportedSourceError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { AflApiClient } from "../sources/afl-api";
+import { AflTablesClient } from "../sources/afl-tables";
+import { FootyWireClient } from "../sources/footywire";
 import { transformPlayerStats } from "../transforms/player-stats";
 import type { PlayerStats, PlayerStatsQuery } from "../types";
 
@@ -87,21 +89,57 @@ export async function fetchPlayerStats(
       return ok(allStats);
     }
 
-    case "footywire":
-      return err(
-        new UnsupportedSourceError(
-          "Player stats from FootyWire are not yet supported. Use source: 'afl-api'.",
-          "footywire",
-        ),
-      );
+    case "footywire": {
+      const fwClient = new FootyWireClient();
 
-    case "afl-tables":
-      return err(
-        new UnsupportedSourceError(
-          "Player stats from AFL Tables are not yet supported. Use source: 'afl-api'.",
-          "afl-tables",
-        ),
-      );
+      // Get match IDs for the season
+      const idsResult = await fwClient.fetchSeasonMatchIds(query.season);
+      if (!idsResult.success) return idsResult;
+
+      const matchIds = idsResult.data;
+      if (matchIds.length === 0) {
+        return ok([]);
+      }
+
+      // Scrape stats in batches of 5 to avoid rate limiting
+      const allStats: PlayerStats[] = [];
+      const batchSize = 5;
+      for (let i = 0; i < matchIds.length; i += batchSize) {
+        const batch = matchIds.slice(i, i + batchSize);
+        const results = await Promise.all(
+          batch.map((mid) => fwClient.fetchMatchPlayerStats(mid, query.season, query.round ?? 0)),
+        );
+
+        for (const result of results) {
+          if (result.success) {
+            allStats.push(...result.data);
+          }
+        }
+
+        // Small delay between batches to be respectful
+        if (i + batchSize < matchIds.length) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+      }
+
+      // Filter by round if specified
+      if (query.round != null) {
+        return ok(allStats.filter((s) => s.roundNumber === query.round));
+      }
+
+      return ok(allStats);
+    }
+
+    case "afl-tables": {
+      const atClient = new AflTablesClient();
+      const atResult = await atClient.fetchSeasonPlayerStats(query.season);
+      if (!atResult.success) return atResult;
+
+      if (query.round != null) {
+        return ok(atResult.data.filter((s) => s.roundNumber === query.round));
+      }
+      return atResult;
+    }
 
     default:
       return err(new UnsupportedSourceError(`Unsupported source: ${query.source}`, query.source));
