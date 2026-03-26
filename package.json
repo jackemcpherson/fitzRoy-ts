@@ -1,6 +1,6 @@
 {
   "name": "fitzroy",
-  "version": "0.1.2",
+  "version": "1.0.0",
   "description": "TypeScript library and CLI for AFL data — match results, player stats, fixtures, ladders, and more",
   "type": "module",
   "main": "./dist/index.js",
