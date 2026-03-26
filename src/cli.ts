@@ -3,10 +3,12 @@ import { defineCommand, runMain } from "citty";
 import pc from "picocolors";
 import { AflApiError, ScrapeError, UnsupportedSourceError, ValidationError } from "./lib/errors";
 
+declare const PACKAGE_VERSION: string;
+
 const main = defineCommand({
   meta: {
     name: "fitzroy",
-    version: "0.1.2",
+    version: PACKAGE_VERSION,
     description:
       "CLI for fetching AFL data — match results, player stats, fixtures, ladders, and more",
   },
