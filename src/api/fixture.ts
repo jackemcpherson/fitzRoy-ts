@@ -2,12 +2,12 @@
  * Public API for fetching fixture/schedule data.
  */
 
-import { AflApiError } from "../lib/errors";
+import { UnsupportedSourceError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
 import type { MatchItem } from "../lib/validation";
 import { AflApiClient } from "../sources/afl-api";
-import { toMatchStatus } from "../transforms/match-results";
+import { inferRoundType, toMatchStatus } from "../transforms/match-results";
 import type { CompetitionCode, Fixture, SeasonRoundQuery } from "../types";
 
 /** Map a raw match item to a Fixture domain object. */
@@ -21,7 +21,7 @@ function toFixture(
     matchId: item.match.matchId,
     season,
     roundNumber: item.round?.roundNumber ?? fallbackRoundNumber,
-    roundType: "HomeAndAway",
+    roundType: inferRoundType(item.round?.name ?? ""),
     date: new Date(item.match.utcStartTime),
     venue: item.venue?.name ?? "",
     homeTeam: normaliseTeamName(item.match.homeTeam.name),
@@ -41,7 +41,12 @@ export async function fetchFixture(query: SeasonRoundQuery): Promise<Result<Fixt
   const competition = query.competition ?? "AFLM";
 
   if (query.source !== "afl-api") {
-    return err(new AflApiError("Fixture data is only available from the AFL API source."));
+    return err(
+      new UnsupportedSourceError(
+        "Fixture data is only available from the AFL API source.",
+        query.source,
+      ),
+    );
   }
 
   const client = new AflApiClient();
@@ -58,9 +63,9 @@ export async function fetchFixture(query: SeasonRoundQuery): Promise<Result<Fixt
   const roundsResult = await client.resolveRounds(seasonResult.data);
   if (!roundsResult.success) return roundsResult;
 
-  const roundProviderIds = roundsResult.data
-    .filter((r) => r.providerId)
-    .map((r) => ({ providerId: r.providerId as string, roundNumber: r.roundNumber }));
+  const roundProviderIds = roundsResult.data.flatMap((r) =>
+    r.providerId ? [{ providerId: r.providerId, roundNumber: r.roundNumber }] : [],
+  );
 
   const roundResults = await Promise.all(
     roundProviderIds.map((r) => client.fetchRoundMatchItems(r.providerId)),

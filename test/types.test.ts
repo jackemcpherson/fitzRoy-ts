@@ -24,6 +24,9 @@ import type {
   TeamQuery,
 } from "../src/types";
 
+// Compile-time type smoke tests — these verify that domain type shapes
+// remain constructible. The runtime assertions are intentionally minimal;
+// the real value is that the file fails to compile if a type changes.
 describe("domain types", () => {
   it("CompetitionCode accepts valid values", () => {
     const codes: CompetitionCode[] = ["AFLM", "AFLW"];

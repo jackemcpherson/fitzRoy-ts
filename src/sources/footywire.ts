@@ -10,7 +10,8 @@ import { parseFootyWireDate } from "../lib/date-utils";
 import { ScrapeError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
-import type { MatchResult } from "../types";
+import { inferRoundType } from "../transforms/match-results";
+import type { MatchResult, RoundType } from "../types";
 
 const FOOTYWIRE_BASE = "https://www.footywire.com/afl/footy";
 
@@ -94,12 +95,14 @@ export function parseMatchList(html: string, year: number): MatchResult[] {
   const $ = cheerio.load(html);
   const results: MatchResult[] = [];
   let currentRound = 0;
+  let currentRoundType: RoundType = "HomeAndAway";
 
   // Each row is either a round header (colspan=7) or a match row
   $("tr").each((_i, row) => {
     const roundHeader = $(row).find("td[colspan='7']");
     if (roundHeader.length > 0) {
       const text = roundHeader.text().trim();
+      currentRoundType = inferRoundType(text);
       const roundMatch = /Round\s+(\d+)/i.exec(text);
       if (roundMatch?.[1]) {
         currentRound = Number.parseInt(roundMatch[1], 10);
@@ -152,7 +155,7 @@ export function parseMatchList(html: string, year: number): MatchResult[] {
       matchId,
       season: year,
       roundNumber: currentRound,
-      roundType: "HomeAndAway",
+      roundType: currentRoundType,
       date,
       venue,
       homeTeam,

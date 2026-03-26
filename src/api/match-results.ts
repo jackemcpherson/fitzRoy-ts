@@ -2,7 +2,7 @@
  * Public API for fetching match results across data sources.
  */
 
-import { AflApiError } from "../lib/errors";
+import { UnsupportedSourceError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { AflApiClient } from "../sources/afl-api";
 import { AflTablesClient } from "../sources/afl-tables";
@@ -70,6 +70,6 @@ export async function fetchMatchResults(
     }
 
     default:
-      return err(new AflApiError(`Unsupported source: ${query.source}`));
+      return err(new UnsupportedSourceError(`Unsupported source: ${query.source}`, query.source));
   }
 }

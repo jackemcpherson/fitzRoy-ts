@@ -370,3 +370,155 @@
 ---
 
 [Manual] 2026-03-26 11:00 UTC - All 26 user stories completed. 192 tests passing.
+
+[Review] 2026-03-26 12:00 UTC - test-quality (blocking)
+
+### Verdict: PASSED
+
+### Findings
+
+1. **TQ-001**: Framework Test - types.test.ts contains tautological runtime assertions
+   - File: test/types.test.ts:0
+   - Issue: All 13 tests construct typed objects/arrays and then assert properties equal the values that were just assigned (e.g., `const codes = ["AFLM", "AFLW"]; expect(codes).toHaveLength(2)` or `const match = { homeTeam: "Richmond", ... }; expect(match.homeTeam).toBe("Richmond")`). These assertions always pass at runtime regardless of whether the types are correct — they only provide value as compile-time type checks (the test would fail to compile if the type shape changed). No business logic is being tested.
+   - Suggestion: These are acceptable as compile-time smoke tests for the type definitions, but be aware they provide zero runtime safety. Consider adding a comment like `// compile-time type smoke tests` to clarify intent. No action required — this is a warning, not an error.
+
+2. **TQ-002**: Missing Assertion - toAestString test has a weak assertion
+   - File: test/lib/date-utils.test.ts:143
+   - Issue: The test "returns a non-empty string" only asserts `expect(result.length).toBeGreaterThan(0)`. This would pass for any non-empty string, providing almost no validation that the formatting is correct. The other two toAestString tests already cover formatting well, making this test redundant.
+   - Suggestion: Either remove this test (the other two toAestString tests provide sufficient coverage) or strengthen the assertion to check for a specific expected substring. Minor suggestion — no action required.
+
+### Coverage Assessment
+
+| Test File | Critical Paths Covered | Assertions Meaningful | Deterministic | Rating |
+|-----------|----------------------|----------------------|---------------|--------|
+| test/api/match-results.test.ts | Yes (source routing, error paths) | Yes | Yes | Good |
+| test/lib/date-utils.test.ts | Yes (all formats, edge cases) | Yes (1 weak) | Yes | Good |
+| test/lib/errors.test.ts | Yes (custom error properties) | Yes | Yes | Good |
+| test/lib/result.test.ts | Yes (ok/err constructors) | Yes | Yes | Good |
+| test/lib/team-mapping.test.ts | Yes (all 18 teams, aliases, edge cases) | Yes | Yes | Excellent |
+| test/lib/validation.test.ts | Yes (valid/invalid payloads per CLAUDE.md) | Yes | Yes | Excellent |
+| test/sources/afl-api.test.ts | Yes (auth, retry, errors, all methods) | Yes | Yes | Excellent |
+| test/sources/afl-tables.test.ts | Yes (parsing, client, errors) | Yes | Yes | Good |
+| test/sources/footywire.test.ts | Yes (parsing, client, errors) | Yes | Yes | Good |
+| test/sources/fryzigg.test.ts | Yes (stub error) | Yes | Yes | Good |
+| test/transforms/lineup.test.ts | Yes (mapping, edge cases) | Yes | Yes | Excellent |
+| test/transforms/match-results.test.ts | Yes (full transform, missing data) | Yes | Yes | Excellent |
+| test/transforms/player-stats.test.ts | Yes (stats extraction, nulls) | Yes | Yes | Excellent |
+| test/types.test.ts | Partial (compile-time only) | Weak (tautological) | Yes | Fair |
+
+### Summary
+
+- Errors: 0
+- Warnings: 2 (TQ-001, TQ-002)
+- Suggestions: 0
+
+The test suite is high quality overall. Transform tests are thorough with realistic fixture data. Source clients are well-tested with injectable fetch mocks. Zod schema tests follow project conventions (CLAUDE.md explicitly requires testing schemas against valid/invalid payloads). No anti-patterns like missing assertions, test pollution, or flaky dependencies were found. The two warnings are minor and do not block.
+
+---
+
+[Review] 2026-03-26 14:00 UTC - repo-structure (error)
+
+### Verdict: NEEDS_WORK
+
+### Findings
+
+1. **RS-001**: Missing README - README.md does not exist
+   - File: README.md:0
+   - Issue: The repository root is missing a README.md file. This is essential for project documentation — users and contributors need to understand what the project does, how to install it, and how to use it.
+   - Suggestion: Create README.md with: project description (TypeScript port of fitzRoy R package for AFL data), installation instructions (`npm install` / `bun install`), usage examples (importing and calling public API functions like `fetchMatchResults`), available data sources, and contribution guidelines or link to CONTRIBUTING.md.
+
+2. **RS-002**: Missing LICENSE - LICENSE file not present
+   - File: LICENSE:0
+   - Issue: No LICENSE file found at repository root. The upstream fitzRoy R package is MIT-licensed. Without a license, the code is technically all-rights-reserved.
+   - Suggestion: Add a LICENSE file. Consider MIT to match the upstream fitzRoy R package, or choose another appropriate open source license.
+
+3. **RS-003**: Missing CI/CD - No CI/CD configuration present
+   - File: .github/workflows:0
+   - Issue: No CI/CD configuration found (no .github/workflows/, .gitlab-ci.yml, or similar). The project has quality checks (`npm run typecheck`, `npm run check`, `npm run test`) that should run automatically on push/PR.
+   - Suggestion: Add a GitHub Actions workflow (e.g., `.github/workflows/ci.yml`) that runs `npm run typecheck && npm run check && npm run test` on push and pull requests.
+
+4. **RS-004**: Missing .editorconfig - No .editorconfig file present
+   - File: .editorconfig:0
+   - Issue: No .editorconfig file for consistent formatting across editors. While Biome handles formatting, .editorconfig ensures consistent basics (indent style, line endings) for contributors using different editors.
+   - Suggestion: Add an .editorconfig specifying indent_style = tab (matching Biome defaults), end_of_line = lf, charset = utf-8, insert_final_newline = true.
+
+### Summary
+
+- Errors: 1 (RS-001)
+- Warnings: 3 (RS-002, RS-003, RS-004)
+- Suggestions: 0
+
+The repository has strong internal organization — source code is well-structured in `src/` with clear separation of concerns, tests mirror the source layout, `.gitignore` is comprehensive, `CHANGELOG.md` is maintained, and `docs/` exists. The blocking issue is the missing README.md, which is essential for any project. The LICENSE, CI/CD, and .editorconfig gaps are recommended fixes.
+
+---
+
+[Review] 2026-03-26 14:10 UTC - github-actions (warning)
+
+### Verdict: PASSED
+
+### Workflow Coverage
+
+| Workflow Type | Present | File |
+|---------------|---------|------|
+| Lint/Format | ✅ | ci.yml |
+| Unit Tests | ✅ | ci.yml |
+| Build Check | ✅ | ci.yml (typecheck serves as build verification for this library) |
+| Integration Tests | N/A | - |
+| Dependabot | ✅ | dependabot.yml |
+| Security Scan | N/A | - |
+
+### Findings
+
+(No issues found — all errors were fixed during review)
+
+### Fixes Applied
+
+1. **GA-001**: No Timeout — added `timeout-minutes: 10` to the `check` job
+2. **GA-002**: Broad Permissions — added explicit `permissions: contents: read` at workflow level
+3. **GA-003**: No Dependabot — created `.github/dependabot.yml` with npm and github-actions ecosystems on weekly schedule
+
+---
+
+[Review] 2026-03-26 14:20 UTC - release (error)
+
+### Verdict: NEEDS_WORK
+
+### Findings
+
+1. **RL-001**: Version Missing — no version field in package.json
+   - File: package.json:0
+   - Issue: package.json has no `version` field. Required for release.
+   - Suggestion: Add `"version": "0.1.0"` to package.json. **FIXED.**
+
+2. **RL-002**: Missing Changelog — [Unreleased] only lists Zod schemas, not the full v0.1.0 feature set
+   - File: CHANGELOG.md:8
+   - Issue: Changelog only mentioned Zod schemas under [Unreleased]. The v0.1.0 release includes source clients, transforms, public API, team mapping, date utils, and more.
+   - Suggestion: Convert [Unreleased] to [0.1.0] with comprehensive entries. **FIXED.**
+
+3. **RL-003**: Dirty Working Directory — many uncommitted changes present
+   - File: .:0
+   - Issue: Working directory has modified and untracked files that need to be committed before release.
+   - Suggestion: Stage and commit all changes. **FIXING.**
+
+4. **RL-004**: Wrong Branch — on ralph/fitzroy-ts-library, not main
+   - File: .:0
+   - Issue: Current branch is a feature branch, not main. Release should be merged to main first.
+   - Suggestion: Create PR to main and merge before tagging. Deferred to user.
+
+5. **RL-005**: Documentation Placeholder — AGENTS.md line 5 has placeholder text
+   - File: AGENTS.md:5
+   - Issue: AGENTS.md contains `[Add project description here]` placeholder.
+   - Suggestion: Replace with actual project description. **FIXED.**
+
+6. **RL-006**: Empty Changelog Sections — Changed, Deprecated, Removed, Fixed, Security headers with no content
+   - File: CHANGELOG.md:14
+   - Issue: Empty category headers add noise to the changelog.
+   - Suggestion: Remove empty sections. **FIXED.**
+
+### Notes
+
+- No git tag `v0.1.0` exists — clear to tag after merge.
+- No TODO/FIXME markers in source code.
+- No PROGRESS.txt archives to clean up.
+
+---

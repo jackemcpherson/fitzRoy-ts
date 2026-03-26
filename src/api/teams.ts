@@ -2,13 +2,13 @@
  * Public API for fetching team lists and squad rosters.
  */
 
-import { AflApiError } from "../lib/errors";
+import { ValidationError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
 import { AflApiClient } from "../sources/afl-api";
 import type { CompetitionCode, Squad, SquadPlayer, SquadQuery, Team, TeamQuery } from "../types";
 
-/** Map CompetitionCode to the team type filter used by the API. */
+/** Map a CompetitionCode to the API's team type filter string ("MEN" or "WOMEN"). */
 function teamTypeForComp(comp: CompetitionCode): string {
   return comp === "AFLW" ? "WOMEN" : "MEN";
 }
@@ -54,7 +54,7 @@ export async function fetchSquad(query: SquadQuery): Promise<Result<Squad, Error
 
   const teamId = Number.parseInt(query.teamId, 10);
   if (Number.isNaN(teamId)) {
-    return err(new AflApiError(`Invalid team ID: ${query.teamId}`));
+    return err(new ValidationError(`Invalid team ID: ${query.teamId}`));
   }
 
   const squadResult = await client.fetchSquad(teamId, seasonResult.data);

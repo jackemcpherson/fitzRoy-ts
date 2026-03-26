@@ -96,12 +96,18 @@ describe("transformMatchItems", () => {
   });
 
   it("handles missing periodScore gracefully", () => {
-    const item = makeMatchItem();
-    if (item.score) {
-      (item.score as Record<string, unknown>).homeTeamScore = {
-        matchScore: { totalScore: 50, goals: 7, behinds: 8 },
-      };
-    }
+    const item = makeMatchItem({
+      score: {
+        status: "CONCLUDED",
+        matchId: "CD_M1",
+        homeTeamScore: {
+          matchScore: { totalScore: 50, goals: 7, behinds: 8 },
+        },
+        awayTeamScore: {
+          matchScore: { totalScore: 69, goals: 9, behinds: 15 },
+        },
+      },
+    });
     const r = first(transformMatchItems([item], 2025, "AFLM"));
 
     expect(r.homePoints).toBe(50);

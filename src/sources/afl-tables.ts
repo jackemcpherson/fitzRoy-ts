@@ -10,7 +10,8 @@ import { parseAflTablesDate } from "../lib/date-utils";
 import { ScrapeError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
-import type { MatchResult, QuarterScore } from "../types";
+import { inferRoundType } from "../transforms/match-results";
+import type { MatchResult, QuarterScore, RoundType } from "../types";
 
 const AFL_TABLES_BASE = "https://afltables.com/afl/seas";
 
@@ -73,6 +74,7 @@ export function parseSeasonPage(html: string, year: number): MatchResult[] {
   const $ = cheerio.load(html);
   const results: MatchResult[] = [];
   let currentRound = 0;
+  let currentRoundType: RoundType = "HomeAndAway";
   let matchCounter = 0;
 
   // Find round headers — tables with "Round N" text that aren't match tables
@@ -85,6 +87,13 @@ export function parseSeasonPage(html: string, year: number): MatchResult[] {
     const roundMatch = /^Round\s+(\d+)/i.exec(text);
     if (roundMatch?.[1] && !$table.attr("border")) {
       currentRound = Number.parseInt(roundMatch[1], 10);
+      currentRoundType = inferRoundType(text);
+      return;
+    }
+
+    // Check for non-numbered round headers (Finals, Grand Final, etc.)
+    if (!$table.attr("border") && inferRoundType(text) === "Finals") {
+      currentRoundType = "Finals";
       return;
     }
 
@@ -129,7 +138,7 @@ export function parseSeasonPage(html: string, year: number): MatchResult[] {
       matchId: `AT_${year}_${matchCounter}`,
       season: year,
       roundNumber: currentRound,
-      roundType: "HomeAndAway",
+      roundType: currentRoundType,
       date,
       venue,
       homeTeam,

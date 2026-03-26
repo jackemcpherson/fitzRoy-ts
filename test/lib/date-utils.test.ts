@@ -139,9 +139,4 @@ describe("toAestString", () => {
     expect(result).toContain("pm");
     expect(result).toContain("Jul");
   });
-
-  it("returns a non-empty string", () => {
-    const result = toAestString(new Date("2024-01-01T00:00:00.000Z"));
-    expect(result.length).toBeGreaterThan(0);
-  });
 });

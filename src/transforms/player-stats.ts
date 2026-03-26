@@ -6,8 +6,9 @@ import { normaliseTeamName } from "../lib/team-mapping";
 import type { PlayerStatsItem, PlayerStatsList } from "../lib/validation";
 import type { CompetitionCode, DataSource, PlayerStats } from "../types";
 
-function stat(value: number | null | undefined): number | null {
-  return value != null ? value : null;
+/** Coerce `undefined` to `null` for optional numeric stat fields. */
+function toNullable(value: number | null | undefined): number | null {
+  return value ?? null;
 }
 
 /**
@@ -38,37 +39,37 @@ function transformOne(
     displayName: `${inner.playerName.givenName} ${inner.playerName.surname}`,
     jumperNumber: item.player.jumperNumber ?? null,
 
-    kicks: stat(stats.kicks),
-    handballs: stat(stats.handballs),
-    disposals: stat(stats.disposals),
-    marks: stat(stats.marks),
-    goals: stat(stats.goals),
-    behinds: stat(stats.behinds),
-    tackles: stat(stats.tackles),
-    hitouts: stat(stats.hitouts),
-    freesFor: stat(stats.freesFor),
-    freesAgainst: stat(stats.freesAgainst),
+    kicks: toNullable(stats.kicks),
+    handballs: toNullable(stats.handballs),
+    disposals: toNullable(stats.disposals),
+    marks: toNullable(stats.marks),
+    goals: toNullable(stats.goals),
+    behinds: toNullable(stats.behinds),
+    tackles: toNullable(stats.tackles),
+    hitouts: toNullable(stats.hitouts),
+    freesFor: toNullable(stats.freesFor),
+    freesAgainst: toNullable(stats.freesAgainst),
 
-    contestedPossessions: stat(stats.contestedPossessions),
-    uncontestedPossessions: stat(stats.uncontestedPossessions),
-    contestedMarks: stat(stats.contestedMarks),
-    intercepts: stat(stats.intercepts),
+    contestedPossessions: toNullable(stats.contestedPossessions),
+    uncontestedPossessions: toNullable(stats.uncontestedPossessions),
+    contestedMarks: toNullable(stats.contestedMarks),
+    intercepts: toNullable(stats.intercepts),
 
-    centreClearances: stat(clearances?.centreClearances),
-    stoppageClearances: stat(clearances?.stoppageClearances),
-    totalClearances: stat(clearances?.totalClearances),
+    centreClearances: toNullable(clearances?.centreClearances),
+    stoppageClearances: toNullable(clearances?.stoppageClearances),
+    totalClearances: toNullable(clearances?.totalClearances),
 
-    inside50s: stat(stats.inside50s),
-    rebound50s: stat(stats.rebound50s),
-    clangers: stat(stats.clangers),
-    turnovers: stat(stats.turnovers),
-    onePercenters: stat(stats.onePercenters),
-    bounces: stat(stats.bounces),
-    goalAssists: stat(stats.goalAssists),
-    disposalEfficiency: stat(stats.disposalEfficiency),
-    metresGained: stat(stats.metresGained),
+    inside50s: toNullable(stats.inside50s),
+    rebound50s: toNullable(stats.rebound50s),
+    clangers: toNullable(stats.clangers),
+    turnovers: toNullable(stats.turnovers),
+    onePercenters: toNullable(stats.onePercenters),
+    bounces: toNullable(stats.bounces),
+    goalAssists: toNullable(stats.goalAssists),
+    disposalEfficiency: toNullable(stats.disposalEfficiency),
+    metresGained: toNullable(stats.metresGained),
 
-    dreamTeamPoints: stat(stats.dreamTeamPoints),
+    dreamTeamPoints: toNullable(stats.dreamTeamPoints),
     supercoachPoints: null,
     brownlowVotes: null,
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-fitzRoy-ts - [Add project description here]
+fitzRoy-ts - TypeScript port of the fitzRoy R package for programmatic access to AFL data
 
 This file contains instructions for AI agents working on this codebase.
 It is kept in sync with CLAUDE.md.

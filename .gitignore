@@ -30,3 +30,5 @@ coverage/
 # IDE
 .idea/
 .vscode/
+.claude/
+.ralph-review-state.json

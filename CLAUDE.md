@@ -37,7 +37,7 @@ The codebase follows a "pure core, effectful shell" pattern:
 
 ## Key Constraints
 
-- **No Node.js built-ins** — only Web Standard APIs (`fetch`, `Request`, `Response`, `URL`, `crypto`). No Bun-specific APIs either (`Bun.file()`, `Bun.serve()`).
+- **No Node.js built-ins in `src/`** — only Web Standard APIs (`fetch`, `Request`, `Response`, `URL`, `crypto`). No Bun-specific APIs either (`Bun.file()`, `Bun.serve()`). Test files (`test/`) may use Node.js built-ins (`node:fs`, `node:path`) for loading fixtures.
 - **No `any`** — Biome enforces `noExplicitAny: "error"`. Use `unknown` and narrow with Zod.
 - **No `enum`** — use union types instead (e.g., `type RoundType = "HomeAndAway" | "Finals"`).
 - **No default exports** — Biome enforces `noDefaultExport: "error"`, with overrides only for `*.config.ts`.

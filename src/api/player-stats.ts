@@ -2,7 +2,7 @@
  * Public API for fetching player statistics across data sources.
  */
 
-import { AflApiError } from "../lib/errors";
+import { AflApiError, UnsupportedSourceError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { AflApiClient } from "../sources/afl-api";
 import { transformPlayerStats } from "../transforms/player-stats";
@@ -81,19 +81,21 @@ export async function fetchPlayerStats(
 
     case "footywire":
       return err(
-        new AflApiError(
+        new UnsupportedSourceError(
           "Player stats from FootyWire are not yet supported. Use source: 'afl-api'.",
+          "footywire",
         ),
       );
 
     case "afl-tables":
       return err(
-        new AflApiError(
+        new UnsupportedSourceError(
           "Player stats from AFL Tables are not yet supported. Use source: 'afl-api'.",
+          "afl-tables",
         ),
       );
 
     default:
-      return err(new AflApiError(`Unsupported source: ${query.source}`));
+      return err(new UnsupportedSourceError(`Unsupported source: ${query.source}`, query.source));
   }
 }

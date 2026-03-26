@@ -2,7 +2,7 @@
  * Public API for fetching match lineup/roster data.
  */
 
-import { AflApiError } from "../lib/errors";
+import { AflApiError, UnsupportedSourceError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { AflApiClient } from "../sources/afl-api";
 import { transformMatchRoster } from "../transforms/lineup";
@@ -18,7 +18,12 @@ export async function fetchLineup(query: LineupQuery): Promise<Result<Lineup, Er
   const competition = query.competition ?? "AFLM";
 
   if (query.source !== "afl-api") {
-    return err(new AflApiError("Lineup data is only available from the AFL API source."));
+    return err(
+      new UnsupportedSourceError(
+        "Lineup data is only available from the AFL API source.",
+        query.source,
+      ),
+    );
   }
 
   const client = new AflApiClient();

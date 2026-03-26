@@ -4,7 +4,22 @@
 
 import { normaliseTeamName } from "../lib/team-mapping";
 import type { MatchItem, PeriodScore } from "../lib/validation";
-import type { CompetitionCode, DataSource, MatchResult, MatchStatus, QuarterScore } from "../types";
+import type {
+  CompetitionCode,
+  DataSource,
+  MatchResult,
+  MatchStatus,
+  QuarterScore,
+  RoundType,
+} from "../types";
+
+/** Finals round name patterns. */
+const FINALS_PATTERN = /final|elimination|qualifying|preliminary|semi|grand/i;
+
+/** Infer RoundType from a round name string. */
+export function inferRoundType(roundName: string): RoundType {
+  return FINALS_PATTERN.test(roundName) ? "Finals" : "HomeAndAway";
+}
 
 /** Map raw API status strings to domain MatchStatus. */
 export function toMatchStatus(raw: string): MatchStatus {
@@ -71,7 +86,7 @@ export function transformMatchItems(
       matchId: item.match.matchId,
       season,
       roundNumber: item.round?.roundNumber ?? 0,
-      roundType: "HomeAndAway" as const,
+      roundType: inferRoundType(item.round?.name ?? ""),
       date: new Date(item.match.utcStartTime),
       venue: item.venue?.name ?? "",
       homeTeam: normaliseTeamName(item.match.homeTeam.name),

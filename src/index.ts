@@ -16,7 +16,7 @@ export {
   parseFootyWireDate,
   toAestString,
 } from "./lib/date-utils";
-export { AflApiError, ScrapeError, ValidationError } from "./lib/errors";
+export { AflApiError, ScrapeError, UnsupportedSourceError, ValidationError } from "./lib/errors";
 export { type Err, err, type Ok, ok, type Result } from "./lib/result";
 export { normaliseTeamName } from "./lib/team-mapping";
 export {
@@ -80,7 +80,7 @@ export { AflTablesClient, type AflTablesClientOptions } from "./sources/afl-tabl
 export { FootyWireClient, type FootyWireClientOptions } from "./sources/footywire";
 export { fetchFryziggStats } from "./sources/fryzigg";
 export { transformMatchRoster } from "./transforms/lineup";
-export { transformMatchItems } from "./transforms/match-results";
+export { inferRoundType, transformMatchItems } from "./transforms/match-results";
 export { transformPlayerStats } from "./transforms/player-stats";
 export type {
   CompetitionCode,

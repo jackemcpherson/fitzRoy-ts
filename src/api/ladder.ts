@@ -6,7 +6,7 @@
  * This is a placeholder that returns an unsupported error.
  */
 
-import { AflApiError } from "../lib/errors";
+import { UnsupportedSourceError } from "../lib/errors";
 import { err, type Result } from "../lib/result";
 import type { Ladder, LadderQuery } from "../types";
 
@@ -18,8 +18,9 @@ import type { Ladder, LadderQuery } from "../types";
  */
 export async function fetchLadder(_query: LadderQuery): Promise<Result<Ladder, Error>> {
   return err(
-    new AflApiError(
+    new UnsupportedSourceError(
       "Ladder data is not yet supported. The AFL API does not expose a direct ladder endpoint.",
+      _query.source,
     ),
   );
 }

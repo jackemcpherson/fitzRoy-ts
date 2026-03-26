@@ -390,9 +390,7 @@ export class AflApiClient {
       return roundsResult;
     }
 
-    const providerIds = roundsResult.data
-      .filter((r) => r.providerId)
-      .map((r) => r.providerId as string);
+    const providerIds = roundsResult.data.flatMap((r) => (r.providerId ? [r.providerId] : []));
 
     const results = await Promise.all(providerIds.map((id) => this.fetchRoundMatchItems(id)));
 
