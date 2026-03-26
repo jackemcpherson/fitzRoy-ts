@@ -6,55 +6,51 @@ import { transformLadderEntries } from "../../src/transforms/ladder";
 
 const fixturePath = join(__dirname, "../fixtures/afl-api-ladder-2024-r10.json");
 
-function loadFixture() {
+function loadEntries() {
   const raw = JSON.parse(readFileSync(fixturePath, "utf-8"));
-  return LadderResponseSchema.parse(raw);
+  const response = LadderResponseSchema.parse(raw);
+  const firstLadder = response.ladders[0];
+  if (!firstLadder) throw new Error("No ladder in fixture");
+  return transformLadderEntries(firstLadder.entries);
 }
 
 describe("transformLadderEntries", () => {
   it("transforms fixture into 18 ladder entries", () => {
-    const response = loadFixture();
-    const firstLadder = response.ladders[0];
-    expect(firstLadder).toBeDefined();
-    const entries = transformLadderEntries(firstLadder!.entries);
+    const entries = loadEntries();
     expect(entries).toHaveLength(18);
   });
 
   it("first entry has correct position and team", () => {
-    const response = loadFixture();
-    const entries = transformLadderEntries(response.ladders[0]!.entries);
+    const entries = loadEntries();
     const first = entries[0];
     expect(first).toBeDefined();
-    expect(first!.position).toBe(1);
-    expect(first!.team).toBe("Sydney Swans");
+    expect(first?.position).toBe(1);
+    expect(first?.team).toBe("Sydney Swans");
   });
 
   it("extracts wins, losses, draws, and points correctly", () => {
-    const response = loadFixture();
-    const entries = transformLadderEntries(response.ladders[0]!.entries);
-    const first = entries[0]!;
-    expect(first.played).toBe(10);
-    expect(first.wins).toBe(9);
-    expect(first.losses).toBe(1);
-    expect(first.draws).toBe(0);
-    expect(first.pointsFor).toBe(1030);
-    expect(first.pointsAgainst).toBe(666);
-    expect(first.percentage).toBe(154.7);
-    expect(first.premiershipsPoints).toBe(36);
+    const entries = loadEntries();
+    const first = entries[0];
+    expect(first).toBeDefined();
+    expect(first?.played).toBe(10);
+    expect(first?.wins).toBe(9);
+    expect(first?.losses).toBe(1);
+    expect(first?.draws).toBe(0);
+    expect(first?.pointsFor).toBe(1030);
+    expect(first?.pointsAgainst).toBe(666);
+    expect(first?.percentage).toBe(154.7);
+    expect(first?.premiershipsPoints).toBe(36);
   });
 
   it("extracts form string", () => {
-    const response = loadFixture();
-    const entries = transformLadderEntries(response.ladders[0]!.entries);
-    expect(entries[0]!.form).toBe("WWWLWWWWWW");
+    const entries = loadEntries();
+    expect(entries[0]?.form).toBe("WWWLWWWWWW");
   });
 
   it("normalises team names", () => {
-    const response = loadFixture();
-    const entries = transformLadderEntries(response.ladders[0]!.entries);
+    const entries = loadEntries();
     const teams = entries.map((e) => e.team);
     expect(teams).toContain("Sydney Swans");
-    expect(teams).not.toContain("Sydney Swans" + " "); // no trailing space
     expect(teams).toContain("GWS Giants");
     expect(teams).not.toContain("GWS GIANTS");
   });
