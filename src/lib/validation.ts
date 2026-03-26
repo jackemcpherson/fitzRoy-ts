@@ -479,6 +479,11 @@ export const SquadPlayerInnerSchema = z
     dateOfBirth: z.string().optional(),
     heightInCm: z.number().optional(),
     weightInKg: z.number().optional(),
+    draftYear: z.string().optional(),
+    draftPosition: z.string().optional(),
+    draftType: z.string().optional(),
+    debutYear: z.string().optional(),
+    recruitedFrom: z.string().optional(),
   })
   .passthrough();
 

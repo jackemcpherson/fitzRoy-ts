@@ -161,10 +161,8 @@ export interface PlayerStats {
   readonly timeOnGroundPercentage: number | null;
   readonly ratingPoints: number | null;
 
-  /** Fantasy and awards. */
+  /** Fantasy. */
   readonly dreamTeamPoints: number | null;
-  readonly supercoachPoints: number | null;
-  readonly brownlowVotes: number | null;
 
   /** Extended stats. */
   readonly effectiveDisposals: number | null;
@@ -293,6 +291,11 @@ export interface SquadPlayer {
   readonly dateOfBirth: Date | null;
   readonly heightCm: number | null;
   readonly weightKg: number | null;
+  readonly draftYear: number | null;
+  readonly draftPosition: number | null;
+  readonly draftType: string | null;
+  readonly debutYear: number | null;
+  readonly recruitedFrom: string | null;
 }
 
 /** A team's squad for a given season. */

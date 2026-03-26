@@ -156,8 +156,6 @@ describe("domain types", () => {
       disposalEfficiency: 73.3,
       metresGained: 450,
       dreamTeamPoints: 120,
-      supercoachPoints: 115,
-      brownlowVotes: null,
       source: "afl-api",
     };
     expect(stats.disposals).toBe(30);
@@ -244,6 +242,11 @@ describe("domain types", () => {
       dateOfBirth: new Date("1990-04-05"),
       heightCm: 189,
       weightKg: 92,
+      draftYear: 2007,
+      draftPosition: 10,
+      draftType: "nationalDraft",
+      debutYear: 2008,
+      recruitedFrom: "Moggs Creek (Vic)",
     };
     const squad: Squad = {
       teamId: "CD_T10",

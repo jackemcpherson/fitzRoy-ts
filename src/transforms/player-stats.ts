@@ -80,8 +80,6 @@ function transformOne(
     ratingPoints: toNullable(stats.ratingPoints),
 
     dreamTeamPoints: toNullable(stats.dreamTeamPoints),
-    supercoachPoints: null,
-    brownlowVotes: null,
 
     effectiveDisposals: toNullable(stats.extendedStats?.effectiveDisposals),
     effectiveKicks: toNullable(stats.extendedStats?.effectiveKicks),

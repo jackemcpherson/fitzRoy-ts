@@ -70,6 +70,13 @@ export async function fetchSquad(query: SquadQuery): Promise<Result<Squad, Error
     dateOfBirth: p.player.dateOfBirth ? new Date(p.player.dateOfBirth) : null,
     heightCm: p.player.heightInCm ?? null,
     weightKg: p.player.weightInKg ?? null,
+    draftYear: p.player.draftYear ? Number.parseInt(p.player.draftYear, 10) || null : null,
+    draftPosition: p.player.draftPosition
+      ? Number.parseInt(p.player.draftPosition, 10) || null
+      : null,
+    draftType: p.player.draftType ?? null,
+    debutYear: p.player.debutYear ? Number.parseInt(p.player.debutYear, 10) || null : null,
+    recruitedFrom: p.player.recruitedFrom ?? null,
   }));
 
   return ok({
