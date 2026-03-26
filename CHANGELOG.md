@@ -21,10 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Finals round queries (e.g. round 25) no longer fail
 - `fetchLineup` now returns `Lineup[]` for all matches in a round (was returning only the first match)
 - Player stats `team` field now contains the resolved team name instead of raw API team ID (e.g. "Carlton" instead of "CD_T30")
+- Player stats `timeOnGroundPercentage` now correctly extracted (was always `null` due to wrong schema level)
 
 ### Changed
 
 - **Breaking:** `fetchLineup` return type changed from `Result<Lineup, Error>` to `Result<Lineup[], Error>`
+- **Breaking:** Canonical team names now match AFL API convention (e.g. `Sydney Swans`, `Geelong Cats`, `GWS Giants`). Short names and all-caps API variants are normalised to title-cased AFL API names.
 
 ## [0.1.0] - 2026-03-26
 
