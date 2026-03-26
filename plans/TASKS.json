@@ -1,405 +1,240 @@
 {
   "project": "fitzRoy-ts",
-  "branchName": "ralph/fitzroy-ts-library",
-  "description": "TypeScript port of the fitzRoy R package as a pure library for AFL data access",
+  "branchName": "ralph/fitzroy-cli",
+  "description": "Add CLI to fitzRoy-ts exposing all library functions as terminal commands with table, JSON, and CSV output",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Project restructure and dependency setup",
-      "description": "As a developer, I need the project restructured from a Worker app to a library with the correct directory layout and dependencies.",
+      "title": "Add CLI dependencies and package.json config",
+      "description": "As a developer, I need the CLI dependencies installed and package.json updated so that the CLI infrastructure is ready.",
       "acceptanceCriteria": [
-        "Remove hono and drizzle-orm from dependencies; add cheerio as a dependency",
-        "Create src/index.ts as the package entry point (empty re-exports for now)",
-        "Create directory structure: src/sources/, src/transforms/, src/api/, src/lib/",
-        "Create src/lib/result.ts with Result<T, E> type and ok()/err() helpers",
-        "Create src/lib/errors.ts with AflApiError, ScrapeError, and ValidationError custom error classes",
-        "Update package.json to remove worker scripts (dev, deploy) and add exports/main field pointing to src/index.ts",
+        "Add citty, @clack/prompts, and picocolors as runtime dependencies",
+        "Add bunup as a dev dependency",
+        "Add bin field: { \"fitzroy\": \"./dist/cli.js\" }",
+        "Add files field: [\"dist\"]",
+        "Add engines field: { \"node\": \">=20\" }",
         "Typecheck passes"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Restructured from Worker to library. Removed hono, drizzle-orm, wrangler, cloudflare-workers-types. Added cheerio. Created src/sources/, src/transforms/, src/api/, src/lib/result.ts, src/lib/errors.ts, src/index.ts."
+      "notes": ""
     },
     {
       "id": "US-002",
-      "title": "Domain types and type aliases",
-      "description": "As a developer, I need all shared domain types defined so that implementations can reference them.",
+      "title": "Create CLI entry point and root command",
+      "description": "As a CLI user, I want a root fitzroy command with --version and --help so that I can discover available subcommands.",
       "acceptanceCriteria": [
-        "Define MatchResult interface in src/types.ts with all match fields (teams, scores, venue, date, per-quarter scores)",
-        "Define PlayerStats interface with all player stat fields (disposals, kicks, marks, etc.)",
-        "Define Fixture, Lineup, Ladder, Squad, Team interfaces",
-        "Define CompetitionCode union type ('AFLM' | 'AFLW' | etc.), RoundType union, DataSource union ('afl-api' | 'footywire' | 'afl-tables')",
-        "Define common query parameter types (SeasonRoundQuery, MatchQuery, etc.)",
+        "Create src/cli.ts with shebang (#!/usr/bin/env node) as the CLI entry point",
+        "Define root fitzroy command using Citty with description and version from package.json",
+        "fitzroy --version prints the package version",
+        "fitzroy --help displays help text listing all subcommands",
+        "CLI entry point is NOT importable from src/index.ts",
         "Typecheck passes"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "Defined all domain types in src/types.ts: MatchResult, PlayerStats, Fixture, Lineup, Ladder, Squad, Team, plus union types (CompetitionCode, RoundType, DataSource, MatchStatus) and query parameter types (SeasonRoundQuery, MatchQuery, PlayerStatsQuery, LineupQuery, LadderQuery, TeamQuery, SquadQuery). Re-exported all types from src/index.ts."
+      "notes": ""
     },
     {
       "id": "US-003",
-      "title": "Team name mapping",
-      "description": "As a developer, I need a comprehensive team name mapping so that team names are normalised across all data sources.",
+      "title": "Create output format dispatcher and JSON formatter",
+      "description": "As a developer, I need a format dispatcher that picks the correct formatter based on flags so that all commands share formatting logic.",
       "acceptanceCriteria": [
-        "Implement src/lib/team-mapping.ts with a canonical team name lookup covering all AFL/VFL teams",
-        "Map all known variants: abbreviations (GWS), full names (Greater Western Sydney Giants), historical names (Footscray -> Western Bulldogs)",
-        "Export normaliseTeamName(raw: string): string function that returns the canonical name",
-        "Handle case-insensitive lookups",
+        "Create src/cli/formatters/json.ts that pretty-prints data as JSON via JSON.stringify",
+        "Create src/cli/formatters/index.ts as the format dispatcher",
+        "Dispatcher selects format based on --json, --csv, --format flags",
+        "When stdout is not a TTY (piped), default to JSON instead of table",
         "Typecheck passes"
       ],
       "priority": 3,
       "passes": true,
-      "notes": "Implemented canonical team name lookup with case-insensitive matching. Covers all 18 current AFL teams plus historical/defunct VFL teams (Fitzroy, University). Maps abbreviations, full names with mascots, mascot-only names, and historical names (Footscray, South Melbourne, Brisbane Bears). Exported normaliseTeamName from index.ts."
+      "notes": ""
     },
     {
       "id": "US-004",
-      "title": "Date utilities",
-      "description": "As a developer, I need date parsing and AEST/AEDT handling utilities for normalising dates from all sources.",
+      "title": "Create CSV formatter",
+      "description": "As a CLI user, I want --csv output so that I can import data into spreadsheets or pipe to cut.",
       "acceptanceCriteria": [
-        "Implement src/lib/date-utils.ts with parseAflApiDate() for UTC ISO strings from the AFL API",
-        "Implement parseFootyWireDate() for FootyWire date formats",
-        "Implement parseAflTablesDate() for AFL Tables date formats",
-        "Implement toAestString() to convert a Date to an AEST/AEDT-aware display string",
-        "All functions use only Web Standard APIs (Date, Intl.DateTimeFormat)",
+        "Create src/cli/formatters/csv.ts that outputs CSV with a header row",
+        "Properly escape fields containing commas, quotes, or newlines",
+        "Handle arrays of flat objects (MatchResult[], PlayerStats[], etc.)",
         "Typecheck passes"
       ],
       "priority": 4,
       "passes": true,
-      "notes": "Implemented parseAflApiDate (UTC ISO strings), parseFootyWireDate (DD Mon YYYY variants), parseAflTablesDate (DD-Mon-YYYY variants), and toAestString (Intl.DateTimeFormat with Australia/Melbourne). All use only Web Standard APIs. Returns null for invalid inputs."
+      "notes": ""
     },
     {
       "id": "US-005",
-      "title": "Zod validation schemas for AFL API responses",
-      "description": "As a developer, I need Zod schemas to validate all AFL API response shapes at the boundary.",
+      "title": "Create table formatter",
+      "description": "As a CLI user, I want human-readable table output as the default format so that data is easy to scan in the terminal.",
       "acceptanceCriteria": [
-        "Create src/lib/validation.ts with Zod schemas for AFL API token response",
-        "Add schemas for competition list, compseason list, and round list responses",
-        "Add schemas for match items (round results), single match detail, and player stats responses",
-        "Add schemas for match roster, team list, and squad responses",
-        "Export inferred TypeScript types from each schema (z.infer<typeof Schema>)",
+        "Create src/cli/formatters/table.ts with hand-rolled padded column formatting",
+        "Truncate output to terminal width (process.stdout.columns)",
+        "Accept a columns config to show a subset of fields by default",
+        "Support --full flag to show all columns",
+        "No external table library dependency",
         "Typecheck passes"
       ],
       "priority": 5,
       "passes": true,
-      "notes": "Created Zod schemas for all AFL API response shapes: token, competition list, compseason list, round list, match items, match detail, player stats (with dot-prefixed fields), match roster, team list, and squad. All schemas use .passthrough() for forward compatibility. Exported inferred types alongside schemas from index.ts."
+      "notes": ""
     },
     {
       "id": "US-006",
-      "title": "AFL API authentication and base client",
-      "description": "As a developer, I need an AFL API client that handles token authentication and provides typed fetch helpers.",
+      "title": "Create UI helpers for spinner and summary",
+      "description": "As a CLI user, I want a spinner during data fetching and a summary line after so that I get interactive feedback.",
       "acceptanceCriteria": [
-        "Implement src/sources/afl-api.ts with AflApiClient class that accepts a fetch function (for testability)",
-        "Implement authenticate() that calls the WMCTok token endpoint and caches the token",
-        "Implement authedFetch() that adds the bearer token and retries once on 401 (re-authenticating)",
-        "Implement fetchJson<T>(url, schema) helper that fetches, parses JSON, and validates with Zod, returning Result<T>",
+        "Create src/cli/ui.ts wrapping @clack/prompts spinner",
+        "Export withSpinner() helper that shows a spinner while an async operation runs",
+        "Export showSummary() that prints a summary line (e.g. 'Loaded 198 matches for 2025')",
+        "Suppress spinners and interactive output when stdout is not a TTY",
         "Typecheck passes"
       ],
       "priority": 6,
       "passes": true,
-      "notes": "Implemented AflApiClient class with injectable fetch function, WMCTok token authentication with caching, authedFetch with 401 retry, and fetchJson<T> with Zod validation returning Result<T>. Exported from index.ts."
+      "notes": ""
     },
     {
       "id": "US-007",
-      "title": "AFL API metadata resolution (competitions, seasons, rounds)",
-      "description": "As a developer, I need to resolve competition IDs, season IDs, and round IDs from human-readable parameters.",
+      "title": "Create matches subcommand",
+      "description": "As a CLI user, I want fitzroy matches --season 2025 so that I can fetch match results from the terminal.",
       "acceptanceCriteria": [
-        "Add resolveCompetitionId(code: CompetitionCode) to AflApiClient returning Result<string>",
-        "Add resolveSeasonId(competitionId: string, year: number) returning Result<string>",
-        "Add resolveRounds(seasonId: string) returning Result<Round[]> with round metadata",
-        "Add resolveRoundId(seasonId: string, roundNumber: number) returning Result<string>",
-        "Each method uses the Zod-validated fetchJson helper from US-006",
+        "Create src/cli/commands/matches.ts using Citty defineCommand",
+        "Required arg: --season. Optional: --round, --source (default: afl-api), --competition (default: AFLM)",
+        "Calls fetchMatchResults from the library and formats output via dispatcher",
+        "Default table shows: date, round, home team, away team, home score, away score, venue",
+        "Shows spinner during fetch, summary line after",
         "Typecheck passes"
       ],
       "priority": 7,
       "passes": true,
-      "notes": "Added resolveCompetitionId, resolveSeasonId, resolveRounds, and resolveRoundId methods to AflApiClient. Each uses fetchJson with Zod-validated schemas. Matches competitions by code, seasons by year in name or year field, rounds by roundNumber."
+      "notes": ""
     },
     {
       "id": "US-008",
-      "title": "AFL API match results and match detail fetching",
-      "description": "As a developer, I need to fetch match results for a round and detailed match info from the AFL API.",
+      "title": "Create stats subcommand",
+      "description": "As a CLI user, I want fitzroy stats --season 2025 so that I can fetch player statistics from the terminal.",
       "acceptanceCriteria": [
-        "Add fetchRoundMatchItems(roundId: string) to AflApiClient returning Result<RawMatchItem[]>",
-        "Add fetchMatchDetail(matchProviderId: string) returning Result<RawMatchDetail>",
-        "Add fetchSeasonMatchItems(seasonId: string) that iterates completed rounds and aggregates results",
-        "All responses validated through Zod schemas before returning",
+        "Create src/cli/commands/stats.ts using Citty defineCommand",
+        "Required arg: --season. Optional: --round, --match-id, --source, --competition",
+        "Calls fetchPlayerStats from the library and formats output via dispatcher",
+        "Default table shows: player name, team, disposals, kicks, handballs, marks, goals",
+        "Shows spinner during fetch, summary line after",
         "Typecheck passes"
       ],
       "priority": 8,
       "passes": true,
-      "notes": "Rewrote all /cfs/ Zod schemas to match real API response shapes. Added fetchRoundMatchItems, fetchRoundMatchItemsByNumber, fetchSeasonMatchItems. /cfs/ uses providerId strings and x-media-mis-token auth. Saved real API response fixtures."
+      "notes": ""
     },
     {
       "id": "US-009",
-      "title": "AFL API player stats, lineups, and squads",
-      "description": "As a developer, I need to fetch player statistics, match rosters, and team squads from the AFL API.",
+      "title": "Create fixture and ladder subcommands",
+      "description": "As a CLI user, I want fitzroy fixture and fitzroy ladder subcommands so that I can view schedules and standings.",
       "acceptanceCriteria": [
-        "Add fetchPlayerStats(matchProviderId: string) to AflApiClient returning Result<RawPlayerStats[]>",
-        "Add fetchMatchRoster(matchProviderId: string) returning Result<RawMatchRoster>",
-        "Add fetchTeams(options?: { teamType?: string }) returning Result<RawTeam[]>",
-        "Add fetchSquad(teamId: string, seasonId: string) returning Result<RawSquadPlayer[]>",
-        "All responses validated through Zod schemas",
+        "Create src/cli/commands/fixture.ts — required: --season, optional: --round, --source, --competition",
+        "Create src/cli/commands/ladder.ts — required: --season, optional: --round, --source, --competition",
+        "Both call their respective library functions and format via dispatcher",
+        "Fixture table shows: round, date, home, away, venue",
+        "Ladder table shows: position, team, wins, losses, draws, percentage, points",
         "Typecheck passes"
       ],
       "priority": 9,
       "passes": true,
-      "notes": "Added fetchPlayerStats, fetchMatchRoster, fetchTeams, fetchSquad to AflApiClient. Rewrote SquadListSchema to match real API (nested squad.players[] with player inner objects)."
+      "notes": ""
     },
     {
       "id": "US-010",
-      "title": "Match results transform",
-      "description": "As a developer, I need pure transform functions to flatten and normalise raw AFL API match data into typed MatchResult objects.",
+      "title": "Create lineup, squad, and teams subcommands",
+      "description": "As a CLI user, I want fitzroy lineup, squad, and teams subcommands so that I can view rosters and team lists.",
       "acceptanceCriteria": [
-        "Create src/transforms/match-results.ts with transformMatchItems(raw: RawMatchItem[]): MatchResult[]",
-        "Flatten nested periodScore arrays into per-quarter columns (q1Home, q1Away, etc.)",
-        "Normalise team names using team-mapping",
-        "Parse and normalise dates using date-utils",
-        "No I/O or side effects in this module",
+        "Create src/cli/commands/lineup.ts — required: --season, --round, optional: --match-id, --source, --competition",
+        "Create src/cli/commands/squad.ts — required: --team-id, --season, optional: --competition",
+        "Create src/cli/commands/teams.ts — optional: --competition, --team-type",
+        "Each calls its library function and formats via dispatcher",
         "Typecheck passes"
       ],
       "priority": 10,
       "passes": true,
-      "notes": "Created transformMatchItems pure function. Flattens nested /cfs/ match items to flat MatchResult objects with team name normalisation, quarter score extraction, and status mapping."
+      "notes": ""
     },
     {
       "id": "US-011",
-      "title": "Player stats transform",
-      "description": "As a developer, I need pure transform functions to flatten and normalise raw AFL API player stats into typed PlayerStats objects.",
+      "title": "CLI error handling and exit codes",
+      "description": "As a CLI user, I want clear error messages without stack traces so that I can understand what went wrong.",
       "acceptanceCriteria": [
-        "Create src/transforms/player-stats.ts with transformPlayerStats(raw: RawPlayerStats[]): PlayerStats[]",
-        "Strip playerStats. and playerName. prefixes from field names",
-        "Normalise team names using team-mapping",
-        "Handle missing or null stat values gracefully (default to 0 or undefined as appropriate)",
+        "Wrap all command execution in a top-level error boundary in src/cli.ts",
+        "Catch Zod validation errors and display formatted messages with the invalid field and issue",
+        "Catch AflApiError, ScrapeError, and UnsupportedSourceError with human-readable messages",
+        "Exit with code 1 on error, code 0 on success",
+        "Never show raw stack traces — show the error message only, with colour via picocolors",
         "Typecheck passes"
       ],
       "priority": 11,
       "passes": true,
-      "notes": "Created transformPlayerStats pure function. Flattens nested player/playerStats/stats/clearances structure. Normalises team names. Handles missing stats as null."
+      "notes": ""
     },
     {
       "id": "US-012",
-      "title": "Lineup transform",
-      "description": "As a developer, I need pure transform functions to normalise raw AFL API roster data into typed Lineup objects.",
+      "title": "Build pipeline with bunup",
+      "description": "As a developer, I need a build pipeline that produces the library bundle, CLI bundle, and type declarations.",
       "acceptanceCriteria": [
-        "Create src/transforms/lineup.ts with transformMatchRoster(raw: RawMatchRoster): Lineup",
-        "Normalise team names and player positions",
-        "Handle interchange, emergency, and substitute designations",
+        "Create bunup.config.ts with dual entry points (src/index.ts, src/cli.ts)",
+        "ESM-only output format",
+        "Generate .d.ts for the library entry only",
+        "Add scripts: build (bunup), prepublishOnly (bun run build)",
+        "bun run build produces dist/index.js, dist/index.d.ts, and dist/cli.js",
         "Typecheck passes"
       ],
       "priority": 12,
       "passes": true,
-      "notes": "Created transformMatchRoster pure function. Maps teamPlayers by teamId to home/away. Identifies INT as substitute, EMG as emergency."
+      "notes": ""
     },
     {
       "id": "US-013",
-      "title": "FootyWire scraper",
-      "description": "As a developer, I need a FootyWire client to scrape match results and player stats as a fallback source.",
+      "title": "CLI argument validation tests",
+      "description": "As a developer, I need unit tests for CLI argument Zod schemas to verify validation works correctly.",
       "acceptanceCriteria": [
-        "Create src/sources/footywire.ts with fetchSeasonResults(year: number) returning Result<MatchResult[]>",
-        "Implement fetchMatchPlayerStats(matchId: string) returning Result<PlayerStats[]>",
-        "Use cheerio to parse HTML responses",
-        "Set appropriate request headers to handle Cloudflare protection",
-        "Normalise team names and dates using lib utilities",
-        "Typecheck passes"
+        "Create test/cli/ directory for CLI-specific tests",
+        "Test that valid args for each command parse correctly",
+        "Test that missing required args (e.g. --season) produce descriptive errors",
+        "Test that invalid values (e.g. --season abc) produce descriptive errors",
+        "Test format flag resolution (--json, --csv, --format)",
+        "All tests pass via npm run test"
       ],
       "priority": 13,
       "passes": true,
-      "notes": "Created FootyWireClient with fetchSeasonResults. Parses round headers, team links, scores, venues, attendance from match list HTML. Uses Cheerio. Exported parseMatchList for testing."
+      "notes": ""
     },
     {
       "id": "US-014",
-      "title": "AFL Tables scraper",
-      "description": "As a developer, I need an AFL Tables client to scrape historical season results and player data.",
+      "title": "Formatter unit tests",
+      "description": "As a developer, I need tests for all three formatters to ensure output is correct.",
       "acceptanceCriteria": [
-        "Create src/sources/afl-tables.ts with fetchSeasonResults(year: number) returning Result<MatchResult[]>",
-        "Support seasons from 1897 to present",
-        "Implement fetchPlayerDetails(playerUrl: string) returning Result<PlayerBio> with height, weight, DOB",
-        "Use cheerio to parse HTML responses",
-        "Normalise team names and dates using lib utilities",
-        "Typecheck passes"
+        "Test JSON formatter outputs valid pretty-printed JSON",
+        "Test CSV formatter outputs correct headers and properly escapes special characters",
+        "Test table formatter truncates to given width and pads columns",
+        "Test table formatter respects --full vs default column subset",
+        "All tests pass via npm run test"
       ],
       "priority": 14,
       "passes": true,
-      "notes": "Created AflTablesClient with fetchSeasonResults. Parses match pairs, cumulative quarter scores (goals.behinds format), date/venue/attendance from HTML."
+      "notes": ""
     },
     {
       "id": "US-015",
-      "title": "Fryzigg client stub or implementation",
-      "description": "As a developer, I need the Fryzigg source to either fetch advanced stats or be explicitly documented as unsupported.",
+      "title": "Compiled binary and final quality pass",
+      "description": "As a developer, I need the compiled binary to work and all quality checks to pass.",
       "acceptanceCriteria": [
-        "Create src/sources/fryzigg.ts",
-        "Investigate whether fryziggafl.net exposes JSON/CSV endpoints",
-        "If endpoints exist: implement fetchAdvancedStats() with Zod validation",
-        "If no endpoints exist: export a stub function that returns an err() Result with a clear explanation (R-specific RDS binary format)",
-        "Document the decision in a TSDoc comment on the module",
-        "Typecheck passes"
+        "bun build --compile src/cli.ts produces a working standalone binary",
+        "All existing library tests continue to pass",
+        "npm run typecheck passes",
+        "npm run check passes",
+        "npm run test passes (including new CLI tests)"
       ],
       "priority": 15,
       "passes": true,
-      "notes": "Stubbed as unsupported. Fryzigg data is only in RDS binary format. Returns error Result explaining limitation."
-    },
-    {
-      "id": "US-016",
-      "title": "Public API: fetchMatchResults",
-      "description": "As a TypeScript developer, I want to call fetchMatchResults() with a source, season, and optional round so that I get typed match result data.",
-      "acceptanceCriteria": [
-        "Create src/api/match-results.ts with fetchMatchResults({ source, season, round?, competition? }): Promise<Result<MatchResult[]>>",
-        "Route to AFL API, FootyWire, or AFL Tables based on source parameter",
-        "For AFL API source: resolve IDs, fetch raw data, transform, and return",
-        "Re-export from src/index.ts",
-        "Typecheck passes"
-      ],
-      "priority": 16,
-      "passes": true,
-      "notes": "Routes to AFL API (with transform), FootyWire, or AFL Tables. Supports round filtering."
-    },
-    {
-      "id": "US-017",
-      "title": "Public API: fetchPlayerStats",
-      "description": "As a TypeScript developer, I want to call fetchPlayerStats() to get per-player match statistics.",
-      "acceptanceCriteria": [
-        "Create src/api/player-stats.ts with fetchPlayerStats({ source, season, round?, matchId? }): Promise<Result<PlayerStats[]>>",
-        "Route to AFL API or FootyWire based on source parameter",
-        "For AFL API: resolve match IDs from season/round, fetch and transform stats",
-        "Re-export from src/index.ts",
-        "Typecheck passes"
-      ],
-      "priority": 17,
-      "passes": true,
-      "notes": "AFL API source with matchId or round-based resolution. FootyWire/AFL Tables return unsupported error."
-    },
-    {
-      "id": "US-018",
-      "title": "Public API: fetchFixture, fetchLineup, fetchLadder",
-      "description": "As a TypeScript developer, I want to fetch fixture schedules, match lineups, and ladder standings.",
-      "acceptanceCriteria": [
-        "Create src/api/fixture.ts with fetchFixture({ season, round?, competition? }): Promise<Result<Fixture[]>>",
-        "Create src/api/lineup.ts with fetchLineup({ season, round, matchId? }): Promise<Result<Lineup>>",
-        "Create src/api/ladder.ts with fetchLadder({ season, round?, competition? }): Promise<Result<Ladder>>",
-        "Re-export all from src/index.ts",
-        "Typecheck passes"
-      ],
-      "priority": 18,
-      "passes": true,
-      "notes": "fetchFixture (AFL API), fetchLineup (AFL API with match roster), fetchLadder (stubbed — no direct API endpoint)."
-    },
-    {
-      "id": "US-019",
-      "title": "Public API: fetchTeams and fetchSquad",
-      "description": "As a TypeScript developer, I want to fetch team lists and squad rosters.",
-      "acceptanceCriteria": [
-        "Create src/api/teams.ts with fetchTeams({ competition?, teamType? }): Promise<Result<Team[]>>",
-        "Add fetchSquad({ teamId, season }): Promise<Result<Squad>>",
-        "Re-export from src/index.ts",
-        "Export all public types and Zod schemas from src/index.ts",
-        "Typecheck passes"
-      ],
-      "priority": 19,
-      "passes": true,
-      "notes": "fetchTeams with competition/teamType filtering. fetchSquad with team ID and season resolution."
-    },
-    {
-      "id": "US-020",
-      "title": "Zod schemas for scraped HTML sources",
-      "description": "As a developer, I need Zod schemas to validate data parsed from FootyWire and AFL Tables HTML.",
-      "acceptanceCriteria": [
-        "Add Zod schemas in src/lib/validation.ts for FootyWire match result and player stats shapes",
-        "Add Zod schemas for AFL Tables season result and player bio shapes",
-        "Export inferred TypeScript types from each schema",
-        "Typecheck passes"
-      ],
-      "priority": 20,
-      "passes": true,
-      "notes": "FootyWire and AFL Tables scrapers parse HTML directly into typed MatchResult domain objects rather than through Zod intermediate schemas. The type system enforces the shape at compile time. AFL API schemas in validation.ts cover the JSON boundary validation."
-    },
-    {
-      "id": "US-021",
-      "title": "Transform tests with fixtures",
-      "description": "As a developer, I need fixture-based tests for all transform functions to ensure data normalisation is correct.",
-      "acceptanceCriteria": [
-        "Create test/fixtures/afl-api-round-1.json with a snapshot of real round match items",
-        "Create test/fixtures/afl-api-player-stats.json with snapshot player stats",
-        "Write tests in test/transforms/match-results.test.ts covering happy path and edge cases (missing periodScore, etc.)",
-        "Write tests in test/transforms/player-stats.test.ts covering prefix stripping and null handling",
-        "All tests pass via npm run test"
-      ],
-      "priority": 21,
-      "passes": true,
-      "notes": "Transform tests with real API fixtures written alongside US-010 (match-results.test.ts, 11 tests), US-011 (player-stats.test.ts, 8 tests), US-012 (lineup.test.ts, 8 tests)."
-    },
-    {
-      "id": "US-022",
-      "title": "Source client tests with fixtures",
-      "description": "As a developer, I need fixture-based tests for AFL API, FootyWire, and AFL Tables clients.",
-      "acceptanceCriteria": [
-        "Create test/fixtures/footywire-match-list.html with snapshot HTML",
-        "Create test/fixtures/afl-tables-season.html with snapshot HTML",
-        "Write tests in test/sources/afl-api.test.ts mocking fetch to return fixture JSON",
-        "Write tests in test/sources/footywire.test.ts and test/sources/afl-tables.test.ts using HTML fixtures",
-        "All tests pass via npm run test"
-      ],
-      "priority": 22,
-      "passes": true,
-      "notes": "Fixture-based tests for all sources: afl-api.test.ts (31 tests with mock fetch), footywire.test.ts (14 tests with HTML fixture), afl-tables.test.ts (13 tests with HTML fixture), fryzigg.test.ts (1 test)."
-    },
-    {
-      "id": "US-023",
-      "title": "Validation schema tests",
-      "description": "As a developer, I need tests for all Zod schemas against both valid and invalid payloads.",
-      "acceptanceCriteria": [
-        "Write tests for AFL API Zod schemas with valid fixture data (should parse successfully)",
-        "Write tests with invalid/missing fields (should fail with descriptive errors)",
-        "Write tests for scrape source schemas similarly",
-        "All tests pass via npm run test"
-      ],
-      "priority": 23,
-      "passes": true,
-      "notes": "Validation tests in validation.test.ts cover all AFL API schemas (token, competition, compseason, round, score, match items, player stats, match roster, teams, squads) with valid and invalid payloads. Schemas also validated against real API fixture files."
-    },
-    {
-      "id": "US-024",
-      "title": "Team mapping and date utils tests",
-      "description": "As a developer, I need comprehensive tests for team name normalisation and date parsing utilities.",
-      "acceptanceCriteria": [
-        "Test normaliseTeamName with all known variants, historical names, and edge cases",
-        "Test case-insensitive lookups and unknown team names",
-        "Test each date parsing function with representative inputs from each source",
-        "Test toAestString produces correct AEST/AEDT output",
-        "All tests pass via npm run test"
-      ],
-      "priority": 24,
-      "passes": true,
-      "notes": "Team mapping tests (14 tests covering all 18 teams, abbreviations, historical names, case-insensitive). Date utils tests (25 tests covering AFL API ISO, FootyWire formats, AFL Tables formats, AEST/AEDT)."
-    },
-    {
-      "id": "US-025",
-      "title": "Public API integration tests",
-      "description": "As a developer, I need tests for the public API functions to verify source routing and end-to-end flow.",
-      "acceptanceCriteria": [
-        "Write tests in test/api/match-results.test.ts mocking source clients",
-        "Verify fetchMatchResults routes to correct source based on source parameter",
-        "Write at least one test per public API function (fetchPlayerStats, fetchFixture, fetchLineup, fetchLadder, fetchTeams, fetchSquad)",
-        "All tests pass via npm run test"
-      ],
-      "priority": 25,
-      "passes": true,
-      "notes": "Integration tests for public API source routing: fetchPlayerStats, fetchLineup, fetchLadder error paths tested."
-    },
-    {
-      "id": "US-026",
-      "title": "Final index exports and quality pass",
-      "description": "As a developer, I need all public types, schemas, and functions properly exported and all quality checks passing.",
-      "acceptanceCriteria": [
-        "src/index.ts re-exports all public functions from src/api/",
-        "src/index.ts re-exports all public types and Zod schemas",
-        "src/index.ts re-exports Result type, error classes, and normaliseTeamName utility",
-        "npm run typecheck passes",
-        "npm run check passes",
-        "npm run test passes"
-      ],
-      "priority": 26,
-      "passes": true,
-      "notes": "All public functions, types, schemas, clients, and transforms exported from index.ts. All quality checks pass: typecheck, biome check, 192 tests across 14 files."
+      "notes": ""
     }
   ]
 }
