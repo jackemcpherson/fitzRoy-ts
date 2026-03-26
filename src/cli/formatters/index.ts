@@ -40,15 +40,16 @@ export function resolveFormat(options: FormatOptions): OutputFormat {
 /**
  * Format data according to the resolved output format.
  */
-export function formatOutput(data: Record<string, unknown>[], options: FormatOptions): string {
+export function formatOutput(data: readonly object[], options: FormatOptions): string {
+  const rows = data as Record<string, unknown>[];
   const format = resolveFormat(options);
   switch (format) {
     case "json":
-      return formatJson(data);
+      return formatJson(rows);
     case "csv":
-      return formatCsv(data);
+      return formatCsv(rows);
     case "table":
-      return formatTable(data, {
+      return formatTable(rows, {
         columns: options.columns,
         full: options.full ?? false,
       });

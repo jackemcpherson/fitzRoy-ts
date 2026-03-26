@@ -66,6 +66,6 @@ export const statsCommand = defineCommand({
       columns: DEFAULT_COLUMNS,
     };
 
-    console.log(formatOutput(data as unknown as Record<string, unknown>[], formatOptions));
+    console.log(formatOutput(data, formatOptions));
   },
 });

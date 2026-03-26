@@ -57,6 +57,6 @@ export const squadCommand = defineCommand({
       columns: DEFAULT_COLUMNS,
     };
 
-    console.log(formatOutput(data.players as unknown as Record<string, unknown>[], formatOptions));
+    console.log(formatOutput(data.players, formatOptions));
   },
 });

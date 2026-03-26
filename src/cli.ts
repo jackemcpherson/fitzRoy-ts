@@ -1,13 +1,6 @@
 #!/usr/bin/env node
 import { defineCommand, runMain } from "citty";
 import pc from "picocolors";
-import { fixtureCommand } from "./cli/commands/fixture";
-import { ladderCommand } from "./cli/commands/ladder";
-import { lineupCommand } from "./cli/commands/lineup";
-import { matchesCommand } from "./cli/commands/matches";
-import { squadCommand } from "./cli/commands/squad";
-import { statsCommand } from "./cli/commands/stats";
-import { teamsCommand } from "./cli/commands/teams";
 import { AflApiError, ScrapeError, UnsupportedSourceError, ValidationError } from "./lib/errors";
 
 const main = defineCommand({
@@ -18,13 +11,13 @@ const main = defineCommand({
       "CLI for fetching AFL data — match results, player stats, fixtures, ladders, and more",
   },
   subCommands: {
-    matches: matchesCommand,
-    stats: statsCommand,
-    fixture: fixtureCommand,
-    ladder: ladderCommand,
-    lineup: lineupCommand,
-    squad: squadCommand,
-    teams: teamsCommand,
+    matches: () => import("./cli/commands/matches").then((m) => m.matchesCommand),
+    stats: () => import("./cli/commands/stats").then((m) => m.statsCommand),
+    fixture: () => import("./cli/commands/fixture").then((m) => m.fixtureCommand),
+    ladder: () => import("./cli/commands/ladder").then((m) => m.ladderCommand),
+    lineup: () => import("./cli/commands/lineup").then((m) => m.lineupCommand),
+    squad: () => import("./cli/commands/squad").then((m) => m.squadCommand),
+    teams: () => import("./cli/commands/teams").then((m) => m.teamsCommand),
   },
 });
 

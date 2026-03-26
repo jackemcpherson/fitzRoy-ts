@@ -56,16 +56,25 @@ export function formatTable(data: Record<string, unknown>[], options: TableOptio
     columns = [...options.columns];
   }
 
-  // Compute column widths based on data
-  const colWidths: number[] = columns.map((col) => {
-    const label = col.label ?? col.key;
-    const maxDataWidth = data.reduce((max, row) => {
-      const val = toDisplayValue(row[col.key]);
-      return Math.max(max, val.length);
-    }, 0);
-    const configMax = col.maxWidth ?? 30;
-    return Math.min(configMax, Math.max(label.length, maxDataWidth));
-  });
+  // Compute column widths in a single pass over the data
+  const colWidths: number[] = columns.map((col) => (col.label ?? col.key).length);
+  for (const row of data) {
+    for (let i = 0; i < columns.length; i++) {
+      const col = columns[i];
+      if (!col) continue;
+      const len = toDisplayValue(row[col.key]).length;
+      const current = colWidths[i];
+      if (current !== undefined && len > current) {
+        colWidths[i] = len;
+      }
+    }
+  }
+  for (let i = 0; i < columns.length; i++) {
+    const col = columns[i];
+    const width = colWidths[i];
+    if (!col || width === undefined) continue;
+    colWidths[i] = Math.min(col.maxWidth ?? 30, width);
+  }
 
   // Truncate columns to fit terminal width
   const gap = 2; // space between columns

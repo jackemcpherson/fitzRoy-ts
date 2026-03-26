@@ -63,7 +63,6 @@ export const ladderCommand = defineCommand({
       columns: DEFAULT_COLUMNS,
     };
 
-    // Ladder returns { entries: [...] }, we format the entries array
-    console.log(formatOutput(data.entries as unknown as Record<string, unknown>[], formatOptions));
+    console.log(formatOutput(data.entries, formatOptions));
   },
 });

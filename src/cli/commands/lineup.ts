@@ -60,6 +60,6 @@ export const lineupCommand = defineCommand({
       columns: DEFAULT_COLUMNS,
     };
 
-    console.log(formatOutput(data as unknown as Record<string, unknown>[], formatOptions));
+    console.log(formatOutput(data, formatOptions));
   },
 });
