@@ -320,7 +320,7 @@ export class AflApiClient {
    */
   async resolveRounds(seasonId: number): Promise<Result<Round[], AflApiError | ValidationError>> {
     const result = await this.fetchJson(
-      `${API_BASE}/compseasons/${seasonId}/rounds`,
+      `${API_BASE}/compseasons/${seasonId}/rounds?pageSize=50`,
       RoundListSchema,
     );
 
