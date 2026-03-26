@@ -54,6 +54,12 @@ export async function fetchPlayerStats(
       );
       if (!matchItemsResult.success) return matchItemsResult;
 
+      const teamIdMap = new Map<string, string>();
+      for (const item of matchItemsResult.data) {
+        teamIdMap.set(item.match.homeTeamId, item.match.homeTeam.name);
+        teamIdMap.set(item.match.awayTeamId, item.match.awayTeam.name);
+      }
+
       const statsResults = await Promise.all(
         matchItemsResult.data.map((item) => client.fetchPlayerStats(item.match.matchId)),
       );
@@ -72,6 +78,8 @@ export async function fetchPlayerStats(
             query.season,
             roundNumber,
             competition,
+            "afl-api",
+            teamIdMap,
           ),
         );
       }

@@ -319,6 +319,39 @@ export const PlayerGameStatsSchema = z
     tacklesInside50: z.number().optional(),
     shotsAtGoal: z.number().optional(),
     metresGained: z.number().optional(),
+    scoreInvolvements: z.number().optional(),
+    ratingPoints: z.number().optional(),
+    extendedStats: z
+      .object({
+        effectiveDisposals: z.number().optional(),
+        effectiveKicks: z.number().optional(),
+        kickEfficiency: z.number().optional(),
+        kickToHandballRatio: z.number().optional(),
+        pressureActs: z.number().optional(),
+        defHalfPressureActs: z.number().optional(),
+        spoils: z.number().optional(),
+        hitoutsToAdvantage: z.number().optional(),
+        hitoutWinPercentage: z.number().optional(),
+        hitoutToAdvantageRate: z.number().optional(),
+        groundBallGets: z.number().optional(),
+        f50GroundBallGets: z.number().optional(),
+        interceptMarks: z.number().optional(),
+        marksOnLead: z.number().optional(),
+        contestedPossessionRate: z.number().optional(),
+        contestOffOneOnOnes: z.number().optional(),
+        contestOffWins: z.number().optional(),
+        contestOffWinsPercentage: z.number().optional(),
+        contestDefOneOnOnes: z.number().optional(),
+        contestDefLosses: z.number().optional(),
+        contestDefLossPercentage: z.number().optional(),
+        centreBounceAttendances: z.number().optional(),
+        kickins: z.number().optional(),
+        kickinsPlayon: z.number().optional(),
+        ruckContests: z.number().optional(),
+        scoreLaunches: z.number().optional(),
+      })
+      .passthrough()
+      .optional(),
   })
   .passthrough();
 
@@ -340,6 +373,7 @@ export const PlayerStatsItemSchema = z
     playerStats: z
       .object({
         stats: PlayerGameStatsSchema,
+        timeOnGroundPercentage: z.number().optional(),
       })
       .passthrough(),
   })
@@ -482,3 +516,69 @@ export type SquadPlayerItem = z.infer<typeof SquadPlayerItemSchema>;
 
 /** Inferred type for the squad response. */
 export type SquadList = z.infer<typeof SquadListSchema>;
+
+// ---------------------------------------------------------------------------
+// Ladder (/afl/v2/compseasons/{seasonId}/ladders)
+// ---------------------------------------------------------------------------
+
+/** Schema for a win/loss/draw record. */
+const WinLossRecordSchema = z
+  .object({
+    wins: z.number(),
+    losses: z.number(),
+    draws: z.number(),
+    played: z.number().optional(),
+  })
+  .passthrough();
+
+/** Schema for a single ladder entry from the AFL API. */
+export const LadderEntryRawSchema = z
+  .object({
+    position: z.number(),
+    team: z
+      .object({
+        name: z.string(),
+        id: z.number().optional(),
+        abbreviation: z.string().optional(),
+      })
+      .passthrough(),
+    played: z.number().optional(),
+    pointsFor: z.number().optional(),
+    pointsAgainst: z.number().optional(),
+    thisSeasonRecord: z
+      .object({
+        aggregatePoints: z.number().optional(),
+        percentage: z.number().optional(),
+        winLossRecord: WinLossRecordSchema.optional(),
+      })
+      .passthrough()
+      .optional(),
+    form: z.string().optional(),
+  })
+  .passthrough();
+
+/** Schema for the ladder API response. */
+export const LadderResponseSchema = z
+  .object({
+    ladders: z.array(
+      z
+        .object({
+          entries: z.array(LadderEntryRawSchema),
+        })
+        .passthrough(),
+    ),
+    round: z
+      .object({
+        roundNumber: z.number(),
+        name: z.string().optional(),
+      })
+      .passthrough()
+      .optional(),
+  })
+  .passthrough();
+
+/** Inferred type for a raw ladder entry. */
+export type LadderEntryRaw = z.infer<typeof LadderEntryRawSchema>;
+
+/** Inferred type for the ladder API response. */
+export type LadderResponse = z.infer<typeof LadderResponseSchema>;

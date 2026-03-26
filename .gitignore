@@ -32,3 +32,12 @@ coverage/
 .vscode/
 .claude/
 .ralph-review-state.json
+
+# comparison test outputs
+comparison/
+
+# large reference files
+docs/jimmyday12-fitzroy-*.txt
+
+# npm lockfile (project uses bun)
+package-lock.json

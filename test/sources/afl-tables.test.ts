@@ -24,7 +24,7 @@ describe("parseSeasonPage", () => {
   it("extracts teams correctly", () => {
     const results = parseSeasonPage(fixtureHtml, 2024);
 
-    expect(results[0]?.homeTeam).toBe("Sydney");
+    expect(results[0]?.homeTeam).toBe("Sydney Swans");
     expect(results[0]?.awayTeam).toBe("Melbourne");
     expect(results[1]?.homeTeam).toBe("Brisbane Lions");
     expect(results[1]?.awayTeam).toBe("Carlton");

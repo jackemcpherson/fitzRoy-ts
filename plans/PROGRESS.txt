@@ -522,3 +522,41 @@ The repository has strong internal organization — source code is well-structur
 - No PROGRESS.txt archives to clean up.
 
 ---
+
+[Review] 2026-03-26 12:55 UTC - release (blocking)
+
+### Verdict: NEEDS_WORK
+
+### Findings
+
+1. **RL-001**: Missing Changelog Entry - Team name canonical change not documented
+   - File: CHANGELOG.md:9
+   - Issue: The v0.1.1 changelog is missing the breaking change where canonical team names were changed to match AFL API convention (e.g. "Sydney" -> "Sydney Swans", "Geelong" -> "Geelong Cats", "Greater Western Sydney" -> "GWS Giants"). This is a significant breaking change for consumers.
+   - Suggestion: Add under Changed: "**Breaking:** Canonical team names now match AFL API convention (e.g. `Sydney Swans`, `Geelong Cats`, `GWS Giants`). Short names and all-caps API variants are normalised to title-cased AFL API names."
+
+2. **RL-002**: Missing Changelog Entry - timeOnGroundPercentage fix not documented
+   - File: CHANGELOG.md:9
+   - Issue: The fix for `timeOnGroundPercentage` (was always `null`, now correctly reads from `playerStats` level instead of `playerStats.stats`) is not in the changelog.
+   - Suggestion: Add under Fixed: "Player stats `timeOnGroundPercentage` now correctly extracted (was always `null` due to wrong schema level)."
+
+3. **RL-003**: Dirty Working Directory - Untracked files present
+   - File: .:0
+   - Issue: Working directory has untracked files: `comparison/`, `docs/jimmyday12-fitzroy-8a5edab282632443.txt`, `package-lock.json`. These should be gitignored or committed before release.
+   - Suggestion: Add `comparison/` and `docs/jimmyday12-fitzroy-8a5edab282632443.txt` to `.gitignore` (comparison data and large R package reference are not library artifacts). `package-lock.json` can be gitignored since the project uses bun.
+
+4. **RL-004**: Wrong Branch - Not on main
+   - File: .:0
+   - Issue: Currently on `fix/v0.1.1-comparison-fixes`, not `main`. Release tag should be on main after merge.
+   - Suggestion: Merge to main via PR before tagging v0.1.1.
+
+### Notes
+
+- Version `0.1.1` in package.json is correct.
+- CHANGELOG.md has a `[0.1.1]` entry with date `2026-03-26` — just needs the two missing items.
+- Tag `v0.1.1` does not exist — clear to tag after merge.
+- No TODO/FIXME markers in source code.
+- No PROGRESS.txt archives to clean up.
+- README.md, CLAUDE.md, AGENTS.md all present and non-empty.
+- 194 tests passing, typecheck clean.
+
+---

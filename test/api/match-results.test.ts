@@ -35,14 +35,14 @@ describe("public API source validation", () => {
     }
   });
 
-  it("fetchLadder returns unsupported error", async () => {
+  it("fetchLadder returns error for non-afl-api source", async () => {
     const result = await fetchLadder({
-      source: "afl-api",
+      source: "footywire",
       season: 2025,
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.message).toContain("not yet supported");
+      expect(result.error.message).toContain("only available from the AFL API");
     }
   });
 });

@@ -9,12 +9,15 @@ import { transformMatchRoster } from "../transforms/lineup";
 import type { Lineup, LineupQuery } from "../types";
 
 /**
- * Fetch match lineup data.
+ * Fetch match lineup data for a round or specific match.
+ *
+ * When `matchId` is provided, returns a single-element array for that match.
+ * When omitted, returns lineups for all matches in the round.
  *
  * @param query - Source, season, round, optional matchId, and competition.
- * @returns Lineup for the specified match.
+ * @returns Array of lineups.
  */
-export async function fetchLineup(query: LineupQuery): Promise<Result<Lineup, Error>> {
+export async function fetchLineup(query: LineupQuery): Promise<Result<Lineup[], Error>> {
   const competition = query.competition ?? "AFLM";
 
   if (query.source !== "afl-api") {
@@ -31,7 +34,7 @@ export async function fetchLineup(query: LineupQuery): Promise<Result<Lineup, Er
   if (query.matchId) {
     const rosterResult = await client.fetchMatchRoster(query.matchId);
     if (!rosterResult.success) return rosterResult;
-    return ok(transformMatchRoster(rosterResult.data, query.season, query.round, competition));
+    return ok([transformMatchRoster(rosterResult.data, query.season, query.round, competition)]);
   }
 
   const seasonResult = await client.resolveCompSeason(competition, query.season);
@@ -40,12 +43,19 @@ export async function fetchLineup(query: LineupQuery): Promise<Result<Lineup, Er
   const matchItems = await client.fetchRoundMatchItemsByNumber(seasonResult.data, query.round);
   if (!matchItems.success) return matchItems;
 
-  const firstMatch = matchItems.data[0];
-  if (!firstMatch) {
+  if (matchItems.data.length === 0) {
     return err(new AflApiError(`No matches found for round ${query.round}`));
   }
 
-  const rosterResult = await client.fetchMatchRoster(firstMatch.match.matchId);
-  if (!rosterResult.success) return rosterResult;
-  return ok(transformMatchRoster(rosterResult.data, query.season, query.round, competition));
+  const rosterResults = await Promise.all(
+    matchItems.data.map((item) => client.fetchMatchRoster(item.match.matchId)),
+  );
+
+  const lineups: Lineup[] = [];
+  for (const rosterResult of rosterResults) {
+    if (!rosterResult.success) return rosterResult;
+    lineups.push(transformMatchRoster(rosterResult.data, query.season, query.round, competition));
+  }
+
+  return ok(lineups);
 }

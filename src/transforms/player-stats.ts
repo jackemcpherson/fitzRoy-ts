@@ -21,6 +21,7 @@ function transformOne(
   roundNumber: number,
   competition: CompetitionCode,
   source: DataSource,
+  teamIdMap?: ReadonlyMap<string, string>,
 ): PlayerStats {
   const inner = item.player.player.player;
   const stats = item.playerStats.stats;
@@ -30,7 +31,7 @@ function transformOne(
     matchId,
     season,
     roundNumber,
-    team: normaliseTeamName(item.teamId),
+    team: normaliseTeamName(teamIdMap?.get(item.teamId) ?? item.teamId),
     competition,
 
     playerId: inner.playerId,
@@ -69,9 +70,45 @@ function transformOne(
     disposalEfficiency: toNullable(stats.disposalEfficiency),
     metresGained: toNullable(stats.metresGained),
 
+    goalAccuracy: toNullable(stats.goalAccuracy),
+    marksInside50: toNullable(stats.marksInside50),
+    tacklesInside50: toNullable(stats.tacklesInside50),
+    shotsAtGoal: toNullable(stats.shotsAtGoal),
+    scoreInvolvements: toNullable(stats.scoreInvolvements),
+    totalPossessions: toNullable(stats.totalPossessions),
+    timeOnGroundPercentage: toNullable(item.playerStats.timeOnGroundPercentage),
+    ratingPoints: toNullable(stats.ratingPoints),
+
     dreamTeamPoints: toNullable(stats.dreamTeamPoints),
     supercoachPoints: null,
     brownlowVotes: null,
+
+    effectiveDisposals: toNullable(stats.extendedStats?.effectiveDisposals),
+    effectiveKicks: toNullable(stats.extendedStats?.effectiveKicks),
+    kickEfficiency: toNullable(stats.extendedStats?.kickEfficiency),
+    kickToHandballRatio: toNullable(stats.extendedStats?.kickToHandballRatio),
+    pressureActs: toNullable(stats.extendedStats?.pressureActs),
+    defHalfPressureActs: toNullable(stats.extendedStats?.defHalfPressureActs),
+    spoils: toNullable(stats.extendedStats?.spoils),
+    hitoutsToAdvantage: toNullable(stats.extendedStats?.hitoutsToAdvantage),
+    hitoutWinPercentage: toNullable(stats.extendedStats?.hitoutWinPercentage),
+    hitoutToAdvantageRate: toNullable(stats.extendedStats?.hitoutToAdvantageRate),
+    groundBallGets: toNullable(stats.extendedStats?.groundBallGets),
+    f50GroundBallGets: toNullable(stats.extendedStats?.f50GroundBallGets),
+    interceptMarks: toNullable(stats.extendedStats?.interceptMarks),
+    marksOnLead: toNullable(stats.extendedStats?.marksOnLead),
+    contestedPossessionRate: toNullable(stats.extendedStats?.contestedPossessionRate),
+    contestOffOneOnOnes: toNullable(stats.extendedStats?.contestOffOneOnOnes),
+    contestOffWins: toNullable(stats.extendedStats?.contestOffWins),
+    contestOffWinsPercentage: toNullable(stats.extendedStats?.contestOffWinsPercentage),
+    contestDefOneOnOnes: toNullable(stats.extendedStats?.contestDefOneOnOnes),
+    contestDefLosses: toNullable(stats.extendedStats?.contestDefLosses),
+    contestDefLossPercentage: toNullable(stats.extendedStats?.contestDefLossPercentage),
+    centreBounceAttendances: toNullable(stats.extendedStats?.centreBounceAttendances),
+    kickins: toNullable(stats.extendedStats?.kickins),
+    kickinsPlayon: toNullable(stats.extendedStats?.kickinsPlayon),
+    ruckContests: toNullable(stats.extendedStats?.ruckContests),
+    scoreLaunches: toNullable(stats.extendedStats?.scoreLaunches),
 
     source,
   };
@@ -94,12 +131,13 @@ export function transformPlayerStats(
   roundNumber: number,
   competition: CompetitionCode,
   source: DataSource = "afl-api",
+  teamIdMap?: ReadonlyMap<string, string>,
 ): PlayerStats[] {
   const home = data.homeTeamPlayerStats.map((item) =>
-    transformOne(item, matchId, season, roundNumber, competition, source),
+    transformOne(item, matchId, season, roundNumber, competition, source, teamIdMap),
   );
   const away = data.awayTeamPlayerStats.map((item) =>
-    transformOne(item, matchId, season, roundNumber, competition, source),
+    transformOne(item, matchId, season, roundNumber, competition, source, teamIdMap),
   );
   return [...home, ...away];
 }

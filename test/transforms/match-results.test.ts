@@ -121,7 +121,7 @@ describe("transformMatchItems", () => {
     item.match.awayTeam.name = "Footscray";
     const r = first(transformMatchItems([item], 2025, "AFLM"));
 
-    expect(r.homeTeam).toBe("Greater Western Sydney");
+    expect(r.homeTeam).toBe("GWS Giants");
     expect(r.awayTeam).toBe("Western Bulldogs");
   });
 
