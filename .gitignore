@@ -32,6 +32,11 @@ coverage/
 .vscode/
 .claude/
 .ralph-review-state.json
+.playwright-mcp/
+
+# development artifacts
+plans/
+AGENTS.md
 
 # comparison test outputs
 comparison/

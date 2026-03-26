@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [1.0.0] - 2026-03-26
+
+### Added
+
+- CLI (`fitzroy`) exposing all library functions as terminal commands: `matches`, `stats`, `fixture`, `ladder`, `lineup`, `squad`, `teams`
+- Three output formats: table (default, human-readable), JSON (`--json`), CSV (`--csv`)
+- Interactive spinner during data fetching with summary line after load
+- `--full` flag to show all columns in table output
+- Automatic JSON output when stdout is piped (non-TTY)
+- Coloured error messages for all known error types (no stack traces)
+- Build pipeline via bunup producing ESM library bundle, CLI bundle, and type declarations
+- Standalone compiled binaries for macOS ARM64, Linux x64, and Linux ARM64
+- npm packaging with conditional exports, type declarations, and provenance attestation
+- GitHub Actions release workflow for automated npm publish and binary distribution
+
+### Changed
+
+- **Breaking:** Package renamed from `fitzroy-ts` to `fitzroy`
+- CLI version now injected from package.json at build time (no longer hardcoded)
+
 ## [0.1.2] - 2026-03-26
 
 ### Added
