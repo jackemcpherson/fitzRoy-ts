@@ -27,7 +27,7 @@ interface TableOptions {
 function toDisplayValue(value: unknown): string {
   if (value === null || value === undefined) return "-";
   if (value instanceof Date) return value.toISOString().slice(0, 16).replace("T", " ");
-  if (typeof value === "number") return String(value);
+  if (typeof value === "object") return JSON.stringify(value);
   return String(value);
 }
 
