@@ -560,3 +560,26 @@ The repository has strong internal organization — source code is well-structur
 - 194 tests passing, typecheck clean.
 
 ---
+
+[Review] 2026-03-26 13:20 UTC - release (blocking)
+
+### Verdict: NEEDS_WORK
+
+### Findings
+
+1. **RL-001**: Version Mismatch - package.json version not updated for v0.1.2
+   - File: package.json:1
+   - Issue: package.json has version "0.1.1" but release target is v0.1.2.
+   - Suggestion: Run `npm version 0.1.2 --no-git-tag-version` or manually update `"version": "0.1.2"` in package.json.
+
+2. **RL-002**: Missing Changelog - No entry for v0.1.2
+   - File: CHANGELOG.md:8
+   - Issue: CHANGELOG.md has an `[Unreleased]` section with the changes but no `[0.1.2]` heading with a date. The release needs a versioned entry.
+   - Suggestion: Change `## [Unreleased]` to `## [0.1.2] - 2026-03-26` in CHANGELOG.md.
+
+3. **RL-003**: Dirty Working Directory - Uncommitted changes present
+   - File: src/types.ts:0
+   - Issue: 7 modified files are uncommitted: CHANGELOG.md, src/api/teams.ts, src/lib/validation.ts, src/transforms/player-stats.ts, src/types.ts, test/transforms/player-stats.test.ts, test/types.test.ts.
+   - Suggestion: Commit all changes before tagging the release.
+
+---

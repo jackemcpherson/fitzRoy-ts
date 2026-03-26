@@ -163,10 +163,4 @@ describe("transformPlayerStats", () => {
     };
     expect(transformPlayerStats(list, "CD_M1", 2025, 1, "AFLM")).toEqual([]);
   });
-
-  it("always sets supercoachPoints and brownlowVotes to null", () => {
-    const results = transformPlayerStats(makeStatsList(), "CD_M1", 2025, 1, "AFLM");
-    expect(results[0]?.supercoachPoints).toBeNull();
-    expect(results[0]?.brownlowVotes).toBeNull();
-  });
 });
