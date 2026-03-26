@@ -21,6 +21,7 @@ function transformOne(
   roundNumber: number,
   competition: CompetitionCode,
   source: DataSource,
+  teamIdMap?: ReadonlyMap<string, string>,
 ): PlayerStats {
   const inner = item.player.player.player;
   const stats = item.playerStats.stats;
@@ -30,7 +31,7 @@ function transformOne(
     matchId,
     season,
     roundNumber,
-    team: normaliseTeamName(item.teamId),
+    team: normaliseTeamName(teamIdMap?.get(item.teamId) ?? item.teamId),
     competition,
 
     playerId: inner.playerId,
@@ -94,12 +95,13 @@ export function transformPlayerStats(
   roundNumber: number,
   competition: CompetitionCode,
   source: DataSource = "afl-api",
+  teamIdMap?: ReadonlyMap<string, string>,
 ): PlayerStats[] {
   const home = data.homeTeamPlayerStats.map((item) =>
-    transformOne(item, matchId, season, roundNumber, competition, source),
+    transformOne(item, matchId, season, roundNumber, competition, source, teamIdMap),
   );
   const away = data.awayTeamPlayerStats.map((item) =>
-    transformOne(item, matchId, season, roundNumber, competition, source),
+    transformOne(item, matchId, season, roundNumber, competition, source, teamIdMap),
   );
   return [...home, ...away];
 }
