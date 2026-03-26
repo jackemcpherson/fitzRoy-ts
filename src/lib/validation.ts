@@ -319,6 +319,40 @@ export const PlayerGameStatsSchema = z
     tacklesInside50: z.number().optional(),
     shotsAtGoal: z.number().optional(),
     metresGained: z.number().optional(),
+    scoreInvolvements: z.number().optional(),
+    timeOnGroundPercentage: z.number().optional(),
+    ratingPoints: z.number().optional(),
+    extendedStats: z
+      .object({
+        effectiveDisposals: z.number().optional(),
+        effectiveKicks: z.number().optional(),
+        kickEfficiency: z.number().optional(),
+        kickToHandballRatio: z.number().optional(),
+        pressureActs: z.number().optional(),
+        defHalfPressureActs: z.number().optional(),
+        spoils: z.number().optional(),
+        hitoutsToAdvantage: z.number().optional(),
+        hitoutWinPercentage: z.number().optional(),
+        hitoutToAdvantageRate: z.number().optional(),
+        groundBallGets: z.number().optional(),
+        f50GroundBallGets: z.number().optional(),
+        interceptMarks: z.number().optional(),
+        marksOnLead: z.number().optional(),
+        contestedPossessionRate: z.number().optional(),
+        contestOffOneOnOnes: z.number().optional(),
+        contestOffWins: z.number().optional(),
+        contestOffWinsPercentage: z.number().optional(),
+        contestDefOneOnOnes: z.number().optional(),
+        contestDefLosses: z.number().optional(),
+        contestDefLossPercentage: z.number().optional(),
+        centreBounceAttendances: z.number().optional(),
+        kickins: z.number().optional(),
+        kickinsPlayon: z.number().optional(),
+        ruckContests: z.number().optional(),
+        scoreLaunches: z.number().optional(),
+      })
+      .passthrough()
+      .optional(),
   })
   .passthrough();
 

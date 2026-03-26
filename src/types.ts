@@ -138,10 +138,48 @@ export interface PlayerStats {
   readonly disposalEfficiency: number | null;
   readonly metresGained: number | null;
 
+  /** Additional base stats. */
+  readonly goalAccuracy: number | null;
+  readonly marksInside50: number | null;
+  readonly tacklesInside50: number | null;
+  readonly shotsAtGoal: number | null;
+  readonly scoreInvolvements: number | null;
+  readonly totalPossessions: number | null;
+  readonly timeOnGroundPercentage: number | null;
+  readonly ratingPoints: number | null;
+
   /** Fantasy and awards. */
   readonly dreamTeamPoints: number | null;
   readonly supercoachPoints: number | null;
   readonly brownlowVotes: number | null;
+
+  /** Extended stats. */
+  readonly effectiveDisposals: number | null;
+  readonly effectiveKicks: number | null;
+  readonly kickEfficiency: number | null;
+  readonly kickToHandballRatio: number | null;
+  readonly pressureActs: number | null;
+  readonly defHalfPressureActs: number | null;
+  readonly spoils: number | null;
+  readonly hitoutsToAdvantage: number | null;
+  readonly hitoutWinPercentage: number | null;
+  readonly hitoutToAdvantageRate: number | null;
+  readonly groundBallGets: number | null;
+  readonly f50GroundBallGets: number | null;
+  readonly interceptMarks: number | null;
+  readonly marksOnLead: number | null;
+  readonly contestedPossessionRate: number | null;
+  readonly contestOffOneOnOnes: number | null;
+  readonly contestOffWins: number | null;
+  readonly contestOffWinsPercentage: number | null;
+  readonly contestDefOneOnOnes: number | null;
+  readonly contestDefLosses: number | null;
+  readonly contestDefLossPercentage: number | null;
+  readonly centreBounceAttendances: number | null;
+  readonly kickins: number | null;
+  readonly kickinsPlayon: number | null;
+  readonly ruckContests: number | null;
+  readonly scoreLaunches: number | null;
 
   readonly source: DataSource;
 }
