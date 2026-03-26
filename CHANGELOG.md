@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-03-26
+
+### Fixed
+
+- CLI commands crashed with `ReferenceError: fetchTeams is not defined` — bunup also tree-shook CLI subcommand imports; switched CLI build to esbuild
+- Duplicate shebang in CLI bundle caused `SyntaxError: Invalid or unexpected token`
+
 ## [1.0.1] - 2026-03-26
 
 ### Fixed

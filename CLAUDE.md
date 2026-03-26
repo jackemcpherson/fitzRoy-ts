@@ -119,7 +119,7 @@ The CLI is a thin presentation layer over the library — no business logic. Eac
 
 **Error boundary:** `src/cli.ts` catches all errors at the top level and prints coloured messages (no stack traces). Exit code 1 on error, 0 on success.
 
-**Build:** Two-step build — bunup builds the CLI bundle (`src/cli.ts`) + DTS, then esbuild builds the library bundle (`src/index.ts`) with `--packages=external`. This avoids a bun bundler bug where barrel re-exports are tree-shaken to empty stubs.
+**Build:** Two-step build — bunup generates DTS only (`dtsOnly: true`), then `build.ts` uses esbuild to bundle both library (`src/index.ts`) and CLI (`src/cli.ts`) with `packages: "external"`. This avoids a bun bundler bug where barrel re-exports and dynamic imports are tree-shaken to empty stubs.
 
 ## Ralph Workflow
 

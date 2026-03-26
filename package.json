@@ -1,6 +1,6 @@
 {
   "name": "fitzroy",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "TypeScript library and CLI for AFL data — match results, player stats, fixtures, ladders, and more",
   "type": "module",
   "main": "./dist/index.js",
@@ -34,7 +34,7 @@
     "aflw"
   ],
   "scripts": {
-    "build": "bunup && esbuild src/index.ts --bundle --format=esm --outfile=dist/index.js --packages=external --platform=neutral",
+    "build": "bunup && bun run build.ts",
     "test": "vitest",
     "check": "biome check .",
     "format": "biome format --write .",
