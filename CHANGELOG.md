@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-03-26
+
+### Fixed
+
+- Library bundle was empty due to bun bundler tree-shaking barrel re-exports — switched library build to esbuild
+- Removed accidental self-dependency (`fitzroy` listed in its own dependencies)
+
 ## [1.0.0] - 2026-03-26
 
 ### Added

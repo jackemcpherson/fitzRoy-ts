@@ -1,9 +1,10 @@
-import { type DefineConfigItem, defineConfig } from "bunup";
+import { defineConfig } from "bunup";
 import pkg from "./package.json";
 
-const config: DefineConfigItem = {
-  entry: ["src/index.ts", "src/cli.ts"],
+export default defineConfig({
+  entry: ["src/cli.ts"],
   format: "esm",
+  splitting: false,
   dts: {
     entry: "src/index.ts",
     inferTypes: true,
@@ -11,6 +12,4 @@ const config: DefineConfigItem = {
   define: {
     PACKAGE_VERSION: JSON.stringify(pkg.version),
   },
-};
-
-export default defineConfig(config);
+});
