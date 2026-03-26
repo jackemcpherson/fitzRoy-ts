@@ -69,6 +69,10 @@ export class AflTablesClient {
  * AFL Tables uses a pair of `<tr>` rows per match within separate `<table>` elements.
  * The first row has the home team, quarter scores, total, date/venue/attendance.
  * The second row has the away team, quarter scores, total, and result text.
+ *
+ * @param html - Raw HTML from the AFL Tables season page.
+ * @param year - The season year for metadata.
+ * @returns Array of match results extracted from the page.
  */
 export function parseSeasonPage(html: string, year: number): MatchResult[] {
   const $ = cheerio.load(html);

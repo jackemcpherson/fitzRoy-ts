@@ -90,6 +90,10 @@ export class FootyWireClient {
 
 /**
  * Parse FootyWire match list HTML into MatchResult objects.
+ *
+ * @param html - Raw HTML from the FootyWire match list page.
+ * @param year - The season year used for date parsing and metadata.
+ * @returns Array of match results extracted from the page.
  */
 export function parseMatchList(html: string, year: number): MatchResult[] {
   const $ = cheerio.load(html);
