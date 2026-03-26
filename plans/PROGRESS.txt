@@ -73,3 +73,28 @@
 - Biome import order lint is strict — must sort value imports before type imports within a specifier
 
 ---
+
+[Review] 2026-03-26 14:13 UTC - test-quality (blocking)
+
+### Verdict: PASSED
+
+### Findings
+
+1. **TQ-001**: Framework Test - arg-parsing.test.ts tests citty's parseArgs, not our code
+   - File: test/cli/arg-parsing.test.ts:0
+   - Issue: All 14 tests exercise citty's parseArgs with re-declared arg definitions (not imported from actual commands). They verify framework behavior (--season "2025" parses to "2025") and could drift from real command definitions undetected.
+   - Suggestion: Removed the file. If arg validation tests are needed later, test end-to-end via the command's run function or import actual arg definitions.
+
+2. **TQ-002**: Weak Assertion - "pads columns to equal width" used <=2 tolerance
+   - File: test/cli/formatters.test.ts:108
+   - Issue: `expect(new Set(lengths).size).toBeLessThanOrEqual(2)` allows two different line lengths, weakening the padding guarantee.
+   - Suggestion: Tightened to `toBe(1)` — all data rows should be exactly the same length after padding.
+
+3. **TQ-003**: Weak Assertion - "truncates to terminal width" used 35 on width 30
+   - File: test/cli/formatters.test.ts:142
+   - Issue: `toBeLessThanOrEqual(35)` on a terminalWidth of 30 is too generous — 17% tolerance makes the assertion nearly useless for catching truncation bugs.
+   - Suggestion: Tightened to `toBeLessThanOrEqual(30)` to actually verify the truncation behavior.
+
+**Test count assessment:** 221 total tests (28 CLI + 193 library) across 17 files is healthy. The CLI adds 28 tests for 16 new source files — well within reason. Removing the 14 framework tests was the right call to keep the suite lean.
+
+---
