@@ -2,11 +2,14 @@
 
 ## Codebase Patterns
 
+- Biome v2 uses `files.includes` with `!!**/folder` negation patterns (not `files.ignore`)
+- Biome enforces import sorting — always alphabetize imports within a specifier
+- tsconfig.json `types` array should be empty (no ambient type packages)
 - CLI commands follow a consistent pattern: defineCommand with typed args, call library function, format via dispatcher
 - Citty uses string args that need Number() conversion for numeric values
 - Format dispatcher resolves output format with priority: --json > --csv > --format > TTY detection
 - bunup with multiple named configs in an array overwrites the dist/ dir between builds; use single config with multiple entries instead
-- Biome enforces import sorting — always alphabetize imports within a specifier
+- Citty version comes from meta.version, not auto-read from package.json — update cli.ts when bumping version
 
 ---
 

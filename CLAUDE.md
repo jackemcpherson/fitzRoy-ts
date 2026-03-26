@@ -19,6 +19,12 @@ npm run format           # biome format --write .
 
 # Single test file
 npx vitest run test/path/to/file.test.ts
+
+# Build (library + CLI)
+bun run build            # bunup → dist/index.js, dist/index.d.ts, dist/cli.js
+
+# Compiled standalone binary
+bun build --compile src/cli.ts --outfile fitzroy
 ```
 
 **Note:** There are no separate `lint` or `format:check` scripts. Use `npm run check` for both linting and format verification.
@@ -33,11 +39,15 @@ The codebase follows a "pure core, effectful shell" pattern:
 - **`src/transforms/`** — Pure response normalisation and data flattening
 - **`src/api/`** — Public API functions (fetchMatchResults, fetchPlayerStats, etc.)
 - **`src/lib/`** — Shared utilities: `result.ts` (Result type), `errors.ts` (custom errors), `validation.ts` (Zod schemas), `team-mapping.ts` (team name normalisation), `date-utils.ts` (AEST/AEDT-aware dates)
+- **`src/cli.ts`** — CLI entry point (shebang, root command, error boundary). NOT importable from `src/index.ts`.
+- **`src/cli/commands/`** — Citty subcommands (matches, stats, fixture, ladder, lineup, squad, teams)
+- **`src/cli/formatters/`** — Output formatters (table, JSON, CSV) and format dispatcher
+- **`src/cli/ui.ts`** — Spinner and summary helpers wrapping @clack/prompts
 - **`test/fixtures/`** — Fixture data for snapshot-based tests (no live API calls)
 
 ## Key Constraints
 
-- **No Node.js built-ins in `src/`** — only Web Standard APIs (`fetch`, `Request`, `Response`, `URL`, `crypto`). No Bun-specific APIs either (`Bun.file()`, `Bun.serve()`). Test files (`test/`) may use Node.js built-ins (`node:fs`, `node:path`) for loading fixtures.
+- **No Node.js built-ins in `src/`** — only Web Standard APIs (`fetch`, `Request`, `Response`, `URL`, `crypto`). Exception: `src/cli.ts` and `src/cli/` may use `process` for TTY detection and exit codes. No Bun-specific APIs (`Bun.file()`, `Bun.serve()`). Test files (`test/`) may use Node.js built-ins (`node:fs`, `node:path`) for loading fixtures.
 - **No `any`** — Biome enforces `noExplicitAny: "error"`. Use `unknown` and narrow with Zod.
 - **No `enum`** — use union types instead (e.g., `type RoundType = "HomeAndAway" | "Finals"`).
 - **No default exports** — Biome enforces `noDefaultExport: "error"`, with overrides only for `*.config.ts`.
@@ -92,6 +102,24 @@ Full style guide at `docs/TYPESCRIPT_STYLE_GUIDE.md`. Key conventions:
 | Cheerio | HTML parsing for scraper sources |
 | Biome | Lint + format (replaces ESLint + Prettier) |
 | Vitest | Test runner (globals enabled) |
+| Citty | CLI command framework (defineCommand, runMain) |
+| @clack/prompts | Terminal spinners and interactive feedback |
+| picocolors | Terminal colour output |
+| bunup | Build pipeline (ESM library + CLI bundles, .d.ts) |
+
+## CLI Architecture
+
+The CLI is a thin presentation layer over the library — no business logic. Each command:
+1. Defines args via Citty `defineCommand` (args are strings, convert with `Number()`)
+2. Calls the corresponding library function (e.g. `fetchMatchResults`)
+3. Passes the result through the format dispatcher (`src/cli/formatters/index.ts`)
+4. Writes to stdout
+
+**Format resolution priority:** `--json` > `--csv` > `--format` > TTY detection (non-TTY defaults to JSON).
+
+**Error boundary:** `src/cli.ts` catches all errors at the top level and prints coloured messages (no stack traces). Exit code 1 on error, 0 on success.
+
+**Build:** `bunup.config.ts` uses a single config with multiple entries (`src/index.ts` + `src/cli.ts`). Do NOT use separate named configs — bunup overwrites `dist/` between builds.
 
 ## Ralph Workflow
 
