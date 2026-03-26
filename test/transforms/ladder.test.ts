@@ -26,7 +26,7 @@ describe("transformLadderEntries", () => {
     const first = entries[0];
     expect(first).toBeDefined();
     expect(first!.position).toBe(1);
-    expect(first!.team).toBe("Sydney");
+    expect(first!.team).toBe("Sydney Swans");
   });
 
   it("extracts wins, losses, draws, and points correctly", () => {
@@ -53,9 +53,9 @@ describe("transformLadderEntries", () => {
     const response = loadFixture();
     const entries = transformLadderEntries(response.ladders[0]!.entries);
     const teams = entries.map((e) => e.team);
-    expect(teams).toContain("Sydney");
-    expect(teams).not.toContain("Sydney Swans");
-    expect(teams).toContain("Greater Western Sydney");
+    expect(teams).toContain("Sydney Swans");
+    expect(teams).not.toContain("Sydney Swans" + " "); // no trailing space
+    expect(teams).toContain("GWS Giants");
     expect(teams).not.toContain("GWS GIANTS");
   });
 });

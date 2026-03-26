@@ -130,7 +130,7 @@ describe("transformMatchRoster", () => {
     roster.match.awayTeam.name = "Footscray";
     const lineup = transformMatchRoster(roster, 2025, 1, "AFLM");
 
-    expect(lineup.homeTeam).toBe("Greater Western Sydney");
+    expect(lineup.homeTeam).toBe("GWS Giants");
     expect(lineup.awayTeam).toBe("Western Bulldogs");
   });
 

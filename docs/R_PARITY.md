@@ -4,20 +4,20 @@ This document tracks known differences between the [fitzRoy R package](https://g
 
 ## Team Name Normalisation
 
-fitzRoy-ts normalises all team names to consistent short canonical forms across all data sources. The R package passes through source-native naming, which varies between sources.
+fitzRoy-ts normalises all team names to the AFL API's canonical names across all data sources. The R package passes through source-native naming, which varies between sources.
 
-| R (AFL API) | R (AFL Tables) | R (FootyWire) | fitzRoy-ts |
+| AFL API canonical | R (AFL Tables) | R (FootyWire) | fitzRoy-ts |
 |---|---|---|---|
-| Sydney Swans | Sydney | Sydney | Sydney |
-| Geelong Cats | Geelong | Geelong | Geelong |
-| GWS GIANTS | GWS | GWS | Greater Western Sydney |
-| Gold Coast SUNS | Gold Coast | Gold Coast | Gold Coast |
-| Adelaide Crows | Adelaide | Adelaide | Adelaide |
+| Adelaide Crows | Adelaide | Adelaide | Adelaide Crows |
 | Brisbane Lions | Brisbane Lions | Brisbane | Brisbane Lions |
+| Geelong Cats | Geelong | Geelong | Geelong Cats |
+| Gold Coast SUNS | Gold Coast | Gold Coast | Gold Coast Suns |
+| GWS GIANTS | GWS | GWS | GWS Giants |
+| Sydney Swans | Sydney | Sydney | Sydney Swans |
+| West Coast Eagles | West Coast | West Coast | West Coast Eagles |
 | Western Bulldogs | Footscray | Western Bulldogs | Western Bulldogs |
-| West Coast Eagles | West Coast | West Coast | West Coast |
 
-The TS approach prioritises consistency over backwards-compatibility with R. Use `normaliseTeamName()` to convert any variant to the canonical form.
+fitzRoy-ts uses the AFL API's match/ladder naming as canonical, with title-cased mascots (e.g. "GWS Giants" not "GWS GIANTS"). All sources (AFL Tables, FootyWire) normalise to these names. Use `normaliseTeamName()` to convert any variant to the canonical form.
 
 ## Data Sources Not Yet Implemented
 

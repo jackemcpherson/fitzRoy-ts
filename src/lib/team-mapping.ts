@@ -1,36 +1,56 @@
 /**
  * Team name normalisation across AFL data sources.
  *
- * Maps abbreviations, full names, and historical names to a single
- * canonical team name. Lookups are case-insensitive.
+ * Maps abbreviations, short names, and historical names to the canonical
+ * AFL API team names. Lookups are case-insensitive.
  *
  * @example
  * ```ts
- * normaliseTeamName("GWS");           // "Greater Western Sydney"
+ * normaliseTeamName("GWS");           // "GWS Giants"
  * normaliseTeamName("footscray");     // "Western Bulldogs"
  * normaliseTeamName("KANGAROOS");     // "North Melbourne"
+ * normaliseTeamName("Sydney");        // "Sydney Swans"
  * ```
  */
 
-/** Canonical team names used throughout the library. */
+/**
+ * Canonical team names matching the AFL API convention, with aliases.
+ * The first element of each tuple is the canonical name.
+ */
 const TEAM_ALIASES: ReadonlyArray<readonly [canonical: string, ...aliases: string[]]> = [
-  ["Adelaide", "Adelaide Crows", "Crows", "ADEL", "AD"],
+  ["Adelaide Crows", "Adelaide", "Crows", "ADEL", "AD"],
   ["Brisbane Lions", "Brisbane", "Brisbane Bears", "Bears", "Fitzroy Lions", "BL", "BRIS"],
   ["Carlton", "Carlton Blues", "Blues", "CARL", "CA"],
   ["Collingwood", "Collingwood Magpies", "Magpies", "COLL", "CW"],
   ["Essendon", "Essendon Bombers", "Bombers", "ESS", "ES"],
   ["Fremantle", "Fremantle Dockers", "Dockers", "FRE", "FR"],
-  ["Geelong", "Geelong Cats", "Cats", "GEEL", "GE"],
-  ["Gold Coast", "Gold Coast Suns", "Gold Coast Football Club", "Suns", "GCFC", "GC"],
-  ["Greater Western Sydney", "GWS", "GWS Giants", "Giants", "Greater Western Sydney Giants", "GW"],
+  ["Geelong Cats", "Geelong", "Cats", "GEEL", "GE"],
+  [
+    "Gold Coast Suns",
+    "Gold Coast",
+    "Gold Coast SUNS",
+    "Gold Coast Football Club",
+    "Suns",
+    "GCFC",
+    "GC",
+  ],
+  [
+    "GWS Giants",
+    "GWS",
+    "GWS GIANTS",
+    "Greater Western Sydney",
+    "Giants",
+    "Greater Western Sydney Giants",
+    "GW",
+  ],
   ["Hawthorn", "Hawthorn Hawks", "Hawks", "HAW", "HW"],
   ["Melbourne", "Melbourne Demons", "Demons", "MELB", "ME"],
   ["North Melbourne", "North Melbourne Kangaroos", "Kangaroos", "Kangas", "North", "NMFC", "NM"],
   ["Port Adelaide", "Port Adelaide Power", "Power", "Port", "PA", "PAFC"],
   ["Richmond", "Richmond Tigers", "Tigers", "RICH", "RI"],
   ["St Kilda", "St Kilda Saints", "Saints", "Saint Kilda", "STK", "SK"],
-  ["Sydney", "Sydney Swans", "Swans", "South Melbourne", "South Melbourne Swans", "SYD", "SY"],
-  ["West Coast", "West Coast Eagles", "Eagles", "WCE", "WC"],
+  ["Sydney Swans", "Sydney", "Swans", "South Melbourne", "South Melbourne Swans", "SYD", "SY"],
+  ["West Coast Eagles", "West Coast", "Eagles", "WCE", "WC"],
   ["Western Bulldogs", "Bulldogs", "Footscray", "Footscray Bulldogs", "WB", "WBD"],
 
   // Historical / defunct VFL teams
