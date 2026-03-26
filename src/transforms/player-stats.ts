@@ -76,7 +76,7 @@ function transformOne(
     shotsAtGoal: toNullable(stats.shotsAtGoal),
     scoreInvolvements: toNullable(stats.scoreInvolvements),
     totalPossessions: toNullable(stats.totalPossessions),
-    timeOnGroundPercentage: toNullable(stats.timeOnGroundPercentage),
+    timeOnGroundPercentage: toNullable(item.playerStats.timeOnGroundPercentage),
     ratingPoints: toNullable(stats.ratingPoints),
 
     dreamTeamPoints: toNullable(stats.dreamTeamPoints),

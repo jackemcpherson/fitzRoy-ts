@@ -320,7 +320,6 @@ export const PlayerGameStatsSchema = z
     shotsAtGoal: z.number().optional(),
     metresGained: z.number().optional(),
     scoreInvolvements: z.number().optional(),
-    timeOnGroundPercentage: z.number().optional(),
     ratingPoints: z.number().optional(),
     extendedStats: z
       .object({
@@ -374,6 +373,7 @@ export const PlayerStatsItemSchema = z
     playerStats: z
       .object({
         stats: PlayerGameStatsSchema,
+        timeOnGroundPercentage: z.number().optional(),
       })
       .passthrough(),
   })
