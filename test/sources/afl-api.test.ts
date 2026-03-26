@@ -408,53 +408,6 @@ describe("AflApiClient", () => {
     });
   });
 
-  describe("resolveRoundId", () => {
-    it("returns the round ID for a matching round number", async () => {
-      const rounds = {
-        rounds: [
-          { id: 1146, name: "Round 1", roundNumber: 1 },
-          { id: 1150, name: "Round 5", roundNumber: 5 },
-        ],
-      };
-      const fetchFn = vi.fn().mockResolvedValueOnce(mockResponse(rounds));
-      const client = new AflApiClient({ fetchFn });
-
-      const result = await client.resolveRoundId(73, 5);
-
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data).toBe(1150);
-      }
-    });
-
-    it("returns error when round number is not found", async () => {
-      const rounds = {
-        rounds: [{ id: 1146, name: "Round 1", roundNumber: 1 }],
-      };
-      const fetchFn = vi.fn().mockResolvedValueOnce(mockResponse(rounds));
-      const client = new AflApiClient({ fetchFn });
-
-      const result = await client.resolveRoundId(73, 99);
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toBeInstanceOf(AflApiError);
-        expect(result.error.message).toContain("99");
-      }
-    });
-
-    it("propagates fetch errors", async () => {
-      const fetchFn = vi
-        .fn()
-        .mockResolvedValueOnce(mockResponse({}, { status: 500, statusText: "Server Error" }));
-      const client = new AflApiClient({ fetchFn });
-
-      const result = await client.resolveRoundId(73, 1);
-
-      expect(result.success).toBe(false);
-    });
-  });
-
   describe("isAuthenticated", () => {
     it("returns false when no token is cached", () => {
       const client = new AflApiClient({ fetchFn: vi.fn() });
@@ -612,19 +565,27 @@ describe("AflApiClient", () => {
           },
         ],
       };
-      const fetchFn = vi
-        .fn()
-        .mockResolvedValueOnce(mockResponse(rounds))
-        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
-        .mockResolvedValueOnce(mockResponse(round1Items))
-        .mockResolvedValueOnce(mockResponse(round2Items));
+      const fetchFn = vi.fn().mockImplementation((url: string) => {
+        if (typeof url === "string" && url.includes("compseasons")) {
+          return Promise.resolve(mockResponse(rounds));
+        }
+        if (typeof url === "string" && url.includes("WMCTok")) {
+          return Promise.resolve(mockResponse(VALID_TOKEN));
+        }
+        if (typeof url === "string" && url.includes("CD_R1")) {
+          return Promise.resolve(mockResponse(round1Items));
+        }
+        if (typeof url === "string" && url.includes("CD_R2")) {
+          return Promise.resolve(mockResponse(round2Items));
+        }
+        return Promise.resolve(mockResponse({}, { status: 404 }));
+      });
       const client = new AflApiClient({ fetchFn });
 
       const result = await client.fetchSeasonMatchItems(73);
 
       expect(result.success).toBe(true);
       if (result.success) {
-        // Only the CONCLUDED match should be included
         expect(result.data).toHaveLength(1);
         expect(result.data[0]?.match.matchId).toBe("CD_M1");
       }

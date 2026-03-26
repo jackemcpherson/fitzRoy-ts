@@ -460,6 +460,12 @@ export const SquadPlayerItemSchema = z
 /** Schema for the squad wrapper object. */
 export const SquadSchema = z
   .object({
+    team: z
+      .object({
+        name: z.string(),
+      })
+      .passthrough()
+      .optional(),
     players: z.array(SquadPlayerItemSchema),
   })
   .passthrough();

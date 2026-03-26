@@ -6,7 +6,6 @@ import { normaliseTeamName } from "../lib/team-mapping";
 import type { PlayerStatsItem, PlayerStatsList } from "../lib/validation";
 import type { CompetitionCode, DataSource, PlayerStats } from "../types";
 
-/** Convert a nullable float stat to number | null. */
 function stat(value: number | null | undefined): number | null {
   return value != null ? value : null;
 }

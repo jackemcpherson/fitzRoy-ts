@@ -29,11 +29,7 @@ export async function fetchLineup(query: LineupQuery): Promise<Result<Lineup, Er
     return ok(transformMatchRoster(rosterResult.data, query.season, query.round, competition));
   }
 
-  // Resolve round and fetch first match roster
-  const compResult = await client.resolveCompetitionId(competition);
-  if (!compResult.success) return compResult;
-
-  const seasonResult = await client.resolveSeasonId(compResult.data, query.season);
+  const seasonResult = await client.resolveCompSeason(competition, query.season);
   if (!seasonResult.success) return seasonResult;
 
   const matchItems = await client.fetchRoundMatchItemsByNumber(seasonResult.data, query.round);

@@ -6,6 +6,7 @@
  */
 
 import * as cheerio from "cheerio";
+import { parseAflTablesDate } from "../lib/date-utils";
 import { ScrapeError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
@@ -174,32 +175,14 @@ function parseQuarterScores(text: string): (QuarterScore | undefined)[] {
   });
 }
 
-/** Parse date from the info cell text. */
+/** Parse date from the info cell text (e.g. "Thu 07-Mar-2024 7:30 PM Att: ..."). */
 function parseDateFromInfo(text: string, year: number): Date {
-  const months: Record<string, number> = {
-    Jan: 0,
-    Feb: 1,
-    Mar: 2,
-    Apr: 3,
-    May: 4,
-    Jun: 5,
-    Jul: 6,
-    Aug: 7,
-    Sep: 8,
-    Oct: 9,
-    Nov: 10,
-    Dec: 11,
-  };
-
-  // Pattern: "Thu 07-Mar-2024 7:30 PM" or "07-Mar-2024"
-  const match = /(\d{1,2})-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{4})/i.exec(text);
-  if (!match?.[1] || !match[2] || !match[3]) return new Date(year, 0, 1);
-
-  const day = Number.parseInt(match[1], 10);
-  const month = months[match[2]] ?? 0;
-  const yr = Number.parseInt(match[3], 10);
-
-  return new Date(yr, month, day);
+  // Extract just the date portion before the time/attendance info
+  const dateMatch = /(\d{1,2}-[A-Z][a-z]{2}-\d{4})/.exec(text);
+  if (dateMatch?.[1]) {
+    return parseAflTablesDate(dateMatch[1]) ?? new Date(year, 0, 1);
+  }
+  return parseAflTablesDate(text) ?? new Date(year, 0, 1);
 }
 
 /** Parse venue from the info cell HTML. */

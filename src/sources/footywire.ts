@@ -6,6 +6,7 @@
  */
 
 import * as cheerio from "cheerio";
+import { parseFootyWireDate } from "../lib/date-utils";
 import { ScrapeError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
@@ -139,7 +140,7 @@ export function parseMatchList(html: string, year: number): MatchResult[] {
     const matchId = midMatch?.[1] ? `FW_${midMatch[1]}` : `FW_${year}_R${currentRound}_${homeTeam}`;
 
     // Parse date
-    const date = parseFootyWireMatchDate(dateText, year);
+    const date = parseFootyWireDate(dateText) ?? new Date(year, 0, 1);
 
     // Estimate goals/behinds (FootyWire only gives total score on this page)
     const homeGoals = Math.floor(homePoints / 6);
@@ -179,37 +180,4 @@ export function parseMatchList(html: string, year: number): MatchResult[] {
   });
 
   return results;
-}
-
-/** Parse FootyWire date format (e.g. "Thu 13 Mar 7:30pm") with year context. */
-function parseFootyWireMatchDate(text: string, year: number): Date {
-  // Remove leading &nbsp; and whitespace
-  const clean = text
-    .replace(/\u00a0/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .trim();
-
-  const months: Record<string, number> = {
-    Jan: 0,
-    Feb: 1,
-    Mar: 2,
-    Apr: 3,
-    May: 4,
-    Jun: 5,
-    Jul: 6,
-    Aug: 7,
-    Sep: 8,
-    Oct: 9,
-    Nov: 10,
-    Dec: 11,
-  };
-
-  // Pattern: "Thu 13 Mar 7:30pm" or "13 Mar 7:30pm"
-  const match = /(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i.exec(clean);
-  if (!match?.[1] || !match[2]) return new Date(year, 0, 1);
-
-  const day = Number.parseInt(match[1], 10);
-  const month = months[match[2]] ?? 0;
-
-  return new Date(year, month, day);
 }

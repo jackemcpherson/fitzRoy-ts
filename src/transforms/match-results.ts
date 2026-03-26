@@ -7,7 +7,7 @@ import type { MatchItem, PeriodScore } from "../lib/validation";
 import type { CompetitionCode, DataSource, MatchResult, MatchStatus, QuarterScore } from "../types";
 
 /** Map raw API status strings to domain MatchStatus. */
-function toMatchStatus(raw: string): MatchStatus {
+export function toMatchStatus(raw: string): MatchStatus {
   switch (raw) {
     case "CONCLUDED":
     case "COMPLETE":

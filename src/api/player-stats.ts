@@ -30,7 +30,6 @@ export async function fetchPlayerStats(
     case "afl-api": {
       const client = new AflApiClient();
 
-      // If a specific match ID is provided, fetch stats for that match.
       if (query.matchId) {
         const result = await client.fetchPlayerStats(query.matchId);
         if (!result.success) return result;
@@ -45,11 +44,7 @@ export async function fetchPlayerStats(
         );
       }
 
-      // Otherwise, resolve the round and fetch stats for all matches.
-      const compResult = await client.resolveCompetitionId(competition);
-      if (!compResult.success) return compResult;
-
-      const seasonResult = await client.resolveSeasonId(compResult.data, query.season);
+      const seasonResult = await client.resolveCompSeason(competition, query.season);
       if (!seasonResult.success) return seasonResult;
 
       const roundNumber = query.round ?? 1;
@@ -59,10 +54,17 @@ export async function fetchPlayerStats(
       );
       if (!matchItemsResult.success) return matchItemsResult;
 
+      const statsResults = await Promise.all(
+        matchItemsResult.data.map((item) => client.fetchPlayerStats(item.match.matchId)),
+      );
+
       const allStats: PlayerStats[] = [];
-      for (const item of matchItemsResult.data) {
-        const statsResult = await client.fetchPlayerStats(item.match.matchId);
-        if (!statsResult.success) return statsResult;
+      for (let i = 0; i < statsResults.length; i++) {
+        const statsResult = statsResults[i];
+        if (!statsResult?.success)
+          return statsResult ?? err(new AflApiError("Missing stats result"));
+        const item = matchItemsResult.data[i];
+        if (!item) continue;
         allStats.push(
           ...transformPlayerStats(
             statsResult.data,

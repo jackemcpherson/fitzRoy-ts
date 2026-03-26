@@ -186,9 +186,7 @@ export class AflApiClient {
     url: string,
     schema: z.ZodType<T>,
   ): Promise<Result<T, AflApiError | ValidationError>> {
-    // Public API endpoints (aflapi.afl.com.au) don't require auth.
-    // Only api.afl.com.au/cfs/... endpoints need the WMCTok token.
-    const isPublic = url.includes("aflapi.afl.com.au");
+    const isPublic = url.startsWith(API_BASE);
 
     let response: Response;
     if (isPublic) {
@@ -299,6 +297,22 @@ export class AflApiClient {
   }
 
   /**
+   * Resolve a season ID from a competition code and year in one step.
+   *
+   * @param code - The competition code (e.g. "AFLM").
+   * @param year - The season year (e.g. 2025).
+   * @returns The compseason ID on success.
+   */
+  async resolveCompSeason(
+    code: CompetitionCode,
+    year: number,
+  ): Promise<Result<number, AflApiError | ValidationError>> {
+    const compResult = await this.resolveCompetitionId(code);
+    if (!compResult.success) return compResult;
+    return this.resolveSeasonId(compResult.data, year);
+  }
+
+  /**
    * Fetch all rounds for a season with their metadata.
    *
    * @param seasonId - The compseason ID (from {@link resolveSeasonId}).
@@ -315,32 +329,6 @@ export class AflApiClient {
     }
 
     return ok(result.data.rounds);
-  }
-
-  /**
-   * Resolve a specific round ID from a season ID and round number.
-   *
-   * @param seasonId - The compseason ID (from {@link resolveSeasonId}).
-   * @param roundNumber - The round number to find.
-   * @returns The round ID string on success.
-   */
-  async resolveRoundId(
-    seasonId: number,
-    roundNumber: number,
-  ): Promise<Result<number, AflApiError | ValidationError>> {
-    const roundsResult = await this.resolveRounds(seasonId);
-
-    if (!roundsResult.success) {
-      return roundsResult;
-    }
-
-    const round = roundsResult.data.find((r) => r.roundNumber === roundNumber);
-
-    if (!round) {
-      return err(new AflApiError(`Round not found: round ${roundNumber}`));
-    }
-
-    return ok(round.id);
   }
 
   /**
@@ -402,18 +390,17 @@ export class AflApiClient {
       return roundsResult;
     }
 
-    const allItems: MatchItem[] = [];
-    for (const round of roundsResult.data) {
-      if (!round.providerId) {
-        continue;
-      }
+    const providerIds = roundsResult.data
+      .filter((r) => r.providerId)
+      .map((r) => r.providerId as string);
 
-      const result = await this.fetchRoundMatchItems(round.providerId);
+    const results = await Promise.all(providerIds.map((id) => this.fetchRoundMatchItems(id)));
+
+    const allItems: MatchItem[] = [];
+    for (const result of results) {
       if (!result.success) {
         return result;
       }
-
-      // Only include concluded matches.
       const concluded = result.data.filter(
         (item) => item.match.status === "CONCLUDED" || item.match.status === "COMPLETE",
       );

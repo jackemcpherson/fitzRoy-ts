@@ -49,10 +49,7 @@ export async function fetchSquad(query: SquadQuery): Promise<Result<Squad, Error
   const client = new AflApiClient();
   const competition = query.competition ?? "AFLM";
 
-  const compResult = await client.resolveCompetitionId(competition);
-  if (!compResult.success) return compResult;
-
-  const seasonResult = await client.resolveSeasonId(compResult.data, query.season);
+  const seasonResult = await client.resolveCompSeason(competition, query.season);
   if (!seasonResult.success) return seasonResult;
 
   const teamId = Number.parseInt(query.teamId, 10);
@@ -77,7 +74,7 @@ export async function fetchSquad(query: SquadQuery): Promise<Result<Squad, Error
 
   return ok({
     teamId: query.teamId,
-    teamName: normaliseTeamName(query.teamId),
+    teamName: normaliseTeamName(squadResult.data.squad.team?.name ?? query.teamId),
     season: query.season,
     players,
     competition,

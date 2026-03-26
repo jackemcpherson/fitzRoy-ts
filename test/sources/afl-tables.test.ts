@@ -75,9 +75,9 @@ describe("parseSeasonPage", () => {
     const results = parseSeasonPage(fixtureHtml, 2024);
     const date = results[0]?.date;
 
-    expect(date?.getFullYear()).toBe(2024);
-    expect(date?.getMonth()).toBe(2); // March
-    expect(date?.getDate()).toBe(7);
+    expect(date?.getUTCFullYear()).toBe(2024);
+    expect(date?.getUTCMonth()).toBe(2); // March
+    expect(date?.getUTCDate()).toBe(7);
   });
 
   it("sets source and competition", () => {

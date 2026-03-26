@@ -30,10 +30,7 @@ export async function fetchMatchResults(
     case "afl-api": {
       const client = new AflApiClient();
 
-      const compResult = await client.resolveCompetitionId(competition);
-      if (!compResult.success) return compResult;
-
-      const seasonResult = await client.resolveSeasonId(compResult.data, query.season);
+      const seasonResult = await client.resolveCompSeason(competition, query.season);
       if (!seasonResult.success) return seasonResult;
 
       if (query.round != null) {
