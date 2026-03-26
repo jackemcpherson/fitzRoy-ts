@@ -216,6 +216,7 @@ describe("domain types", () => {
       pointsAgainst: 900,
       percentage: 133.3,
       premiershipsPoints: 34,
+      form: "WWWLWWWWWW",
     };
     const ladder: Ladder = {
       season: 2026,

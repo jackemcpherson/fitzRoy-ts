@@ -14,6 +14,8 @@ import {
   AflApiTokenSchema,
   CompetitionListSchema,
   CompseasonListSchema,
+  type LadderResponse,
+  LadderResponseSchema,
   type MatchItem,
   MatchItemListSchema,
   type MatchRoster,
@@ -470,5 +472,23 @@ export class AflApiClient {
       `${API_BASE}/squads?teamId=${teamId}&compSeasonId=${compSeasonId}`,
       SquadListSchema,
     );
+  }
+
+  /**
+   * Fetch ladder standings for a season (optionally for a specific round).
+   *
+   * @param seasonId - The compseason ID.
+   * @param roundId - Optional round ID (numeric `id`, not `providerId`).
+   * @returns Ladder response with entries.
+   */
+  async fetchLadder(
+    seasonId: number,
+    roundId?: number,
+  ): Promise<Result<LadderResponse, AflApiError | ValidationError>> {
+    let url = `${API_BASE}/compseasons/${seasonId}/ladders`;
+    if (roundId != null) {
+      url += `?roundId=${roundId}`;
+    }
+    return this.fetchJson(url, LadderResponseSchema);
   }
 }

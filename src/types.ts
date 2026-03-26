@@ -246,6 +246,7 @@ export interface LadderEntry {
   readonly pointsAgainst: number;
   readonly percentage: number;
   readonly premiershipsPoints: number;
+  readonly form: string | null;
 }
 
 /** Season ladder snapshot (optionally for a specific round). */

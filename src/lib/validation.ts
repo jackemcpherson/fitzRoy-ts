@@ -516,3 +516,69 @@ export type SquadPlayerItem = z.infer<typeof SquadPlayerItemSchema>;
 
 /** Inferred type for the squad response. */
 export type SquadList = z.infer<typeof SquadListSchema>;
+
+// ---------------------------------------------------------------------------
+// Ladder (/afl/v2/compseasons/{seasonId}/ladders)
+// ---------------------------------------------------------------------------
+
+/** Schema for a win/loss/draw record. */
+const WinLossRecordSchema = z
+  .object({
+    wins: z.number(),
+    losses: z.number(),
+    draws: z.number(),
+    played: z.number().optional(),
+  })
+  .passthrough();
+
+/** Schema for a single ladder entry from the AFL API. */
+export const LadderEntryRawSchema = z
+  .object({
+    position: z.number(),
+    team: z
+      .object({
+        name: z.string(),
+        id: z.number().optional(),
+        abbreviation: z.string().optional(),
+      })
+      .passthrough(),
+    played: z.number().optional(),
+    pointsFor: z.number().optional(),
+    pointsAgainst: z.number().optional(),
+    thisSeasonRecord: z
+      .object({
+        aggregatePoints: z.number().optional(),
+        percentage: z.number().optional(),
+        winLossRecord: WinLossRecordSchema.optional(),
+      })
+      .passthrough()
+      .optional(),
+    form: z.string().optional(),
+  })
+  .passthrough();
+
+/** Schema for the ladder API response. */
+export const LadderResponseSchema = z
+  .object({
+    ladders: z.array(
+      z
+        .object({
+          entries: z.array(LadderEntryRawSchema),
+        })
+        .passthrough(),
+    ),
+    round: z
+      .object({
+        roundNumber: z.number(),
+        name: z.string().optional(),
+      })
+      .passthrough()
+      .optional(),
+  })
+  .passthrough();
+
+/** Inferred type for a raw ladder entry. */
+export type LadderEntryRaw = z.infer<typeof LadderEntryRawSchema>;
+
+/** Inferred type for the ladder API response. */
+export type LadderResponse = z.infer<typeof LadderResponseSchema>;

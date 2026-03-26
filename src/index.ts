@@ -70,6 +70,10 @@ export {
   TeamItemSchema,
   type TeamList,
   TeamListSchema,
+  type LadderEntryRaw,
+  LadderEntryRawSchema,
+  type LadderResponse,
+  LadderResponseSchema,
   type TeamPlayers,
   TeamPlayersSchema,
   type TeamScore,
@@ -79,6 +83,7 @@ export { AflApiClient, type AflApiClientOptions } from "./sources/afl-api";
 export { AflTablesClient, type AflTablesClientOptions } from "./sources/afl-tables";
 export { FootyWireClient, type FootyWireClientOptions } from "./sources/footywire";
 export { fetchFryziggStats } from "./sources/fryzigg";
+export { transformLadderEntries } from "./transforms/ladder";
 export { transformMatchRoster } from "./transforms/lineup";
 export { inferRoundType, transformMatchItems } from "./transforms/match-results";
 export { transformPlayerStats } from "./transforms/player-stats";
