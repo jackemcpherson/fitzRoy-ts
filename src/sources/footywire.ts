@@ -177,6 +177,12 @@ export function parseMatchList(html: string, year: number): MatchResult[] {
       q4Away: null,
       status: "Complete",
       attendance: attendance ? Number.parseInt(attendance, 10) || null : null,
+      venueState: null,
+      venueTimezone: null,
+      homeRushedBehinds: null,
+      awayRushedBehinds: null,
+      homeMinutesInFront: null,
+      awayMinutesInFront: null,
       source: "footywire",
       competition: "AFLM",
     });

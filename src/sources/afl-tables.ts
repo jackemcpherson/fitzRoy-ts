@@ -160,6 +160,12 @@ export function parseSeasonPage(html: string, year: number): MatchResult[] {
       q4Away: awayQuarters[3] ?? null,
       status: "Complete",
       attendance,
+      venueState: null,
+      venueTimezone: null,
+      homeRushedBehinds: null,
+      awayRushedBehinds: null,
+      homeMinutesInFront: null,
+      awayMinutesInFront: null,
       source: "afl-tables",
       competition: "AFLM",
     });

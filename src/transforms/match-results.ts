@@ -111,6 +111,12 @@ export function transformMatchItems(
 
       status: toMatchStatus(item.match.status),
       attendance: null,
+      venueState: item.venue?.state ?? null,
+      venueTimezone: item.venue?.timeZone ?? null,
+      homeRushedBehinds: homeScore?.rushedBehinds ?? null,
+      awayRushedBehinds: awayScore?.rushedBehinds ?? null,
+      homeMinutesInFront: homeScore?.minutesInFront ?? null,
+      awayMinutesInFront: awayScore?.minutesInFront ?? null,
       source,
       competition,
     };

@@ -76,6 +76,19 @@ export interface MatchResult {
 
   readonly status: MatchStatus;
   readonly attendance: number | null;
+
+  /** Venue metadata (null for scraped sources). */
+  readonly venueState: string | null;
+  readonly venueTimezone: string | null;
+
+  /** Rushed behinds per team (null when unavailable). */
+  readonly homeRushedBehinds: number | null;
+  readonly awayRushedBehinds: number | null;
+
+  /** Minutes each team spent in front (null when unavailable). */
+  readonly homeMinutesInFront: number | null;
+  readonly awayMinutesInFront: number | null;
+
   readonly source: DataSource;
   readonly competition: CompetitionCode;
 }
