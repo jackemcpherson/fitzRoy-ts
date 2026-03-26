@@ -101,11 +101,9 @@ describe("formatTable", () => {
   it("pads columns to equal width", () => {
     const output = formatTable(sampleData, { terminalWidth: 120 });
     const lines = output.split("\n");
-    // All data lines should be the same length
     const dataLines = lines.slice(2);
     const lengths = dataLines.map((l) => l.trimEnd().length);
-    // They should all be padded similarly (may differ by trailing spaces)
-    expect(new Set(lengths).size).toBeLessThanOrEqual(2);
+    expect(new Set(lengths).size).toBe(1);
   });
 
   it("shows only configured columns by default", () => {
@@ -134,12 +132,11 @@ describe("formatTable", () => {
     expect(output).toContain("PERCENTAGE");
   });
 
-  it("truncates to terminal width", () => {
+  it("truncates columns to fit terminal width", () => {
     const output = formatTable(sampleData, { terminalWidth: 30 });
     const lines = output.split("\n");
     for (const line of lines) {
-      // Each line should not exceed terminal width (plus some tolerance for the truncation logic)
-      expect(line.trimEnd().length).toBeLessThanOrEqual(35);
+      expect(line.trimEnd().length).toBeLessThanOrEqual(30);
     }
   });
 
