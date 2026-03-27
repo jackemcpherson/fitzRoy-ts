@@ -8,6 +8,7 @@
  */
 
 import type { z } from "zod/v4";
+import { batchedMap } from "../lib/concurrency";
 import { AflApiError, ValidationError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import {
@@ -68,6 +69,7 @@ export class AflApiClient {
   private readonly fetchFn: typeof fetch;
   private readonly tokenUrl: string;
   private cachedToken: CachedToken | null = null;
+  private pendingAuth: Promise<Result<string, AflApiError>> | null = null;
 
   constructor(options?: AflApiClientOptions) {
     this.fetchFn = options?.fetchFn ?? globalThis.fetch;
@@ -77,9 +79,22 @@ export class AflApiClient {
   /**
    * Authenticate with the WMCTok token endpoint and cache the token.
    *
+   * Concurrent callers share the same in-flight request to avoid
+   * redundant token fetches (thundering herd prevention).
+   *
    * @returns The access token on success, or an error Result.
    */
   async authenticate(): Promise<Result<string, AflApiError>> {
+    if (this.pendingAuth) {
+      return this.pendingAuth;
+    }
+    this.pendingAuth = this.doAuthenticate().finally(() => {
+      this.pendingAuth = null;
+    });
+    return this.pendingAuth;
+  }
+
+  private async doAuthenticate(): Promise<Result<string, AflApiError>> {
     try {
       const response = await this.fetchFn(this.tokenUrl, {
         method: "POST",
@@ -394,7 +409,7 @@ export class AflApiClient {
 
     const providerIds = roundsResult.data.flatMap((r) => (r.providerId ? [r.providerId] : []));
 
-    const results = await Promise.all(providerIds.map((id) => this.fetchRoundMatchItems(id)));
+    const results = await batchedMap(providerIds, (id) => this.fetchRoundMatchItems(id));
 
     const allItems: MatchItem[] = [];
     for (const result of results) {

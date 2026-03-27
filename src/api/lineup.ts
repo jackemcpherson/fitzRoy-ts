@@ -2,6 +2,7 @@
  * Public API for fetching match lineup/roster data.
  */
 
+import { batchedMap } from "../lib/concurrency";
 import { AflApiError, UnsupportedSourceError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { AflApiClient } from "../sources/afl-api";
@@ -47,8 +48,8 @@ export async function fetchLineup(query: LineupQuery): Promise<Result<Lineup[], 
     return err(new AflApiError(`No matches found for round ${query.round}`));
   }
 
-  const rosterResults = await Promise.all(
-    matchItems.data.map((item) => client.fetchMatchRoster(item.match.matchId)),
+  const rosterResults = await batchedMap(matchItems.data, (item) =>
+    client.fetchMatchRoster(item.match.matchId),
   );
 
   const lineups: Lineup[] = [];
