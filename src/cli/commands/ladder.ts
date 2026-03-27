@@ -1,5 +1,6 @@
 import { defineCommand } from "citty";
 import { fetchLadder } from "../../index";
+import { COMPETITION_FLAG, OUTPUT_FLAGS, ROUND_FLAG, SEASON_FLAG, SOURCE_FLAG } from "../flags";
 import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
 import { showSummary, withSpinner } from "../ui";
 import {
@@ -26,18 +27,11 @@ export const ladderCommand = defineCommand({
     description: "Fetch ladder standings for a season",
   },
   args: {
-    season: { type: "string", description: "Season year (e.g. 2025)", required: true },
-    round: { type: "string", description: "Round number" },
-    source: { type: "string", description: "Data source", default: "afl-api" },
-    competition: {
-      type: "string",
-      description: "Competition code (AFLM or AFLW)",
-      default: "AFLM",
-    },
-    json: { type: "boolean", description: "Output as JSON" },
-    csv: { type: "boolean", description: "Output as CSV" },
-    format: { type: "string", description: "Output format: table, json, csv" },
-    full: { type: "boolean", description: "Show all columns in table output" },
+    ...SEASON_FLAG,
+    ...ROUND_FLAG,
+    ...SOURCE_FLAG,
+    ...COMPETITION_FLAG,
+    ...OUTPUT_FLAGS,
   },
   async run({ args }) {
     const season = validateSeason(args.season);

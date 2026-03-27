@@ -1,5 +1,6 @@
 import { defineCommand } from "citty";
 import { fetchTeams } from "../../index";
+import { OPTIONAL_COMPETITION_FLAG, OUTPUT_FLAGS } from "../flags";
 import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
 import { showSummary, withSpinner } from "../ui";
 import { validateFormat, validateOptionalCompetition } from "../validation";
@@ -17,12 +18,9 @@ export const teamsCommand = defineCommand({
     description: "Fetch team list",
   },
   args: {
-    competition: { type: "string", description: "Competition code (AFLM or AFLW)" },
+    ...OPTIONAL_COMPETITION_FLAG,
     "team-type": { type: "string", description: "Team type filter" },
-    json: { type: "boolean", description: "Output as JSON" },
-    csv: { type: "boolean", description: "Output as CSV" },
-    format: { type: "string", description: "Output format: table, json, csv" },
-    full: { type: "boolean", description: "Show all columns in table output" },
+    ...OUTPUT_FLAGS,
   },
   async run({ args }) {
     const competition = validateOptionalCompetition(args.competition);
