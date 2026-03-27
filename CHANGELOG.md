@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Fuzzy text matching for team names — typos like `Calrton` resolve to `Carlton`, ambiguous input prompts interactive selection via `@clack/prompts`
+- `--player` (`-p`) flag on `stats` command for filtering results by player name with fuzzy matching
+- `--match` flag on `stats` and `lineup` commands resolves a team name to the specific match in the round (e.g. `--match Carlton -r 1`)
+- Short aliases for common CLI flags: `-s` (season), `-r` (round), `-c` (competition), `-t` (team), `-p` (player), `-j` (json)
+
+### Changed
+
+- `squad` command now uses `--team` (`-t`) flag instead of `--team-id`
+- `player-details` command now uses `--team` (`-t`) flag instead of a positional argument
+- API requests are now batched (max 5 concurrent) to avoid overwhelming upstream APIs
+- Concurrent token refresh requests are deduplicated to prevent thundering herd on the AFL API auth endpoint
+
+### Fixed
+
+- Unbounded `Promise.all()` in fixture, player stats, and lineup fetching could trigger rate limits or socket exhaustion
+- Multiple concurrent requests could each independently refresh the auth token, wasting requests
+
 ## [1.1.1] - 2026-03-27
 
 ### Fixed
