@@ -6,7 +6,7 @@
 import { spinner } from "@clack/prompts";
 import pc from "picocolors";
 
-export const isTTY = process.stdout.isTTY === true;
+const isTTY = process.stdout.isTTY === true;
 
 /**
  * Run an async operation with a spinner. Suppresses spinner when not a TTY.

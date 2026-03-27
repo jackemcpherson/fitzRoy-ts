@@ -30,11 +30,14 @@ export const squadCommand = defineCommand({
     const competition = validateCompetition(args.competition);
     const format = validateFormat(args.format);
 
-    const teamsResult = await withSpinner("Resolving team…", () => fetchTeams({ competition }));
-    if (!teamsResult.success) {
-      throw teamsResult.error;
+    let teamId = args.team.trim();
+    if (!/^\d+$/.test(teamId)) {
+      const teamsResult = await withSpinner("Resolving team…", () => fetchTeams({ competition }));
+      if (!teamsResult.success) {
+        throw teamsResult.error;
+      }
+      teamId = await resolveTeamOrPrompt(args.team, teamsResult.data);
     }
-    const teamId = await resolveTeamOrPrompt(args.team, teamsResult.data);
 
     const result = await withSpinner("Fetching squad…", () =>
       fetchSquad({ teamId, season, competition }),

@@ -8,9 +8,11 @@
 
 import { isCancel, select } from "@clack/prompts";
 import { fuzzySearch } from "../lib/fuzzy";
-import { normaliseTeamName } from "../lib/team-mapping";
+import { AFL_SENIOR_TEAMS, normaliseTeamName } from "../lib/team-mapping";
 import type { MatchItem } from "../lib/validation";
-import { isTTY } from "./ui";
+import { resolveMatchByTeam, resolveTeamIdentifier } from "./validation";
+
+const isTTY = process.stdout.isTTY === true;
 
 /** Minimal team shape accepted by the resolver. */
 interface TeamCandidate {
@@ -23,11 +25,8 @@ interface TeamCandidate {
  * Resolve a team query to a numeric team ID, with fuzzy matching and
  * interactive disambiguation.
  *
- * Resolution order:
- * 1. Numeric ID passthrough
- * 2. Exact match via alias map, case-insensitive name, or abbreviation
- * 3. Fuzzy search with Levenshtein distance
- * 4. Interactive `select()` prompt if ambiguous (TTY only)
+ * Tries deterministic resolution first via {@link resolveTeamIdentifier},
+ * then falls back to fuzzy search with interactive prompts.
  *
  * @param query - User-provided team text (name, abbreviation, or ID).
  * @param teams - Available teams to match against.
@@ -37,33 +36,18 @@ export async function resolveTeamOrPrompt(
   query: string,
   teams: readonly TeamCandidate[],
 ): Promise<string> {
-  const trimmed = query.trim();
-
-  // Numeric ID passthrough
-  if (/^\d+$/.test(trimmed)) {
-    return trimmed;
+  try {
+    return resolveTeamIdentifier(query, teams);
+  } catch {
+    // Fall through to fuzzy search
   }
 
-  // Exact match: alias map → case-insensitive name → abbreviation
-  const canonical = normaliseTeamName(trimmed);
-  const byCanonical = teams.find((t) => t.name === canonical);
-  if (byCanonical) return byCanonical.teamId;
-
-  const lower = trimmed.toLowerCase();
-  const byName = teams.find((t) => t.name.toLowerCase() === lower);
-  if (byName) return byName.teamId;
-
-  const byAbbrev = teams.find((t) => t.abbreviation.toLowerCase() === lower);
-  if (byAbbrev) return byAbbrev.teamId;
-
-  // Fuzzy search
-  const matches = fuzzySearch(trimmed, [...teams], (t) => t.name, {
+  const matches = fuzzySearch(query.trim(), teams, (t) => t.name, {
     maxResults: 5,
     threshold: 0.4,
   });
 
-  // Also search abbreviations and merge unique results
-  const abbrevMatches = fuzzySearch(trimmed, [...teams], (t) => t.abbreviation, {
+  const abbrevMatches = fuzzySearch(query.trim(), teams, (t) => t.abbreviation, {
     maxResults: 5,
     threshold: 0.4,
   });
@@ -79,7 +63,7 @@ export async function resolveTeamOrPrompt(
   matches.sort((a, b) => a.score - b.score);
 
   return disambiguate(
-    trimmed,
+    query.trim(),
     matches.map((m) => ({ value: m.item.teamId, label: m.item.name, score: m.score })),
     teams.map((t) => `${t.name} (${t.abbreviation})`),
     "team",
@@ -94,7 +78,7 @@ export async function resolveTeamOrPrompt(
  * (e.g. `player-details`, `coaches-votes`).
  *
  * @param query - User-provided team text.
- * @param teamNames - Optional explicit list of team names to search. Defaults to the alias map.
+ * @param teamNames - Optional explicit list of team names to search. Defaults to AFL senior teams.
  * @returns The resolved canonical team name.
  */
 export async function resolveTeamNameOrPrompt(
@@ -103,14 +87,14 @@ export async function resolveTeamNameOrPrompt(
 ): Promise<string> {
   const trimmed = query.trim();
 
-  // Try alias map first
+  // Check alias map — handles both aliases and exact canonical names
   const canonical = normaliseTeamName(trimmed);
-  if (canonical !== trimmed) {
+  const candidates = teamNames ?? [...AFL_SENIOR_TEAMS];
+
+  if (candidates.includes(canonical)) {
     return canonical;
   }
 
-  // If explicit team names provided, fuzzy search against them
-  const candidates = teamNames ?? getDefaultTeamNames();
   const items = candidates.map((name) => ({ name }));
   const matches = fuzzySearch(trimmed, items, (t) => t.name, {
     maxResults: 5,
@@ -120,7 +104,7 @@ export async function resolveTeamNameOrPrompt(
   return disambiguate(
     trimmed,
     matches.map((m) => ({ value: m.item.name, label: m.item.name, score: m.score })),
-    [...candidates],
+    candidates,
     "team",
   );
 }
@@ -128,6 +112,9 @@ export async function resolveTeamNameOrPrompt(
 /**
  * Resolve a match query (team name) to a match ID, with fuzzy matching
  * and interactive disambiguation.
+ *
+ * Tries exact resolution first via {@link resolveMatchByTeam},
+ * then falls back to fuzzy search with interactive prompts.
  *
  * @param query - User-provided team name to find the match for.
  * @param matchItems - Available matches in the round.
@@ -137,26 +124,12 @@ export async function resolveMatchOrPrompt(
   query: string,
   matchItems: readonly MatchItem[],
 ): Promise<string> {
-  const normalised = normaliseTeamName(query);
-  const lower = query.toLowerCase();
-
-  // Try exact resolution first
-  const exactMatches = matchItems.filter((item) => {
-    const home = item.match.homeTeam.name;
-    const away = item.match.awayTeam.name;
-    return (
-      normaliseTeamName(home) === normalised ||
-      normaliseTeamName(away) === normalised ||
-      home.toLowerCase().includes(lower) ||
-      away.toLowerCase().includes(lower)
-    );
-  });
-
-  if (exactMatches.length === 1 && exactMatches[0]) {
-    return exactMatches[0].match.matchId;
+  try {
+    return resolveMatchByTeam(query, matchItems);
+  } catch {
+    // Fall through to fuzzy search
   }
 
-  // Fuzzy search against "Home vs Away" labels
   const labelledItems = matchItems.map((item) => ({
     item,
     label: `${item.match.homeTeam.name} vs ${item.match.awayTeam.name}`,
@@ -167,12 +140,11 @@ export async function resolveMatchOrPrompt(
     threshold: 0.5,
   });
 
-  // Also fuzzy search against individual team names
-  const homeMatches = fuzzySearch(query, [...matchItems], (i) => i.match.homeTeam.name, {
+  const homeMatches = fuzzySearch(query, matchItems, (i) => i.match.homeTeam.name, {
     maxResults: 5,
     threshold: 0.4,
   });
-  const awayMatches = fuzzySearch(query, [...matchItems], (i) => i.match.awayTeam.name, {
+  const awayMatches = fuzzySearch(query, matchItems, (i) => i.match.awayTeam.name, {
     maxResults: 5,
     threshold: 0.4,
   });
@@ -236,12 +208,6 @@ async function disambiguate(
   allLabels: readonly string[],
   entityName: string,
 ): Promise<string> {
-  if (options.length === 0) {
-    throw new Error(
-      `No ${entityName} found for "${query}". Valid options: ${allLabels.join(", ")}`,
-    );
-  }
-
   const best = options[0];
   if (!best) {
     throw new Error(
@@ -249,12 +215,10 @@ async function disambiguate(
     );
   }
 
-  // High-confidence single match
   if (best.score < 0.2 || options.length === 1) {
     return best.value;
   }
 
-  // Interactive disambiguation on TTY
   if (isTTY) {
     const choice = await select({
       message: `Multiple ${entityName}s matched "${query}". Which did you mean?`,
@@ -268,31 +232,6 @@ async function disambiguate(
     return choice as string;
   }
 
-  // Non-TTY: use best match with a note
   console.error(`Matched "${query}" → ${best.label}`);
   return best.value;
-}
-
-/** Get default team names from the alias map for fuzzy matching without API calls. */
-function getDefaultTeamNames(): readonly string[] {
-  return [
-    "Adelaide Crows",
-    "Brisbane Lions",
-    "Carlton",
-    "Collingwood",
-    "Essendon",
-    "Fremantle",
-    "Geelong Cats",
-    "Gold Coast Suns",
-    "GWS Giants",
-    "Hawthorn",
-    "Melbourne",
-    "North Melbourne",
-    "Port Adelaide",
-    "Richmond",
-    "St Kilda",
-    "Sydney Swans",
-    "West Coast Eagles",
-    "Western Bulldogs",
-  ];
 }
