@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-03-27
+
 ### Added
 
 - Fuzzy text matching for team names — typos like `Calrton` resolve to `Carlton`, ambiguous input prompts interactive selection via `@clack/prompts`
