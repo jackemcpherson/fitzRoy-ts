@@ -7,12 +7,13 @@
 
 import { normaliseTeamName } from "../lib/team-mapping";
 import type { MatchItem } from "../lib/validation";
-import type { CompetitionCode, DataSource } from "../types";
+import type { CompetitionCode, DataSource, TeamStatsSummaryType } from "../types";
 
 const VALID_SOURCES: readonly DataSource[] = ["afl-api", "footywire", "afl-tables", "squiggle"];
 const VALID_COMPETITIONS: readonly CompetitionCode[] = ["AFLM", "AFLW"];
 const VALID_FORMATS = ["table", "json", "csv"] as const;
 type OutputFormat = (typeof VALID_FORMATS)[number];
+const VALID_SUMMARIES = ["totals", "averages"] as const;
 
 /** Validate and parse a season year string. */
 export function validateSeason(raw: string): number {
@@ -76,6 +77,17 @@ export function validateSource(raw: string): DataSource {
     return raw as DataSource;
   }
   throw new Error(`Invalid source: "${raw}" — valid sources are: ${VALID_SOURCES.join(", ")}`);
+}
+
+/** Validate a summary type string (case-insensitive). */
+export function validateSummary(raw: string): TeamStatsSummaryType {
+  const lower = raw.toLowerCase();
+  if (VALID_SUMMARIES.includes(lower as TeamStatsSummaryType)) {
+    return lower as TeamStatsSummaryType;
+  }
+  throw new Error(
+    `Invalid summary type: "${raw}" — valid values are: ${VALID_SUMMARIES.join(", ")}`,
+  );
 }
 
 /**
@@ -149,7 +161,10 @@ export function resolveMatchByTeam(teamSearch: string, matchItems: readonly Matc
 
   if (matches.length === 0) {
     const available = matchItems
-      .map((item) => `${item.match.homeTeam.name} vs ${item.match.awayTeam.name}`)
+      .map(
+        (item) =>
+          `${normaliseTeamName(item.match.homeTeam.name)} vs ${normaliseTeamName(item.match.awayTeam.name)}`,
+      )
       .join(", ");
     throw new Error(
       `No match found for "${teamSearch}" in this round. Available matches: ${available}`,
@@ -157,7 +172,10 @@ export function resolveMatchByTeam(teamSearch: string, matchItems: readonly Matc
   }
 
   const ambiguous = matches
-    .map((item) => `${item.match.homeTeam.name} vs ${item.match.awayTeam.name}`)
+    .map(
+      (item) =>
+        `${normaliseTeamName(item.match.homeTeam.name)} vs ${normaliseTeamName(item.match.awayTeam.name)}`,
+    )
     .join(", ");
   throw new Error(
     `Multiple matches found for "${teamSearch}": ${ambiguous}. Please be more specific.`,

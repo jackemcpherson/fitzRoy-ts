@@ -132,7 +132,7 @@ export async function resolveMatchOrPrompt(
 
   const labelledItems = matchItems.map((item) => ({
     item,
-    label: `${item.match.homeTeam.name} vs ${item.match.awayTeam.name}`,
+    label: `${normaliseTeamName(item.match.homeTeam.name)} vs ${normaliseTeamName(item.match.awayTeam.name)}`,
   }));
 
   const matches = fuzzySearch(query, labelledItems, (l) => l.label, {
@@ -152,14 +152,14 @@ export async function resolveMatchOrPrompt(
   const seen = new Set(matches.map((m) => m.item.item.match.matchId));
   for (const m of homeMatches) {
     if (!seen.has(m.item.match.matchId)) {
-      const label = `${m.item.match.homeTeam.name} vs ${m.item.match.awayTeam.name}`;
+      const label = `${normaliseTeamName(m.item.match.homeTeam.name)} vs ${normaliseTeamName(m.item.match.awayTeam.name)}`;
       matches.push({ item: { item: m.item, label }, score: m.score });
       seen.add(m.item.match.matchId);
     }
   }
   for (const m of awayMatches) {
     if (!seen.has(m.item.match.matchId)) {
-      const label = `${m.item.match.homeTeam.name} vs ${m.item.match.awayTeam.name}`;
+      const label = `${normaliseTeamName(m.item.match.homeTeam.name)} vs ${normaliseTeamName(m.item.match.awayTeam.name)}`;
       matches.push({ item: { item: m.item, label }, score: m.score });
       seen.add(m.item.match.matchId);
     }
@@ -168,7 +168,8 @@ export async function resolveMatchOrPrompt(
   matches.sort((a, b) => a.score - b.score);
 
   const available = matchItems.map(
-    (item) => `${item.match.homeTeam.name} vs ${item.match.awayTeam.name}`,
+    (item) =>
+      `${normaliseTeamName(item.match.homeTeam.name)} vs ${normaliseTeamName(item.match.awayTeam.name)}`,
   );
 
   return disambiguate(

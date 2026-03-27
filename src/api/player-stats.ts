@@ -5,6 +5,7 @@
 import { batchedMap } from "../lib/concurrency";
 import { AflApiError, aflwUnsupportedError, UnsupportedSourceError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
+import { AFL_API_TEAM_IDS, normaliseTeamName } from "../lib/team-mapping";
 import { AflApiClient } from "../sources/afl-api";
 import { AflTablesClient } from "../sources/afl-tables";
 import { FootyWireClient } from "../sources/footywire";
@@ -41,11 +42,11 @@ export async function fetchPlayerStats(
 
         if (!statsResult.success) return statsResult;
 
-        const teamIdMap = new Map<string, string>();
+        const teamIdMap = new Map<string, string>(AFL_API_TEAM_IDS);
         if (rosterResult.success) {
           const match = rosterResult.data.match;
-          teamIdMap.set(match.homeTeamId, match.homeTeam.name);
-          teamIdMap.set(match.awayTeamId, match.awayTeam.name);
+          teamIdMap.set(match.homeTeamId, normaliseTeamName(match.homeTeam.name));
+          teamIdMap.set(match.awayTeamId, normaliseTeamName(match.awayTeam.name));
         }
 
         return ok(
@@ -56,7 +57,7 @@ export async function fetchPlayerStats(
             query.round ?? 0,
             competition,
             "afl-api",
-            teamIdMap.size > 0 ? teamIdMap : undefined,
+            teamIdMap,
           ),
         );
       }
