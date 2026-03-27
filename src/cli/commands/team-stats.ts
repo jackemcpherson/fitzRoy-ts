@@ -1,11 +1,10 @@
 import { defineCommand } from "citty";
 import { fetchTeamStats } from "../../index";
-import type { TeamStatsSummaryType } from "../../types";
 import { withErrorBoundary } from "../error-boundary";
 import { OUTPUT_FLAGS, SEASON_FLAG } from "../flags";
 import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
 import { showSummary, withSpinner } from "../ui";
-import { validateFormat, validateSeason, validateSource } from "../validation";
+import { validateFormat, validateSeason, validateSource, validateSummary } from "../validation";
 
 const DEFAULT_COLUMNS: TableColumnConfig[] = [
   { key: "team", label: "Team", maxWidth: 24 },
@@ -112,7 +111,7 @@ export const teamStatsCommand = defineCommand({
     const season = validateSeason(args.season);
     const source = validateSource(args.source);
     const format = validateFormat(args.format);
-    const summaryType = args.summary as TeamStatsSummaryType;
+    const summaryType = validateSummary(args.summary);
 
     const result = await withSpinner("Fetching team stats\u2026", () =>
       fetchTeamStats({ source, season, summaryType }),

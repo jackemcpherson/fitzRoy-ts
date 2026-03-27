@@ -279,7 +279,7 @@ const CfsPlayerInnerSchema = z
   })
   .passthrough();
 
-/** Nullable number — AFLW responses may return `null` or string-encoded numbers for stat fields. */
+/** Nullable number — AFLW responses may return `null`, string-encoded, or boolean stat fields. */
 const statNum = z
   .union([
     z.number(),
@@ -288,6 +288,7 @@ const statNum = z
       const n = Number(s);
       return Number.isNaN(n) ? null : n;
     }),
+    z.boolean().transform((b) => (b ? 1 : 0)),
   ])
   .nullable()
   .optional();

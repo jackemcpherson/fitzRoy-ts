@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-03-27
+
+### Fixed
+
+- Team name casing in `--match` error messages now normalised — "GWS GIANTS" displays as "GWS Giants" (#53)
+- `team-stats --summary` now validates input (case-insensitive) and errors on invalid values like `--summary invalid` (#54)
+- `teams --team-type` help text now documents known values (CLUB, REPRESENTATIVE) and errors instead of printing empty results (#55)
+- AFL Tables `team-stats` `gamesPlayed` no longer stuck at 0 — team name normalisation fixes the match-results lookup (#45, #51)
+- `stats --match-id` team name resolution hardened — static team ID fallback always available, roster names normalised (#42)
+- AFLW player stats Zod schema widened to accept boolean stat values, preventing validation failures (#41)
+
+### Changed
+
+- Removed spurious self-dependency (`fitzroy`) from package.json dependencies
+
 ## [1.3.0] - 2026-03-27
 
 ### Added

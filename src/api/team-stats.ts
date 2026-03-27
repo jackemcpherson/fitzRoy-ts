@@ -6,6 +6,7 @@
 
 import { UnsupportedSourceError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
+import { normaliseTeamName } from "../lib/team-mapping";
 import { AflTablesClient } from "../sources/afl-tables";
 import { FootyWireClient } from "../sources/footywire";
 import type { TeamStatsEntry, TeamStatsQuery } from "../types";
@@ -53,15 +54,17 @@ export async function fetchTeamStats(
         const resultsResult = await client.fetchSeasonResults(query.season);
         if (resultsResult.success) {
           for (const m of resultsResult.data) {
-            gpMap.set(m.homeTeam, (gpMap.get(m.homeTeam) ?? 0) + 1);
-            gpMap.set(m.awayTeam, (gpMap.get(m.awayTeam) ?? 0) + 1);
+            const home = normaliseTeamName(m.homeTeam);
+            const away = normaliseTeamName(m.awayTeam);
+            gpMap.set(home, (gpMap.get(home) ?? 0) + 1);
+            gpMap.set(away, (gpMap.get(away) ?? 0) + 1);
           }
         }
       }
 
       const enriched = statsResult.data.map((entry) => ({
         ...entry,
-        gamesPlayed: gpMap.get(entry.team) ?? entry.gamesPlayed,
+        gamesPlayed: gpMap.get(normaliseTeamName(entry.team)) ?? entry.gamesPlayed,
       }));
 
       // Compute averages by dividing totals by games played

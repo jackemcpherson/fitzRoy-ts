@@ -20,7 +20,7 @@ export const teamsCommand = defineCommand({
   },
   args: {
     ...OPTIONAL_COMPETITION_FLAG,
-    "team-type": { type: "string", description: "Team type filter" },
+    "team-type": { type: "string", description: "Team type filter (e.g. CLUB, REPRESENTATIVE)" },
     ...OUTPUT_FLAGS,
   },
   run: withErrorBoundary(async ({ args }) => {
@@ -38,8 +38,8 @@ export const teamsCommand = defineCommand({
     const data = result.data;
 
     if (data.length === 0 && args["team-type"]) {
-      console.error(
-        `No teams found for team type "${args["team-type"]}". Try running without --team-type to see available teams.`,
+      throw new Error(
+        `No teams found for team type "${args["team-type"]}". Known team types include: CLUB, REPRESENTATIVE. Try running without --team-type to see all teams.`,
       );
     }
 
