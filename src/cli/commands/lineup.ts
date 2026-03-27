@@ -1,14 +1,52 @@
 import { defineCommand } from "citty";
 import { fetchLineup } from "../../index";
-import type { CompetitionCode, DataSource } from "../../types";
-import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
+import type { Lineup } from "../../types";
+import {
+  type FormatOptions,
+  formatOutput,
+  resolveFormat,
+  type TableColumnConfig,
+} from "../formatters/index";
 import { showSummary, withSpinner } from "../ui";
+import {
+  validateCompetition,
+  validateFormat,
+  validateRound,
+  validateSeason,
+  validateSource,
+} from "../validation";
 
 const DEFAULT_COLUMNS: TableColumnConfig[] = [
-  { key: "matchId", label: "Match", maxWidth: 12 },
-  { key: "homeTeam", label: "Home", maxWidth: 20 },
-  { key: "awayTeam", label: "Away", maxWidth: 20 },
+  { key: "matchId", label: "Match", maxWidth: 14 },
+  { key: "team", label: "Team", maxWidth: 20 },
+  { key: "displayName", label: "Player", maxWidth: 24 },
+  { key: "jumperNumber", label: "#", maxWidth: 4 },
+  { key: "position", label: "Pos", maxWidth: 12 },
 ];
+
+/** Flatten lineups to per-player rows for table/CSV display. */
+function flattenLineups(lineups: readonly Lineup[]): Record<string, unknown>[] {
+  const rows: Record<string, unknown>[] = [];
+  for (const lineup of lineups) {
+    for (const { players, team } of [
+      { players: lineup.homePlayers, team: lineup.homeTeam },
+      { players: lineup.awayPlayers, team: lineup.awayTeam },
+    ]) {
+      for (const p of players) {
+        rows.push({
+          matchId: lineup.matchId,
+          team,
+          displayName: p.displayName,
+          jumperNumber: p.jumperNumber,
+          position: p.position,
+          isEmergency: p.isEmergency,
+          isSubstitute: p.isSubstitute,
+        });
+      }
+    }
+  }
+  return rows;
+}
 
 export const lineupCommand = defineCommand({
   meta: {
@@ -31,18 +69,15 @@ export const lineupCommand = defineCommand({
     full: { type: "boolean", description: "Show all columns in table output" },
   },
   async run({ args }) {
-    const season = Number(args.season);
-    const round = Number(args.round);
+    const season = validateSeason(args.season);
+    const round = validateRound(args.round);
     const matchId = args["match-id"];
+    const source = validateSource(args.source);
+    const competition = validateCompetition(args.competition);
+    const format = validateFormat(args.format);
 
     const result = await withSpinner("Fetching lineups…", () =>
-      fetchLineup({
-        source: args.source as DataSource,
-        season,
-        round,
-        matchId,
-        competition: args.competition as CompetitionCode,
-      }),
+      fetchLineup({ source, season, round, matchId, competition }),
     );
 
     if (!result.success) {
@@ -55,11 +90,17 @@ export const lineupCommand = defineCommand({
     const formatOptions: FormatOptions = {
       json: args.json,
       csv: args.csv,
-      format: args.format,
+      format,
       full: args.full,
       columns: DEFAULT_COLUMNS,
     };
 
-    console.log(formatOutput(data, formatOptions));
+    // JSON keeps nested structure; table/CSV flatten to per-player rows
+    const resolvedFormat = resolveFormat(formatOptions);
+    if (resolvedFormat === "json") {
+      console.log(formatOutput(data, formatOptions));
+    } else {
+      console.log(formatOutput(flattenLineups(data), formatOptions));
+    }
   },
 });

@@ -24,9 +24,18 @@ interface TableOptions {
   readonly terminalWidth?: number | undefined;
 }
 
+const AEST_COMPACT_FORMATTER = new Intl.DateTimeFormat("en-AU", {
+  timeZone: "Australia/Melbourne",
+  day: "numeric",
+  month: "short",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+});
+
 function toDisplayValue(value: unknown): string {
   if (value === null || value === undefined) return "-";
-  if (value instanceof Date) return value.toISOString().slice(0, 16).replace("T", " ");
+  if (value instanceof Date) return AEST_COMPACT_FORMATTER.format(value);
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);
 }

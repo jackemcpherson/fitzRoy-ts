@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import { defineCommand, runMain } from "citty";
-import pc from "picocolors";
-import { AflApiError, ScrapeError, UnsupportedSourceError, ValidationError } from "./lib/errors";
+import { formatError } from "./cli/error-boundary";
 
 declare const PACKAGE_VERSION: string;
 
@@ -27,28 +26,6 @@ const main = defineCommand({
       import("./cli/commands/coaches-votes").then((m) => m.coachesVotesCommand),
   },
 });
-
-function formatError(error: unknown): string {
-  if (error instanceof ValidationError && error.issues) {
-    const issueLines = error.issues.map((i) => `  ${pc.yellow(i.path)}: ${i.message}`);
-    return `${pc.red("Validation error:")}\n${issueLines.join("\n")}`;
-  }
-  if (error instanceof AflApiError) {
-    const status = error.statusCode ? ` (HTTP ${error.statusCode})` : "";
-    return `${pc.red("AFL API error:")} ${error.message}${status}`;
-  }
-  if (error instanceof ScrapeError) {
-    const source = error.source ? ` [${error.source}]` : "";
-    return `${pc.red("Scrape error:")} ${error.message}${source}`;
-  }
-  if (error instanceof UnsupportedSourceError) {
-    return `${pc.red("Unsupported source:")} ${error.message}`;
-  }
-  if (error instanceof Error) {
-    return `${pc.red("Error:")} ${error.message}`;
-  }
-  return `${pc.red("Error:")} ${String(error)}`;
-}
 
 runMain(main).catch((error: unknown) => {
   console.error(formatError(error));

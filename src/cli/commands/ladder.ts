@@ -1,8 +1,14 @@
 import { defineCommand } from "citty";
 import { fetchLadder } from "../../index";
-import type { CompetitionCode, DataSource } from "../../types";
 import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
 import { showSummary, withSpinner } from "../ui";
+import {
+  validateCompetition,
+  validateFormat,
+  validateRound,
+  validateSeason,
+  validateSource,
+} from "../validation";
 
 const DEFAULT_COLUMNS: TableColumnConfig[] = [
   { key: "position", label: "Pos", maxWidth: 4 },
@@ -34,16 +40,14 @@ export const ladderCommand = defineCommand({
     full: { type: "boolean", description: "Show all columns in table output" },
   },
   async run({ args }) {
-    const season = Number(args.season);
-    const round = args.round ? Number(args.round) : undefined;
+    const season = validateSeason(args.season);
+    const round = args.round ? validateRound(args.round) : undefined;
+    const source = validateSource(args.source);
+    const competition = validateCompetition(args.competition);
+    const format = validateFormat(args.format);
 
     const result = await withSpinner("Fetching ladder…", () =>
-      fetchLadder({
-        source: args.source as DataSource,
-        season,
-        round,
-        competition: args.competition as CompetitionCode,
-      }),
+      fetchLadder({ source, season, round, competition }),
     );
 
     if (!result.success) {
@@ -58,7 +62,7 @@ export const ladderCommand = defineCommand({
     const formatOptions: FormatOptions = {
       json: args.json,
       csv: args.csv,
-      format: args.format,
+      format,
       full: args.full,
       columns: DEFAULT_COLUMNS,
     };

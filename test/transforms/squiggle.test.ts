@@ -26,7 +26,9 @@ describe("Squiggle transforms", () => {
 
       expect(results.length).toBeGreaterThan(0);
 
-      const first = results[0]!;
+      const first = results[0];
+      expect(first).toBeDefined();
+      if (!first) return;
       expect(first.season).toBe(2024);
       expect(first.roundNumber).toBe(1);
       expect(first.source).toBe("squiggle");
@@ -44,7 +46,9 @@ describe("Squiggle transforms", () => {
       const parsed = SquiggleGamesResponseSchema.parse(raw);
       const results = transformSquiggleGamesToResults(parsed.games, 2024);
 
-      const first = results[0]!;
+      const first = results[0];
+      expect(first).toBeDefined();
+      if (!first) return;
       expect(first.homeGoals * 6 + first.homeBehinds).toBe(first.homePoints);
       expect(first.awayGoals * 6 + first.awayBehinds).toBe(first.awayPoints);
     });
@@ -54,7 +58,9 @@ describe("Squiggle transforms", () => {
       const parsed = SquiggleGamesResponseSchema.parse(raw);
       const results = transformSquiggleGamesToResults(parsed.games, 2024);
 
-      const first = results[0]!;
+      const first = results[0];
+      expect(first).toBeDefined();
+      if (!first) return;
       expect(first.q1Home).toBeNull();
       expect(first.q4Away).toBeNull();
     });
@@ -68,7 +74,9 @@ describe("Squiggle transforms", () => {
 
       expect(fixtures.length).toBeGreaterThan(0);
 
-      const first = fixtures[0]!;
+      const first = fixtures[0];
+      expect(first).toBeDefined();
+      if (!first) return;
       expect(first.season).toBe(2024);
       expect(first.roundNumber).toBe(1);
       expect(first.matchId).toMatch(/^SQ_/);
@@ -85,7 +93,9 @@ describe("Squiggle transforms", () => {
 
       expect(entries.length).toBe(18);
 
-      const first = entries[0]!;
+      const first = entries[0];
+      expect(first).toBeDefined();
+      if (!first) return;
       expect(first.position).toBe(1);
       expect(first.team).toBeTruthy();
       expect(first.played).toBe(10);
@@ -100,7 +110,11 @@ describe("Squiggle transforms", () => {
       const entries = transformSquiggleStandings(parsed.standings);
 
       for (let i = 1; i < entries.length; i++) {
-        expect(entries[i]!.position).toBeGreaterThan(entries[i - 1]!.position);
+        const current = entries[i];
+        const previous = entries[i - 1];
+        if (current && previous) {
+          expect(current.position).toBeGreaterThan(previous.position);
+        }
       }
     });
   });

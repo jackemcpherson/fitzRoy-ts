@@ -159,9 +159,11 @@ describe("formatTable", () => {
     expect(output).toContain("…");
   });
 
-  it("formats Date values as readable strings", () => {
+  it("formats Date values in AEST", () => {
+    // 2025-03-15T14:30:00Z = 16 Mar 2025, 1:30 AM AEDT (UTC+11)
     const data = [{ date: new Date("2025-03-15T14:30:00Z") }];
     const output = formatTable(data, { terminalWidth: 120 });
-    expect(output).toContain("2025-03-15 14:30");
+    expect(output).toContain("16 Mar");
+    expect(output).toContain("1:30");
   });
 });
