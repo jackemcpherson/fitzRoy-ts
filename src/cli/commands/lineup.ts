@@ -2,6 +2,7 @@ import { defineCommand } from "citty";
 import { fetchLineup } from "../../index";
 import { AflApiClient } from "../../sources/afl-api";
 import type { Lineup } from "../../types";
+import { withErrorBoundary } from "../error-boundary";
 import {
   COMPETITION_FLAG,
   OUTPUT_FLAGS,
@@ -71,7 +72,7 @@ export const lineupCommand = defineCommand({
     ...COMPETITION_FLAG,
     ...OUTPUT_FLAGS,
   },
-  async run({ args }) {
+  run: withErrorBoundary(async ({ args }) => {
     const season = validateSeason(args.season);
     const round = validateRound(args.round);
     const source = validateSource(args.source);
@@ -115,5 +116,5 @@ export const lineupCommand = defineCommand({
     } else {
       console.log(formatOutput(flattenLineups(data), formatOptions));
     }
-  },
+  }),
 });

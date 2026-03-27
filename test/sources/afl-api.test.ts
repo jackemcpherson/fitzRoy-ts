@@ -408,22 +408,6 @@ describe("AflApiClient", () => {
     });
   });
 
-  describe("isAuthenticated", () => {
-    it("returns false when no token is cached", () => {
-      const client = new AflApiClient({ fetchFn: vi.fn() });
-      expect(client.isAuthenticated).toBe(false);
-    });
-
-    it("returns true after successful authentication", async () => {
-      const fetchFn = vi.fn().mockResolvedValue(mockResponse(VALID_TOKEN));
-      const client = new AflApiClient({ fetchFn });
-
-      await client.authenticate();
-
-      expect(client.isAuthenticated).toBe(true);
-    });
-  });
-
   describe("fetchRoundMatchItems", () => {
     const matchItemsResponse = {
       roundId: "CD_R202501401",

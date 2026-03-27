@@ -109,3 +109,30 @@ export function normaliseTeamName(raw: string): string {
   const trimmed = raw.trim();
   return ALIAS_MAP.get(trimmed.toLowerCase()) ?? trimmed;
 }
+
+/**
+ * Static mapping of AFL API team provider IDs to canonical team names.
+ *
+ * Used as a fallback when the match roster endpoint is unavailable,
+ * ensuring player stats always show team names instead of raw IDs like `CD_T30`.
+ */
+export const AFL_API_TEAM_IDS: ReadonlyMap<string, string> = new Map([
+  ["CD_T10", "Adelaide Crows"],
+  ["CD_T20", "Brisbane Lions"],
+  ["CD_T30", "Carlton"],
+  ["CD_T40", "Collingwood"],
+  ["CD_T50", "Essendon"],
+  ["CD_T60", "Fremantle"],
+  ["CD_T70", "Geelong Cats"],
+  ["CD_T1000", "Gold Coast Suns"],
+  ["CD_T1010", "GWS Giants"],
+  ["CD_T80", "Hawthorn"],
+  ["CD_T90", "Melbourne"],
+  ["CD_T100", "North Melbourne"],
+  ["CD_T110", "Port Adelaide"],
+  ["CD_T120", "Richmond"],
+  ["CD_T130", "St Kilda"],
+  ["CD_T160", "Sydney Swans"],
+  ["CD_T150", "West Coast Eagles"],
+  ["CD_T140", "Western Bulldogs"],
+]);

@@ -1,5 +1,6 @@
 import { defineCommand } from "citty";
 import { fetchTeams } from "../../index";
+import { withErrorBoundary } from "../error-boundary";
 import { OPTIONAL_COMPETITION_FLAG, OUTPUT_FLAGS } from "../flags";
 import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
 import { showSummary, withSpinner } from "../ui";
@@ -22,7 +23,7 @@ export const teamsCommand = defineCommand({
     "team-type": { type: "string", description: "Team type filter" },
     ...OUTPUT_FLAGS,
   },
-  async run({ args }) {
+  run: withErrorBoundary(async ({ args }) => {
     const competition = validateOptionalCompetition(args.competition);
     const format = validateFormat(args.format);
 
@@ -53,5 +54,5 @@ export const teamsCommand = defineCommand({
     };
 
     console.log(formatOutput(data, formatOptions));
-  },
+  }),
 });

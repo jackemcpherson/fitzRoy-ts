@@ -1,5 +1,6 @@
 import { defineCommand } from "citty";
 import { fetchFixture } from "../../index";
+import { withErrorBoundary } from "../error-boundary";
 import { COMPETITION_FLAG, OUTPUT_FLAGS, ROUND_FLAG, SEASON_FLAG, SOURCE_FLAG } from "../flags";
 import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
 import { showSummary, withSpinner } from "../ui";
@@ -31,7 +32,7 @@ export const fixtureCommand = defineCommand({
     ...COMPETITION_FLAG,
     ...OUTPUT_FLAGS,
   },
-  async run({ args }) {
+  run: withErrorBoundary(async ({ args }) => {
     const season = validateSeason(args.season);
     const round = args.round ? validateRound(args.round) : undefined;
     const source = validateSource(args.source);
@@ -58,5 +59,5 @@ export const fixtureCommand = defineCommand({
     };
 
     console.log(formatOutput(data, formatOptions));
-  },
+  }),
 });

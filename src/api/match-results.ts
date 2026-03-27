@@ -2,7 +2,7 @@
  * Public API for fetching match results across data sources.
  */
 
-import { UnsupportedSourceError } from "../lib/errors";
+import { aflwUnsupportedError, UnsupportedSourceError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { AflApiClient } from "../sources/afl-api";
 import { AflTablesClient } from "../sources/afl-tables";
@@ -50,6 +50,7 @@ export async function fetchMatchResults(
     }
 
     case "footywire": {
+      if (competition === "AFLW") return err(aflwUnsupportedError("footywire"));
       const client = new FootyWireClient();
       const result = await client.fetchSeasonResults(query.season);
       if (!result.success) return result;
@@ -61,6 +62,7 @@ export async function fetchMatchResults(
     }
 
     case "afl-tables": {
+      if (competition === "AFLW") return err(aflwUnsupportedError("afl-tables"));
       const client = new AflTablesClient();
       const result = await client.fetchSeasonResults(query.season);
       if (!result.success) return result;
@@ -72,6 +74,7 @@ export async function fetchMatchResults(
     }
 
     case "squiggle": {
+      if (competition === "AFLW") return err(aflwUnsupportedError("squiggle"));
       const client = new SquiggleClient();
       const result = await client.fetchGames(query.season, query.round ?? undefined, 100);
       if (!result.success) return result;

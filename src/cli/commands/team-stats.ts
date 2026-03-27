@@ -1,6 +1,7 @@
 import { defineCommand } from "citty";
 import { fetchTeamStats } from "../../index";
 import type { TeamStatsSummaryType } from "../../types";
+import { withErrorBoundary } from "../error-boundary";
 import { OUTPUT_FLAGS, SEASON_FLAG } from "../flags";
 import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
 import { showSummary, withSpinner } from "../ui";
@@ -20,16 +21,75 @@ const DEFAULT_COLUMNS: TableColumnConfig[] = [
 ];
 
 /**
+ * Normalise AFL Tables stat keys to canonical short keys matching FootyWire convention.
+ *
+ * AFL Tables uses suffixed keys like `KI_for`, `MK_for`, etc.
+ * FootyWire uses short keys like `K`, `HB`, `D`, etc.
+ */
+const AFL_TABLES_KEY_MAP: Readonly<Record<string, string>> = {
+  KI_for: "K",
+  MK_for: "M",
+  HB_for: "HB",
+  DI_for: "D",
+  GL_for: "G",
+  BH_for: "B",
+  HO_for: "HO",
+  TK_for: "T",
+  RB_for: "RB",
+  IF_for: "IF",
+  CL_for: "CL",
+  CG_for: "CG",
+  FF_for: "FF",
+  BR_for: "BR",
+  CP_for: "CP",
+  UP_for: "UP",
+  CM_for: "CM",
+  MI_for: "MI",
+  "1%_for": "1%",
+  BO_for: "BO",
+  GA_for: "GA",
+  I50_for: "I50",
+  // "against" variants
+  KI_against: "K_against",
+  MK_against: "M_against",
+  HB_against: "HB_against",
+  DI_against: "D_against",
+  GL_against: "G_against",
+  BH_against: "B_against",
+  HO_against: "HO_against",
+  TK_against: "T_against",
+  RB_against: "RB_against",
+  IF_against: "IF_against",
+  CL_against: "CL_against",
+  CG_against: "CG_against",
+  FF_against: "FF_against",
+  BR_against: "BR_against",
+  CP_against: "CP_against",
+  UP_against: "UP_against",
+  CM_against: "CM_against",
+  MI_against: "MI_against",
+  "1%_against": "1%_against",
+  BO_against: "BO_against",
+  GA_against: "GA_against",
+  I50_against: "I50_against",
+};
+
+/**
  * Flatten TeamStatsEntry for tabular output.
  *
  * Lifts stats record keys to top-level so they appear as columns.
+ * Normalises AFL Tables keys to the canonical short form.
  */
 function flattenEntries(
   data: readonly { team: string; gamesPlayed: number; stats: Readonly<Record<string, number>> }[],
 ): Record<string, unknown>[] {
   return data.map((entry) => {
     const { stats, ...rest } = entry;
-    return { ...rest, ...stats };
+    const normalised: Record<string, number> = {};
+    for (const [key, value] of Object.entries(stats)) {
+      normalised[AFL_TABLES_KEY_MAP[key] ?? key] = value;
+    }
+    return { ...rest, ...normalised };
   });
 }
 
@@ -48,7 +108,7 @@ export const teamStatsCommand = defineCommand({
     summary: { type: "string", description: "Summary type: totals or averages", default: "totals" },
     ...OUTPUT_FLAGS,
   },
-  async run({ args }) {
+  run: withErrorBoundary(async ({ args }) => {
     const season = validateSeason(args.season);
     const source = validateSource(args.source);
     const format = validateFormat(args.format);
@@ -76,5 +136,5 @@ export const teamStatsCommand = defineCommand({
     };
 
     console.log(formatOutput(flat, formatOptions));
-  },
+  }),
 });

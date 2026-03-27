@@ -5,7 +5,8 @@
  * (team history page scraping), and AFL Tables (team page scraping).
  */
 
-import { UnsupportedSourceError, ValidationError } from "../lib/errors";
+import { resolveDefaultSeason } from "../lib/date-utils";
+import { aflwUnsupportedError, UnsupportedSourceError, ValidationError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
 import { AflApiClient } from "../sources/afl-api";
@@ -41,7 +42,7 @@ async function resolveTeamId(
 async function fetchFromAflApi(query: PlayerDetailsQuery): Promise<Result<PlayerDetails[], Error>> {
   const client = new AflApiClient();
   const competition = query.competition ?? "AFLM";
-  const season = query.season ?? new Date().getFullYear();
+  const season = query.season ?? resolveDefaultSeason(competition);
 
   const [teamIdResult, seasonResult] = await Promise.all([
     resolveTeamId(client, query.team, competition),
@@ -69,8 +70,8 @@ async function fetchFromAflApi(query: PlayerDetailsQuery): Promise<Result<Player
     jumperNumber: p.jumperNumber ?? null,
     position: p.position ?? null,
     dateOfBirth: p.player.dateOfBirth ?? null,
-    heightCm: p.player.heightInCm ?? null,
-    weightKg: p.player.weightInKg ?? null,
+    heightCm: p.player.heightInCm || null,
+    weightKg: p.player.weightInKg || null,
     gamesPlayed: null,
     goals: null,
     draftYear: p.player.draftYear ? Number.parseInt(p.player.draftYear, 10) || null : null,
@@ -93,8 +94,9 @@ async function fetchFromAflApi(query: PlayerDetailsQuery): Promise<Result<Player
 async function fetchFromFootyWire(
   query: PlayerDetailsQuery,
 ): Promise<Result<PlayerDetails[], Error>> {
-  const client = new FootyWireClient();
   const competition = query.competition ?? "AFLM";
+  if (competition === "AFLW") return err(aflwUnsupportedError("footywire"));
+  const client = new FootyWireClient();
   const teamName = normaliseTeamName(query.team);
 
   const result = await client.fetchPlayerList(teamName);
@@ -115,8 +117,9 @@ async function fetchFromFootyWire(
 async function fetchFromAflTables(
   query: PlayerDetailsQuery,
 ): Promise<Result<PlayerDetails[], Error>> {
-  const client = new AflTablesClient();
   const competition = query.competition ?? "AFLM";
+  if (competition === "AFLW") return err(aflwUnsupportedError("afl-tables"));
+  const client = new AflTablesClient();
   const teamName = normaliseTeamName(query.team);
 
   const result = await client.fetchPlayerList(teamName);

@@ -21,6 +21,25 @@ export function inferRoundType(roundName: string): RoundType {
   return FINALS_PATTERN.test(roundName) ? "Finals" : "HomeAndAway";
 }
 
+/**
+ * Map a finals header to a round number offset from the last home-and-away round.
+ *
+ * AFL convention: QF/EF = +1, SF = +2, PF = +3, GF = +4.
+ *
+ * @param headerText - The round header text (e.g. "Qualifying Final").
+ * @param lastHARound - The last home-and-away round number.
+ * @returns The assigned round number for this finals week.
+ */
+export function finalsRoundNumber(headerText: string, lastHARound: number): number {
+  const lower = headerText.toLowerCase();
+  if (lower.includes("qualifying") || lower.includes("elimination")) return lastHARound + 1;
+  if (lower.includes("semi")) return lastHARound + 2;
+  if (lower.includes("preliminary")) return lastHARound + 3;
+  if (lower.includes("grand")) return lastHARound + 4;
+  // Default: first finals week
+  return lastHARound + 1;
+}
+
 /** Map raw API status strings to domain MatchStatus. */
 export function toMatchStatus(raw: string): MatchStatus {
   switch (raw) {

@@ -44,6 +44,19 @@ export class UnsupportedSourceError extends Error {
   }
 }
 
+/**
+ * Return an UnsupportedSourceError result for AFLW requests to non-AFL-API sources.
+ *
+ * Only the AFL API supports AFLW data. FootyWire, AFL Tables, and Squiggle
+ * only provide AFLM data.
+ */
+export function aflwUnsupportedError(source: string): UnsupportedSourceError {
+  return new UnsupportedSourceError(
+    `AFLW data is not available from ${source}. Use --source afl-api for AFLW data.`,
+    source,
+  );
+}
+
 /** Error when data fails Zod schema validation. */
 export class ValidationError extends Error {
   override readonly name = "ValidationError";

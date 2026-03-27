@@ -279,8 +279,18 @@ const CfsPlayerInnerSchema = z
   })
   .passthrough();
 
-/** Nullable number — AFLW responses may return `null` for stat fields. */
-const statNum = z.number().nullable().optional();
+/** Nullable number — AFLW responses may return `null` or string-encoded numbers for stat fields. */
+const statNum = z
+  .union([
+    z.number(),
+    z.string().transform((s) => {
+      if (s === "" || s === "-") return null;
+      const n = Number(s);
+      return Number.isNaN(n) ? null : n;
+    }),
+  ])
+  .nullable()
+  .optional();
 
 /** Schema for stat values (clearances is nested). */
 export const PlayerGameStatsSchema = z
@@ -378,9 +388,11 @@ export const PlayerStatsItemSchema = z
     playerStats: z
       .object({
         stats: PlayerGameStatsSchema,
-        timeOnGroundPercentage: z.number().nullable().optional(),
+        timeOnGroundPercentage: statNum,
       })
-      .passthrough(),
+      .passthrough()
+      .nullable()
+      .optional(),
   })
   .passthrough();
 
