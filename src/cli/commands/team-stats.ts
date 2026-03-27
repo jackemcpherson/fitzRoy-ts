@@ -1,6 +1,7 @@
 import { defineCommand } from "citty";
 import { fetchTeamStats } from "../../index";
 import type { TeamStatsSummaryType } from "../../types";
+import { OUTPUT_FLAGS, SEASON_FLAG } from "../flags";
 import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
 import { showSummary, withSpinner } from "../ui";
 import { validateFormat, validateSeason, validateSource } from "../validation";
@@ -38,17 +39,14 @@ export const teamStatsCommand = defineCommand({
     description: "Fetch team aggregate statistics for a season",
   },
   args: {
-    season: { type: "string", description: "Season year (e.g. 2024)", required: true },
+    ...SEASON_FLAG,
     source: {
       type: "string",
       description: "Data source (footywire, afl-tables)",
       default: "footywire",
     },
     summary: { type: "string", description: "Summary type: totals or averages", default: "totals" },
-    json: { type: "boolean", description: "Output as JSON" },
-    csv: { type: "boolean", description: "Output as CSV" },
-    format: { type: "string", description: "Output format: table, json, csv" },
-    full: { type: "boolean", description: "Show all columns in table output" },
+    ...OUTPUT_FLAGS,
   },
   async run({ args }) {
     const season = validateSeason(args.season);

@@ -1,6 +1,17 @@
 import { defineCommand } from "citty";
 import { fetchPlayerStats } from "../../index";
+import { fuzzySearch } from "../../lib/fuzzy";
+import { AflApiClient } from "../../sources/afl-api";
+import {
+  COMPETITION_FLAG,
+  OUTPUT_FLAGS,
+  PLAYER_FLAG,
+  ROUND_FLAG,
+  SEASON_FLAG,
+  SOURCE_FLAG,
+} from "../flags";
 import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
+import { resolveMatchOrPrompt } from "../resolvers";
 import { showSummary, withSpinner } from "../ui";
 import {
   validateCompetition,
@@ -26,27 +37,34 @@ export const statsCommand = defineCommand({
     description: "Fetch player statistics for a season",
   },
   args: {
-    season: { type: "string", description: "Season year (e.g. 2025)", required: true },
-    round: { type: "string", description: "Round number" },
-    "match-id": { type: "string", description: "Specific match ID" },
-    source: { type: "string", description: "Data source", default: "afl-api" },
-    competition: {
-      type: "string",
-      description: "Competition code (AFLM or AFLW)",
-      default: "AFLM",
-    },
-    json: { type: "boolean", description: "Output as JSON" },
-    csv: { type: "boolean", description: "Output as CSV" },
-    format: { type: "string", description: "Output format: table, json, csv" },
-    full: { type: "boolean", description: "Show all columns in table output" },
+    ...SEASON_FLAG,
+    ...ROUND_FLAG,
+    match: { type: "string", description: "Filter by team name to find a specific match" },
+    "match-id": { type: "string", description: "Specific match provider ID (advanced)" },
+    ...SOURCE_FLAG,
+    ...COMPETITION_FLAG,
+    ...PLAYER_FLAG,
+    ...OUTPUT_FLAGS,
   },
   async run({ args }) {
     const season = validateSeason(args.season);
     const round = args.round ? validateRound(args.round) : undefined;
-    const matchId = args["match-id"];
     const source = validateSource(args.source);
     const competition = validateCompetition(args.competition);
     const format = validateFormat(args.format);
+
+    // Resolve --match (team name) to a match ID if provided
+    let matchId = args["match-id"];
+    if (!matchId && args.match && round != null) {
+      const client = new AflApiClient();
+      const seasonResult = await client.resolveCompSeason(competition, season);
+      if (!seasonResult.success) throw seasonResult.error;
+      const itemsResult = await client.fetchRoundMatchItemsByNumber(seasonResult.data, round);
+      if (!itemsResult.success) throw itemsResult.error;
+      matchId = await resolveMatchOrPrompt(args.match, itemsResult.data);
+    } else if (args.match && round == null) {
+      throw new Error("--match requires --round (-r) to identify which round to search.");
+    }
 
     const result = await withSpinner("Fetching player stats…", () =>
       fetchPlayerStats({ source, season, round, matchId, competition }),
@@ -56,7 +74,17 @@ export const statsCommand = defineCommand({
       throw result.error;
     }
 
-    const data = result.data;
+    let data = result.data;
+
+    // Post-fetch player name filtering
+    if (args.player) {
+      const playerMatches = fuzzySearch(args.player, data, (p) => p.displayName, {
+        maxResults: 50,
+        threshold: 0.4,
+      });
+      data = playerMatches.map((m) => m.item);
+    }
+
     showSummary(
       `Loaded ${data.length} player stat lines for ${season}${round ? ` round ${round}` : ""}`,
     );

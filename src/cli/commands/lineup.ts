@@ -1,12 +1,21 @@
 import { defineCommand } from "citty";
 import { fetchLineup } from "../../index";
+import { AflApiClient } from "../../sources/afl-api";
 import type { Lineup } from "../../types";
+import {
+  COMPETITION_FLAG,
+  OUTPUT_FLAGS,
+  REQUIRED_ROUND_FLAG,
+  SEASON_FLAG,
+  SOURCE_FLAG,
+} from "../flags";
 import {
   type FormatOptions,
   formatOutput,
   resolveFormat,
   type TableColumnConfig,
 } from "../formatters/index";
+import { resolveMatchOrPrompt } from "../resolvers";
 import { showSummary, withSpinner } from "../ui";
 import {
   validateCompetition,
@@ -54,27 +63,31 @@ export const lineupCommand = defineCommand({
     description: "Fetch match lineups for a round",
   },
   args: {
-    season: { type: "string", description: "Season year (e.g. 2025)", required: true },
-    round: { type: "string", description: "Round number", required: true },
-    "match-id": { type: "string", description: "Specific match ID" },
-    source: { type: "string", description: "Data source", default: "afl-api" },
-    competition: {
-      type: "string",
-      description: "Competition code (AFLM or AFLW)",
-      default: "AFLM",
-    },
-    json: { type: "boolean", description: "Output as JSON" },
-    csv: { type: "boolean", description: "Output as CSV" },
-    format: { type: "string", description: "Output format: table, json, csv" },
-    full: { type: "boolean", description: "Show all columns in table output" },
+    ...SEASON_FLAG,
+    ...REQUIRED_ROUND_FLAG,
+    match: { type: "string", description: "Filter by team name to find a specific match" },
+    "match-id": { type: "string", description: "Specific match provider ID (advanced)" },
+    ...SOURCE_FLAG,
+    ...COMPETITION_FLAG,
+    ...OUTPUT_FLAGS,
   },
   async run({ args }) {
     const season = validateSeason(args.season);
     const round = validateRound(args.round);
-    const matchId = args["match-id"];
     const source = validateSource(args.source);
     const competition = validateCompetition(args.competition);
     const format = validateFormat(args.format);
+
+    // Resolve --match (team name) to a match ID if provided
+    let matchId = args["match-id"];
+    if (!matchId && args.match) {
+      const client = new AflApiClient();
+      const seasonResult = await client.resolveCompSeason(competition, season);
+      if (!seasonResult.success) throw seasonResult.error;
+      const itemsResult = await client.fetchRoundMatchItemsByNumber(seasonResult.data, round);
+      if (!itemsResult.success) throw itemsResult.error;
+      matchId = await resolveMatchOrPrompt(args.match, itemsResult.data);
+    }
 
     const result = await withSpinner("Fetching lineups…", () =>
       fetchLineup({ source, season, round, matchId, competition }),

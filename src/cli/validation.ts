@@ -6,6 +6,7 @@
  */
 
 import { normaliseTeamName } from "../lib/team-mapping";
+import type { MatchItem } from "../lib/validation";
 import type { CompetitionCode, DataSource } from "../types";
 
 const VALID_SOURCES: readonly DataSource[] = ["afl-api", "footywire", "afl-tables", "squiggle"];
@@ -117,4 +118,52 @@ export function resolveTeamIdentifier(
 
   const validNames = teams.map((t) => `${t.name} (${t.abbreviation})`).join(", ");
   throw new Error(`Unknown team: "${raw}" — valid teams are: ${validNames}`);
+}
+
+/**
+ * Resolve a match ID from a team name by searching the round's match items.
+ *
+ * Matches where either the home or away team contains the search term
+ * (case-insensitive, also tried via normaliseTeamName).
+ *
+ * @param teamSearch - The user-provided team name to search for.
+ * @param matchItems - Match items for the round.
+ * @returns The resolved match ID.
+ * @throws If zero or multiple matches are found.
+ */
+export function resolveMatchByTeam(teamSearch: string, matchItems: readonly MatchItem[]): string {
+  const normalised = normaliseTeamName(teamSearch);
+  const lower = teamSearch.toLowerCase();
+
+  const matches = matchItems.filter((item) => {
+    const home = item.match.homeTeam.name;
+    const away = item.match.awayTeam.name;
+    return (
+      normaliseTeamName(home) === normalised ||
+      normaliseTeamName(away) === normalised ||
+      home.toLowerCase().includes(lower) ||
+      away.toLowerCase().includes(lower)
+    );
+  });
+
+  const singleMatch = matches[0];
+  if (matches.length === 1 && singleMatch) {
+    return singleMatch.match.matchId;
+  }
+
+  if (matches.length === 0) {
+    const available = matchItems
+      .map((item) => `${item.match.homeTeam.name} vs ${item.match.awayTeam.name}`)
+      .join(", ");
+    throw new Error(
+      `No match found for "${teamSearch}" in this round. Available matches: ${available}`,
+    );
+  }
+
+  const ambiguous = matches
+    .map((item) => `${item.match.homeTeam.name} vs ${item.match.awayTeam.name}`)
+    .join(", ");
+  throw new Error(
+    `Multiple matches found for "${teamSearch}": ${ambiguous}. Please be more specific.`,
+  );
 }

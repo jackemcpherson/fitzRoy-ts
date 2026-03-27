@@ -1,6 +1,8 @@
 import { defineCommand } from "citty";
 import { fetchCoachesVotes } from "../../index";
+import { COMPETITION_FLAG, OUTPUT_FLAGS, ROUND_FLAG, SEASON_FLAG, TEAM_FLAG } from "../flags";
 import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
+import { resolveTeamNameOrPrompt } from "../resolvers";
 import { showSummary, withSpinner } from "../ui";
 import { validateCompetition, validateFormat, validateRound, validateSeason } from "../validation";
 
@@ -19,18 +21,11 @@ export const coachesVotesCommand = defineCommand({
     description: "Fetch AFLCA coaches votes for a season",
   },
   args: {
-    season: { type: "string", description: "Season year (e.g. 2024)", required: true },
-    round: { type: "string", description: "Round number" },
-    competition: {
-      type: "string",
-      description: "Competition code (AFLM or AFLW)",
-      default: "AFLM",
-    },
-    team: { type: "string", description: "Filter by team name" },
-    json: { type: "boolean", description: "Output as JSON" },
-    csv: { type: "boolean", description: "Output as CSV" },
-    format: { type: "string", description: "Output format: table, json, csv" },
-    full: { type: "boolean", description: "Show all columns in table output" },
+    ...SEASON_FLAG,
+    ...ROUND_FLAG,
+    ...COMPETITION_FLAG,
+    ...TEAM_FLAG,
+    ...OUTPUT_FLAGS,
   },
   async run({ args }) {
     const season = validateSeason(args.season);
@@ -38,8 +33,11 @@ export const coachesVotesCommand = defineCommand({
     const competition = validateCompetition(args.competition);
     const format = validateFormat(args.format);
 
+    // Resolve team name via fuzzy matching if provided
+    const team = args.team ? await resolveTeamNameOrPrompt(args.team) : undefined;
+
     const result = await withSpinner("Fetching coaches votes…", () =>
-      fetchCoachesVotes({ season, round, competition, team: args.team }),
+      fetchCoachesVotes({ season, round, competition, team }),
     );
 
     if (!result.success) {
@@ -47,7 +45,7 @@ export const coachesVotesCommand = defineCommand({
     }
 
     const data = result.data;
-    const teamSuffix = args.team ? ` for ${args.team}` : "";
+    const teamSuffix = team ? ` for ${team}` : "";
     const roundSuffix = round ? ` round ${round}` : "";
     showSummary(`Loaded ${data.length} vote records for ${season}${roundSuffix}${teamSuffix}`);
 

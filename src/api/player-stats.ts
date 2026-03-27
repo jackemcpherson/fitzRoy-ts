@@ -2,6 +2,7 @@
  * Public API for fetching player statistics across data sources.
  */
 
+import { batchedMap } from "../lib/concurrency";
 import { AflApiError, UnsupportedSourceError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { AflApiClient } from "../sources/afl-api";
@@ -76,8 +77,8 @@ export async function fetchPlayerStats(
         teamIdMap.set(item.match.awayTeamId, item.match.awayTeam.name);
       }
 
-      const statsResults = await Promise.all(
-        matchItemsResult.data.map((item) => client.fetchPlayerStats(item.match.matchId)),
+      const statsResults = await batchedMap(matchItemsResult.data, (item) =>
+        client.fetchPlayerStats(item.match.matchId),
       );
 
       const allStats: PlayerStats[] = [];

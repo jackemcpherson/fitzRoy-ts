@@ -1,13 +1,10 @@
 import { defineCommand } from "citty";
 import { fetchSquad, fetchTeams } from "../../index";
+import { COMPETITION_FLAG, OUTPUT_FLAGS, REQUIRED_TEAM_FLAG, SEASON_FLAG } from "../flags";
 import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
+import { resolveTeamOrPrompt } from "../resolvers";
 import { showSummary, withSpinner } from "../ui";
-import {
-  resolveTeamIdentifier,
-  validateCompetition,
-  validateFormat,
-  validateSeason,
-} from "../validation";
+import { validateCompetition, validateFormat, validateSeason } from "../validation";
 
 const DEFAULT_COLUMNS: TableColumnConfig[] = [
   { key: "displayName", label: "Player", maxWidth: 24 },
@@ -23,36 +20,23 @@ export const squadCommand = defineCommand({
     description: "Fetch team squad for a season",
   },
   args: {
-    "team-id": {
-      type: "string",
-      description: "Team ID, abbreviation, or name (e.g. 5, CARL, Carlton)",
-      required: true,
-    },
-    season: { type: "string", description: "Season year (e.g. 2025)", required: true },
-    competition: {
-      type: "string",
-      description: "Competition code (AFLM or AFLW)",
-      default: "AFLM",
-    },
-    json: { type: "boolean", description: "Output as JSON" },
-    csv: { type: "boolean", description: "Output as CSV" },
-    format: { type: "string", description: "Output format: table, json, csv" },
-    full: { type: "boolean", description: "Show all columns in table output" },
+    ...REQUIRED_TEAM_FLAG,
+    ...SEASON_FLAG,
+    ...COMPETITION_FLAG,
+    ...OUTPUT_FLAGS,
   },
   async run({ args }) {
     const season = validateSeason(args.season);
     const competition = validateCompetition(args.competition);
     const format = validateFormat(args.format);
 
-    // Skip teams lookup if already a numeric ID
-    let teamId = args["team-id"].trim();
-    const isNumeric = /^\d+$/.test(teamId);
-    if (!isNumeric) {
+    let teamId = args.team.trim();
+    if (!/^\d+$/.test(teamId)) {
       const teamsResult = await withSpinner("Resolving team…", () => fetchTeams({ competition }));
       if (!teamsResult.success) {
         throw teamsResult.error;
       }
-      teamId = resolveTeamIdentifier(args["team-id"], teamsResult.data);
+      teamId = await resolveTeamOrPrompt(args.team, teamsResult.data);
     }
 
     const result = await withSpinner("Fetching squad…", () =>

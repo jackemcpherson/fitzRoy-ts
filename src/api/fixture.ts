@@ -2,6 +2,7 @@
  * Public API for fetching fixture/schedule data.
  */
 
+import { batchedMap } from "../lib/concurrency";
 import { UnsupportedSourceError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
@@ -88,8 +89,8 @@ export async function fetchFixture(query: SeasonRoundQuery): Promise<Result<Fixt
     r.providerId ? [{ providerId: r.providerId, roundNumber: r.roundNumber }] : [],
   );
 
-  const roundResults = await Promise.all(
-    roundProviderIds.map((r) => client.fetchRoundMatchItems(r.providerId)),
+  const roundResults = await batchedMap(roundProviderIds, (r) =>
+    client.fetchRoundMatchItems(r.providerId),
   );
 
   const fixtures: Fixture[] = [];

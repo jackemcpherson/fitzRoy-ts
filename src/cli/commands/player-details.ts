@@ -1,6 +1,8 @@
 import { defineCommand } from "citty";
 import { fetchPlayerDetails } from "../../index";
+import { COMPETITION_FLAG, OPTIONAL_SEASON_FLAG, OUTPUT_FLAGS, REQUIRED_TEAM_FLAG } from "../flags";
 import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
+import { resolveTeamNameOrPrompt } from "../resolvers";
 import { showSummary, withSpinner } from "../ui";
 import {
   resolveDefaultSeason,
@@ -26,31 +28,25 @@ export const playerDetailsCommand = defineCommand({
     description: "Fetch player biographical details for a team",
   },
   args: {
-    team: { type: "positional", description: "Team name (e.g. Carlton, Hawthorn)", required: true },
+    ...REQUIRED_TEAM_FLAG,
     source: {
       type: "string",
       description: "Data source: afl-api, footywire, afl-tables",
       default: "afl-api",
     },
-    season: { type: "string", description: "Season year (for AFL API source, e.g. 2025)" },
-    competition: {
-      type: "string",
-      description: "Competition code (AFLM or AFLW)",
-      default: "AFLM",
-    },
-    json: { type: "boolean", description: "Output as JSON" },
-    csv: { type: "boolean", description: "Output as CSV" },
-    format: { type: "string", description: "Output format: table, json, csv" },
-    full: { type: "boolean", description: "Show all columns in table output" },
+    ...OPTIONAL_SEASON_FLAG,
+    ...COMPETITION_FLAG,
+    ...OUTPUT_FLAGS,
   },
   async run({ args }) {
     const source = validateSource(args.source);
     const competition = validateCompetition(args.competition);
     const format = validateFormat(args.format);
     const season = validateOptionalSeason(args.season) ?? resolveDefaultSeason(competition);
+    const team = await resolveTeamNameOrPrompt(args.team);
 
     const result = await withSpinner("Fetching player details…", () =>
-      fetchPlayerDetails({ source, team: args.team, season, competition }),
+      fetchPlayerDetails({ source, team, season, competition }),
     );
 
     if (!result.success) {
@@ -58,7 +54,7 @@ export const playerDetailsCommand = defineCommand({
     }
 
     const data = result.data;
-    showSummary(`Loaded ${data.length} players for ${args.team} (${source})`);
+    showSummary(`Loaded ${data.length} players for ${team} (${source})`);
 
     const formatOptions: FormatOptions = {
       json: args.json,
