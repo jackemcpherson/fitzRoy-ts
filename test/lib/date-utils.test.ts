@@ -78,6 +78,32 @@ describe("parseFootyWireDate", () => {
   it("returns null for invalid date like Feb 30", () => {
     expect(parseFootyWireDate("30 Feb 2024")).toBeNull();
   });
+
+  it("parses 'Thu 13 Mar 7:30pm' with defaultYear", () => {
+    const date = parseFootyWireDate("Thu 13 Mar 7:30pm", 2025);
+    expect(date).toBeInstanceOf(Date);
+    expect(date?.getUTCMonth()).toBe(2); // March
+    expect(date?.getUTCDate()).toBe(13);
+    expect(date?.getUTCFullYear()).toBe(2025);
+  });
+
+  it("parses '13 Mar' (no year, no time) with defaultYear", () => {
+    const date = parseFootyWireDate("13 Mar", 2025);
+    expect(date).toBeInstanceOf(Date);
+    expect(date?.toISOString()).toBe("2025-03-13T00:00:00.000Z");
+  });
+
+  it("parses time with am", () => {
+    const date = parseFootyWireDate("1 Apr 11:00am", 2025);
+    expect(date).toBeInstanceOf(Date);
+    expect(date?.getUTCMonth()).toBe(3); // April
+    expect(date?.getUTCDate()).toBe(1);
+  });
+
+  it("returns null for year-less date when no defaultYear provided", () => {
+    expect(parseFootyWireDate("13 Mar 7:30pm")).toBeNull();
+    expect(parseFootyWireDate("13 Mar")).toBeNull();
+  });
 });
 
 describe("parseAflTablesDate", () => {

@@ -33,15 +33,29 @@ export async function fetchPlayerStats(
       const client = new AflApiClient();
 
       if (query.matchId) {
-        const result = await client.fetchPlayerStats(query.matchId);
-        if (!result.success) return result;
+        const [rosterResult, statsResult] = await Promise.all([
+          client.fetchMatchRoster(query.matchId),
+          client.fetchPlayerStats(query.matchId),
+        ]);
+
+        if (!statsResult.success) return statsResult;
+
+        const teamIdMap = new Map<string, string>();
+        if (rosterResult.success) {
+          const match = rosterResult.data.match;
+          teamIdMap.set(match.homeTeamId, match.homeTeam.name);
+          teamIdMap.set(match.awayTeamId, match.awayTeam.name);
+        }
+
         return ok(
           transformPlayerStats(
-            result.data,
+            statsResult.data,
             query.matchId,
             query.season,
             query.round ?? 0,
             competition,
+            "afl-api",
+            teamIdMap.size > 0 ? teamIdMap : undefined,
           ),
         );
       }

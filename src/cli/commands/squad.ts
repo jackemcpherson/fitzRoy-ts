@@ -1,8 +1,13 @@
 import { defineCommand } from "citty";
-import { fetchSquad } from "../../index";
-import type { CompetitionCode } from "../../types";
+import { fetchSquad, fetchTeams } from "../../index";
 import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
 import { showSummary, withSpinner } from "../ui";
+import {
+  resolveTeamIdentifier,
+  validateCompetition,
+  validateFormat,
+  validateSeason,
+} from "../validation";
 
 const DEFAULT_COLUMNS: TableColumnConfig[] = [
   { key: "displayName", label: "Player", maxWidth: 24 },
@@ -18,7 +23,11 @@ export const squadCommand = defineCommand({
     description: "Fetch team squad for a season",
   },
   args: {
-    "team-id": { type: "string", description: "Team ID", required: true },
+    "team-id": {
+      type: "string",
+      description: "Team ID, abbreviation, or name (e.g. 5, CARL, Carlton)",
+      required: true,
+    },
     season: { type: "string", description: "Season year (e.g. 2025)", required: true },
     competition: {
       type: "string",
@@ -31,15 +40,23 @@ export const squadCommand = defineCommand({
     full: { type: "boolean", description: "Show all columns in table output" },
   },
   async run({ args }) {
-    const teamId = args["team-id"];
-    const season = Number(args.season);
+    const season = validateSeason(args.season);
+    const competition = validateCompetition(args.competition);
+    const format = validateFormat(args.format);
+
+    // Skip teams lookup if already a numeric ID
+    let teamId = args["team-id"].trim();
+    const isNumeric = /^\d+$/.test(teamId);
+    if (!isNumeric) {
+      const teamsResult = await withSpinner("Resolving team…", () => fetchTeams({ competition }));
+      if (!teamsResult.success) {
+        throw teamsResult.error;
+      }
+      teamId = resolveTeamIdentifier(args["team-id"], teamsResult.data);
+    }
 
     const result = await withSpinner("Fetching squad…", () =>
-      fetchSquad({
-        teamId,
-        season,
-        competition: args.competition as CompetitionCode,
-      }),
+      fetchSquad({ teamId, season, competition }),
     );
 
     if (!result.success) {
@@ -52,7 +69,7 @@ export const squadCommand = defineCommand({
     const formatOptions: FormatOptions = {
       json: args.json,
       csv: args.csv,
-      format: args.format,
+      format,
       full: args.full,
       columns: DEFAULT_COLUMNS,
     };

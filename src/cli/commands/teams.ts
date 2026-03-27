@@ -1,8 +1,8 @@
 import { defineCommand } from "citty";
 import { fetchTeams } from "../../index";
-import type { CompetitionCode } from "../../types";
 import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
 import { showSummary, withSpinner } from "../ui";
+import { validateFormat, validateOptionalCompetition } from "../validation";
 
 const DEFAULT_COLUMNS: TableColumnConfig[] = [
   { key: "teamId", label: "ID", maxWidth: 8 },
@@ -25,11 +25,11 @@ export const teamsCommand = defineCommand({
     full: { type: "boolean", description: "Show all columns in table output" },
   },
   async run({ args }) {
+    const competition = validateOptionalCompetition(args.competition);
+    const format = validateFormat(args.format);
+
     const result = await withSpinner("Fetching teams…", () =>
-      fetchTeams({
-        competition: args.competition as CompetitionCode | undefined,
-        teamType: args["team-type"],
-      }),
+      fetchTeams({ competition, teamType: args["team-type"] }),
     );
 
     if (!result.success) {
@@ -37,12 +37,19 @@ export const teamsCommand = defineCommand({
     }
 
     const data = result.data;
+
+    if (data.length === 0 && args["team-type"]) {
+      console.error(
+        `No teams found for team type "${args["team-type"]}". Try running without --team-type to see available teams.`,
+      );
+    }
+
     showSummary(`Loaded ${data.length} teams`);
 
     const formatOptions: FormatOptions = {
       json: args.json,
       csv: args.csv,
-      format: args.format,
+      format,
       full: args.full,
       columns: DEFAULT_COLUMNS,
     };

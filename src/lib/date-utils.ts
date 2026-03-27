@@ -37,17 +37,23 @@ export function parseAflApiDate(iso: string): Date | null {
  * - `"Sat 16 Mar 2024"` (day-of-week, day, month-abbrev, year)
  * - `"16 Mar 2024"` (day, month-abbrev, year)
  * - `"16-Mar-2024"` (day-month-year with hyphens)
+ * - `"Thu 13 Mar 7:30pm"` (day-of-week, day, month, time — no year)
+ * - `"13 Mar"` (day, month — no year)
  *
  * @param dateStr - A FootyWire date string
- * @returns A Date object (midnight UTC), or null if parsing fails
+ * @param defaultYear - Year to use when the string lacks one (e.g. fixture pages)
+ * @returns A Date object (UTC), or null if parsing fails
  *
  * @example
  * ```ts
  * parseFootyWireDate("Sat 16 Mar 2024")
  * // => Date(2024-03-16T00:00:00.000Z)
+ *
+ * parseFootyWireDate("Thu 13 Mar 7:30pm", 2025)
+ * // => Date(2025-03-13T09:30:00.000Z) — time stored as AEST offset from UTC
  * ```
  */
-export function parseFootyWireDate(dateStr: string): Date | null {
+export function parseFootyWireDate(dateStr: string, defaultYear?: number): Date | null {
   const trimmed = dateStr.trim();
   if (trimmed === "") {
     return null;
@@ -59,41 +65,44 @@ export function parseFootyWireDate(dateStr: string): Date | null {
   // Normalise hyphens to spaces: "16-Mar-2024" -> "16 Mar 2024"
   const normalised = withoutDow.replace(/-/g, " ");
 
-  // Expect "DD MMM YYYY" or "D MMM YYYY"
-  const match = /^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/.exec(normalised);
-  if (!match) {
-    return null;
+  // Try "DD MMM YYYY" (with year)
+  const fullMatch = /^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/.exec(normalised);
+  if (fullMatch) {
+    const [, dayStr, monthStr, yearStr] = fullMatch;
+    if (dayStr && monthStr && yearStr) {
+      return buildUtcDate(Number.parseInt(yearStr, 10), monthStr, Number.parseInt(dayStr, 10));
+    }
   }
 
-  const [, dayStr, monthStr, yearStr] = match;
-  if (!dayStr || !monthStr || !yearStr) {
-    return null;
+  // Try "DD MMM" with optional time suffix (e.g. "13 Mar 7:30pm", "13 Mar")
+  const shortMatch = /^(\d{1,2})\s+([A-Za-z]+)(?:\s+(\d{1,2}):(\d{2})(am|pm))?$/i.exec(normalised);
+  if (shortMatch && defaultYear != null) {
+    const [, dayStr, monthStr, hourStr, minStr, ampm] = shortMatch;
+    if (!dayStr || !monthStr) return null;
+
+    const monthIndex = MONTH_ABBREV_TO_INDEX.get(monthStr.toLowerCase());
+    if (monthIndex === undefined) return null;
+
+    const day = Number.parseInt(dayStr, 10);
+
+    const hasTime = hourStr && minStr && ampm;
+    if (!hasTime) {
+      return buildUtcDate(defaultYear, monthStr, day);
+    }
+
+    let aestHours = Number.parseInt(hourStr, 10);
+    const minutes = Number.parseInt(minStr, 10);
+    if (ampm.toLowerCase() === "pm" && aestHours < 12) aestHours += 12;
+    if (ampm.toLowerCase() === "am" && aestHours === 12) aestHours = 0;
+
+    // Date.UTC normalises out-of-range values, so negative hours from
+    // the AEST->UTC offset correctly roll back the day.
+    const date = new Date(Date.UTC(defaultYear, monthIndex, day, aestHours - 10, minutes));
+    if (Number.isNaN(date.getTime())) return null;
+    return date;
   }
 
-  const monthIndex = MONTH_ABBREV_TO_INDEX.get(monthStr.toLowerCase());
-  if (monthIndex === undefined) {
-    return null;
-  }
-
-  const year = Number.parseInt(yearStr, 10);
-  const day = Number.parseInt(dayStr, 10);
-
-  // Use UTC to avoid timezone issues
-  const date = new Date(Date.UTC(year, monthIndex, day));
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  // Verify the date components match (catches invalid dates like Feb 30)
-  if (
-    date.getUTCFullYear() !== year ||
-    date.getUTCMonth() !== monthIndex ||
-    date.getUTCDate() !== day
-  ) {
-    return null;
-  }
-
-  return date;
+  return null;
 }
 
 /**

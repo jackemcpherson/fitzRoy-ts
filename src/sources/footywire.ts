@@ -347,7 +347,7 @@ export function parseMatchList(html: string, year: number): MatchResult[] {
     const matchId = midMatch?.[1] ? `FW_${midMatch[1]}` : `FW_${year}_R${currentRound}_${homeTeam}`;
 
     // Parse date
-    const date = parseFootyWireDate(dateText) ?? new Date(year, 0, 1);
+    const date = parseFootyWireDate(dateText, year) ?? new Date(Date.UTC(year, 0, 1));
 
     // Estimate goals/behinds (FootyWire only gives total score on this page)
     const homeGoals = Math.floor(homePoints / 6);
@@ -434,7 +434,7 @@ export function parseFixtureList(html: string, year: number): Fixture[] {
     const homeTeam = normaliseTeamName($(teamLinks[0]).text().trim());
     const awayTeam = normaliseTeamName($(teamLinks[1]).text().trim());
 
-    const date = parseFootyWireDate(dateText) ?? new Date(year, 0, 1);
+    const date = parseFootyWireDate(dateText, year) ?? new Date(Date.UTC(year, 0, 1));
     gameNumber++;
 
     // Check if we have a score (match played) or not (upcoming)
@@ -602,6 +602,14 @@ function teamNameToFootyWireSlug(teamName: string): string | undefined {
   return FOOTYWIRE_SLUG_MAP.get(teamName);
 }
 
+/** Normalise a raw DOB string (e.g. "7 Oct 1995") to ISO format ("1995-10-07"). */
+function normaliseDob(raw: string): string | null {
+  if (!raw) return null;
+  const parsed = parseFootyWireDate(raw);
+  if (parsed) return parsed.toISOString().slice(0, 10);
+  return raw; // Return raw string as fallback if parsing fails
+}
+
 /**
  * Parse FootyWire team history HTML into player detail objects.
  *
@@ -670,7 +678,7 @@ function parseFootyWirePlayerList(
       team: teamName,
       jumperNumber,
       position: position || null,
-      dateOfBirth: dobText || null,
+      dateOfBirth: normaliseDob(dobText),
       heightCm,
       weightKg: null,
       gamesPlayed,

@@ -404,6 +404,9 @@ function parseAttendanceFromInfo(text: string): number | null {
  * @param year - The season year.
  * @returns Array of team stats entries.
  */
+/** Headers that indicate a games-played column. */
+const GP_HEADERS = new Set(["gm", "gp", "p", "mp", "games"]);
+
 export function parseAflTablesTeamStats(html: string, year: number): TeamStatsEntry[] {
   const $ = cheerio.load(html);
   const teamMap = new Map<string, { gamesPlayed: number; stats: Record<string, number> }>();
@@ -425,6 +428,9 @@ export function parseAflTablesTeamStats(html: string, year: number): TeamStatsEn
         headers.push($(cell).text().trim());
       });
 
+    // Identify the games-played column index (if any)
+    const gpColIdx = headers.findIndex((h, i) => i > 0 && GP_HEADERS.has(h.toLowerCase()));
+
     for (let ri = 1; ri < rows.length; ri++) {
       const cells = $(rows[ri]).find("td");
       if (cells.length < 3) continue;
@@ -441,7 +447,14 @@ export function parseAflTablesTeamStats(html: string, year: number): TeamStatsEn
       const entry = teamMap.get(teamName);
       if (!entry) continue;
 
+      if (gpColIdx >= 0 && suffix === "_for") {
+        const gpVal = Number.parseFloat($(cells[gpColIdx]).text().trim().replace(/,/g, "")) || 0;
+        entry.gamesPlayed = gpVal;
+      }
+
       for (let ci = 1; ci < cells.length; ci++) {
+        if (ci === gpColIdx) continue;
+
         const header = headers[ci];
         if (!header) continue;
         const value = Number.parseFloat($(cells[ci]).text().trim().replace(/,/g, "")) || 0;

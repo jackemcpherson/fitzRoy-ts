@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-03-27
+
+### Fixed
+
+- CLI now validates `--season`, `--round`, `--format`, `--source`, and `--competition` args with clear error messages instead of passing NaN or invalid values to APIs (#31, #23, #21)
+- CLI errors no longer show raw stack traces — all errors are caught and formatted before citty's internal handler (#23)
+- `--competition INVALID` on `teams` command now rejects with valid options instead of silently stamping the invalid value (#21)
+- `--team-type` on `teams` command shows guidance when no results are found (#22)
+- `squad --team-id` now accepts team names and abbreviations (e.g. `Carlton`, `CARL`) in addition to numeric IDs (#27)
+- `player-details --competition AFLW` now defaults to the correct season year (previous year) instead of the current year (#30)
+- `stats --match-id` now resolves team names instead of showing raw API IDs (e.g. `CD_T120`) (#24)
+- AFLW player stats no longer fail validation — Zod schema now accepts `null` stat fields returned by the AFLW API (#25)
+- FootyWire date parsing no longer returns Jan 1 for all matches — extended parser handles year-less time-bearing strings like `"Thu 13 Mar 7:30pm"` (#20)
+- FootyWire DOB strings (e.g. `"7 Oct 1995"`) are now normalised to ISO format (`1995-10-07`) (#20)
+- Table output displays dates in AEST instead of raw UTC ISO strings (#20)
+- `lineup` table and CSV output now shows individual players (flattened per-player rows) instead of just match metadata (#26)
+- `team-stats` default table output now includes key stat columns (K, HB, D, M, G, B, T, I50) instead of only Team and GP (#28)
+- AFL Tables `team-stats` parser now extracts `gamesPlayed` from GP/GM column when present instead of always returning 0 (#29)
+
 ## [1.1.0] - 2026-03-27
 
 ### Added

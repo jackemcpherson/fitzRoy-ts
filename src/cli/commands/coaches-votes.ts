@@ -1,8 +1,8 @@
 import { defineCommand } from "citty";
 import { fetchCoachesVotes } from "../../index";
-import type { CompetitionCode } from "../../types";
 import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
 import { showSummary, withSpinner } from "../ui";
+import { validateCompetition, validateFormat, validateRound, validateSeason } from "../validation";
 
 const DEFAULT_COLUMNS: TableColumnConfig[] = [
   { key: "season", label: "Season", maxWidth: 8 },
@@ -33,16 +33,13 @@ export const coachesVotesCommand = defineCommand({
     full: { type: "boolean", description: "Show all columns in table output" },
   },
   async run({ args }) {
-    const season = Number(args.season);
-    const round = args.round ? Number(args.round) : undefined;
+    const season = validateSeason(args.season);
+    const round = args.round ? validateRound(args.round) : undefined;
+    const competition = validateCompetition(args.competition);
+    const format = validateFormat(args.format);
 
     const result = await withSpinner("Fetching coaches votes…", () =>
-      fetchCoachesVotes({
-        season,
-        round,
-        competition: args.competition as CompetitionCode,
-        team: args.team,
-      }),
+      fetchCoachesVotes({ season, round, competition, team: args.team }),
     );
 
     if (!result.success) {
@@ -57,7 +54,7 @@ export const coachesVotesCommand = defineCommand({
     const formatOptions: FormatOptions = {
       json: args.json,
       csv: args.csv,
-      format: args.format,
+      format,
       full: args.full,
       columns: DEFAULT_COLUMNS,
     };

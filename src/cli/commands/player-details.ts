@@ -1,8 +1,14 @@
 import { defineCommand } from "citty";
 import { fetchPlayerDetails } from "../../index";
-import type { CompetitionCode, DataSource } from "../../types";
 import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
 import { showSummary, withSpinner } from "../ui";
+import {
+  resolveDefaultSeason,
+  validateCompetition,
+  validateFormat,
+  validateOptionalSeason,
+  validateSource,
+} from "../validation";
 
 const DEFAULT_COLUMNS: TableColumnConfig[] = [
   { key: "displayName", label: "Player", maxWidth: 24 },
@@ -38,16 +44,13 @@ export const playerDetailsCommand = defineCommand({
     full: { type: "boolean", description: "Show all columns in table output" },
   },
   async run({ args }) {
-    const source = args.source as DataSource;
-    const season = args.season ? Number(args.season) : undefined;
+    const source = validateSource(args.source);
+    const competition = validateCompetition(args.competition);
+    const format = validateFormat(args.format);
+    const season = validateOptionalSeason(args.season) ?? resolveDefaultSeason(competition);
 
     const result = await withSpinner("Fetching player details…", () =>
-      fetchPlayerDetails({
-        source,
-        team: args.team,
-        season,
-        competition: args.competition as CompetitionCode,
-      }),
+      fetchPlayerDetails({ source, team: args.team, season, competition }),
     );
 
     if (!result.success) {
@@ -60,7 +63,7 @@ export const playerDetailsCommand = defineCommand({
     const formatOptions: FormatOptions = {
       json: args.json,
       csv: args.csv,
-      format: args.format,
+      format,
       full: args.full,
       columns: DEFAULT_COLUMNS,
     };

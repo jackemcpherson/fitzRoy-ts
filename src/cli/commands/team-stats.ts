@@ -1,12 +1,21 @@
 import { defineCommand } from "citty";
 import { fetchTeamStats } from "../../index";
-import type { DataSource, TeamStatsSummaryType } from "../../types";
+import type { TeamStatsSummaryType } from "../../types";
 import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
 import { showSummary, withSpinner } from "../ui";
+import { validateFormat, validateSeason, validateSource } from "../validation";
 
 const DEFAULT_COLUMNS: TableColumnConfig[] = [
   { key: "team", label: "Team", maxWidth: 24 },
   { key: "gamesPlayed", label: "GP", maxWidth: 5 },
+  { key: "K", label: "K", maxWidth: 6 },
+  { key: "HB", label: "HB", maxWidth: 6 },
+  { key: "D", label: "D", maxWidth: 6 },
+  { key: "M", label: "M", maxWidth: 6 },
+  { key: "G", label: "G", maxWidth: 6 },
+  { key: "B", label: "B", maxWidth: 6 },
+  { key: "T", label: "T", maxWidth: 6 },
+  { key: "I50", label: "I50", maxWidth: 6 },
 ];
 
 /**
@@ -42,15 +51,13 @@ export const teamStatsCommand = defineCommand({
     full: { type: "boolean", description: "Show all columns in table output" },
   },
   async run({ args }) {
-    const season = Number(args.season);
+    const season = validateSeason(args.season);
+    const source = validateSource(args.source);
+    const format = validateFormat(args.format);
     const summaryType = args.summary as TeamStatsSummaryType;
 
     const result = await withSpinner("Fetching team stats\u2026", () =>
-      fetchTeamStats({
-        source: args.source as DataSource,
-        season,
-        summaryType,
-      }),
+      fetchTeamStats({ source, season, summaryType }),
     );
 
     if (!result.success) {
@@ -65,7 +72,7 @@ export const teamStatsCommand = defineCommand({
     const formatOptions: FormatOptions = {
       json: args.json,
       csv: args.csv,
-      format: args.format,
+      format,
       full: args.full,
       columns: DEFAULT_COLUMNS,
     };
