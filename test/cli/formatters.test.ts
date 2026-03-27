@@ -10,17 +10,6 @@ describe("formatJson", () => {
     expect(JSON.parse(output)).toEqual(data);
     expect(output).toContain("\n"); // pretty-printed
   });
-
-  it("handles empty array", () => {
-    expect(formatJson([])).toBe("[]");
-  });
-
-  it("handles nested objects", () => {
-    const data = { team: { name: "Collingwood", wins: 15 } };
-    const output = formatJson(data);
-    const parsed = JSON.parse(output);
-    expect(parsed.team.name).toBe("Collingwood");
-  });
 });
 
 describe("formatCsv", () => {

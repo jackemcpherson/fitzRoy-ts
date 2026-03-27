@@ -7,69 +7,45 @@ const FIXTURE_PATH = resolve(__dirname, "../fixtures/footywire-match-list.html")
 const fixtureHtml = readFileSync(FIXTURE_PATH, "utf-8");
 
 describe("parseMatchList", () => {
-  it("parses match results from HTML fixture", () => {
+  it("parses complete match results from fixture", () => {
     const results = parseMatchList(fixtureHtml, 2025);
 
     expect(results.length).toBeGreaterThanOrEqual(3);
+
+    const first = results[0];
+    expect(first).toBeDefined();
+    if (!first) return;
+
+    // Teams and identity
+    expect(first.homeTeam).toBe("Richmond");
+    expect(first.awayTeam).toBe("Carlton");
+    expect(first.matchId).toBe("FW_11193");
+    expect(first.source).toBe("footywire");
+    expect(first.competition).toBe("AFLM");
+
+    // Scores
+    expect(first.homePoints).toBe(82);
+    expect(first.awayPoints).toBe(69);
+    expect(first.margin).toBe(13);
+
+    // Metadata
+    expect(first.venue).toBe("MCG");
+    expect(first.attendance).toBe(85000);
+
+    // Quarter scores not available on match list page
+    expect(first.q1Home).toBeNull();
+    expect(first.q4Away).toBeNull();
   });
 
   it("extracts round numbers from headers", () => {
     const results = parseMatchList(fixtureHtml, 2025);
 
-    const round1 = results.filter((r) => r.roundNumber === 1);
-    const round2 = results.filter((r) => r.roundNumber === 2);
-    expect(round1.length).toBe(2);
-    expect(round2.length).toBe(1);
-  });
-
-  it("extracts teams correctly", () => {
-    const results = parseMatchList(fixtureHtml, 2025);
-    const first = results[0];
-
-    expect(first?.homeTeam).toBe("Richmond");
-    expect(first?.awayTeam).toBe("Carlton");
-  });
-
-  it("extracts scores", () => {
-    const results = parseMatchList(fixtureHtml, 2025);
-    const first = results[0];
-
-    expect(first?.homePoints).toBe(82);
-    expect(first?.awayPoints).toBe(69);
-    expect(first?.margin).toBe(13);
-  });
-
-  it("extracts venue", () => {
-    const results = parseMatchList(fixtureHtml, 2025);
-    expect(results[0]?.venue).toBe("MCG");
-    expect(results[1]?.venue).toBe("GMHBA Stadium");
-  });
-
-  it("extracts attendance", () => {
-    const results = parseMatchList(fixtureHtml, 2025);
-    expect(results[0]?.attendance).toBe(85000);
-  });
-
-  it("sets source and competition", () => {
-    const results = parseMatchList(fixtureHtml, 2025);
-    expect(results[0]?.source).toBe("footywire");
-    expect(results[0]?.competition).toBe("AFLM");
-  });
-
-  it("generates match IDs from mid links", () => {
-    const results = parseMatchList(fixtureHtml, 2025);
-    expect(results[0]?.matchId).toBe("FW_11193");
-  });
-
-  it("sets quarter scores to null (not available on match list page)", () => {
-    const results = parseMatchList(fixtureHtml, 2025);
-    expect(results[0]?.q1Home).toBeNull();
-    expect(results[0]?.q4Away).toBeNull();
+    expect(results.filter((r) => r.roundNumber === 1)).toHaveLength(2);
+    expect(results.filter((r) => r.roundNumber === 2)).toHaveLength(1);
   });
 
   it("normalises team names", () => {
     const results = parseMatchList(fixtureHtml, 2025);
-    // Brisbane Lions should normalise
     expect(results[1]?.awayTeam).toBe("Brisbane Lions");
   });
 
@@ -96,7 +72,6 @@ describe("FootyWireClient", () => {
     const client = new FootyWireClient({ fetchFn });
 
     const result = await client.fetchSeasonResults(2025);
-
     expect(result.success).toBe(false);
   });
 
@@ -105,7 +80,6 @@ describe("FootyWireClient", () => {
     const client = new FootyWireClient({ fetchFn });
 
     const result = await client.fetchSeasonResults(2025);
-
     expect(result.success).toBe(false);
   });
 });

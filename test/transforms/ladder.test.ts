@@ -15,36 +15,31 @@ function loadEntries() {
 }
 
 describe("transformLadderEntries", () => {
-  it("transforms fixture into 18 ladder entries", () => {
+  it("transforms fixture into complete ladder entries", () => {
     const entries = loadEntries();
+
     expect(entries).toHaveLength(18);
-  });
 
-  it("first entry has correct position and team", () => {
-    const entries = loadEntries();
     const first = entries[0];
     expect(first).toBeDefined();
-    expect(first?.position).toBe(1);
-    expect(first?.team).toBe("Sydney Swans");
-  });
+    if (!first) return;
 
-  it("extracts wins, losses, draws, and points correctly", () => {
-    const entries = loadEntries();
-    const first = entries[0];
-    expect(first).toBeDefined();
-    expect(first?.played).toBe(10);
-    expect(first?.wins).toBe(9);
-    expect(first?.losses).toBe(1);
-    expect(first?.draws).toBe(0);
-    expect(first?.pointsFor).toBe(1030);
-    expect(first?.pointsAgainst).toBe(666);
-    expect(first?.percentage).toBe(154.7);
-    expect(first?.premiershipsPoints).toBe(36);
-  });
+    // Position and team
+    expect(first.position).toBe(1);
+    expect(first.team).toBe("Sydney Swans");
 
-  it("extracts form string", () => {
-    const entries = loadEntries();
-    expect(entries[0]?.form).toBe("WWWLWWWWWW");
+    // Win/loss/draw record
+    expect(first.played).toBe(10);
+    expect(first.wins).toBe(9);
+    expect(first.losses).toBe(1);
+    expect(first.draws).toBe(0);
+    expect(first.pointsFor).toBe(1030);
+    expect(first.pointsAgainst).toBe(666);
+    expect(first.percentage).toBe(154.7);
+    expect(first.premiershipsPoints).toBe(36);
+
+    // Form
+    expect(first.form).toBe("WWWLWWWWWW");
   });
 
   it("normalises team names", () => {

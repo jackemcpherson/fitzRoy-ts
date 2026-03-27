@@ -13,6 +13,21 @@ function teamTypeForComp(comp: CompetitionCode): string {
   return comp === "AFLW" ? "WOMEN" : "MEN";
 }
 
+/** Map raw API team objects to domain Team objects, filtering to senior teams only. */
+function toTeams(
+  data: ReadonlyArray<{ id: number; name: string; abbreviation?: string | undefined }>,
+  competition: CompetitionCode,
+): Team[] {
+  return data
+    .map((t) => ({
+      teamId: String(t.id),
+      name: normaliseTeamName(t.name),
+      abbreviation: t.abbreviation ?? "",
+      competition,
+    }))
+    .filter((t) => AFL_SENIOR_TEAMS.has(t.name));
+}
+
 /**
  * Fetch team lists.
  *
@@ -21,23 +36,26 @@ function teamTypeForComp(comp: CompetitionCode): string {
  */
 export async function fetchTeams(query?: TeamQuery): Promise<Result<Team[], Error>> {
   const client = new AflApiClient();
-  const teamType = query?.teamType ?? teamTypeForComp(query?.competition ?? "AFLM");
+
+  // When no competition specified, fetch both AFLM and AFLW teams
+  if (!query?.competition && !query?.teamType) {
+    const [menResult, womenResult] = await Promise.all([
+      client.fetchTeams("MEN"),
+      client.fetchTeams("WOMEN"),
+    ]);
+    if (!menResult.success) return menResult;
+    if (!womenResult.success) return womenResult;
+
+    return ok([...toTeams(menResult.data, "AFLM"), ...toTeams(womenResult.data, "AFLW")]);
+  }
+
+  const competition = query?.competition ?? "AFLM";
+  const teamType = query?.teamType ?? teamTypeForComp(competition);
 
   const result = await client.fetchTeams(teamType);
   if (!result.success) return result;
 
-  const competition = query?.competition ?? "AFLM";
-
-  const teams = result.data
-    .map((t) => ({
-      teamId: String(t.id),
-      name: normaliseTeamName(t.name),
-      abbreviation: t.abbreviation ?? "",
-      competition,
-    }))
-    .filter((t) => AFL_SENIOR_TEAMS.has(t.name));
-
-  return ok(teams);
+  return ok(toTeams(result.data, competition));
 }
 
 /**
@@ -69,8 +87,8 @@ export async function fetchSquad(query: SquadQuery): Promise<Result<Squad, Error
     jumperNumber: p.jumperNumber ?? null,
     position: p.position ?? null,
     dateOfBirth: p.player.dateOfBirth ? new Date(p.player.dateOfBirth) : null,
-    heightCm: p.player.heightInCm ?? null,
-    weightKg: p.player.weightInKg ?? null,
+    heightCm: p.player.heightInCm || null,
+    weightKg: p.player.weightInKg || null,
     draftYear: p.player.draftYear ? Number.parseInt(p.player.draftYear, 10) || null : null,
     draftPosition: p.player.draftPosition
       ? Number.parseInt(p.player.draftPosition, 10) || null

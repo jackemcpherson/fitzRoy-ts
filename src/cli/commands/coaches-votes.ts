@@ -1,5 +1,6 @@
 import { defineCommand } from "citty";
 import { fetchCoachesVotes } from "../../index";
+import { withErrorBoundary } from "../error-boundary";
 import { COMPETITION_FLAG, OUTPUT_FLAGS, ROUND_FLAG, SEASON_FLAG, TEAM_FLAG } from "../flags";
 import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
 import { resolveTeamNameOrPrompt } from "../resolvers";
@@ -27,7 +28,7 @@ export const coachesVotesCommand = defineCommand({
     ...TEAM_FLAG,
     ...OUTPUT_FLAGS,
   },
-  async run({ args }) {
+  run: withErrorBoundary(async ({ args }) => {
     const season = validateSeason(args.season);
     const round = args.round ? validateRound(args.round) : undefined;
     const competition = validateCompetition(args.competition);
@@ -58,5 +59,5 @@ export const coachesVotesCommand = defineCommand({
     };
 
     console.log(formatOutput(data, formatOptions));
-  },
+  }),
 });

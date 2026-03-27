@@ -32,11 +32,7 @@ export function validateOptionalSeason(raw: string | undefined): number | undefi
   return undefined;
 }
 
-/** Resolve the default season for a competition when none is provided. */
-export function resolveDefaultSeason(competition: CompetitionCode = "AFLM"): number {
-  const year = new Date().getFullYear();
-  return competition === "AFLW" ? year - 1 : year;
-}
+export { resolveDefaultSeason } from "../lib/date-utils";
 
 /** Validate and parse a round number string. */
 export function validateRound(raw: string): number {

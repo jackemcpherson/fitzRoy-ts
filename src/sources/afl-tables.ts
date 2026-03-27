@@ -11,7 +11,7 @@ import { ScrapeError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
 import { extractGameUrls, parseAflTablesGameStats } from "../transforms/afl-tables-player-stats";
-import { inferRoundType } from "../transforms/match-results";
+import { finalsRoundNumber, inferRoundType } from "../transforms/match-results";
 import type {
   MatchResult,
   PlayerDetails,
@@ -245,6 +245,7 @@ export function parseSeasonPage(html: string, year: number): MatchResult[] {
   const results: MatchResult[] = [];
   let currentRound = 0;
   let currentRoundType: RoundType = "HomeAndAway";
+  let lastHARound = 0;
   let matchCounter = 0;
 
   // Find round headers — tables with "Round N" text that aren't match tables
@@ -259,12 +260,16 @@ export function parseSeasonPage(html: string, year: number): MatchResult[] {
     if (roundMatch?.[1] && border !== "1") {
       currentRound = Number.parseInt(roundMatch[1], 10);
       currentRoundType = inferRoundType(text);
+      if (currentRoundType === "HomeAndAway") {
+        lastHARound = currentRound;
+      }
       return;
     }
 
     // Check for non-numbered round headers (Finals, Grand Final, etc.)
     if (border !== "1" && inferRoundType(text) === "Finals") {
       currentRoundType = "Finals";
+      currentRound = finalsRoundNumber(text, lastHARound);
       return;
     }
 

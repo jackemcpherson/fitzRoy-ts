@@ -79,41 +79,42 @@ function makeStatsList(overrides?: Partial<PlayerStatsList>): PlayerStatsList {
 }
 
 describe("transformPlayerStats", () => {
-  it("transforms home and away player stats", () => {
+  it("transforms home and away players with all fields", () => {
     const results = transformPlayerStats(makeStatsList(), "CD_M1", 2025, 1, "AFLM");
 
     expect(results).toHaveLength(2);
-    expect(results[0]?.playerId).toBe("CD_I1");
+
+    const r = results[0];
+    expect(r).toBeDefined();
+    if (!r) return;
+
+    // Player identity
+    expect(r.playerId).toBe("CD_I1");
+    expect(r.givenName).toBe("Dustin");
+    expect(r.surname).toBe("Martin");
+    expect(r.displayName).toBe("Dustin Martin");
+    expect(r.jumperNumber).toBe(4);
+
+    // Core stats
+    expect(r.goals).toBe(3.0);
+    expect(r.kicks).toBe(15.0);
+    expect(r.disposals).toBe(23.0);
+    expect(r.tackles).toBe(4.0);
+
+    // Nested clearances
+    expect(r.centreClearances).toBe(2.0);
+    expect(r.stoppageClearances).toBe(3.0);
+    expect(r.totalClearances).toBe(5.0);
+
+    // Metadata
+    expect(r.matchId).toBe("CD_M1");
+    expect(r.season).toBe(2025);
+    expect(r.roundNumber).toBe(1);
+    expect(r.competition).toBe("AFLM");
+    expect(r.source).toBe("afl-api");
+
+    // Away player
     expect(results[1]?.playerId).toBe("CD_I2");
-  });
-
-  it("extracts player identity fields", () => {
-    const results = transformPlayerStats(makeStatsList(), "CD_M1", 2025, 1, "AFLM");
-    const r = results[0];
-
-    expect(r?.givenName).toBe("Dustin");
-    expect(r?.surname).toBe("Martin");
-    expect(r?.displayName).toBe("Dustin Martin");
-    expect(r?.jumperNumber).toBe(4);
-  });
-
-  it("extracts core stats", () => {
-    const results = transformPlayerStats(makeStatsList(), "CD_M1", 2025, 1, "AFLM");
-    const r = results[0];
-
-    expect(r?.goals).toBe(3.0);
-    expect(r?.kicks).toBe(15.0);
-    expect(r?.disposals).toBe(23.0);
-    expect(r?.tackles).toBe(4.0);
-  });
-
-  it("extracts clearance stats from nested object", () => {
-    const results = transformPlayerStats(makeStatsList(), "CD_M1", 2025, 1, "AFLM");
-    const r = results[0];
-
-    expect(r?.centreClearances).toBe(2.0);
-    expect(r?.stoppageClearances).toBe(3.0);
-    expect(r?.totalClearances).toBe(5.0);
   });
 
   it("handles missing optional stats as null", () => {
@@ -143,17 +144,6 @@ describe("transformPlayerStats", () => {
     expect(r?.goals).toBeNull();
     expect(r?.centreClearances).toBeNull();
     expect(r?.dreamTeamPoints).toBeNull();
-  });
-
-  it("sets metadata fields correctly", () => {
-    const results = transformPlayerStats(makeStatsList(), "CD_M1", 2025, 1, "AFLM");
-    const r = results[0];
-
-    expect(r?.matchId).toBe("CD_M1");
-    expect(r?.season).toBe(2025);
-    expect(r?.roundNumber).toBe(1);
-    expect(r?.competition).toBe("AFLM");
-    expect(r?.source).toBe("afl-api");
   });
 
   it("returns empty array for empty stats lists", () => {

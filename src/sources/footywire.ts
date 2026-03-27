@@ -15,7 +15,7 @@ import {
   parseAdvancedStats,
   parseBasicStats,
 } from "../transforms/footywire-player-stats";
-import { inferRoundType } from "../transforms/match-results";
+import { finalsRoundNumber, inferRoundType } from "../transforms/match-results";
 import type {
   Fixture,
   MatchResult,
@@ -299,6 +299,7 @@ export function parseMatchList(html: string, year: number): MatchResult[] {
   const $ = cheerio.load(html);
   const results: MatchResult[] = [];
   let currentRound = 0;
+  let lastHARound = 0;
   let currentRoundType: RoundType = "HomeAndAway";
 
   // Each row is either a round header (colspan=7) or a match row
@@ -310,6 +311,11 @@ export function parseMatchList(html: string, year: number): MatchResult[] {
       const roundMatch = /Round\s+(\d+)/i.exec(text);
       if (roundMatch?.[1]) {
         currentRound = Number.parseInt(roundMatch[1], 10);
+        if (currentRoundType === "HomeAndAway") {
+          lastHARound = currentRound;
+        }
+      } else if (currentRoundType === "Finals") {
+        currentRound = finalsRoundNumber(text, lastHARound);
       }
       return;
     }
@@ -405,6 +411,7 @@ export function parseFixtureList(html: string, year: number): Fixture[] {
   const $ = cheerio.load(html);
   const fixtures: Fixture[] = [];
   let currentRound = 0;
+  let lastHARound = 0;
   let currentRoundType: RoundType = "HomeAndAway";
   let gameNumber = 0;
 
@@ -416,6 +423,11 @@ export function parseFixtureList(html: string, year: number): Fixture[] {
       const roundMatch = /Round\s+(\d+)/i.exec(text);
       if (roundMatch?.[1]) {
         currentRound = Number.parseInt(roundMatch[1], 10);
+        if (currentRoundType === "HomeAndAway") {
+          lastHARound = currentRound;
+        }
+      } else if (currentRoundType === "Finals") {
+        currentRound = finalsRoundNumber(text, lastHARound);
       }
       return;
     }

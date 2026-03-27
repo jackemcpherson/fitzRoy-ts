@@ -189,6 +189,21 @@ export function toAestString(date: Date): string {
   return formatter.format(date);
 }
 
+/**
+ * Resolve the default season for a competition when none is provided.
+ *
+ * AFLM uses the current calendar year. AFLW seasons run ahead of the
+ * calendar year (e.g. the "2025" AFLW season starts in late 2024/early 2025),
+ * so the default is the previous year.
+ *
+ * @param competition - Competition code, defaults to "AFLM".
+ * @returns The default season year.
+ */
+export function resolveDefaultSeason(competition: "AFLM" | "AFLW" = "AFLM"): number {
+  const year = new Date().getFullYear();
+  return competition === "AFLW" ? year - 1 : year;
+}
+
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------

@@ -323,6 +323,10 @@ export interface PlayerDetails {
   readonly dateOfBirth: string | null;
   readonly heightCm: number | null;
   readonly weightKg: number | null;
+  /**
+   * Career games played. `null` for `afl-api` source — the squad endpoint
+   * does not provide career statistics. Use `footywire` or `afl-tables` for this field.
+   */
   readonly gamesPlayed: number | null;
   readonly goals: number | null;
   readonly draftYear: number | null;

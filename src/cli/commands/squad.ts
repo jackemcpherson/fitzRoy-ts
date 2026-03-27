@@ -1,5 +1,6 @@
 import { defineCommand } from "citty";
 import { fetchSquad, fetchTeams } from "../../index";
+import { withErrorBoundary } from "../error-boundary";
 import { COMPETITION_FLAG, OUTPUT_FLAGS, REQUIRED_TEAM_FLAG, SEASON_FLAG } from "../flags";
 import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
 import { resolveTeamOrPrompt } from "../resolvers";
@@ -25,7 +26,7 @@ export const squadCommand = defineCommand({
     ...COMPETITION_FLAG,
     ...OUTPUT_FLAGS,
   },
-  async run({ args }) {
+  run: withErrorBoundary(async ({ args }) => {
     const season = validateSeason(args.season);
     const competition = validateCompetition(args.competition);
     const format = validateFormat(args.format);
@@ -59,5 +60,5 @@ export const squadCommand = defineCommand({
     };
 
     console.log(formatOutput(data.players, formatOptions));
-  },
+  }),
 });

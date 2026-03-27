@@ -5,7 +5,7 @@
  */
 
 import { UnsupportedSourceError } from "../lib/errors";
-import { err, type Result } from "../lib/result";
+import { err, ok, type Result } from "../lib/result";
 import { AflTablesClient } from "../sources/afl-tables";
 import { FootyWireClient } from "../sources/footywire";
 import type { TeamStatsEntry, TeamStatsQuery } from "../types";
@@ -42,7 +42,44 @@ export async function fetchTeamStats(
 
     case "afl-tables": {
       const client = new AflTablesClient();
-      return client.fetchTeamStats(query.season);
+
+      const statsResult = await client.fetchTeamStats(query.season);
+      if (!statsResult.success) return statsResult;
+
+      // The stats page lacks a GP column — derive from match results if needed
+      const needsGp = statsResult.data.some((e) => e.gamesPlayed === 0);
+      const gpMap = new Map<string, number>();
+      if (needsGp) {
+        const resultsResult = await client.fetchSeasonResults(query.season);
+        if (resultsResult.success) {
+          for (const m of resultsResult.data) {
+            gpMap.set(m.homeTeam, (gpMap.get(m.homeTeam) ?? 0) + 1);
+            gpMap.set(m.awayTeam, (gpMap.get(m.awayTeam) ?? 0) + 1);
+          }
+        }
+      }
+
+      const enriched = statsResult.data.map((entry) => ({
+        ...entry,
+        gamesPlayed: gpMap.get(entry.team) ?? entry.gamesPlayed,
+      }));
+
+      // Compute averages by dividing totals by games played
+      if (summaryType === "averages") {
+        return ok(
+          enriched.map((entry) => ({
+            ...entry,
+            stats: Object.fromEntries(
+              Object.entries(entry.stats).map(([k, v]) => [
+                k,
+                entry.gamesPlayed > 0 ? +(v / entry.gamesPlayed).toFixed(1) : 0,
+              ]),
+            ),
+          })),
+        );
+      }
+
+      return ok(enriched);
     }
 
     case "afl-api":

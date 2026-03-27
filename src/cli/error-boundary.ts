@@ -27,3 +27,22 @@ export function formatError(error: unknown): string {
   }
   return `${pc.red("Error:")} ${String(error)}`;
 }
+
+/**
+ * Wrap a command's `run` handler so that errors are caught, formatted,
+ * and printed without stack traces. Citty's `runMain` intercepts errors
+ * before the top-level `.catch()` fires, so each command needs its own
+ * try/catch to guarantee clean output.
+ */
+export function withErrorBoundary<T extends { args: Record<string, unknown> }>(
+  fn: (ctx: T) => Promise<void>,
+): (ctx: T) => Promise<void> {
+  return async (ctx) => {
+    try {
+      await fn(ctx);
+    } catch (error: unknown) {
+      console.error(formatError(error));
+      process.exit(1);
+    }
+  };
+}

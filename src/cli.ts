@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 import { defineCommand, runMain } from "citty";
+import { resolveAliases } from "./cli/alias-resolution";
 import { formatError } from "./cli/error-boundary";
+
+resolveAliases();
 
 declare const PACKAGE_VERSION: string;
 

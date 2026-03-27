@@ -3,7 +3,7 @@
  */
 
 import { batchedMap } from "../lib/concurrency";
-import { UnsupportedSourceError } from "../lib/errors";
+import { aflwUnsupportedError, UnsupportedSourceError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
 import type { MatchItem } from "../lib/validation";
@@ -45,6 +45,7 @@ export async function fetchFixture(query: SeasonRoundQuery): Promise<Result<Fixt
   const competition = query.competition ?? "AFLM";
 
   if (query.source === "squiggle") {
+    if (competition === "AFLW") return err(aflwUnsupportedError("squiggle"));
     const client = new SquiggleClient();
     const result = await client.fetchGames(query.season, query.round ?? undefined);
     if (!result.success) return result;
@@ -52,6 +53,7 @@ export async function fetchFixture(query: SeasonRoundQuery): Promise<Result<Fixt
   }
 
   if (query.source === "footywire") {
+    if (competition === "AFLW") return err(aflwUnsupportedError("footywire"));
     const fwClient = new FootyWireClient();
     const result = await fwClient.fetchSeasonFixture(query.season);
     if (!result.success) return result;

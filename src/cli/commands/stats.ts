@@ -2,6 +2,7 @@ import { defineCommand } from "citty";
 import { fetchPlayerStats } from "../../index";
 import { fuzzySearch } from "../../lib/fuzzy";
 import { AflApiClient } from "../../sources/afl-api";
+import { withErrorBoundary } from "../error-boundary";
 import {
   COMPETITION_FLAG,
   OUTPUT_FLAGS,
@@ -46,7 +47,7 @@ export const statsCommand = defineCommand({
     ...PLAYER_FLAG,
     ...OUTPUT_FLAGS,
   },
-  async run({ args }) {
+  run: withErrorBoundary(async ({ args }) => {
     const season = validateSeason(args.season);
     const round = args.round ? validateRound(args.round) : undefined;
     const source = validateSource(args.source);
@@ -98,5 +99,5 @@ export const statsCommand = defineCommand({
     };
 
     console.log(formatOutput(data, formatOptions));
-  },
+  }),
 });

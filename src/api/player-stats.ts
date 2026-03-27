@@ -3,7 +3,7 @@
  */
 
 import { batchedMap } from "../lib/concurrency";
-import { AflApiError, UnsupportedSourceError } from "../lib/errors";
+import { AflApiError, aflwUnsupportedError, UnsupportedSourceError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { AflApiClient } from "../sources/afl-api";
 import { AflTablesClient } from "../sources/afl-tables";
@@ -105,6 +105,7 @@ export async function fetchPlayerStats(
     }
 
     case "footywire": {
+      if (competition === "AFLW") return err(aflwUnsupportedError("footywire"));
       const fwClient = new FootyWireClient();
 
       // Get match IDs for the season
@@ -146,6 +147,7 @@ export async function fetchPlayerStats(
     }
 
     case "afl-tables": {
+      if (competition === "AFLW") return err(aflwUnsupportedError("afl-tables"));
       const atClient = new AflTablesClient();
       const atResult = await atClient.fetchSeasonPlayerStats(query.season);
       if (!atResult.success) return atResult;

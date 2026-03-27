@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-03-27
+
+### Added
+
+- `teams` command without `--competition` now returns both AFLM and AFLW teams (36 total)
+- AFL Tables team stats now computes per-game averages when `--summary averages` is used
+- Static fallback map for AFL API team IDs, ensuring team names display even when roster fetch fails
+
+### Changed
+
+- Short flag aliases (`-s`, `-r`, `-c`, `-j`, `-t`, `-p`) now work via manual argv resolution (citty v0.2.1 does not resolve them at runtime)
+- AFL Tables team stats `gamesPlayed` is now derived from match results (the stats page lacks a GP column)
+- AFL Tables stat column keys normalised to match FootyWire convention (`K`, `HB`, `D`, etc.) so default table columns display correctly
+- Finals matches from FootyWire and AFL Tables now get distinct round numbers (QF/EF=+1, SF=+2, PF=+3, GF=+4 from last H&A round)
+- AFLW default season in the library layer now uses `resolveDefaultSeason()` (previous year) instead of current year
+
+### Fixed
+
+- CLI errors now display clean formatted messages instead of raw stack traces (error boundary wraps each command)
+- `--competition AFLW` with non-AFL-API sources now returns a clear error instead of silently returning AFLM data
+- AFLW player stats no longer fail Zod validation (schema accepts string-encoded numbers and nullable stat sections)
+- `stats --match-id` no longer shows raw team IDs like `CD_T30` when roster fetch fails
+- `weightKg` and `heightCm` of `0` from AFL API now map to `null` instead of displaying as zero
+- `team-stats --source afl-tables` default table now shows stat columns (K, HB, D, M, G, etc.) instead of only TEAM and GP
+
 ## [1.2.0] - 2026-03-27
 
 ### Added

@@ -2,7 +2,7 @@
  * Public API for fetching ladder/standings data.
  */
 
-import { UnsupportedSourceError } from "../lib/errors";
+import { aflwUnsupportedError, UnsupportedSourceError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { AflApiClient } from "../sources/afl-api";
 import { AflTablesClient } from "../sources/afl-tables";
@@ -27,6 +27,7 @@ export async function fetchLadder(query: LadderQuery): Promise<Result<Ladder, Er
   const competition = query.competition ?? "AFLM";
 
   if (query.source === "squiggle") {
+    if (competition === "AFLW") return err(aflwUnsupportedError("squiggle"));
     const client = new SquiggleClient();
     const result = await client.fetchStandings(query.season, query.round ?? undefined);
     if (!result.success) return result;
@@ -40,6 +41,7 @@ export async function fetchLadder(query: LadderQuery): Promise<Result<Ladder, Er
   }
 
   if (query.source === "afl-tables") {
+    if (competition === "AFLW") return err(aflwUnsupportedError("afl-tables"));
     const atClient = new AflTablesClient();
     const resultsResult = await atClient.fetchSeasonResults(query.season);
     if (!resultsResult.success) return resultsResult;

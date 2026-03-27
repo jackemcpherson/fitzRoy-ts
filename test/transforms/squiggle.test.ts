@@ -19,7 +19,7 @@ function loadJson(filename: string): unknown {
 
 describe("Squiggle transforms", () => {
   describe("transformSquiggleGamesToResults", () => {
-    it("transforms completed games into MatchResult objects", () => {
+    it("transforms completed games with all fields", () => {
       const raw = loadJson("squiggle-games-2024-r1.json");
       const parsed = SquiggleGamesResponseSchema.parse(raw);
       const results = transformSquiggleGamesToResults(parsed.games, 2024);
@@ -29,6 +29,8 @@ describe("Squiggle transforms", () => {
       const first = results[0];
       expect(first).toBeDefined();
       if (!first) return;
+
+      // Identity and metadata
       expect(first.season).toBe(2024);
       expect(first.roundNumber).toBe(1);
       expect(first.source).toBe("squiggle");
@@ -36,31 +38,15 @@ describe("Squiggle transforms", () => {
       expect(first.matchId).toMatch(/^SQ_/);
       expect(first.homeTeam).toBeTruthy();
       expect(first.awayTeam).toBeTruthy();
+
+      // Scores and derived fields
       expect(first.homePoints).toBeGreaterThan(0);
       expect(first.awayPoints).toBeGreaterThan(0);
       expect(first.margin).toBe(first.homePoints - first.awayPoints);
-    });
-
-    it("includes goals and behinds breakdown", () => {
-      const raw = loadJson("squiggle-games-2024-r1.json");
-      const parsed = SquiggleGamesResponseSchema.parse(raw);
-      const results = transformSquiggleGamesToResults(parsed.games, 2024);
-
-      const first = results[0];
-      expect(first).toBeDefined();
-      if (!first) return;
       expect(first.homeGoals * 6 + first.homeBehinds).toBe(first.homePoints);
       expect(first.awayGoals * 6 + first.awayBehinds).toBe(first.awayPoints);
-    });
 
-    it("sets quarter scores to null (not provided by Squiggle)", () => {
-      const raw = loadJson("squiggle-games-2024-r1.json");
-      const parsed = SquiggleGamesResponseSchema.parse(raw);
-      const results = transformSquiggleGamesToResults(parsed.games, 2024);
-
-      const first = results[0];
-      expect(first).toBeDefined();
-      if (!first) return;
+      // Quarter scores not provided by Squiggle
       expect(first.q1Home).toBeNull();
       expect(first.q4Away).toBeNull();
     });
@@ -86,12 +72,12 @@ describe("Squiggle transforms", () => {
   });
 
   describe("transformSquiggleStandings", () => {
-    it("transforms standings into LadderEntry objects", () => {
+    it("transforms standings into 18 ranked LadderEntry objects", () => {
       const raw = loadJson("squiggle-standings-2024-r10.json");
       const parsed = SquiggleStandingsResponseSchema.parse(raw);
       const entries = transformSquiggleStandings(parsed.standings);
 
-      expect(entries.length).toBe(18);
+      expect(entries).toHaveLength(18);
 
       const first = entries[0];
       expect(first).toBeDefined();
@@ -102,13 +88,8 @@ describe("Squiggle transforms", () => {
       expect(first.wins).toBeGreaterThan(0);
       expect(first.premiershipsPoints).toBeGreaterThan(0);
       expect(first.percentage).toBeGreaterThan(0);
-    });
 
-    it("preserves ranking order", () => {
-      const raw = loadJson("squiggle-standings-2024-r10.json");
-      const parsed = SquiggleStandingsResponseSchema.parse(raw);
-      const entries = transformSquiggleStandings(parsed.standings);
-
+      // Verify positions are sequential
       for (let i = 1; i < entries.length; i++) {
         const current = entries[i];
         const previous = entries[i - 1];
