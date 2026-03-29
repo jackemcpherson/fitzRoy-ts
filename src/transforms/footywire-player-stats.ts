@@ -8,6 +8,7 @@
 
 import * as cheerio from "cheerio";
 import { parseFloatOr0, parseIntOr0 } from "../lib/parse-utils";
+import { normaliseVenueName } from "../lib/venue-mapping";
 import type { PlayerStats } from "../types";
 
 /** Column indices for the basic stats table header. */
@@ -242,7 +243,7 @@ export function extractMatchDetails(html: string): MatchDetails {
 
   const parts = detailLine.split(",").map((s) => s.trim());
   const round = parts[0] ?? "";
-  const venue = parts[1] ?? "";
+  const venue = normaliseVenueName(parts[1] ?? "");
 
   // Extract teams from the score table
   const scoreTable = $("#matchscoretable");
