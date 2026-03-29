@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-03-30
+
+### Added
+
+- Venue name normalisation (`normaliseVenueName`) — maps sponsor names and historical names to stable canonical forms (e.g., "GMHBA Stadium" → "Kardinia Park", "ENGIE Stadium" → "Sydney Showground")
+- Venue normalisation applied automatically to all data sources (AFL API, Squiggle, FootyWire)
+- End-to-end comparison test suite (`comparison/test.ts`) validating data parity with the fitzRoy R package across 25 queries on 2024-2025 AFLM data (24/25 passing)
+
 ## [1.3.1] - 2026-03-27
 
 ### Fixed

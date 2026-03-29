@@ -93,6 +93,7 @@ export {
   type TeamScore,
   TeamScoreSchema,
 } from "./lib/validation";
+export { normaliseVenueName } from "./lib/venue-mapping";
 export { AflApiClient, type AflApiClientOptions } from "./sources/afl-api";
 export { AflCoachesClient, type AflCoachesClientOptions } from "./sources/afl-coaches";
 export { AflTablesClient, type AflTablesClientOptions } from "./sources/afl-tables";

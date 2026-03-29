@@ -39,8 +39,10 @@ coverage/
 plans/
 AGENTS.md
 
-# comparison test outputs
-comparison/
+# comparison test outputs (keep scripts, ignore generated data)
+comparison/*.db
+comparison/r/
+comparison/ts/
 
 # large reference files
 docs/jimmyday12-fitzroy-*.txt

@@ -4,6 +4,7 @@
 
 import type { SquiggleGame, SquiggleStanding } from "../lib/squiggle-validation";
 import { normaliseTeamName } from "../lib/team-mapping";
+import { normaliseVenueName } from "../lib/venue-mapping";
 import type { Fixture, LadderEntry, MatchResult, MatchStatus } from "../types";
 import { inferRoundType } from "./match-results";
 
@@ -31,7 +32,7 @@ export function transformSquiggleGamesToResults(
       roundNumber: g.round,
       roundType: inferRoundType(g.roundname),
       date: new Date(g.unixtime * 1000),
-      venue: g.venue,
+      venue: normaliseVenueName(g.venue),
       homeTeam: normaliseTeamName(g.hteam),
       awayTeam: normaliseTeamName(g.ateam),
       homeGoals: g.hgoals ?? 0,
