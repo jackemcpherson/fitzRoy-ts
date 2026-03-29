@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-03-30
+
+### Fixed
+
+- Game start times in JSON and CSV output now display in AEST/AEDT (e.g., `2026-04-18T19:30:00+10:00`) instead of raw UTC
+- Venue normalisation now applied consistently across all routes — previously missing from AFL API fixtures, Squiggle fixtures, FootyWire fixtures/match results, and AFL Tables match results
+- Team name normalisation now applied consistently across all routes — previously missing from FootyWire player stats team headers, awards transforms (Brownlow, All-Australian, Rising Star)
+
 ## [1.4.0] - 2026-03-30
 
 ### Added

@@ -8,6 +8,7 @@
 
 import * as cheerio from "cheerio";
 import { parseFloatOr0, parseIntOr0 } from "../lib/parse-utils";
+import { normaliseTeamName } from "../lib/team-mapping";
 import { normaliseVenueName } from "../lib/venue-mapping";
 import type { PlayerStats } from "../types";
 
@@ -150,7 +151,7 @@ function parseStatsTable<T>(
       const headerText = teamHeader.text().trim();
       const match = /^(\w[\w\s]+?)\s+Match Statistics/i.exec(headerText);
       if (match?.[1]) {
-        teamName = match[1].trim();
+        teamName = normaliseTeamName(match[1].trim());
       }
     }
 
@@ -248,8 +249,8 @@ export function extractMatchDetails(html: string): MatchDetails {
   // Extract teams from the score table
   const scoreTable = $("#matchscoretable");
   const teamRows = scoreTable.find("tr").slice(1); // skip header
-  const homeTeam = $(teamRows[0]).find("td").first().text().trim();
-  const awayTeam = $(teamRows[1]).find("td").first().text().trim();
+  const homeTeam = normaliseTeamName($(teamRows[0]).find("td").first().text().trim());
+  const awayTeam = normaliseTeamName($(teamRows[1]).find("td").first().text().trim());
 
   return {
     round,

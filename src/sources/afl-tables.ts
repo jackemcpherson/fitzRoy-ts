@@ -10,6 +10,7 @@ import { parseAflTablesDate } from "../lib/date-utils";
 import { ScrapeError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
+import { normaliseVenueName } from "../lib/venue-mapping";
 import { extractGameUrls, parseAflTablesGameStats } from "../transforms/afl-tables-player-stats";
 import { finalsRoundNumber, inferRoundType } from "../transforms/match-results";
 import type {
@@ -301,7 +302,7 @@ export function parseSeasonPage(html: string, year: number): MatchResult[] {
     // Date and venue from fourth cell of home row
     const infoText = $(homeCells[3]).text().trim();
     const date = parseDateFromInfo(infoText, year);
-    const venue = parseVenueFromInfo($(homeCells[3]).html() ?? "");
+    const venue = normaliseVenueName(parseVenueFromInfo($(homeCells[3]).html() ?? ""));
     const attendance = parseAttendanceFromInfo(infoText);
 
     // Final quarter gives total goals.behinds

@@ -4,6 +4,7 @@
 
 import * as cheerio from "cheerio";
 import { safeInt } from "../lib/parse-utils";
+import { normaliseTeamName } from "../lib/team-mapping";
 import type { AllAustralianSelection, BrownlowVote, RisingStarNomination } from "../types";
 
 /**
@@ -37,7 +38,7 @@ export function parseBrownlowVotes(html: string, season: number): BrownlowVote[]
       if (tds.length < 9) return;
 
       const player = $(tds[0]).text().trim();
-      const team = $(tds[1]).text().trim();
+      const team = normaliseTeamName($(tds[1]).text().trim());
 
       if (!player || player.toLowerCase() === "player") return;
 
@@ -93,7 +94,7 @@ export function parseAllAustralian(html: string, season: number): AllAustralianS
       const playerLink = $(cell).find("a");
       const playerName = playerLink.text().trim();
       const teamSpan = $(cell).find("span.playerflag");
-      const team = teamSpan.text().trim();
+      const team = normaliseTeamName(teamSpan.text().trim());
 
       if (playerName && team) {
         results.push({
@@ -155,8 +156,8 @@ export function parseRisingStarNominations(html: string, season: number): Rising
     if (round == null) return;
 
     const player = $(tds[1]).text().trim();
-    const team = $(tds[2]).text().trim();
-    const opponent = $(tds[3]).text().trim();
+    const team = normaliseTeamName($(tds[2]).text().trim());
+    const opponent = normaliseTeamName($(tds[3]).text().trim());
 
     if (!player || player.toLowerCase() === "name") return;
 

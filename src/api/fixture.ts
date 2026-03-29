@@ -7,6 +7,7 @@ import { aflwUnsupportedError, UnsupportedSourceError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
 import type { MatchItem } from "../lib/validation";
+import { normaliseVenueName } from "../lib/venue-mapping";
 import { AflApiClient } from "../sources/afl-api";
 import { FootyWireClient } from "../sources/footywire";
 import { SquiggleClient } from "../sources/squiggle";
@@ -27,7 +28,7 @@ function toFixture(
     roundNumber: item.round?.roundNumber ?? fallbackRoundNumber,
     roundType: inferRoundType(item.round?.name ?? ""),
     date: new Date(item.match.utcStartTime),
-    venue: item.venue?.name ?? "",
+    venue: normaliseVenueName(item.venue?.name ?? ""),
     homeTeam: normaliseTeamName(item.match.homeTeam.name),
     awayTeam: normaliseTeamName(item.match.awayTeam.name),
     status: toMatchStatus(item.match.status),

@@ -81,7 +81,7 @@ describe("FootyWire player stats parsing", () => {
       const details = extractMatchDetails(basicHtml);
       expect(details.round).toContain("Round");
       expect(details.venue).toBe("SCG");
-      expect(details.homeTeam).toBe("Sydney");
+      expect(details.homeTeam).toBe("Sydney Swans");
       expect(details.awayTeam).toBe("Melbourne");
     });
   });

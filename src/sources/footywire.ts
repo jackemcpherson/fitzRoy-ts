@@ -10,6 +10,7 @@ import { parseFootyWireDate } from "../lib/date-utils";
 import { ScrapeError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
+import { normaliseVenueName } from "../lib/venue-mapping";
 import {
   mergeFootyWireStats,
   parseAdvancedStats,
@@ -367,7 +368,7 @@ export function parseMatchList(html: string, year: number): MatchResult[] {
       roundNumber: currentRound,
       roundType: currentRoundType,
       date,
-      venue,
+      venue: normaliseVenueName(venue),
       homeTeam,
       awayTeam,
       homeGoals,
@@ -460,7 +461,7 @@ export function parseFixtureList(html: string, year: number): Fixture[] {
       roundNumber: currentRound,
       roundType: currentRoundType,
       date,
-      venue,
+      venue: normaliseVenueName(venue),
       homeTeam,
       awayTeam,
       status: hasScore ? "Complete" : "Upcoming",

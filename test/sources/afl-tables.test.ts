@@ -38,7 +38,7 @@ describe("parseSeasonPage", () => {
 
     // Metadata
     expect(first.attendance).toBe(40012);
-    expect(first.venue).toBe("S.C.G.");
+    expect(first.venue).toBe("SCG");
     expect(first.date?.getUTCFullYear()).toBe(2024);
     expect(first.date?.getUTCMonth()).toBe(2); // March
     expect(first.date?.getUTCDate()).toBe(7);
