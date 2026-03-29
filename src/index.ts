@@ -1,5 +1,6 @@
 /**
- * fitzRoy-ts — TypeScript library for AFL data access.
+ * fitzRoy-ts — TypeScript port of the {@link https://github.com/jimmyday12/fitzRoy | fitzRoy R package}
+ * for programmatic access to AFL (Australian Football League) data.
  *
  * @packageDocumentation
  */

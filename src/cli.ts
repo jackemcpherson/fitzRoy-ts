@@ -11,8 +11,7 @@ const main = defineCommand({
   meta: {
     name: "fitzroy",
     version: PACKAGE_VERSION,
-    description:
-      "CLI for fetching AFL data — match results, player stats, fixtures, ladders, and more",
+    description: "TypeScript port of the fitzRoy R package — fetch AFL data from the command line",
   },
   subCommands: {
     matches: () => import("./cli/commands/matches").then((m) => m.matchesCommand),
