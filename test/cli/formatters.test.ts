@@ -59,12 +59,12 @@ describe("formatCsv", () => {
     expect(lines[1]).toBe(",,ok");
   });
 
-  it("handles Date values as ISO strings", () => {
+  it("handles Date values as AEST ISO strings", () => {
     const date = new Date("2025-03-15T14:30:00Z");
     const data = [{ date }];
     const output = formatCsv(data);
     const lines = output.split("\n");
-    expect(lines[1]).toBe("2025-03-15T14:30:00.000Z");
+    expect(lines[1]).toBe("2025-03-16T01:30:00+11:00");
   });
 
   it("returns empty string for empty array", () => {

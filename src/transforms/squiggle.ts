@@ -78,7 +78,7 @@ export function transformSquiggleGamesToFixture(
     roundNumber: g.round,
     roundType: inferRoundType(g.roundname),
     date: new Date(g.unixtime * 1000),
-    venue: g.venue,
+    venue: normaliseVenueName(g.venue),
     homeTeam: normaliseTeamName(g.hteam),
     awayTeam: normaliseTeamName(g.ateam),
     status: toMatchStatus(g.complete),
