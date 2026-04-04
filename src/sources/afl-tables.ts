@@ -12,7 +12,7 @@ import { err, ok, type Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
 import { normaliseVenueName } from "../lib/venue-mapping";
 import { extractGameUrls, parseAflTablesGameStats } from "../transforms/afl-tables-player-stats";
-import { finalsRoundNumber, inferRoundType } from "../transforms/match-results";
+import { finalsRoundNumber, inferRoundType, toRoundCode } from "../transforms/match-results";
 import type {
   MatchResult,
   PlayerDetails,
@@ -341,6 +341,9 @@ export function parseSeasonPage(html: string, year: number): MatchResult[] {
       q4Away: awayQuarters[3] ?? null,
       status: "Complete",
       attendance,
+      weatherTempCelsius: null,
+      weatherType: null,
+      roundCode: toRoundCode(currentRoundName),
       venueState: null,
       venueTimezone: null,
       homeRushedBehinds: null,

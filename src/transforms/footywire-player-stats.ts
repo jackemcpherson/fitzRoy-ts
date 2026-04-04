@@ -369,6 +369,7 @@ export function mergeFootyWireStats(
         goalEfficiency: null,
         shotEfficiency: null,
         interchangeCounts: null,
+        brownlowVotes: null,
         supercoachScore: basic.supercoachPoints,
         dreamTeamPoints: basic.dreamTeamPoints,
         effectiveDisposals: adv?.effectiveDisposals ?? null,

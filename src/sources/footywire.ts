@@ -16,7 +16,7 @@ import {
   parseAdvancedStats,
   parseBasicStats,
 } from "../transforms/footywire-player-stats";
-import { finalsRoundNumber, inferRoundType } from "../transforms/match-results";
+import { finalsRoundNumber, inferRoundType, toRoundCode } from "../transforms/match-results";
 import type {
   Fixture,
   MatchResult,
@@ -413,6 +413,9 @@ export function parseMatchList(html: string, year: number): MatchResult[] {
       q4Away: null,
       status: "Complete",
       attendance: attendance ? Number.parseInt(attendance, 10) || null : null,
+      weatherTempCelsius: null,
+      weatherType: null,
+      roundCode: toRoundCode(currentRoundName),
       venueState: null,
       venueTimezone: null,
       homeRushedBehinds: null,
