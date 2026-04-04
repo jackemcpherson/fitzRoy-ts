@@ -30,10 +30,13 @@ describe("AflApiClient", () => {
       if (result.success) {
         expect(result.data).toBe("test-token-123");
       }
-      expect(fetchFn).toHaveBeenCalledWith("https://api.afl.com.au/cfs/afl/WMCTok", {
-        method: "POST",
-        headers: { "Content-Length": "0" },
-      });
+      expect(fetchFn).toHaveBeenCalledOnce();
+      const [url, init] = fetchFn.mock.calls[0];
+      expect(url).toBe("https://api.afl.com.au/cfs/afl/WMCTok");
+      expect(init.method).toBe("POST");
+      const headers = new Headers(init.headers);
+      expect(headers.get("Content-Length")).toBe("0");
+      expect(headers.get("User-Agent")).toContain("fitzroy");
     });
 
     it("caches the token so isAuthenticated returns true", async () => {
@@ -91,10 +94,9 @@ describe("AflApiClient", () => {
 
       await client.authenticate();
 
-      expect(fetchFn).toHaveBeenCalledWith("https://custom.token/endpoint", {
-        method: "POST",
-        headers: { "Content-Length": "0" },
-      });
+      expect(fetchFn).toHaveBeenCalledOnce();
+      const [url] = fetchFn.mock.calls[0];
+      expect(url).toBe("https://custom.token/endpoint");
     });
   });
 

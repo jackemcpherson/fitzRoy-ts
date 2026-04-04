@@ -32,6 +32,9 @@ import {
 } from "../lib/validation";
 import type { CompetitionCode } from "../types";
 
+/** User-Agent sent with all AFL API requests. Required by the CFS endpoints. */
+const USER_AGENT = "fitzroy/2 (https://github.com/jackemcpherson/fitzRoy-ts)";
+
 /** WMCTok token endpoint used by the AFL website. */
 const TOKEN_URL = "https://api.afl.com.au/cfs/afl/WMCTok";
 
@@ -72,7 +75,14 @@ export class AflApiClient {
   private pendingAuth: Promise<Result<string, AflApiError>> | null = null;
 
   constructor(options?: AflApiClientOptions) {
-    this.fetchFn = options?.fetchFn ?? globalThis.fetch.bind(globalThis);
+    const baseFetch = options?.fetchFn ?? globalThis.fetch.bind(globalThis);
+    this.fetchFn = (input, init?) => {
+      const headers = new Headers(init?.headers);
+      if (!headers.has("User-Agent")) {
+        headers.set("User-Agent", USER_AGENT);
+      }
+      return baseFetch(input, { ...init, headers });
+    };
     this.tokenUrl = options?.tokenUrl ?? TOKEN_URL;
   }
 

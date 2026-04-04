@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.2] - 2026-04-04
+
+### Fixed
+
+- Add `User-Agent` header to all AFL API requests — the CFS endpoints (`api.afl.com.au/cfs/`) return 403 without one, which caused sync failures in Cloudflare Workers where the default User-Agent differs from Node.js
+
 ## [1.6.1] - 2026-04-04
 
 ### Fixed
