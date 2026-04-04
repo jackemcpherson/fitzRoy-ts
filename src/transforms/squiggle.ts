@@ -31,6 +31,7 @@ export function transformSquiggleGamesToResults(
       season,
       roundNumber: g.round,
       roundType: inferRoundType(g.roundname),
+      roundName: g.roundname || null,
       date: new Date(g.unixtime * 1000),
       venue: normaliseVenueName(g.venue),
       homeTeam: normaliseTeamName(g.hteam),

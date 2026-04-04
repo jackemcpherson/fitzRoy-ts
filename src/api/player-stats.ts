@@ -50,26 +50,24 @@ export async function fetchPlayerStats(
         }
 
         return ok(
-          transformPlayerStats(
-            statsResult.data,
-            query.matchId,
-            query.season,
-            query.round ?? 0,
+          transformPlayerStats(statsResult.data, {
+            matchId: query.matchId,
+            season: query.season,
+            roundNumber: query.round ?? 0,
             competition,
-            "afl-api",
+            source: "afl-api",
             teamIdMap,
-          ),
+          }),
         );
       }
 
       const seasonResult = await client.resolveCompSeason(competition, query.season);
       if (!seasonResult.success) return seasonResult;
 
-      const roundNumber = query.round ?? 1;
-      const matchItemsResult = await client.fetchRoundMatchItemsByNumber(
-        seasonResult.data,
-        roundNumber,
-      );
+      const matchItemsResult =
+        query.round != null
+          ? await client.fetchRoundMatchItemsByNumber(seasonResult.data, query.round)
+          : await client.fetchSeasonMatchItems(seasonResult.data);
       if (!matchItemsResult.success) return matchItemsResult;
 
       const teamIdMap = new Map<string, string>();
@@ -90,15 +88,17 @@ export async function fetchPlayerStats(
         const item = matchItemsResult.data[i];
         if (!item) continue;
         allStats.push(
-          ...transformPlayerStats(
-            statsResult.data,
-            item.match.matchId,
-            query.season,
-            roundNumber,
+          ...transformPlayerStats(statsResult.data, {
+            matchId: item.match.matchId,
+            season: query.season,
+            roundNumber: item.round?.roundNumber ?? query.round ?? 0,
             competition,
-            "afl-api",
+            source: "afl-api",
             teamIdMap,
-          ),
+            date: new Date(item.match.utcStartTime),
+            homeTeam: normaliseTeamName(item.match.homeTeam.name),
+            awayTeam: normaliseTeamName(item.match.awayTeam.name),
+          }),
         );
       }
 
@@ -109,22 +109,26 @@ export async function fetchPlayerStats(
       if (competition === "AFLW") return err(aflwUnsupportedError("footywire"));
       const fwClient = new FootyWireClient();
 
-      // Get match IDs for the season
       const idsResult = await fwClient.fetchSeasonMatchIds(query.season);
       if (!idsResult.success) return idsResult;
 
-      const matchIds = idsResult.data;
-      if (matchIds.length === 0) {
+      // Pre-filter by round before scraping individual match pages
+      const entries =
+        query.round != null
+          ? idsResult.data.filter((e) => e.roundNumber === query.round)
+          : idsResult.data;
+
+      if (entries.length === 0) {
         return ok([]);
       }
 
-      // Scrape stats in batches of 5 to avoid rate limiting
+      // Scrape stats in batches of 5 with delays to be respectful
       const allStats: PlayerStats[] = [];
       const batchSize = 5;
-      for (let i = 0; i < matchIds.length; i += batchSize) {
-        const batch = matchIds.slice(i, i + batchSize);
+      for (let i = 0; i < entries.length; i += batchSize) {
+        const batch = entries.slice(i, i + batchSize);
         const results = await Promise.all(
-          batch.map((mid) => fwClient.fetchMatchPlayerStats(mid, query.season, query.round ?? 0)),
+          batch.map((e) => fwClient.fetchMatchPlayerStats(e.matchId, query.season, e.roundNumber)),
         );
 
         for (const result of results) {
@@ -133,15 +137,9 @@ export async function fetchPlayerStats(
           }
         }
 
-        // Small delay between batches to be respectful
-        if (i + batchSize < matchIds.length) {
+        if (i + batchSize < entries.length) {
           await new Promise((resolve) => setTimeout(resolve, 500));
         }
-      }
-
-      // Filter by round if specified
-      if (query.round != null) {
-        return ok(allStats.filter((s) => s.roundNumber === query.round));
       }
 
       return ok(allStats);

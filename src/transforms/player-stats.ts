@@ -11,30 +11,39 @@ function toNullable(value: number | null | undefined): number | null {
   return value ?? null;
 }
 
+/** Context for a single match transform. */
+interface TransformContext {
+  readonly matchId: string;
+  readonly season: number;
+  readonly roundNumber: number;
+  readonly competition: CompetitionCode;
+  readonly source: DataSource;
+  readonly teamIdMap?: ReadonlyMap<string, string>;
+  readonly date?: Date | null;
+  readonly homeTeam?: string | null;
+  readonly awayTeam?: string | null;
+}
+
 /**
  * Transform a single raw player stats item into a typed PlayerStats object.
  */
-function transformOne(
-  item: PlayerStatsItem,
-  matchId: string,
-  season: number,
-  roundNumber: number,
-  competition: CompetitionCode,
-  source: DataSource,
-  teamIdMap?: ReadonlyMap<string, string>,
-): PlayerStats {
+function transformOne(item: PlayerStatsItem, ctx: TransformContext): PlayerStats {
   const inner = item.player.player.player;
   const stats = item.playerStats?.stats;
   const clearances = stats?.clearances;
 
   return {
-    matchId,
-    season,
-    roundNumber,
+    matchId: ctx.matchId,
+    season: ctx.season,
+    roundNumber: ctx.roundNumber,
     team: normaliseTeamName(
-      teamIdMap?.get(item.teamId) ?? AFL_API_TEAM_IDS.get(item.teamId) ?? item.teamId,
+      ctx.teamIdMap?.get(item.teamId) ?? AFL_API_TEAM_IDS.get(item.teamId) ?? item.teamId,
     ),
-    competition,
+    competition: ctx.competition,
+
+    date: ctx.date ?? null,
+    homeTeam: ctx.homeTeam ?? null,
+    awayTeam: ctx.awayTeam ?? null,
 
     playerId: inner.playerId,
     givenName: inner.playerName.givenName,
@@ -81,6 +90,13 @@ function transformOne(
     timeOnGroundPercentage: toNullable(item.playerStats?.timeOnGroundPercentage),
     ratingPoints: toNullable(stats?.ratingPoints),
 
+    position: item.player.player.position ?? null,
+
+    goalEfficiency: toNullable(stats?.goalEfficiency),
+    shotEfficiency: toNullable(stats?.shotEfficiency),
+    interchangeCounts: toNullable(stats?.interchangeCounts),
+
+    supercoachScore: null,
     dreamTeamPoints: toNullable(stats?.dreamTeamPoints),
 
     effectiveDisposals: toNullable(stats?.extendedStats?.effectiveDisposals),
@@ -110,7 +126,7 @@ function transformOne(
     ruckContests: toNullable(stats?.extendedStats?.ruckContests),
     scoreLaunches: toNullable(stats?.extendedStats?.scoreLaunches),
 
-    source,
+    source: ctx.source,
   };
 }
 
@@ -118,26 +134,13 @@ function transformOne(
  * Transform raw AFL API player stats list into typed PlayerStats objects.
  *
  * @param data - Raw player stats response with home/away arrays.
- * @param matchId - The match provider ID.
- * @param season - The season year.
- * @param roundNumber - The round number.
- * @param competition - The competition code.
+ * @param ctx - Match context (IDs, season, round, source, team mappings, match metadata).
  * @returns Flattened PlayerStats array (home players first, then away).
  */
-export function transformPlayerStats(
-  data: PlayerStatsList,
-  matchId: string,
-  season: number,
-  roundNumber: number,
-  competition: CompetitionCode,
-  source: DataSource = "afl-api",
-  teamIdMap?: ReadonlyMap<string, string>,
-): PlayerStats[] {
-  const home = data.homeTeamPlayerStats.map((item) =>
-    transformOne(item, matchId, season, roundNumber, competition, source, teamIdMap),
-  );
-  const away = data.awayTeamPlayerStats.map((item) =>
-    transformOne(item, matchId, season, roundNumber, competition, source, teamIdMap),
-  );
+export function transformPlayerStats(data: PlayerStatsList, ctx: TransformContext): PlayerStats[] {
+  const home = (data.homeTeamPlayerStats ?? []).map((item) => transformOne(item, ctx));
+  const away = (data.awayTeamPlayerStats ?? []).map((item) => transformOne(item, ctx));
   return [...home, ...away];
 }
+
+export type { TransformContext };

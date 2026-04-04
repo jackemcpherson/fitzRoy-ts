@@ -48,6 +48,8 @@ export interface MatchResult {
   readonly season: number;
   readonly roundNumber: number;
   readonly roundType: RoundType;
+  /** Human-readable round name (e.g. "Round 1", "Qualifying Final"). Null for scraped sources. */
+  readonly roundName: string | null;
   readonly date: Date;
   readonly venue: string;
   readonly homeTeam: string;
@@ -110,6 +112,11 @@ export interface PlayerStats {
   readonly team: string;
   readonly competition: CompetitionCode;
 
+  /** Match context for cross-source joins (null when unavailable). */
+  readonly date: Date | null;
+  readonly homeTeam: string | null;
+  readonly awayTeam: string | null;
+
   /** Player identification. */
   readonly playerId: string;
   readonly givenName: string;
@@ -161,7 +168,16 @@ export interface PlayerStats {
   readonly timeOnGroundPercentage: number | null;
   readonly ratingPoints: number | null;
 
+  /** Position played in this match (e.g. "INT", "MIDFIELD"). Null when unavailable. */
+  readonly position: string | null;
+
+  /** Efficiency stats. */
+  readonly goalEfficiency: number | null;
+  readonly shotEfficiency: number | null;
+  readonly interchangeCounts: number | null;
+
   /** Fantasy. */
+  readonly supercoachScore: number | null;
   readonly dreamTeamPoints: number | null;
 
   /** Extended stats. */
@@ -341,7 +357,8 @@ export interface PlayerDetails {
 /** Query parameters for fetching player details. */
 export interface PlayerDetailsQuery {
   readonly source: DataSource;
-  readonly team: string;
+  /** Team name. When omitted, returns details for all teams. */
+  readonly team?: string | undefined;
   readonly season?: number | undefined;
   readonly current?: boolean | undefined;
   readonly competition?: CompetitionCode | undefined;

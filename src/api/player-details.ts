@@ -5,14 +5,16 @@
  * (team history page scraping), and AFL Tables (team page scraping).
  */
 
+import { batchedMap } from "../lib/concurrency";
 import { resolveDefaultSeason } from "../lib/date-utils";
 import { aflwUnsupportedError, UnsupportedSourceError, ValidationError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
-import { normaliseTeamName } from "../lib/team-mapping";
+import { AFL_SENIOR_TEAMS, normaliseTeamName } from "../lib/team-mapping";
+import type { SquadList } from "../lib/validation";
 import { AflApiClient } from "../sources/afl-api";
 import { AflTablesClient } from "../sources/afl-tables";
 import { FootyWireClient } from "../sources/footywire";
-import type { CompetitionCode, PlayerDetails, PlayerDetailsQuery } from "../types";
+import type { CompetitionCode, DataSource, PlayerDetails, PlayerDetailsQuery } from "../types";
 
 /**
  * Map a canonical team name to a numeric AFL API team ID.
@@ -36,37 +38,20 @@ async function resolveTeamId(
   return ok(String(match.id));
 }
 
-/**
- * Fetch player details from the AFL API (reuses the squad endpoint).
- */
-async function fetchFromAflApi(query: PlayerDetailsQuery): Promise<Result<PlayerDetails[], Error>> {
-  const client = new AflApiClient();
-  const competition = query.competition ?? "AFLM";
-  const season = query.season ?? resolveDefaultSeason(competition);
+/** Map an AFL API squad response to PlayerDetails[]. */
+function mapSquadToPlayerDetails(
+  data: SquadList,
+  fallbackTeamName: string,
+  competition: CompetitionCode,
+): PlayerDetails[] {
+  const resolvedName = normaliseTeamName(data.squad.team?.name ?? fallbackTeamName);
 
-  const [teamIdResult, seasonResult] = await Promise.all([
-    resolveTeamId(client, query.team, competition),
-    client.resolveCompSeason(competition, season),
-  ]);
-  if (!teamIdResult.success) return teamIdResult;
-  if (!seasonResult.success) return seasonResult;
-
-  const teamId = Number.parseInt(teamIdResult.data, 10);
-  if (Number.isNaN(teamId)) {
-    return err(new ValidationError(`Invalid team ID: ${teamIdResult.data}`));
-  }
-
-  const squadResult = await client.fetchSquad(teamId, seasonResult.data);
-  if (!squadResult.success) return squadResult;
-
-  const teamName = normaliseTeamName(squadResult.data.squad.team?.name ?? query.team);
-
-  const players: PlayerDetails[] = squadResult.data.squad.players.map((p) => ({
+  return data.squad.players.map((p) => ({
     playerId: p.player.providerId ?? String(p.player.id),
     givenName: p.player.firstName,
     surname: p.player.surname,
     displayName: `${p.player.firstName} ${p.player.surname}`,
-    team: teamName,
+    team: resolvedName,
     jumperNumber: p.jumperNumber ?? null,
     position: p.position ?? null,
     dateOfBirth: p.player.dateOfBirth ?? null,
@@ -84,8 +69,83 @@ async function fetchFromAflApi(query: PlayerDetailsQuery): Promise<Result<Player
     source: "afl-api" as const,
     competition,
   }));
+}
 
-  return ok(players);
+/**
+ * Fetch player details from the AFL API (reuses the squad endpoint).
+ */
+async function fetchFromAflApi(query: PlayerDetailsQuery): Promise<Result<PlayerDetails[], Error>> {
+  const client = new AflApiClient();
+  const competition = query.competition ?? "AFLM";
+  const season = query.season ?? resolveDefaultSeason(competition);
+
+  const seasonResult = await client.resolveCompSeason(competition, season);
+  if (!seasonResult.success) return seasonResult;
+
+  if (query.team) {
+    const teamIdResult = await resolveTeamId(client, query.team, competition);
+    if (!teamIdResult.success) return teamIdResult;
+
+    const teamId = Number.parseInt(teamIdResult.data, 10);
+    if (Number.isNaN(teamId)) {
+      return err(new ValidationError(`Invalid team ID: ${teamIdResult.data}`));
+    }
+
+    const squadResult = await client.fetchSquad(teamId, seasonResult.data);
+    if (!squadResult.success) return squadResult;
+
+    return ok(mapSquadToPlayerDetails(squadResult.data, query.team, competition));
+  }
+
+  // Fetch all teams — resolve IDs in one call, then batch-fetch squads
+  const teamType = competition === "AFLW" ? "WOMEN" : "MEN";
+  const teamsResult = await client.fetchTeams(teamType);
+  if (!teamsResult.success) return teamsResult;
+
+  const teamEntries = teamsResult.data.map((t) => ({
+    id: Number.parseInt(String(t.id), 10),
+    name: normaliseTeamName(t.name),
+  }));
+
+  const results = await batchedMap(teamEntries, (entry) =>
+    client.fetchSquad(entry.id, seasonResult.data),
+  );
+
+  const allPlayers: PlayerDetails[] = [];
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
+    const entry = teamEntries[i];
+    if (result?.success && entry) {
+      allPlayers.push(...mapSquadToPlayerDetails(result.data, entry.name, competition));
+    }
+  }
+
+  return ok(allPlayers);
+}
+
+/**
+ * Fetch player details for all teams from a scraper source.
+ *
+ * Uses AFL_SENIOR_TEAMS as the canonical team list to avoid an API dependency.
+ */
+async function fetchAllTeamsFromScraper(
+  fetchFn: (
+    teamName: string,
+  ) => Promise<Result<Omit<PlayerDetails, "source" | "competition">[], Error>>,
+  source: DataSource,
+  competition: CompetitionCode,
+): Promise<Result<PlayerDetails[], Error>> {
+  const teamNames = [...AFL_SENIOR_TEAMS];
+  const results = await batchedMap(teamNames, (name) => fetchFn(name));
+
+  const allPlayers: PlayerDetails[] = [];
+  for (const result of results) {
+    if (result.success) {
+      allPlayers.push(...result.data.map((p) => ({ ...p, source, competition })));
+    }
+  }
+
+  return ok(allPlayers);
 }
 
 /**
@@ -97,18 +157,16 @@ async function fetchFromFootyWire(
   const competition = query.competition ?? "AFLM";
   if (competition === "AFLW") return err(aflwUnsupportedError("footywire"));
   const client = new FootyWireClient();
-  const teamName = normaliseTeamName(query.team);
 
-  const result = await client.fetchPlayerList(teamName);
-  if (!result.success) return result;
+  if (query.team) {
+    const teamName = normaliseTeamName(query.team);
+    const result = await client.fetchPlayerList(teamName);
+    if (!result.success) return result;
 
-  const players: PlayerDetails[] = result.data.map((p) => ({
-    ...p,
-    source: "footywire" as const,
-    competition,
-  }));
+    return ok(result.data.map((p) => ({ ...p, source: "footywire" as const, competition })));
+  }
 
-  return ok(players);
+  return fetchAllTeamsFromScraper((name) => client.fetchPlayerList(name), "footywire", competition);
 }
 
 /**
@@ -120,26 +178,29 @@ async function fetchFromAflTables(
   const competition = query.competition ?? "AFLM";
   if (competition === "AFLW") return err(aflwUnsupportedError("afl-tables"));
   const client = new AflTablesClient();
-  const teamName = normaliseTeamName(query.team);
 
-  const result = await client.fetchPlayerList(teamName);
-  if (!result.success) return result;
+  if (query.team) {
+    const teamName = normaliseTeamName(query.team);
+    const result = await client.fetchPlayerList(teamName);
+    if (!result.success) return result;
 
-  const players: PlayerDetails[] = result.data.map((p) => ({
-    ...p,
-    source: "afl-tables" as const,
+    return ok(result.data.map((p) => ({ ...p, source: "afl-tables" as const, competition })));
+  }
+
+  return fetchAllTeamsFromScraper(
+    (name) => client.fetchPlayerList(name),
+    "afl-tables",
     competition,
-  }));
-
-  return ok(players);
+  );
 }
 
 /**
  * Fetch player biographical details (DOB, height, draft info, etc.).
  *
  * Dispatches to the appropriate data source based on `query.source`.
+ * When `query.team` is omitted, returns details for all teams.
  *
- * @param query - Team name, source, and optional season/competition filters.
+ * @param query - Source, optional team name, and optional season/competition filters.
  * @returns Array of player details.
  *
  * @example

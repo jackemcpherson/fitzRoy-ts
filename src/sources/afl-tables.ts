@@ -246,6 +246,7 @@ export function parseSeasonPage(html: string, year: number): MatchResult[] {
   const results: MatchResult[] = [];
   let currentRound = 0;
   let currentRoundType: RoundType = "HomeAndAway";
+  let currentRoundName = "";
   let lastHARound = 0;
   let matchCounter = 0;
 
@@ -261,6 +262,7 @@ export function parseSeasonPage(html: string, year: number): MatchResult[] {
     if (roundMatch?.[1] && border !== "1") {
       currentRound = Number.parseInt(roundMatch[1], 10);
       currentRoundType = inferRoundType(text);
+      currentRoundName = text;
       if (currentRoundType === "HomeAndAway") {
         lastHARound = currentRound;
       }
@@ -270,6 +272,7 @@ export function parseSeasonPage(html: string, year: number): MatchResult[] {
     // Check for non-numbered round headers (Finals, Grand Final, etc.)
     if (border !== "1" && inferRoundType(text) === "Finals") {
       currentRoundType = "Finals";
+      currentRoundName = text;
       currentRound = finalsRoundNumber(text, lastHARound);
       return;
     }
@@ -316,6 +319,7 @@ export function parseSeasonPage(html: string, year: number): MatchResult[] {
       season: year,
       roundNumber: currentRound,
       roundType: currentRoundType,
+      roundName: currentRoundName || null,
       date,
       venue,
       homeTeam,

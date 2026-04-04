@@ -336,6 +336,9 @@ export const PlayerGameStatsSchema = z
     metresGained: statNum,
     scoreInvolvements: statNum,
     ratingPoints: statNum,
+    goalEfficiency: statNum,
+    shotEfficiency: statNum,
+    interchangeCounts: statNum,
     extendedStats: z
       .object({
         effectiveDisposals: statNum,
@@ -400,8 +403,8 @@ export const PlayerStatsItemSchema = z
 /** Schema for the player stats response. */
 export const PlayerStatsListSchema = z
   .object({
-    homeTeamPlayerStats: z.array(PlayerStatsItemSchema),
-    awayTeamPlayerStats: z.array(PlayerStatsItemSchema),
+    homeTeamPlayerStats: z.array(PlayerStatsItemSchema).nullable().default([]),
+    awayTeamPlayerStats: z.array(PlayerStatsItemSchema).nullable().default([]),
   })
   .passthrough();
 

@@ -107,6 +107,7 @@ export function transformMatchItems(
       season,
       roundNumber: item.round?.roundNumber ?? 0,
       roundType: inferRoundType(item.round?.name ?? ""),
+      roundName: item.round?.name ?? null,
       date: new Date(item.match.utcStartTime),
       venue: item.venue?.name ? normaliseVenueName(item.venue.name) : "",
       homeTeam: normaliseTeamName(item.match.homeTeam.name),

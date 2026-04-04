@@ -1,7 +1,7 @@
 import { defineCommand } from "citty";
 import { fetchPlayerDetails } from "../../index";
 import { withErrorBoundary } from "../error-boundary";
-import { COMPETITION_FLAG, OPTIONAL_SEASON_FLAG, OUTPUT_FLAGS, REQUIRED_TEAM_FLAG } from "../flags";
+import { COMPETITION_FLAG, OPTIONAL_SEASON_FLAG, OUTPUT_FLAGS, TEAM_FLAG } from "../flags";
 import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
 import { resolveTeamNameOrPrompt } from "../resolvers";
 import { showSummary, withSpinner } from "../ui";
@@ -26,10 +26,10 @@ const DEFAULT_COLUMNS: TableColumnConfig[] = [
 export const playerDetailsCommand = defineCommand({
   meta: {
     name: "player-details",
-    description: "Fetch player biographical details for a team",
+    description: "Fetch player biographical details (optionally filtered by team)",
   },
   args: {
-    ...REQUIRED_TEAM_FLAG,
+    ...TEAM_FLAG,
     source: {
       type: "string",
       description: "Data source: afl-api, footywire, afl-tables",
@@ -44,9 +44,12 @@ export const playerDetailsCommand = defineCommand({
     const competition = validateCompetition(args.competition);
     const format = validateFormat(args.format);
     const season = validateOptionalSeason(args.season) ?? resolveDefaultSeason(competition);
-    const team = await resolveTeamNameOrPrompt(args.team);
+    const team = args.team ? await resolveTeamNameOrPrompt(args.team) : undefined;
 
-    const result = await withSpinner("Fetching player details…", () =>
+    const label = team
+      ? `Fetching player details for ${team}…`
+      : "Fetching player details for all teams…";
+    const result = await withSpinner(label, () =>
       fetchPlayerDetails({ source, team, season, competition }),
     );
 
@@ -55,7 +58,10 @@ export const playerDetailsCommand = defineCommand({
     }
 
     const data = result.data;
-    showSummary(`Loaded ${data.length} players for ${team} (${source})`);
+    const summary = team
+      ? `Loaded ${data.length} players for ${team} (${source})`
+      : `Loaded ${data.length} players across all teams (${source})`;
+    showSummary(summary);
 
     const formatOptions: FormatOptions = {
       json: args.json,
