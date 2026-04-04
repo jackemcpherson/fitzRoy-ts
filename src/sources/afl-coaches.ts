@@ -24,7 +24,7 @@ export class AflCoachesClient {
   private readonly fetchFn: typeof fetch;
 
   constructor(options?: AflCoachesClientOptions) {
-    this.fetchFn = options?.fetchFn ?? globalThis.fetch;
+    this.fetchFn = options?.fetchFn ?? globalThis.fetch.bind(globalThis);
   }
 
   /**

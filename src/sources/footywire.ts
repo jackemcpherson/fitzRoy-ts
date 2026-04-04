@@ -40,7 +40,7 @@ export class FootyWireClient {
   private readonly fetchFn: typeof fetch;
 
   constructor(options?: FootyWireClientOptions) {
-    this.fetchFn = options?.fetchFn ?? globalThis.fetch;
+    this.fetchFn = options?.fetchFn ?? globalThis.fetch.bind(globalThis);
   }
 
   /**

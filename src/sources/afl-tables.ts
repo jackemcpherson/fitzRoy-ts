@@ -36,7 +36,7 @@ export class AflTablesClient {
   private readonly fetchFn: typeof fetch;
 
   constructor(options?: AflTablesClientOptions) {
-    this.fetchFn = options?.fetchFn ?? globalThis.fetch;
+    this.fetchFn = options?.fetchFn ?? globalThis.fetch.bind(globalThis);
   }
 
   /**

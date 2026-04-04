@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-04-04
+
+### Fixed
+
+- Bind `globalThis.fetch` in all API clients to fix "Illegal invocation" errors in Cloudflare Workers and other edge runtimes that require `fetch` to retain its `this` context
+
+## [1.6.0] - 2026-04-04
+
+### Added
+
+- `attendance`, `weatherTempCelsius`, `weatherType`, `brownlowVotes`, `roundCode` fields on `MatchResult` and `PlayerStats`
+
 ## [1.5.0] - 2026-04-04
 
 ### Added

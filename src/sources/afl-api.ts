@@ -72,7 +72,7 @@ export class AflApiClient {
   private pendingAuth: Promise<Result<string, AflApiError>> | null = null;
 
   constructor(options?: AflApiClientOptions) {
-    this.fetchFn = options?.fetchFn ?? globalThis.fetch;
+    this.fetchFn = options?.fetchFn ?? globalThis.fetch.bind(globalThis);
     this.tokenUrl = options?.tokenUrl ?? TOKEN_URL;
   }
 

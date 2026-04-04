@@ -33,7 +33,7 @@ export class SquiggleClient {
   private readonly fetchFn: typeof fetch;
 
   constructor(options?: SquiggleClientOptions) {
-    this.fetchFn = options?.fetchFn ?? globalThis.fetch;
+    this.fetchFn = options?.fetchFn ?? globalThis.fetch.bind(globalThis);
   }
 
   /**
