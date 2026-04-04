@@ -105,7 +105,7 @@ export { computeLadder } from "./transforms/computed-ladder";
 export { transformLadderEntries } from "./transforms/ladder";
 export { transformMatchRoster } from "./transforms/lineup";
 export { inferRoundType, transformMatchItems } from "./transforms/match-results";
-export { transformPlayerStats } from "./transforms/player-stats";
+export { type TransformContext, transformPlayerStats } from "./transforms/player-stats";
 export {
   transformSquiggleGamesToFixture,
   transformSquiggleGamesToResults,

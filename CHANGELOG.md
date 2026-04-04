@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-04-04
+
+### Added
+
+- `roundName` field on `MatchResult` — exposes the human-readable round name (e.g. "Round 1", "Qualifying Final") from all data sources
+- `position`, `goalEfficiency`, `shotEfficiency`, `interchangeCounts` fields on `PlayerStats` — populated from the AFL API raw response
+- `supercoachScore` field on `PlayerStats` — populated from FootyWire's SC column (null for other sources)
+- `date`, `homeTeam`, `awayTeam` match context fields on `PlayerStats` — enables cross-source joins without relying on `matchId` format
+- `player-details` command now works without `--team` flag — fetches all teams when omitted
+
+### Changed
+
+- `stats` command with `--source afl-api` now returns all available rounds when `-r` is omitted, matching the R package's `fetch_player_stats(season = N)` behaviour
+
+### Fixed
+
+- `stats` command no longer errors on rounds with unplayed matches — gracefully skips matches where the AFL API returns null player stats arrays
+
 ## [1.4.2] - 2026-03-30
 
 ### Fixed

@@ -152,29 +152,51 @@ export class FootyWireClient {
   /**
    * Fetch match IDs from a season's match list page.
    *
-   * Extracts `mid=XXXX` values from score links.
+   * Extracts `mid=XXXX` values from score links alongside round numbers.
    *
    * @param year - The season year.
-   * @returns Array of match ID strings.
+   * @returns Array of match ID + round number pairs.
    */
-  async fetchSeasonMatchIds(year: number): Promise<Result<string[], ScrapeError>> {
+  async fetchSeasonMatchIds(
+    year: number,
+  ): Promise<Result<Array<{ matchId: string; roundNumber: number }>, ScrapeError>> {
     const url = `${FOOTYWIRE_BASE}/ft_match_list?year=${year}`;
     const htmlResult = await this.fetchHtml(url);
     if (!htmlResult.success) return htmlResult;
 
     try {
       const $ = cheerio.load(htmlResult.data);
-      const ids: string[] = [];
+      const entries: Array<{ matchId: string; roundNumber: number }> = [];
+      let currentRound = 0;
+      let lastHARound = 0;
 
-      $(".data:nth-child(5) a").each((_i, el) => {
-        const href = $(el).attr("href") ?? "";
-        const match = /mid=(\d+)/.exec(href);
-        if (match?.[1]) {
-          ids.push(match[1]);
+      $("tr").each((_i, row) => {
+        const roundHeader = $(row).find("td[colspan='7']");
+        if (roundHeader.length > 0) {
+          const text = roundHeader.text().trim();
+          const roundMatch = /Round\s+(\d+)/i.exec(text);
+          if (roundMatch?.[1]) {
+            currentRound = Number.parseInt(roundMatch[1], 10);
+            if (inferRoundType(text) === "HomeAndAway") {
+              lastHARound = currentRound;
+            }
+          } else if (inferRoundType(text) === "Finals") {
+            currentRound = finalsRoundNumber(text, lastHARound);
+          }
+          return;
+        }
+
+        const scoreLink = $(row).find(".data:nth-child(5) a");
+        if (scoreLink.length === 0) return;
+
+        const href = scoreLink.attr("href") ?? "";
+        const midMatch = /mid=(\d+)/.exec(href);
+        if (midMatch?.[1]) {
+          entries.push({ matchId: midMatch[1], roundNumber: currentRound });
         }
       });
 
-      return ok(ids);
+      return ok(entries);
     } catch (cause) {
       return err(
         new ScrapeError(
@@ -302,12 +324,14 @@ export function parseMatchList(html: string, year: number): MatchResult[] {
   let currentRound = 0;
   let lastHARound = 0;
   let currentRoundType: RoundType = "HomeAndAway";
+  let currentRoundName = "";
 
   // Each row is either a round header (colspan=7) or a match row
   $("tr").each((_i, row) => {
     const roundHeader = $(row).find("td[colspan='7']");
     if (roundHeader.length > 0) {
       const text = roundHeader.text().trim();
+      currentRoundName = text;
       currentRoundType = inferRoundType(text);
       const roundMatch = /Round\s+(\d+)/i.exec(text);
       if (roundMatch?.[1]) {
@@ -367,6 +391,7 @@ export function parseMatchList(html: string, year: number): MatchResult[] {
       season: year,
       roundNumber: currentRound,
       roundType: currentRoundType,
+      roundName: currentRoundName || null,
       date,
       venue: normaliseVenueName(venue),
       homeTeam,

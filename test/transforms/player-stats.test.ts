@@ -80,7 +80,13 @@ function makeStatsList(overrides?: Partial<PlayerStatsList>): PlayerStatsList {
 
 describe("transformPlayerStats", () => {
   it("transforms home and away players with all fields", () => {
-    const results = transformPlayerStats(makeStatsList(), "CD_M1", 2025, 1, "AFLM");
+    const results = transformPlayerStats(makeStatsList(), {
+      matchId: "CD_M1",
+      season: 2025,
+      roundNumber: 1,
+      competition: "AFLM",
+      source: "afl-api",
+    });
 
     expect(results).toHaveLength(2);
 
@@ -137,7 +143,13 @@ describe("transformPlayerStats", () => {
       ],
       awayTeamPlayerStats: [],
     };
-    const results = transformPlayerStats(list, "CD_M1", 2025, 1, "AFLM");
+    const results = transformPlayerStats(list, {
+      matchId: "CD_M1",
+      season: 2025,
+      roundNumber: 1,
+      competition: "AFLM",
+      source: "afl-api",
+    });
     const r = results[0];
 
     expect(r?.kicks).toBeNull();
@@ -151,6 +163,14 @@ describe("transformPlayerStats", () => {
       homeTeamPlayerStats: [],
       awayTeamPlayerStats: [],
     };
-    expect(transformPlayerStats(list, "CD_M1", 2025, 1, "AFLM")).toEqual([]);
+    expect(
+      transformPlayerStats(list, {
+        matchId: "CD_M1",
+        season: 2025,
+        roundNumber: 1,
+        competition: "AFLM",
+        source: "afl-api",
+      }),
+    ).toEqual([]);
   });
 });
