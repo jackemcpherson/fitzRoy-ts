@@ -17,6 +17,28 @@ import type {
 /** Finals round name patterns. */
 const FINALS_PATTERN = /final|elimination|qualifying|preliminary|semi|grand/i;
 
+/** Map round names to short codes. */
+const ROUND_CODE_MAP: ReadonlyMap<string, string> = new Map([
+  ["Qualifying Final", "QF"],
+  ["Elimination Final", "EF"],
+  ["Semi Final", "SF"],
+  ["Preliminary Final", "PF"],
+  ["Grand Final", "GF"],
+]);
+
+const ROUND_NUMBER_PATTERN = /^Round\s+(\d+)$/i;
+
+/** Normalise a round name into a short code. */
+export function toRoundCode(roundName: string | null | undefined): string | null {
+  if (!roundName) return null;
+  const mapped = ROUND_CODE_MAP.get(roundName);
+  if (mapped) return mapped;
+  const m = ROUND_NUMBER_PATTERN.exec(roundName);
+  if (m?.[1]) return `R${m[1]}`;
+  // Keep non-standard names as-is (e.g. "Opening Round")
+  return roundName;
+}
+
 /** Infer RoundType from a round name string. */
 export function inferRoundType(roundName: string): RoundType {
   return FINALS_PATTERN.test(roundName) ? "Finals" : "HomeAndAway";
@@ -131,7 +153,10 @@ export function transformMatchItems(
       q4Away: findPeriod(awayScore?.periodScore, 4),
 
       status: toMatchStatus(item.match.status),
-      attendance: null,
+      attendance: item.attendance ?? null,
+      weatherTempCelsius: item.weather?.tempInCelsius ?? null,
+      weatherType: item.weather?.weatherType ?? null,
+      roundCode: toRoundCode(item.round?.name),
       venueState: item.venue?.state ?? null,
       venueTimezone: item.venue?.timeZone ?? null,
       homeRushedBehinds: homeScore?.rushedBehinds ?? null,

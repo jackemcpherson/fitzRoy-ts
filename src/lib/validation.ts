@@ -229,6 +229,17 @@ export type CfsVenue = z.infer<typeof CfsVenueSchema>;
 // Match items — round results (/cfs/afl/matchItems/round/{roundProviderId})
 // ---------------------------------------------------------------------------
 
+/** Schema for weather info in /cfs/ match items. */
+export const CfsWeatherSchema = z
+  .object({
+    tempInCelsius: z.number().nullable().optional(),
+    weatherType: z.string().nullable().optional(),
+  })
+  .passthrough();
+
+/** Inferred type for /cfs/ weather. */
+export type CfsWeather = z.infer<typeof CfsWeatherSchema>;
+
 /** Schema for a single match item in round results. */
 export const MatchItemSchema = z
   .object({
@@ -243,6 +254,8 @@ export const MatchItemSchema = z
       })
       .passthrough()
       .optional(),
+    attendance: z.number().nullable().optional(),
+    weather: CfsWeatherSchema.nullable().optional(),
   })
   .passthrough();
 
@@ -339,6 +352,7 @@ export const PlayerGameStatsSchema = z
     goalEfficiency: statNum,
     shotEfficiency: statNum,
     interchangeCounts: statNum,
+    brownlowVotes: statNum,
     extendedStats: z
       .object({
         effectiveDisposals: statNum,

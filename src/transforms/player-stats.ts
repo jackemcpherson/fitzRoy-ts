@@ -96,6 +96,8 @@ function transformOne(item: PlayerStatsItem, ctx: TransformContext): PlayerStats
     shotEfficiency: toNullable(stats?.shotEfficiency),
     interchangeCounts: toNullable(stats?.interchangeCounts),
 
+    brownlowVotes: toNullable(stats?.brownlowVotes),
+
     supercoachScore: null,
     dreamTeamPoints: toNullable(stats?.dreamTeamPoints),
 

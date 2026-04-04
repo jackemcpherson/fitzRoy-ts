@@ -6,7 +6,7 @@ import type { SquiggleGame, SquiggleStanding } from "../lib/squiggle-validation"
 import { normaliseTeamName } from "../lib/team-mapping";
 import { normaliseVenueName } from "../lib/venue-mapping";
 import type { Fixture, LadderEntry, MatchResult, MatchStatus } from "../types";
-import { inferRoundType } from "./match-results";
+import { inferRoundType, toRoundCode } from "./match-results";
 
 /** Convert Squiggle completion percentage to MatchStatus. */
 function toMatchStatus(complete: number): MatchStatus {
@@ -53,6 +53,9 @@ export function transformSquiggleGamesToResults(
       q4Away: null,
       status: "Complete" as const,
       attendance: null,
+      weatherTempCelsius: null,
+      weatherType: null,
+      roundCode: toRoundCode(g.roundname),
       venueState: null,
       venueTimezone: g.tz || null,
       homeRushedBehinds: null,

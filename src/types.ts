@@ -79,6 +79,13 @@ export interface MatchResult {
   readonly status: MatchStatus;
   readonly attendance: number | null;
 
+  /** Weather conditions at the venue (null when unavailable). */
+  readonly weatherTempCelsius: number | null;
+  readonly weatherType: string | null;
+
+  /** Normalised round code (e.g. "R1", "QF", "GF"). Null for scraped sources. */
+  readonly roundCode: string | null;
+
   /** Venue metadata (null for scraped sources). */
   readonly venueState: string | null;
   readonly venueTimezone: string | null;
@@ -175,6 +182,9 @@ export interface PlayerStats {
   readonly goalEfficiency: number | null;
   readonly shotEfficiency: number | null;
   readonly interchangeCounts: number | null;
+
+  /** Brownlow votes received in this match (null when unavailable). */
+  readonly brownlowVotes: number | null;
 
   /** Fantasy. */
   readonly supercoachScore: number | null;
