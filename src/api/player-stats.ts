@@ -9,6 +9,8 @@ import { AFL_API_TEAM_IDS, normaliseTeamName } from "../lib/team-mapping";
 import { AflApiClient } from "../sources/afl-api";
 import { AflTablesClient } from "../sources/afl-tables";
 import { FootyWireClient } from "../sources/footywire";
+import { FryziggClient } from "../sources/fryzigg";
+import { transformFryziggPlayerStats } from "../transforms/fryzigg-player-stats";
 import { transformPlayerStats } from "../transforms/player-stats";
 import type { PlayerStats, PlayerStatsQuery } from "../types";
 
@@ -155,6 +157,18 @@ export async function fetchPlayerStats(
         return ok(atResult.data.filter((s) => s.roundNumber === query.round));
       }
       return atResult;
+    }
+
+    case "fryzigg": {
+      const fzClient = new FryziggClient();
+      const fzResult = await fzClient.fetchPlayerStats(competition);
+      if (!fzResult.success) return fzResult;
+
+      return transformFryziggPlayerStats(fzResult.data, {
+        competition,
+        season: query.season,
+        round: query.round,
+      });
     }
 
     default:

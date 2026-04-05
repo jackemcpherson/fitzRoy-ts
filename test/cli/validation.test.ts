@@ -99,11 +99,11 @@ describe("validateSource", () => {
     expect(validateSource("footywire")).toBe("footywire");
     expect(validateSource("afl-tables")).toBe("afl-tables");
     expect(validateSource("squiggle")).toBe("squiggle");
+    expect(validateSource("fryzigg")).toBe("fryzigg");
   });
 
   it("throws for invalid source", () => {
     expect(() => validateSource("invalid")).toThrow("Invalid source");
-    expect(() => validateSource("fryzigg")).toThrow("valid sources are:");
   });
 });
 

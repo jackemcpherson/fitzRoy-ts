@@ -9,7 +9,13 @@ import { normaliseTeamName } from "../lib/team-mapping";
 import type { MatchItem } from "../lib/validation";
 import type { CompetitionCode, DataSource, TeamStatsSummaryType } from "../types";
 
-const VALID_SOURCES: readonly DataSource[] = ["afl-api", "footywire", "afl-tables", "squiggle"];
+const VALID_SOURCES: readonly DataSource[] = [
+  "afl-api",
+  "footywire",
+  "afl-tables",
+  "squiggle",
+  "fryzigg",
+];
 const VALID_COMPETITIONS: readonly CompetitionCode[] = ["AFLM", "AFLW"];
 const VALID_FORMATS = ["table", "json", "csv"] as const;
 type OutputFormat = (typeof VALID_FORMATS)[number];

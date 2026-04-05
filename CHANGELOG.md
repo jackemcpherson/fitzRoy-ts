@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-04-05
+
+### Added
+
+- Fryzigg data source (`source: "fryzigg"`) for advanced player statistics via `@jackemcpherson/rds-js` — supports both AFLM (685K+ rows) and AFLW competitions
+- `FryziggClient` class for fetching and parsing RDS files from fryziggafl.net
+- `transformFryziggPlayerStats()` for mapping fryzigg column-major data to `PlayerStats[]` with season/round filtering
+
 ## [1.6.2] - 2026-04-04
 
 ### Fixed

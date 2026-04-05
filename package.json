@@ -1,6 +1,6 @@
 {
   "name": "fitzroy",
-  "version": "1.6.2",
+  "version": "1.7.0",
   "description": "TypeScript port of the fitzRoy R package — programmatic access to AFL data including match results, player stats, fixtures, ladders, and more",
   "type": "module",
   "main": "./dist/index.js",
@@ -43,6 +43,7 @@
   },
   "dependencies": {
     "@clack/prompts": "^1.1.0",
+    "@jackemcpherson/rds-js": "0.2.0",
     "cheerio": "^1.0.0",
     "citty": "^0.2.1",
     "fitzroy": "^1.4.1",

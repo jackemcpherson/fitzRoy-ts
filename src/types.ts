@@ -16,7 +16,7 @@ export type CompetitionCode = "AFLM" | "AFLW";
 export type RoundType = "HomeAndAway" | "Finals";
 
 /** Supported data sources mirroring the R package's `source` parameter. */
-export type DataSource = "afl-api" | "footywire" | "afl-tables" | "squiggle";
+export type DataSource = "afl-api" | "footywire" | "afl-tables" | "squiggle" | "fryzigg";
 
 /** Match status as reported by the AFL API. */
 export type MatchStatus = "Upcoming" | "Live" | "Complete" | "Postponed" | "Cancelled";

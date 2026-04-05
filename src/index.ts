@@ -99,9 +99,13 @@ export { AflApiClient, type AflApiClientOptions } from "./sources/afl-api";
 export { AflCoachesClient, type AflCoachesClientOptions } from "./sources/afl-coaches";
 export { AflTablesClient, type AflTablesClientOptions } from "./sources/afl-tables";
 export { FootyWireClient, type FootyWireClientOptions } from "./sources/footywire";
-export { fetchFryziggStats } from "./sources/fryzigg";
+export { FryziggClient, type FryziggClientOptions } from "./sources/fryzigg";
 export { SquiggleClient, type SquiggleClientOptions } from "./sources/squiggle";
 export { computeLadder } from "./transforms/computed-ladder";
+export {
+  type FryziggTransformOptions,
+  transformFryziggPlayerStats,
+} from "./transforms/fryzigg-player-stats";
 export { transformLadderEntries } from "./transforms/ladder";
 export { transformMatchRoster } from "./transforms/lineup";
 export { inferRoundType, transformMatchItems } from "./transforms/match-results";
