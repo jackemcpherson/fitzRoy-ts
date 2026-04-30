@@ -2,6 +2,7 @@
  * Pure transforms for flattening raw AFL API match items into typed MatchResult objects.
  */
 
+import { parseDate } from "../lib/date-utils";
 import { normaliseTeamName } from "../lib/team-mapping";
 import type { MatchItem, PeriodScore } from "../lib/validation";
 import { normaliseVenueName } from "../lib/venue-mapping";
@@ -130,7 +131,7 @@ export function transformMatchItems(
       roundNumber: item.round?.roundNumber ?? 0,
       roundType: inferRoundType(item.round?.name ?? ""),
       roundName: item.round?.name ?? null,
-      date: new Date(item.match.utcStartTime),
+      date: parseDate(item.match.utcStartTime) ?? new Date(item.match.utcStartTime),
       venue: item.venue?.name ? normaliseVenueName(item.venue.name) : "",
       homeTeam: normaliseTeamName(item.match.homeTeam.name),
       awayTeam: normaliseTeamName(item.match.awayTeam.name),

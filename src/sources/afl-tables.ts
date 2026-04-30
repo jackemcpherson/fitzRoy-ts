@@ -6,7 +6,7 @@
  */
 
 import * as cheerio from "cheerio";
-import { parseAflTablesDate } from "../lib/date-utils";
+import { parseDate } from "../lib/date-utils";
 import { ScrapeError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
@@ -379,9 +379,9 @@ function parseDateFromInfo(text: string, year: number): Date {
   // Extract just the date portion before the time/attendance info
   const dateMatch = /(\d{1,2}-[A-Z][a-z]{2}-\d{4})/.exec(text);
   if (dateMatch?.[1]) {
-    return parseAflTablesDate(dateMatch[1]) ?? new Date(year, 0, 1);
+    return parseDate(dateMatch[1]) ?? new Date(year, 0, 1);
   }
-  return parseAflTablesDate(text) ?? new Date(year, 0, 1);
+  return parseDate(text) ?? new Date(year, 0, 1);
 }
 
 /** Parse venue from the info cell HTML. */

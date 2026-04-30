@@ -3,6 +3,7 @@
  */
 
 import { batchedMap } from "../lib/concurrency";
+import { parseDate } from "../lib/date-utils";
 import { AflApiError, aflwUnsupportedError, UnsupportedSourceError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { AFL_API_TEAM_IDS, normaliseTeamName } from "../lib/team-mapping";
@@ -97,7 +98,7 @@ export async function fetchPlayerStats(
             competition,
             source: "afl-api",
             teamIdMap,
-            date: new Date(item.match.utcStartTime),
+            date: parseDate(item.match.utcStartTime) ?? new Date(item.match.utcStartTime),
             homeTeam: normaliseTeamName(item.match.homeTeam.name),
             awayTeam: normaliseTeamName(item.match.awayTeam.name),
           }),
