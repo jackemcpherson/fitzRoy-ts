@@ -2,6 +2,7 @@
  * Pure transforms for Squiggle API data → domain types.
  */
 
+import { parseDate } from "../lib/date-utils";
 import type { SquiggleGame, SquiggleStanding } from "../lib/squiggle-validation";
 import { normaliseTeamName } from "../lib/team-mapping";
 import { normaliseVenueName } from "../lib/venue-mapping";
@@ -32,7 +33,7 @@ export function transformSquiggleGamesToResults(
       roundNumber: g.round,
       roundType: inferRoundType(g.roundname),
       roundName: g.roundname || null,
-      date: new Date(g.unixtime * 1000),
+      date: parseDate(g.unixtime) ?? new Date(g.unixtime * 1000),
       venue: normaliseVenueName(g.venue),
       homeTeam: normaliseTeamName(g.hteam),
       awayTeam: normaliseTeamName(g.ateam),
@@ -81,7 +82,7 @@ export function transformSquiggleGamesToFixture(
     season,
     roundNumber: g.round,
     roundType: inferRoundType(g.roundname),
-    date: new Date(g.unixtime * 1000),
+    date: parseDate(g.unixtime) ?? new Date(g.unixtime * 1000),
     venue: normaliseVenueName(g.venue),
     homeTeam: normaliseTeamName(g.hteam),
     awayTeam: normaliseTeamName(g.ateam),

@@ -3,6 +3,7 @@
  */
 
 import { batchedMap } from "../lib/concurrency";
+import { parseDate } from "../lib/date-utils";
 import { aflwUnsupportedError, UnsupportedSourceError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
@@ -27,7 +28,7 @@ function toFixture(
     season,
     roundNumber: item.round?.roundNumber ?? fallbackRoundNumber,
     roundType: inferRoundType(item.round?.name ?? ""),
-    date: new Date(item.match.utcStartTime),
+    date: parseDate(item.match.utcStartTime) ?? new Date(item.match.utcStartTime),
     venue: normaliseVenueName(item.venue?.name ?? ""),
     homeTeam: normaliseTeamName(item.match.homeTeam.name),
     awayTeam: normaliseTeamName(item.match.awayTeam.name),

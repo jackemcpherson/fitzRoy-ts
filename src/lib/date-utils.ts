@@ -8,64 +8,50 @@
  */
 
 /**
- * Parse a UTC ISO 8601 string from the AFL API into a Date.
+ * Parse any AFL date string or timestamp into a correct UTC Date.
  *
- * The AFL API returns dates like `"2024-03-14T06:20:00.000Z"` or
- * `"2024-03-14T06:20:00Z"`.
+ * Accepts every format seen across AFL data sources and always returns
+ * a proper UTC Date. Input format is auto-detected:
  *
- * @param iso - A UTC ISO 8601 date string
- * @returns A Date object, or null if parsing fails
+ * | Input | Source | Handling |
+ * |---|---|---|
+ * | `1709622000` (number) | Squiggle unix timestamp | × 1000 → UTC |
+ * | `"2026-03-05T08:30:00"` | AFL API `utcStartTime` (no Z) | Force UTC |
+ * | `"2026-03-05T08:30:00.000Z"` | AFL API (with Z) | Parse as UTC |
+ * | `"Thu 13 Mar 7:30pm"` | FootyWire (Melbourne local) | AEST/AEDT → UTC |
+ * | `"16-Mar-2024"` / `"16 Mar 2024"` | AFL Tables / FootyWire | Midnight UTC |
+ * | `"Sat 16 Mar 2024"` | FootyWire (day-of-week prefix) | Midnight UTC |
  *
- * @example
- * ```ts
- * parseAflApiDate("2024-03-14T06:20:00.000Z")
- * // => Date(2024-03-14T06:20:00.000Z)
- * ```
+ * @param raw - A date string or unix timestamp (seconds)
+ * @param defaultYear - Year to use when the string lacks one (FootyWire fixtures)
+ * @returns A Date object in UTC, or null if parsing fails
  */
-export function parseAflApiDate(iso: string): Date | null {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) {
-    return null;
+export function parseDate(raw: string | number, defaultYear?: number): Date | null {
+  // Unix timestamp (seconds) — Squiggle
+  if (typeof raw === "number") {
+    const date = new Date(raw * 1000);
+    return Number.isNaN(date.getTime()) ? null : date;
   }
-  return date;
-}
 
-/**
- * Parse a date string from FootyWire into a Date.
- *
- * FootyWire uses formats like:
- * - `"Sat 16 Mar 2024"` (day-of-week, day, month-abbrev, year)
- * - `"16 Mar 2024"` (day, month-abbrev, year)
- * - `"16-Mar-2024"` (day-month-year with hyphens)
- * - `"Thu 13 Mar 7:30pm"` (day-of-week, day, month, time — no year)
- * - `"13 Mar"` (day, month — no year)
- *
- * @param dateStr - A FootyWire date string
- * @param defaultYear - Year to use when the string lacks one (e.g. fixture pages)
- * @returns A Date object (UTC), or null if parsing fails
- *
- * @example
- * ```ts
- * parseFootyWireDate("Sat 16 Mar 2024")
- * // => Date(2024-03-16T00:00:00.000Z)
- *
- * parseFootyWireDate("Thu 13 Mar 7:30pm", 2025)
- * // => Date(2025-03-13T09:30:00.000Z) — time stored as AEST offset from UTC
- * ```
- */
-export function parseFootyWireDate(dateStr: string, defaultYear?: number): Date | null {
-  const trimmed = dateStr.trim();
-  if (trimmed === "") {
-    return null;
+  const trimmed = raw.trim();
+  if (trimmed === "") return null;
+
+  // ISO 8601-ish (with or without time) — AFL API, Fryzigg, DOB fields
+  // Force UTC by stripping any tz suffix and appending Z
+  if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+    const stripped = trimmed.replace(/[Zz]$|[+-]\d{2}:\d{2}$/, "");
+    const utc = stripped.includes("T") ? `${stripped}Z` : `${stripped}T00:00:00Z`;
+    const date = new Date(utc);
+    return Number.isNaN(date.getTime()) ? null : date;
   }
 
   // Strip optional leading day-of-week (e.g. "Sat ", "Sunday ")
   const withoutDow = trimmed.replace(/^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*\s+/i, "");
 
-  // Normalise hyphens to spaces: "16-Mar-2024" -> "16 Mar 2024"
-  const normalised = withoutDow.replace(/-/g, " ");
+  // Normalise hyphens and slashes to spaces: "16-Mar-2024" / "16/Mar/2024" -> "16 Mar 2024"
+  const normalised = withoutDow.replace(/[-/]/g, " ");
 
-  // Try "DD MMM YYYY" (with year)
+  // "DD MMM YYYY" — full date, midnight UTC
   const fullMatch = /^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/.exec(normalised);
   if (fullMatch) {
     const [, dayStr, monthStr, yearStr] = fullMatch;
@@ -74,7 +60,16 @@ export function parseFootyWireDate(dateStr: string, defaultYear?: number): Date 
     }
   }
 
-  // Try "DD MMM" with optional time suffix (e.g. "13 Mar 7:30pm", "13 Mar")
+  // "MMM DD YYYY" — sometimes seen in AFL Tables
+  const mdyMatch = /^([A-Za-z]+)\s+(\d{1,2})\s+(\d{4})$/.exec(normalised);
+  if (mdyMatch) {
+    const [, monthStr, dayStr, yearStr] = mdyMatch;
+    if (dayStr && monthStr && yearStr) {
+      return buildUtcDate(Number.parseInt(yearStr, 10), monthStr, Number.parseInt(dayStr, 10));
+    }
+  }
+
+  // "DD MMM [H:MMam/pm]" — short date with optional Melbourne local time
   const shortMatch = /^(\d{1,2})\s+([A-Za-z]+)(?:\s+(\d{1,2}):(\d{2})(am|pm))?$/i.exec(normalised);
   if (shortMatch && defaultYear != null) {
     const [, dayStr, monthStr, hourStr, minStr, ampm] = shortMatch;
@@ -85,75 +80,38 @@ export function parseFootyWireDate(dateStr: string, defaultYear?: number): Date 
 
     const day = Number.parseInt(dayStr, 10);
 
-    const hasTime = hourStr && minStr && ampm;
-    if (!hasTime) {
+    if (!hourStr || !minStr || !ampm) {
       return buildUtcDate(defaultYear, monthStr, day);
     }
 
-    let aestHours = Number.parseInt(hourStr, 10);
+    let hours = Number.parseInt(hourStr, 10);
     const minutes = Number.parseInt(minStr, 10);
-    if (ampm.toLowerCase() === "pm" && aestHours < 12) aestHours += 12;
-    if (ampm.toLowerCase() === "am" && aestHours === 12) aestHours = 0;
+    if (ampm.toLowerCase() === "pm" && hours < 12) hours += 12;
+    if (ampm.toLowerCase() === "am" && hours === 12) hours = 0;
 
-    const date = melbourneLocalToUtc(defaultYear, monthIndex, day, aestHours, minutes);
-    if (Number.isNaN(date.getTime())) return null;
-    return date;
+    const date = melbourneLocalToUtc(defaultYear, monthIndex, day, hours, minutes);
+    return Number.isNaN(date.getTime()) ? null : date;
   }
 
   return null;
 }
 
-/**
- * Parse a date string from AFL Tables into a Date.
- *
- * AFL Tables uses formats like:
- * - `"16-Mar-2024"` (DD-Mon-YYYY)
- * - `"Sat 16-Mar-2024"` (Dow DD-Mon-YYYY)
- * - `"16 Mar 2024"` (DD Mon YYYY)
- *
- * For very old historical matches, dates may be partial (e.g. just a year),
- * which are not supported and return null.
- *
- * @param dateStr - An AFL Tables date string
- * @returns A Date object (midnight UTC), or null if parsing fails
- *
- * @example
- * ```ts
- * parseAflTablesDate("16-Mar-2024")
- * // => Date(2024-03-16T00:00:00.000Z)
- * ```
- */
+// Legacy aliases — delegate to parseDate
+/** @deprecated Use {@link parseDate} instead. */
+export function parseAflApiDate(iso: string): Date | null {
+  return parseDate(iso);
+}
+/** @deprecated Use {@link parseDate} instead. */
+export function parseAflApiMatchTime(iso: string): Date | null {
+  return parseDate(iso);
+}
+/** @deprecated Use {@link parseDate} instead. */
+export function parseFootyWireDate(dateStr: string, defaultYear?: number): Date | null {
+  return parseDate(dateStr, defaultYear);
+}
+/** @deprecated Use {@link parseDate} instead. */
 export function parseAflTablesDate(dateStr: string): Date | null {
-  const trimmed = dateStr.trim();
-  if (trimmed === "") {
-    return null;
-  }
-
-  // Strip optional leading day-of-week
-  const withoutDow = trimmed.replace(/^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*\s+/i, "");
-
-  // Normalise separators to spaces
-  const normalised = withoutDow.replace(/[-/]/g, " ");
-
-  // Try "DD MMM YYYY"
-  const dmy = /^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/.exec(normalised);
-  if (dmy) {
-    const [, dayStr, monthStr, yearStr] = dmy;
-    if (dayStr && monthStr && yearStr) {
-      return buildUtcDate(Number.parseInt(yearStr, 10), monthStr, Number.parseInt(dayStr, 10));
-    }
-  }
-
-  // Try "MMM DD YYYY" (sometimes seen in AFL Tables)
-  const mdy = /^([A-Za-z]+)\s+(\d{1,2})\s+(\d{4})$/.exec(normalised);
-  if (mdy) {
-    const [, monthStr, dayStr, yearStr] = mdy;
-    if (dayStr && monthStr && yearStr) {
-      return buildUtcDate(Number.parseInt(yearStr, 10), monthStr, Number.parseInt(dayStr, 10));
-    }
-  }
-
-  return null;
+  return parseDate(dateStr);
 }
 
 /**
@@ -164,12 +122,6 @@ export function parseAflTablesDate(dateStr: string): Date | null {
  *
  * @param date - The Date to format
  * @returns A formatted string like `"Thu 14 Mar 2024 5:20 PM AEDT"`
- *
- * @example
- * ```ts
- * toAestString(new Date("2024-03-14T06:20:00.000Z"))
- * // => "Thu 14 Mar 2024 5:20 PM AEDT"
- * ```
  */
 export function toAestString(date: Date): string {
   const formatter = new Intl.DateTimeFormat("en-AU", {
@@ -193,9 +145,6 @@ export function toAestString(date: Date): string {
  * AFLM uses the current calendar year. AFLW seasons run ahead of the
  * calendar year (e.g. the "2025" AFLW season starts in late 2024/early 2025),
  * so the default is the previous year.
- *
- * @param competition - Competition code, defaults to "AFLM".
- * @returns The default season year.
  */
 export function resolveDefaultSeason(competition: "AFLM" | "AFLW" = "AFLM"): number {
   const year = new Date().getFullYear();

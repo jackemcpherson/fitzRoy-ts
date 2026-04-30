@@ -17,7 +17,9 @@ export { fetchTeamStats } from "./api/team-stats";
 export { fetchSquad, fetchTeams } from "./api/teams";
 export {
   parseAflApiDate,
+  parseAflApiMatchTime,
   parseAflTablesDate,
+  parseDate,
   parseFootyWireDate,
   toAestString,
 } from "./lib/date-utils";

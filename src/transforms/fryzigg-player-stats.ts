@@ -13,6 +13,7 @@
 
 import type { DataFrame } from "@jackemcpherson/rds-js";
 
+import { parseDate } from "../lib/date-utils";
 import { ScrapeError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
@@ -366,7 +367,7 @@ function mapRow(
     roundNumber: roundAt(c.round, i),
     team: normaliseTeamName(team),
     competition,
-    date: dateStr ? new Date(dateStr) : null,
+    date: dateStr ? parseDate(dateStr) : null,
     homeTeam: homeTeam ? normaliseTeamName(homeTeam) : null,
     awayTeam: awayTeam ? normaliseTeamName(awayTeam) : null,
 

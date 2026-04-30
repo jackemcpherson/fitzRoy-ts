@@ -2,6 +2,7 @@
  * Public API for fetching team lists and squad rosters.
  */
 
+import { parseDate } from "../lib/date-utils";
 import { ValidationError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { AFL_SENIOR_TEAMS, normaliseTeamName } from "../lib/team-mapping";
@@ -86,7 +87,7 @@ export async function fetchSquad(query: SquadQuery): Promise<Result<Squad, Error
     displayName: `${p.player.firstName} ${p.player.surname}`,
     jumperNumber: p.jumperNumber ?? null,
     position: p.position ?? null,
-    dateOfBirth: p.player.dateOfBirth ? new Date(p.player.dateOfBirth) : null,
+    dateOfBirth: p.player.dateOfBirth ? parseDate(p.player.dateOfBirth) : null,
     heightCm: p.player.heightInCm || null,
     weightKg: p.player.weightInKg || null,
     draftYear: p.player.draftYear ? Number.parseInt(p.player.draftYear, 10) || null : null,
