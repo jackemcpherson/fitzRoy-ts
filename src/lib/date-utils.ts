@@ -95,9 +95,7 @@ export function parseFootyWireDate(dateStr: string, defaultYear?: number): Date 
     if (ampm.toLowerCase() === "pm" && aestHours < 12) aestHours += 12;
     if (ampm.toLowerCase() === "am" && aestHours === 12) aestHours = 0;
 
-    // Date.UTC normalises out-of-range values, so negative hours from
-    // the AEST->UTC offset correctly roll back the day.
-    const date = new Date(Date.UTC(defaultYear, monthIndex, day, aestHours - 10, minutes));
+    const date = melbourneLocalToUtc(defaultYear, monthIndex, day, aestHours, minutes);
     if (Number.isNaN(date.getTime())) return null;
     return date;
   }
@@ -234,6 +232,37 @@ const MONTH_ABBREV_TO_INDEX: ReadonlyMap<string, number> = new Map([
   ["november", 10],
   ["december", 11],
 ]);
+
+/**
+ * Convert a Melbourne local time to a UTC Date, correctly handling both
+ * AEST (UTC+10) and AEDT (UTC+11) via Intl.DateTimeFormat.
+ */
+function melbourneLocalToUtc(
+  year: number,
+  monthIndex: number,
+  day: number,
+  hours: number,
+  minutes: number,
+): Date {
+  // First guess: AEST (UTC+10) — covers most of the AFL season
+  const aestGuess = new Date(Date.UTC(year, monthIndex, day, hours - 10, minutes));
+
+  const parts = new Intl.DateTimeFormat("en-AU", {
+    timeZone: "Australia/Melbourne",
+    day: "2-digit",
+    hour: "2-digit",
+    hour12: false,
+  }).formatToParts(aestGuess);
+
+  const getNum = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+
+  if (getNum("day") === day && getNum("hour") === hours % 24) {
+    return aestGuess;
+  }
+
+  // AEDT (UTC+11)
+  return new Date(Date.UTC(year, monthIndex, day, hours - 11, minutes));
+}
 
 function buildUtcDate(year: number, monthStr: string, day: number): Date | null {
   const monthIndex = MONTH_ABBREV_TO_INDEX.get(monthStr.toLowerCase());

@@ -40,12 +40,16 @@ describe("parseFootyWireDate", () => {
     expect(parseFootyWireDate(input)).toBeNull();
   });
 
-  it("parses time with defaultYear (7:30pm AEST)", () => {
+  it("parses time during AEDT (UTC+11) correctly", () => {
+    // March 13 2025 is during AEDT — 7:30pm AEDT = 08:30 UTC
     const date = parseFootyWireDate("Thu 13 Mar 7:30pm", 2025);
-    expect(date).toBeInstanceOf(Date);
-    expect(date?.getUTCFullYear()).toBe(2025);
-    expect(date?.getUTCMonth()).toBe(2); // March
-    expect(date?.getUTCDate()).toBe(13);
+    expect(date?.toISOString()).toBe("2025-03-13T08:30:00.000Z");
+  });
+
+  it("parses time during AEST (UTC+10) correctly", () => {
+    // July 13 2025 is during AEST — 7:30pm AEST = 09:30 UTC
+    const date = parseFootyWireDate("13 Jul 7:30pm", 2025);
+    expect(date?.toISOString()).toBe("2025-07-13T09:30:00.000Z");
   });
 
   it("parses date-only with defaultYear", () => {
@@ -53,9 +57,9 @@ describe("parseFootyWireDate", () => {
   });
 
   it("parses am time with defaultYear", () => {
+    // April 1 2025 is during AEDT — 11:00am AEDT = 00:00 UTC
     const date = parseFootyWireDate("1 Apr 11:00am", 2025);
-    expect(date).toBeInstanceOf(Date);
-    expect(date?.getUTCMonth()).toBe(3); // April
+    expect(date?.toISOString()).toBe("2025-04-01T00:00:00.000Z");
   });
 
   it.each(["13 Mar 7:30pm", "13 Mar"])("returns null for %j without defaultYear", (input) => {
