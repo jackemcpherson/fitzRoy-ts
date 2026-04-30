@@ -254,10 +254,9 @@ function melbourneLocalToUtc(
     hour12: false,
   }).formatToParts(aestGuess);
 
-  const getNum = (type: string) =>
-    Number(parts.find((p) => p.type === type)?.value);
+  const getNum = (type: string) => Number(parts.find((p) => p.type === type)?.value);
 
-  if (getNum("day") === day && getNum("hour") === (hours % 24)) {
+  if (getNum("day") === day && getNum("hour") === hours % 24) {
     return aestGuess;
   }
 
