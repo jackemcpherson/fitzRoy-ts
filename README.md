@@ -1,5 +1,8 @@
 # fitzroy
 
+[![CI](https://github.com/jackemcpherson/fitzRoy-ts/actions/workflows/ci.yml/badge.svg)](https://github.com/jackemcpherson/fitzRoy-ts/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/fitzroy)](https://www.npmjs.com/package/fitzroy)
+
 TypeScript library and CLI for AFL data — match results, player stats, fixtures, ladders, lineups, squads, and teams.
 
 A port of the [fitzRoy R package](https://github.com/jimmyday12/fitzRoy).
