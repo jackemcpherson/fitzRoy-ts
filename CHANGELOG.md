@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-05-01
+
+### Added
+
+- `--team` / `-t` flag on `lineup` command to filter lineups by team name
+
 ## [1.7.0] - 2026-04-05
 
 ### Added

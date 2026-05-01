@@ -9,6 +9,7 @@ import {
   REQUIRED_ROUND_FLAG,
   SEASON_FLAG,
   SOURCE_FLAG,
+  TEAM_FLAG,
 } from "../flags";
 import {
   type FormatOptions,
@@ -16,7 +17,7 @@ import {
   resolveFormat,
   type TableColumnConfig,
 } from "../formatters/index";
-import { resolveMatchOrPrompt } from "../resolvers";
+import { resolveMatchOrPrompt, resolveTeamNameOrPrompt } from "../resolvers";
 import { showSummary, withSpinner } from "../ui";
 import {
   validateCompetition,
@@ -68,6 +69,7 @@ export const lineupCommand = defineCommand({
     ...REQUIRED_ROUND_FLAG,
     match: { type: "string", description: "Filter by team name to find a specific match" },
     "match-id": { type: "string", description: "Specific match provider ID (advanced)" },
+    ...TEAM_FLAG,
     ...SOURCE_FLAG,
     ...COMPETITION_FLAG,
     ...OUTPUT_FLAGS,
@@ -78,6 +80,9 @@ export const lineupCommand = defineCommand({
     const source = validateSource(args.source);
     const competition = validateCompetition(args.competition);
     const format = validateFormat(args.format);
+
+    // Resolve team name via fuzzy matching if provided
+    const team = args.team ? await resolveTeamNameOrPrompt(args.team) : undefined;
 
     // Resolve --match (team name) to a match ID if provided
     let matchId = args["match-id"];
@@ -98,8 +103,13 @@ export const lineupCommand = defineCommand({
       throw result.error;
     }
 
-    const data = result.data;
-    showSummary(`Loaded ${data.length} lineups for ${season} round ${round}`);
+    const data = team
+      ? result.data.filter((l) => l.homeTeam === team || l.awayTeam === team)
+      : result.data;
+    const teamSuffix = team ? ` for ${team}` : "";
+    showSummary(
+      `Loaded ${data.length} lineup${data.length === 1 ? "" : "s"} for ${season} round ${round}${teamSuffix}`,
+    );
 
     const formatOptions: FormatOptions = {
       json: args.json,
