@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **CLI consolidated to six commands** — every old command is reachable via the new surface:
+  - `team` — list teams; with `-s` returns the season's squad; with `-s -r` returns match-day lineups (subsumes `teams`, `squad`, `lineup`)
+  - `player` — biographical lookup (replaces `player-details`)
+  - `match` — matches in any temporal scope; `--status Upcoming` for fixtures (subsumes `matches`, `fixture`)
+  - `stats` — `--by player` (default) or `--by team` (subsumes `team-stats`)
+  - `ladder` — unchanged in surface, rewritten with the command builder
+  - `awards` — `--type {brownlow,coleman,coaches,all-australian,rising-star}` (subsumes `coaches-votes`)
+- `defineFitzroyCommand` (src/cli/command-builder.ts) — internal helper that owns per-command boilerplate (Citty wrapping, validation pipeline, spinner, error boundary, format dispatch)
 - `fetchMatches(query: MatchQuery)` — single library function for matches in any temporal scope. Filters by `season`, `round`, `matchId`, `team`, and `status`. Subsumes the old `fetchMatchResults` and `fetchFixture`
 - `MatchQuery` interface as the unified shape for all match queries
 - `AflApiClient.fetchSeasonMatchItems` accepts an `{ includeUpcoming?: boolean }` option (default: false, preserves the existing CONCLUDED-only filter for callers that want it)
@@ -25,6 +33,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **BREAKING:** `fetchMatchResults` removed. Use `fetchMatches({ ..., status: "Complete" })` for the same behaviour
 - **BREAKING:** `fetchFixture` removed. Use `fetchMatches({ ..., status: "Upcoming" })` for the same behaviour
 - **BREAKING:** `fetchCoachesVotes` removed. Use `fetchAwards({ award: "coaches", season, ... })` for the same behaviour
+- **BREAKING:** CLI command renames (the eight old commands were deleted):
+  - `fitzroy matches` / `fitzroy fixture` → `fitzroy match [--status Complete | --status Upcoming]`
+  - `fitzroy teams` → `fitzroy team`
+  - `fitzroy squad --team X -s S` → `fitzroy team --name X -s S`
+  - `fitzroy lineup -s S -r R` → `fitzroy team -s S -r R`
+  - `fitzroy team-stats -s S` → `fitzroy stats -s S --by team`
+  - `fitzroy player-details` → `fitzroy player`
+  - `fitzroy coaches-votes` → `fitzroy awards --type coaches`
 - **BREAKING:** `AflApiClient.fetchTeams` now takes a `CompetitionCode` (e.g. `"AFLM"`) instead of a raw `teamType` string. The teamType lookup is internal
 - `AwardType` widened to include `"coleman"` and `"coaches"`. `Award` discriminated union extended with `ColemanLeader` and `CoachesVote`. The `coaches` and `coleman` award fetching wires up in a follow-up
 - `transformMatchItems` now produces null score fields for matches without score data (upcoming matches), instead of defaulting to 0

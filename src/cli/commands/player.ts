@@ -1,20 +1,26 @@
-import { defineCommand } from "citty";
+/**
+ * `player` command — biographical lookup for players.
+ *
+ * Replaces the old `player-details` command. Default behaviour mirrors the
+ * old command: optional `--team` filter, season defaults to current via
+ * `resolveDefaultSeason`. Future enhancement: add per-player season summary.
+ */
+
 import { fetchPlayerDetails } from "../../index";
-import { withErrorBoundary } from "../error-boundary";
+import { defineFitzroyCommand } from "../command-builder";
 import { COMPETITION_FLAG, OPTIONAL_SEASON_FLAG, OUTPUT_FLAGS, TEAM_FLAG } from "../flags";
-import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
+import type { TableColumnConfig } from "../formatters/index";
 import { resolveTeamNameOrPrompt } from "../resolvers";
-import { showSummary, withSpinner } from "../ui";
 import {
   resolveDefaultSeason,
   validateCompetition,
-  validateFormat,
   validateOptionalSeason,
   validateSource,
 } from "../validation";
 
 const DEFAULT_COLUMNS: TableColumnConfig[] = [
   { key: "displayName", label: "Player", maxWidth: 24 },
+  { key: "team", label: "Team", maxWidth: 18 },
   { key: "jumperNumber", label: "#", maxWidth: 4 },
   { key: "position", label: "Pos", maxWidth: 12 },
   { key: "heightCm", label: "Ht", maxWidth: 5 },
@@ -23,9 +29,16 @@ const DEFAULT_COLUMNS: TableColumnConfig[] = [
   { key: "dateOfBirth", label: "DOB", maxWidth: 12 },
 ];
 
-export const playerDetailsCommand = defineCommand({
+interface PlayerArgs {
+  source: string;
+  season?: string;
+  competition: string;
+  team?: string;
+}
+
+export const playerCommand = defineFitzroyCommand<PlayerArgs & Record<string, unknown>, object>({
   meta: {
-    name: "player-details",
+    name: "player",
     description: "Fetch player biographical details (optionally filtered by team)",
   },
   args: {
@@ -39,38 +52,18 @@ export const playerDetailsCommand = defineCommand({
     ...COMPETITION_FLAG,
     ...OUTPUT_FLAGS,
   },
-  run: withErrorBoundary(async ({ args }) => {
+  columns: DEFAULT_COLUMNS,
+  spinner: "Fetching player details…",
+  run: async (args) => {
     const source = validateSource(args.source);
     const competition = validateCompetition(args.competition);
-    const format = validateFormat(args.format);
     const season = validateOptionalSeason(args.season) ?? resolveDefaultSeason(competition);
     const team = args.team ? await resolveTeamNameOrPrompt(args.team) : undefined;
 
-    const label = team
-      ? `Fetching player details for ${team}…`
-      : "Fetching player details for all teams…";
-    const result = await withSpinner(label, () =>
-      fetchPlayerDetails({ source, team, season, competition }),
-    );
-
-    if (!result.success) {
-      throw result.error;
-    }
-
-    const data = result.data;
-    const summary = team
-      ? `Loaded ${data.length} players for ${team} (${source})`
-      : `Loaded ${data.length} players across all teams (${source})`;
-    showSummary(summary);
-
-    const formatOptions: FormatOptions = {
-      json: args.json,
-      csv: args.csv,
-      format,
-      full: args.full,
-      columns: DEFAULT_COLUMNS,
-    };
-
-    console.log(formatOutput(data, formatOptions));
-  }),
+    return fetchPlayerDetails({ source, team, season, competition });
+  },
+  summary: (data, args) =>
+    args.team
+      ? `Loaded ${data.length} players for ${args.team} (${args.source})`
+      : `Loaded ${data.length} players across all teams (${args.source})`,
 });

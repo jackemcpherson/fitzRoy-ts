@@ -14,18 +14,12 @@ const main = defineCommand({
     description: "TypeScript port of the fitzRoy R package — fetch AFL data from the command line",
   },
   subCommands: {
-    matches: () => import("./cli/commands/matches").then((m) => m.matchesCommand),
+    team: () => import("./cli/commands/team").then((m) => m.teamCommand),
+    player: () => import("./cli/commands/player").then((m) => m.playerCommand),
+    match: () => import("./cli/commands/match").then((m) => m.matchCommand),
     stats: () => import("./cli/commands/stats").then((m) => m.statsCommand),
-    fixture: () => import("./cli/commands/fixture").then((m) => m.fixtureCommand),
     ladder: () => import("./cli/commands/ladder").then((m) => m.ladderCommand),
-    lineup: () => import("./cli/commands/lineup").then((m) => m.lineupCommand),
-    squad: () => import("./cli/commands/squad").then((m) => m.squadCommand),
-    teams: () => import("./cli/commands/teams").then((m) => m.teamsCommand),
-    "team-stats": () => import("./cli/commands/team-stats").then((m) => m.teamStatsCommand),
-    "player-details": () =>
-      import("./cli/commands/player-details").then((m) => m.playerDetailsCommand),
-    "coaches-votes": () =>
-      import("./cli/commands/coaches-votes").then((m) => m.coachesVotesCommand),
+    awards: () => import("./cli/commands/awards").then((m) => m.awardsCommand),
   },
 });
 
