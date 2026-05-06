@@ -7,11 +7,9 @@
 
 import { err, type Result } from "../lib/result";
 import {
-  allLadderSources,
   checkCoverage,
   findAlternativeSource,
-  getLadderSource,
-  listLadderSources,
+  ladderRegistry,
   unsupportedSourceForOperation,
 } from "../sources/adapters/index";
 import type { Ladder, LadderQuery } from "../types";
@@ -25,13 +23,13 @@ import type { Ladder, LadderQuery } from "../types";
  * ```
  */
 export async function fetchLadder(query: LadderQuery): Promise<Result<Ladder, Error>> {
-  const adapter = getLadderSource(query.source);
+  const adapter = ladderRegistry.get(query.source);
   if (!adapter) {
-    return err(unsupportedSourceForOperation(query.source, "ladder", listLadderSources()));
+    return err(unsupportedSourceForOperation(query.source, "ladder", ladderRegistry.list()));
   }
 
   const competition = query.competition ?? "AFLM";
-  const alternative = findAlternativeSource(allLadderSources(), {
+  const alternative = findAlternativeSource(ladderRegistry.all(), {
     source: query.source,
     competition,
     season: query.season,

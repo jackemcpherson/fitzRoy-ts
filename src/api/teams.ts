@@ -6,9 +6,7 @@ import { err, ok, type Result } from "../lib/result";
 import { AFL_SENIOR_TEAMS, normaliseTeamName } from "../lib/team-mapping";
 import {
   checkCoverage,
-  defaultSourceByCapability,
-  getSquadSource,
-  listSquadSources,
+  squadRegistry,
   unsupportedSourceForOperation,
 } from "../sources/adapters/index";
 import { AflApiClient } from "../sources/afl-api";
@@ -65,10 +63,10 @@ export async function fetchTeams(query?: TeamQuery): Promise<Result<Team[], Erro
  * SquadSource directly.
  */
 export async function fetchSquad(query: SquadQuery): Promise<Result<Squad, Error>> {
-  const sourceId = defaultSourceByCapability.squad;
-  const adapter = getSquadSource(sourceId);
+  const sourceId = squadRegistry.defaultSource;
+  const adapter = squadRegistry.get(sourceId);
   if (!adapter) {
-    return err(unsupportedSourceForOperation(sourceId, "squad", listSquadSources()));
+    return err(unsupportedSourceForOperation(sourceId, "squad", squadRegistry.list()));
   }
 
   const competition = query.competition ?? "AFLM";

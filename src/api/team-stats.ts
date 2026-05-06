@@ -5,16 +5,14 @@
  * each adapter (see `src/sources/adapters/`).
  *
  * Note: AFL API has no team-stats endpoint, so the senior fallback (and
- * the suggestion target) is `afl-tables` (see `defaultSourceByCapability`).
+ * the suggestion target) is `afl-tables` (see `teamStatsRegistry.defaultSource`).
  */
 
 import { err, type Result } from "../lib/result";
 import {
-  allTeamStatsSources,
   checkCoverage,
   findAlternativeSource,
-  getTeamStatsSource,
-  listTeamStatsSources,
+  teamStatsRegistry,
   unsupportedSourceForOperation,
 } from "../sources/adapters/index";
 import type { TeamStatsEntry, TeamStatsQuery } from "../types";
@@ -30,15 +28,15 @@ import type { TeamStatsEntry, TeamStatsQuery } from "../types";
 export async function fetchTeamStats(
   query: TeamStatsQuery,
 ): Promise<Result<TeamStatsEntry[], Error>> {
-  const adapter = getTeamStatsSource(query.source);
+  const adapter = teamStatsRegistry.get(query.source);
   if (!adapter) {
-    return err(unsupportedSourceForOperation(query.source, "team stats", listTeamStatsSources()));
+    return err(unsupportedSourceForOperation(query.source, "team stats", teamStatsRegistry.list()));
   }
 
   // TeamStats has no per-call competition (the query type doesn't carry one),
   // so coverage is checked against AFLM by convention — every TeamStats source
   // we support is AFLM-only.
-  const alternative = findAlternativeSource(allTeamStatsSources(), {
+  const alternative = findAlternativeSource(teamStatsRegistry.all(), {
     source: query.source,
     competition: "AFLM",
     season: query.season,

@@ -7,11 +7,9 @@
 
 import { err, type Result } from "../lib/result";
 import {
-  allPlayerStatsSources,
   checkCoverage,
   findAlternativeSource,
-  getPlayerStatsSource,
-  listPlayerStatsSources,
+  playerStatsRegistry,
   unsupportedSourceForOperation,
 } from "../sources/adapters/index";
 import type { PlayerStats, PlayerStatsQuery } from "../types";
@@ -29,15 +27,15 @@ import type { PlayerStats, PlayerStatsQuery } from "../types";
 export async function fetchPlayerStats(
   query: PlayerStatsQuery,
 ): Promise<Result<PlayerStats[], Error>> {
-  const adapter = getPlayerStatsSource(query.source);
+  const adapter = playerStatsRegistry.get(query.source);
   if (!adapter) {
     return err(
-      unsupportedSourceForOperation(query.source, "player stats", listPlayerStatsSources()),
+      unsupportedSourceForOperation(query.source, "player stats", playerStatsRegistry.list()),
     );
   }
 
   const competition = query.competition ?? "AFLM";
-  const alternative = findAlternativeSource(allPlayerStatsSources(), {
+  const alternative = findAlternativeSource(playerStatsRegistry.all(), {
     source: query.source,
     competition,
     season: query.season,

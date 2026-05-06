@@ -7,11 +7,9 @@
 
 import { err, type Result } from "../lib/result";
 import {
-  allLineupSources,
   checkCoverage,
   findAlternativeSource,
-  getLineupSource,
-  listLineupSources,
+  lineupRegistry,
   unsupportedSourceForOperation,
 } from "../sources/adapters/index";
 import type { Lineup, LineupQuery } from "../types";
@@ -23,13 +21,13 @@ import type { Lineup, LineupQuery } from "../types";
  * When omitted, returns lineups for all matches in the round.
  */
 export async function fetchLineup(query: LineupQuery): Promise<Result<Lineup[], Error>> {
-  const adapter = getLineupSource(query.source);
+  const adapter = lineupRegistry.get(query.source);
   if (!adapter) {
-    return err(unsupportedSourceForOperation(query.source, "lineup", listLineupSources()));
+    return err(unsupportedSourceForOperation(query.source, "lineup", lineupRegistry.list()));
   }
 
   const competition = query.competition ?? "AFLM";
-  const alternative = findAlternativeSource(allLineupSources(), {
+  const alternative = findAlternativeSource(lineupRegistry.all(), {
     source: query.source,
     competition,
     season: query.season,

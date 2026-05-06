@@ -11,11 +11,9 @@
 import { err, ok, type Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
 import {
-  allMatchSources,
   checkCoverage,
   findAlternativeSource,
-  getMatchSource,
-  listMatchSources,
+  matchRegistry,
   unsupportedSourceForOperation,
 } from "../sources/adapters/index";
 import type { Match, MatchQuery } from "../types";
@@ -36,13 +34,13 @@ import type { Match, MatchQuery } from "../types";
  * ```
  */
 export async function fetchMatches(query: MatchQuery): Promise<Result<Match[], Error>> {
-  const adapter = getMatchSource(query.source);
+  const adapter = matchRegistry.get(query.source);
   if (!adapter) {
-    return err(unsupportedSourceForOperation(query.source, "match", listMatchSources()));
+    return err(unsupportedSourceForOperation(query.source, "match", matchRegistry.list()));
   }
 
   const competition = query.competition ?? "AFLM";
-  const alternative = findAlternativeSource(allMatchSources(), {
+  const alternative = findAlternativeSource(matchRegistry.all(), {
     source: query.source,
     competition,
     season: query.season,

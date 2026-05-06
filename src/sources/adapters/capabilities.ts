@@ -31,38 +31,44 @@ import type {
 } from "../../types";
 import type { CoverageMap } from "./coverage";
 
-/** Common shape of every adapter — id, coverage, plus capability methods. */
-interface Adapter {
+/**
+ * Common shape of every adapter — id, coverage. Each per-capability
+ * interface extends this. The generic `CapabilityRegistry<I>` constrains
+ * `I` to this base so registry instances can do source lookup, coverage
+ * inspection, and "find alternative" suggestions without knowing which
+ * capability they hold.
+ */
+export interface CapabilityAdapter {
   readonly id: DataSource;
   readonly coverage: CoverageMap;
 }
 
 /** A source that can fetch matches. */
-export interface MatchSource extends Adapter {
+export interface MatchSource extends CapabilityAdapter {
   fetchMatches(query: MatchQuery): Promise<Result<Match[], Error>>;
 }
 
 /** A source that can fetch per-player per-match performance stats. */
-export interface PlayerStatsSource extends Adapter {
+export interface PlayerStatsSource extends CapabilityAdapter {
   fetchPlayerStats(query: PlayerStatsQuery): Promise<Result<PlayerStats[], Error>>;
 }
 
 /** A source that can fetch season-aggregated team performance. */
-export interface TeamStatsSource extends Adapter {
+export interface TeamStatsSource extends CapabilityAdapter {
   fetchTeamStats(query: TeamStatsQuery): Promise<Result<TeamStatsEntry[], Error>>;
 }
 
 /** A source that can fetch a team's seasonal squad. */
-export interface SquadSource extends Adapter {
+export interface SquadSource extends CapabilityAdapter {
   fetchSquad(query: SquadQuery): Promise<Result<Squad, Error>>;
 }
 
 /** A source that can fetch match-day lineups. */
-export interface LineupSource extends Adapter {
+export interface LineupSource extends CapabilityAdapter {
   fetchLineup(query: LineupQuery): Promise<Result<Lineup[], Error>>;
 }
 
 /** A source that can fetch the season ladder/standings. */
-export interface LadderSource extends Adapter {
+export interface LadderSource extends CapabilityAdapter {
   fetchLadder(query: LadderQuery): Promise<Result<Ladder, Error>>;
 }

@@ -1,31 +1,29 @@
 import { describe, expect, it } from "vitest";
 import {
-  defaultSourceByCapability,
-  getLadderSource,
-  getLineupSource,
-  getMatchSource,
-  getPlayerStatsSource,
-  getSquadSource,
-  getTeamStatsSource,
-  listLadderSources,
-  listLineupSources,
-  listMatchSources,
-  listPlayerStatsSources,
-  listSquadSources,
-  listTeamStatsSources,
+  ladderRegistry,
+  lineupRegistry,
+  matchRegistry,
+  playerStatsRegistry,
+  squadRegistry,
+  teamStatsRegistry,
 } from "../../../src/sources/adapters/index";
 
 describe("source-adapter registry", () => {
   describe("Match registrations", () => {
     it("registers afl-api, footywire, afl-tables, and squiggle", () => {
-      expect(listMatchSources().sort()).toEqual(["afl-api", "afl-tables", "footywire", "squiggle"]);
+      expect([...matchRegistry.list()].sort()).toEqual([
+        "afl-api",
+        "afl-tables",
+        "footywire",
+        "squiggle",
+      ]);
     });
     it("does not register fryzigg (no match data)", () => {
-      expect(getMatchSource("fryzigg")).toBeUndefined();
+      expect(matchRegistry.get("fryzigg")).toBeUndefined();
     });
     it("each adapter has a non-empty coverage map", () => {
-      for (const id of listMatchSources()) {
-        const adapter = getMatchSource(id);
+      for (const id of matchRegistry.list()) {
+        const adapter = matchRegistry.get(id);
         expect(adapter).toBeDefined();
         expect(adapter?.coverage.size).toBeGreaterThan(0);
       }
@@ -34,7 +32,7 @@ describe("source-adapter registry", () => {
 
   describe("PlayerStats registrations", () => {
     it("registers afl-api, footywire, afl-tables, and fryzigg", () => {
-      expect(listPlayerStatsSources().sort()).toEqual([
+      expect([...playerStatsRegistry.list()].sort()).toEqual([
         "afl-api",
         "afl-tables",
         "footywire",
@@ -42,40 +40,40 @@ describe("source-adapter registry", () => {
       ]);
     });
     it("does not register squiggle (no player-level data)", () => {
-      expect(getPlayerStatsSource("squiggle")).toBeUndefined();
+      expect(playerStatsRegistry.get("squiggle")).toBeUndefined();
     });
   });
 
   describe("TeamStats registrations", () => {
     it("registers footywire and afl-tables only", () => {
-      expect(listTeamStatsSources().sort()).toEqual(["afl-tables", "footywire"]);
+      expect([...teamStatsRegistry.list()].sort()).toEqual(["afl-tables", "footywire"]);
     });
     it("does not register afl-api (no team-stats endpoint)", () => {
-      expect(getTeamStatsSource("afl-api")).toBeUndefined();
+      expect(teamStatsRegistry.get("afl-api")).toBeUndefined();
     });
   });
 
   describe("Squad registrations", () => {
     it("registers afl-api only", () => {
-      expect(listSquadSources()).toEqual(["afl-api"]);
+      expect(squadRegistry.list()).toEqual(["afl-api"]);
     });
   });
 
   describe("Lineup registrations", () => {
     it("registers afl-api only", () => {
-      expect(listLineupSources()).toEqual(["afl-api"]);
+      expect(lineupRegistry.list()).toEqual(["afl-api"]);
     });
   });
 
   describe("Ladder registrations", () => {
     it("registers afl-api, afl-tables (computed), and squiggle", () => {
-      expect(listLadderSources().sort()).toEqual(["afl-api", "afl-tables", "squiggle"]);
+      expect([...ladderRegistry.list()].sort()).toEqual(["afl-api", "afl-tables", "squiggle"]);
     });
   });
 
   describe("AFL API coverage", () => {
     it("covers AFLM, AFLW, VFL, and VFLW for Match", () => {
-      const adapter = getMatchSource("afl-api");
+      const adapter = matchRegistry.get("afl-api");
       expect(adapter?.coverage.get("AFLM")?.minSeason).toBe(2012);
       expect(adapter?.coverage.get("AFLW")?.minSeason).toBe(2017);
       expect(adapter?.coverage.get("VFL")?.minSeason).toBe(2021);
@@ -85,30 +83,30 @@ describe("source-adapter registry", () => {
 
   describe("AFL Tables coverage", () => {
     it("Match coverage starts in 1897 (deepest history of any source)", () => {
-      const adapter = getMatchSource("afl-tables");
+      const adapter = matchRegistry.get("afl-tables");
       expect(adapter?.coverage.get("AFLM")?.minSeason).toBe(1897);
     });
     it("PlayerStats coverage starts in 1965 (later than match coverage)", () => {
-      const adapter = getPlayerStatsSource("afl-tables");
+      const adapter = playerStatsRegistry.get("afl-tables");
       expect(adapter?.coverage.get("AFLM")?.minSeason).toBe(1965);
     });
     it("Ladder coverage matches Match coverage (computed from results)", () => {
-      const ladder = getLadderSource("afl-tables");
-      const match = getMatchSource("afl-tables");
+      const ladder = ladderRegistry.get("afl-tables");
+      const match = matchRegistry.get("afl-tables");
       expect(ladder?.coverage.get("AFLM")?.minSeason).toBe(match?.coverage.get("AFLM")?.minSeason);
     });
   });
 
-  describe("defaultSourceByCapability", () => {
+  describe("defaultSource per registry", () => {
     it("defaults to afl-api for everything except team-stats", () => {
-      expect(defaultSourceByCapability.match).toBe("afl-api");
-      expect(defaultSourceByCapability.playerStats).toBe("afl-api");
-      expect(defaultSourceByCapability.squad).toBe("afl-api");
-      expect(defaultSourceByCapability.lineup).toBe("afl-api");
-      expect(defaultSourceByCapability.ladder).toBe("afl-api");
+      expect(matchRegistry.defaultSource).toBe("afl-api");
+      expect(playerStatsRegistry.defaultSource).toBe("afl-api");
+      expect(squadRegistry.defaultSource).toBe("afl-api");
+      expect(lineupRegistry.defaultSource).toBe("afl-api");
+      expect(ladderRegistry.defaultSource).toBe("afl-api");
     });
     it("team-stats falls back to afl-tables (no AFL API endpoint exists)", () => {
-      expect(defaultSourceByCapability.teamStats).toBe("afl-tables");
+      expect(teamStatsRegistry.defaultSource).toBe("afl-tables");
     });
   });
 });
