@@ -9,7 +9,6 @@
 import { defineCommand } from "citty";
 import { fetchPlayerStats, fetchTeamStats } from "../../index";
 import { fuzzySearch } from "../../lib/fuzzy";
-import { AflApiClient } from "../../sources/afl-api";
 import { withErrorBoundary } from "../error-boundary";
 import {
   BY_FLAG,
@@ -23,7 +22,8 @@ import {
   TEAM_FLAG,
 } from "../flags";
 import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
-import { resolveMatchOrPrompt, resolveTeamNameOrPrompt } from "../resolvers";
+import { resolveMatchId } from "../match-resolver";
+import { resolveTeamNameOrPrompt } from "../resolvers";
 import { showSummary, withSpinner } from "../ui";
 import {
   validateCompetition,
@@ -157,17 +157,13 @@ export const statsCommand = defineCommand({
 
     const source = validateSource(args.source);
 
-    let matchId = args.id as string | undefined;
-    if (!matchId && args.match && round != null) {
-      const client = new AflApiClient();
-      const seasonResult = await client.resolveCompSeason(competition, season);
-      if (!seasonResult.success) throw seasonResult.error;
-      const itemsResult = await client.fetchRoundMatchItemsByNumber(seasonResult.data, round);
-      if (!itemsResult.success) throw itemsResult.error;
-      matchId = await resolveMatchOrPrompt(args.match, itemsResult.data);
-    } else if (args.match && round == null) {
-      throw new Error("--match requires --round (-r) to identify which round to search.");
-    }
+    const matchId = await resolveMatchId({
+      matchIdArg: args.id as string | undefined,
+      matchArg: args.match,
+      competition,
+      season,
+      round,
+    });
 
     const teamFilter = args.team ? await resolveTeamNameOrPrompt(args.team) : undefined;
 

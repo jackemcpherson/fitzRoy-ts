@@ -11,7 +11,6 @@
 
 import { defineCommand } from "citty";
 import { fetchLineup, fetchSquad, fetchTeams } from "../../index";
-import { AflApiClient } from "../../sources/afl-api";
 import type { Lineup } from "../../types";
 import { withErrorBoundary } from "../error-boundary";
 import { COMPETITION_FLAG, OUTPUT_FLAGS, ROUND_FLAG, SOURCE_FLAG, TEAM_FLAG } from "../flags";
@@ -21,7 +20,8 @@ import {
   resolveFormat,
   type TableColumnConfig,
 } from "../formatters/index";
-import { resolveMatchOrPrompt, resolveTeamNameOrPrompt } from "../resolvers";
+import { resolveMatchId } from "../match-resolver";
+import { resolveTeamNameOrPrompt } from "../resolvers";
 import { showSummary, withSpinner } from "../ui";
 import {
   validateCompetition,
@@ -103,15 +103,13 @@ export const teamCommand = defineCommand({
     // Dispatch by flag presence
     if (season != null && round != null) {
       // Lineup mode
-      let matchId = args["match-id"];
-      if (!matchId && args.match) {
-        const client = new AflApiClient();
-        const seasonResult = await client.resolveCompSeason(competition, season);
-        if (!seasonResult.success) throw seasonResult.error;
-        const itemsResult = await client.fetchRoundMatchItemsByNumber(seasonResult.data, round);
-        if (!itemsResult.success) throw itemsResult.error;
-        matchId = await resolveMatchOrPrompt(args.match, itemsResult.data);
-      }
+      const matchId = await resolveMatchId({
+        matchIdArg: args["match-id"],
+        matchArg: args.match,
+        competition,
+        season,
+        round,
+      });
 
       const result = await withSpinner("Fetching lineups…", () =>
         fetchLineup({ source, season, round, matchId, competition }),
