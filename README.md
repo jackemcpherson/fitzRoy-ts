@@ -9,9 +9,12 @@ A port of the [fitzRoy R package](https://github.com/jimmyday12/fitzRoy).
 
 ## Data Sources
 
-- **AFL API** — official AFL/AFLW match results, player stats, fixtures, lineups, ladders, and teams
-- **FootyWire** — scraped match results
-- **AFL Tables** — historical season results (1897-present)
+- **AFL API** — official AFL data covering AFLM (2012+), AFLW (2017+), VFL and VFLW (2021+). Default for matches, stats, squads, lineups, ladders.
+- **FootyWire** — scraped AFLM match results, fixtures, player stats, team stats, awards
+- **AFL Tables** — AFLM historical results (1897+) and player stats (~1965+)
+- **Squiggle** — AFLM match results and ladder
+- **Fryzigg** — advanced AFLM and AFLW player stats
+- **AFL Coaches** — AFLCA coaches votes
 
 ## Install
 
@@ -22,16 +25,25 @@ npm install fitzroy
 ## Library Usage
 
 ```typescript
-import { fetchMatchResults, fetchPlayerStats, fetchLadder } from "fitzroy";
+import { fetchMatches, fetchPlayerStats, fetchLadder, fetchAwards } from "fitzroy";
 
-// Match results for a season
-const matches = await fetchMatchResults({ source: "afl-api", season: 2025, competition: "AFLM" });
+// Matches for a season
+const matches = await fetchMatches({ source: "afl-api", season: 2025, competition: "AFLM" });
+
+// Only completed matches (the old fetchMatchResults behaviour)
+const completed = await fetchMatches({ source: "afl-api", season: 2025, status: "Complete" });
+
+// Upcoming fixtures
+const upcoming = await fetchMatches({ source: "afl-api", season: 2025, status: "Upcoming" });
 
 // Player stats for a specific round
 const stats = await fetchPlayerStats({ source: "afl-api", season: 2025, round: 1 });
 
 // Ladder standings
 const ladder = await fetchLadder({ source: "afl-api", season: 2025 });
+
+// Coleman Medal leaderboard (computed from PlayerStats)
+const coleman = await fetchAwards({ award: "coleman", season: 2025, limit: 10 });
 ```
 
 All functions return `Result<T, Error>` — check `result.success` before accessing `result.data`.
@@ -42,23 +54,39 @@ All functions return `Result<T, Error>` — check `result.success` before access
 # Install globally
 npm install -g fitzroy
 
-# Match results
-fitzroy matches --season 2025 --round 1
+# Six top-level commands, all sharing a uniform "drill in by adding flags" UX:
 
-# Player stats
-fitzroy stats --season 2025 --round 1
+# Matches (subsumes the old `matches` and `fixture` commands)
+fitzroy match --season 2025 --round 1
+fitzroy match --season 2025 --status Upcoming
 
-# Ladder
+# Player or team stats (subsumes the old `team-stats` command)
+fitzroy stats --season 2025 --round 1                 # per-player rows
+fitzroy stats --season 2025 --by team                 # team aggregates
+
+# Ladder standings
 fitzroy ladder --season 2025
 
-# Fixture
-fitzroy fixture --season 2025
+# Team identity (subsumes the old `teams`, `squad`, `lineup` commands)
+fitzroy team                                          # list all teams
+fitzroy team --name Carlton -s 2025                   # team's squad for season
+fitzroy team -s 2025 -r 3                             # all match-day lineups for round 3
+
+# Player biography (replaces `player-details`)
+fitzroy player --team Carlton -s 2025
+
+# Awards (subsumes `coaches-votes`; adds Coleman, Brownlow, etc.)
+fitzroy awards --type brownlow -s 2024
+fitzroy awards --type coleman  -s 2025 --limit 10
+fitzroy awards --type coaches  -s 2024 --round 3
 
 # Output formats
-fitzroy matches --season 2025 --json    # JSON (default when piped)
-fitzroy matches --season 2025 --csv     # CSV with headers
-fitzroy matches --season 2025 --full    # All columns in table view
+fitzroy match --season 2025 --json    # JSON (default when piped)
+fitzroy match --season 2025 --csv     # CSV with headers
+fitzroy match --season 2025 --full    # All columns in table view
 ```
+
+Pass `--competition VFL` (or AFLW, VFLW) to any command to scope to that competition.
 
 Run `fitzroy --help` for all commands and options.
 

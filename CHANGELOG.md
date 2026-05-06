@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-05-06
+
+### Migration guide (1.x → 2.0)
+
+| Old (1.x)                              | New (2.0)                                     |
+|----------------------------------------|-----------------------------------------------|
+| `fetchMatchResults({...})`             | `fetchMatches({..., status: "Complete"})`     |
+| `fetchFixture({...})`                  | `fetchMatches({..., status: "Upcoming"})`     |
+| `fetchCoachesVotes({...})`             | `fetchAwards({award: "coaches", ...})`        |
+| `MatchResult`, `Fixture` types         | `Match` (with nullable score fields)          |
+| `fitzroy matches` / `fitzroy fixture`  | `fitzroy match [--status Complete\|Upcoming]` |
+| `fitzroy teams`                        | `fitzroy team`                                |
+| `fitzroy squad --team X -s S`          | `fitzroy team --name X -s S`                  |
+| `fitzroy lineup -s S -r R`             | `fitzroy team -s S -r R`                      |
+| `fitzroy team-stats -s S`              | `fitzroy stats -s S --by team`                |
+| `fitzroy player-details ...`           | `fitzroy player ...`                          |
+| `fitzroy coaches-votes ...`            | `fitzroy awards --type coaches ...`           |
+
+VFL and VFLW (AFL Reserves men's and women's) are now first-class
+competitions via the AFL API from 2021 onwards. Pass `--competition VFL`
+or `-c VFLW` to any command.
+
 ### Added
 
 - **CLI consolidated to six commands** — every old command is reachable via the new surface:
