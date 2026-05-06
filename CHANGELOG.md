@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING:** `CompetitionCode` widened to `"AFLM" | "AFLW" | "VFL" | "VFLW"`. VFL (AFL Reserves men's) and VFLW are first-class via the AFL API from 2021+
+- **BREAKING:** `MatchResult` interface renamed to `Match`. Score and quarter-score fields are now nullable so that scheduled matches (formerly `Fixture`) and completed matches share one type. Use `match.status === "Upcoming"` to distinguish
+- **BREAKING:** `Fixture` interface removed — replaced by `Match` with nullable score fields
+- **BREAKING:** `MatchQuery` interface (the unused single-match-by-id shape) removed; will be reintroduced as the unified query type for `fetchMatches` in a follow-up
+- **BREAKING:** `AflApiClient.fetchTeams` now takes a `CompetitionCode` (e.g. `"AFLM"`) instead of a raw `teamType` string. The teamType lookup is internal
+- `AwardType` widened to include `"coleman"` and `"coaches"`. `Award` discriminated union extended with `ColemanLeader` and `CoachesVote`. The `coaches` and `coleman` award fetching wires up in a follow-up
+
+### Fixed
+
+- `AflApiClient.resolveCompetitionId` now uses a hardcoded `(CompetitionCode → competitionId)` map instead of a `code` lookup against `/competitions`. Four entries in the AFL API's competition list share `code="AFL"` (Premiership, Preseason, Origin, Indigenous All Stars) so the lookup was load-bearing on response order
+
 ## [1.8.0] - 2026-05-01
 
 ### Added

@@ -10,7 +10,7 @@ import { FootyWireClient } from "../sources/footywire";
 import { SquiggleClient } from "../sources/squiggle";
 import { transformMatchItems } from "../transforms/match-results";
 import { transformSquiggleGamesToResults } from "../transforms/squiggle";
-import type { MatchResult, SeasonRoundQuery } from "../types";
+import type { Match, SeasonRoundQuery } from "../types";
 
 /**
  * Fetch match results for a season (and optionally a specific round).
@@ -23,9 +23,7 @@ import type { MatchResult, SeasonRoundQuery } from "../types";
  * const result = await fetchMatchResults({ source: "afl-api", season: 2025, competition: "AFLM" });
  * ```
  */
-export async function fetchMatchResults(
-  query: SeasonRoundQuery,
-): Promise<Result<MatchResult[], Error>> {
+export async function fetchMatchResults(query: SeasonRoundQuery): Promise<Result<Match[], Error>> {
   const competition = query.competition ?? "AFLM";
 
   switch (query.source) {

@@ -26,8 +26,7 @@ async function resolveTeamId(
   teamName: string,
   competition: CompetitionCode,
 ): Promise<Result<string, Error>> {
-  const teamType = competition === "AFLW" ? "WOMEN" : "MEN";
-  const result = await client.fetchTeams(teamType);
+  const result = await client.fetchTeams(competition);
   if (!result.success) return result;
 
   const normalised = normaliseTeamName(teamName);
@@ -98,8 +97,7 @@ async function fetchFromAflApi(query: PlayerDetailsQuery): Promise<Result<Player
   }
 
   // Fetch all teams — resolve IDs in one call, then batch-fetch squads
-  const teamType = competition === "AFLW" ? "WOMEN" : "MEN";
-  const teamsResult = await client.fetchTeams(teamType);
+  const teamsResult = await client.fetchTeams(competition);
   if (!teamsResult.success) return teamsResult;
 
   const teamEntries = teamsResult.data.map((t) => ({

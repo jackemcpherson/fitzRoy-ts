@@ -9,11 +9,6 @@ import { AFL_SENIOR_TEAMS, normaliseTeamName } from "../lib/team-mapping";
 import { AflApiClient } from "../sources/afl-api";
 import type { CompetitionCode, Squad, SquadPlayer, SquadQuery, Team, TeamQuery } from "../types";
 
-/** Map a CompetitionCode to the API's team type filter string ("MEN" or "WOMEN"). */
-function teamTypeForComp(comp: CompetitionCode): string {
-  return comp === "AFLW" ? "WOMEN" : "MEN";
-}
-
 /** Map raw API team objects to domain Team objects, filtering to senior teams only. */
 function toTeams(
   data: ReadonlyArray<{ id: number; name: string; abbreviation?: string | undefined }>,
@@ -32,17 +27,17 @@ function toTeams(
 /**
  * Fetch team lists.
  *
- * @param query - Optional competition and team type filters.
+ * @param query - Optional competition filter (defaults to AFLM and AFLW combined).
  * @returns Array of teams.
  */
 export async function fetchTeams(query?: TeamQuery): Promise<Result<Team[], Error>> {
   const client = new AflApiClient();
 
-  // When no competition specified, fetch both AFLM and AFLW teams
-  if (!query?.competition && !query?.teamType) {
+  // When no competition specified, fetch both AFLM and AFLW teams (the AFL "senior" comps).
+  if (!query?.competition) {
     const [menResult, womenResult] = await Promise.all([
-      client.fetchTeams("MEN"),
-      client.fetchTeams("WOMEN"),
+      client.fetchTeams("AFLM"),
+      client.fetchTeams("AFLW"),
     ]);
     if (!menResult.success) return menResult;
     if (!womenResult.success) return womenResult;
@@ -50,13 +45,10 @@ export async function fetchTeams(query?: TeamQuery): Promise<Result<Team[], Erro
     return ok([...toTeams(menResult.data, "AFLM"), ...toTeams(womenResult.data, "AFLW")]);
   }
 
-  const competition = query?.competition ?? "AFLM";
-  const teamType = query?.teamType ?? teamTypeForComp(competition);
-
-  const result = await client.fetchTeams(teamType);
+  const result = await client.fetchTeams(query.competition);
   if (!result.success) return result;
 
-  return ok(toTeams(result.data, competition));
+  return ok(toTeams(result.data, query.competition));
 }
 
 /**

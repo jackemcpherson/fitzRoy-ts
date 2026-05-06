@@ -14,25 +14,52 @@ import { FootyWireClient } from "../sources/footywire";
 import { SquiggleClient } from "../sources/squiggle";
 import { inferRoundType, toMatchStatus } from "../transforms/match-results";
 import { transformSquiggleGamesToFixture } from "../transforms/squiggle";
-import type { CompetitionCode, Fixture, SeasonRoundQuery } from "../types";
+import type { CompetitionCode, Match, SeasonRoundQuery } from "../types";
 
-/** Map a raw match item to a Fixture domain object. */
+/** Map a raw match item to a Match domain object (no scores yet — fixture form). */
 function toFixture(
   item: MatchItem,
   season: number,
   fallbackRoundNumber: number,
   competition: CompetitionCode,
-): Fixture {
+): Match {
   return {
     matchId: item.match.matchId,
     season,
     roundNumber: item.round?.roundNumber ?? fallbackRoundNumber,
     roundType: inferRoundType(item.round?.name ?? ""),
+    roundName: item.round?.name ?? null,
     date: parseDate(item.match.utcStartTime) ?? new Date(item.match.utcStartTime),
     venue: normaliseVenueName(item.venue?.name ?? ""),
     homeTeam: normaliseTeamName(item.match.homeTeam.name),
     awayTeam: normaliseTeamName(item.match.awayTeam.name),
+    homeGoals: null,
+    homeBehinds: null,
+    homePoints: null,
+    awayGoals: null,
+    awayBehinds: null,
+    awayPoints: null,
+    margin: null,
+    q1Home: null,
+    q2Home: null,
+    q3Home: null,
+    q4Home: null,
+    q1Away: null,
+    q2Away: null,
+    q3Away: null,
+    q4Away: null,
     status: toMatchStatus(item.match.status),
+    attendance: null,
+    weatherTempCelsius: null,
+    weatherType: null,
+    roundCode: null,
+    venueState: null,
+    venueTimezone: null,
+    homeRushedBehinds: null,
+    awayRushedBehinds: null,
+    homeMinutesInFront: null,
+    awayMinutesInFront: null,
+    source: "afl-api",
     competition,
   };
 }
@@ -43,7 +70,7 @@ function toFixture(
  * @param query - Source, season, optional round, and competition.
  * @returns Array of fixture entries.
  */
-export async function fetchFixture(query: SeasonRoundQuery): Promise<Result<Fixture[], Error>> {
+export async function fetchFixture(query: SeasonRoundQuery): Promise<Result<Match[], Error>> {
   const competition = query.competition ?? "AFLM";
 
   if (query.source === "squiggle") {
@@ -69,7 +96,7 @@ export async function fetchFixture(query: SeasonRoundQuery): Promise<Result<Fixt
   if (query.source !== "afl-api") {
     return err(
       new UnsupportedSourceError(
-        "Fixture data is only available from the AFL API, FootyWire, or Squiggle sources.",
+        "Match data is only available from the AFL API, FootyWire, or Squiggle sources.",
         query.source,
       ),
     );
@@ -97,7 +124,7 @@ export async function fetchFixture(query: SeasonRoundQuery): Promise<Result<Fixt
     client.fetchRoundMatchItems(r.providerId),
   );
 
-  const fixtures: Fixture[] = [];
+  const fixtures: Match[] = [];
   for (let i = 0; i < roundResults.length; i++) {
     const result = roundResults[i];
     if (!result?.success) continue;

@@ -6,7 +6,7 @@ import { parseDate } from "../lib/date-utils";
 import type { SquiggleGame, SquiggleStanding } from "../lib/squiggle-validation";
 import { normaliseTeamName } from "../lib/team-mapping";
 import { normaliseVenueName } from "../lib/venue-mapping";
-import type { Fixture, LadderEntry, MatchResult, MatchStatus } from "../types";
+import type { LadderEntry, Match, MatchStatus } from "../types";
 import { inferRoundType, toRoundCode } from "./match-results";
 
 /** Convert Squiggle completion percentage to MatchStatus. */
@@ -17,14 +17,14 @@ function toMatchStatus(complete: number): MatchStatus {
 }
 
 /**
- * Transform Squiggle games into MatchResult objects.
+ * Transform Squiggle games into Match objects.
  *
  * Only includes games that are complete (complete === 100).
  */
 export function transformSquiggleGamesToResults(
   games: readonly SquiggleGame[],
   season: number,
-): MatchResult[] {
+): Match[] {
   return games
     .filter((g) => g.complete === 100)
     .map((g) => ({
@@ -69,26 +69,57 @@ export function transformSquiggleGamesToResults(
 }
 
 /**
- * Transform Squiggle games into Fixture objects.
+ * Transform Squiggle games into Match objects (any status).
  *
- * Includes all games regardless of completion status.
+ * Score fields are null for upcoming/incomplete matches.
  */
 export function transformSquiggleGamesToFixture(
   games: readonly SquiggleGame[],
   season: number,
-): Fixture[] {
-  return games.map((g) => ({
-    matchId: `SQ_${g.id}`,
-    season,
-    roundNumber: g.round,
-    roundType: inferRoundType(g.roundname),
-    date: parseDate(g.unixtime) ?? new Date(g.unixtime * 1000),
-    venue: normaliseVenueName(g.venue),
-    homeTeam: normaliseTeamName(g.hteam),
-    awayTeam: normaliseTeamName(g.ateam),
-    status: toMatchStatus(g.complete),
-    competition: "AFLM" as const,
-  }));
+): Match[] {
+  return games.map((g) => {
+    const status = toMatchStatus(g.complete);
+    const isComplete = status === "Complete";
+    return {
+      matchId: `SQ_${g.id}`,
+      season,
+      roundNumber: g.round,
+      roundType: inferRoundType(g.roundname),
+      roundName: g.roundname || null,
+      date: parseDate(g.unixtime) ?? new Date(g.unixtime * 1000),
+      venue: normaliseVenueName(g.venue),
+      homeTeam: normaliseTeamName(g.hteam),
+      awayTeam: normaliseTeamName(g.ateam),
+      homeGoals: isComplete ? (g.hgoals ?? 0) : null,
+      homeBehinds: isComplete ? (g.hbehinds ?? 0) : null,
+      homePoints: isComplete ? (g.hscore ?? 0) : null,
+      awayGoals: isComplete ? (g.agoals ?? 0) : null,
+      awayBehinds: isComplete ? (g.abehinds ?? 0) : null,
+      awayPoints: isComplete ? (g.ascore ?? 0) : null,
+      margin: isComplete ? (g.hscore ?? 0) - (g.ascore ?? 0) : null,
+      q1Home: null,
+      q2Home: null,
+      q3Home: null,
+      q4Home: null,
+      q1Away: null,
+      q2Away: null,
+      q3Away: null,
+      q4Away: null,
+      status,
+      attendance: null,
+      weatherTempCelsius: null,
+      weatherType: null,
+      roundCode: toRoundCode(g.roundname),
+      venueState: null,
+      venueTimezone: g.tz || null,
+      homeRushedBehinds: null,
+      awayRushedBehinds: null,
+      homeMinutesInFront: null,
+      awayMinutesInFront: null,
+      source: "squiggle" as const,
+      competition: "AFLM" as const,
+    };
+  });
 }
 
 /**

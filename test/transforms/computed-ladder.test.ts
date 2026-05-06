@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { computeLadder } from "../../src/transforms/computed-ladder";
-import type { MatchResult } from "../../src/types";
+import type { Match } from "../../src/types";
 
 function makeMatch(
   homeTeam: string,
@@ -8,7 +8,7 @@ function makeMatch(
   homePoints: number,
   awayPoints: number,
   roundNumber: number,
-): MatchResult {
+): Match {
   return {
     matchId: `test_${roundNumber}_${homeTeam}_${awayTeam}`,
     season: 2024,
@@ -48,7 +48,7 @@ function makeMatch(
 }
 
 describe("computeLadder", () => {
-  const results: MatchResult[] = [
+  const results: Match[] = [
     makeMatch("Sydney", "Melbourne", 86, 64, 1),
     makeMatch("Carlton", "Richmond", 86, 81, 1),
     makeMatch("Geelong", "St Kilda", 76, 68, 1),

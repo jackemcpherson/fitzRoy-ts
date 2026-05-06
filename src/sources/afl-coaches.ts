@@ -237,6 +237,7 @@ export function parseCoachesVotesHtml(
     }
 
     votes.push({
+      type: "coaches",
       season,
       round: roundNumber,
       homeTeam,

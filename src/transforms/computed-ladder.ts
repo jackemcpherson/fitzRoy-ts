@@ -1,11 +1,11 @@
 /**
  * Compute ladder standings from match results.
  *
- * Pure function — accumulate W/L/D/points from MatchResult[],
+ * Pure function — accumulate W/L/D/points from Match[],
  * sort by premiership points then percentage.
  */
 
-import type { LadderEntry, MatchResult } from "../types";
+import type { LadderEntry, Match } from "../types";
 
 interface TeamAccumulator {
   played: number;
@@ -24,7 +24,7 @@ interface TeamAccumulator {
  *   home-and-away results up to this round are included.
  * @returns Sorted ladder entries.
  */
-export function computeLadder(results: readonly MatchResult[], upToRound?: number): LadderEntry[] {
+export function computeLadder(results: readonly Match[], upToRound?: number): LadderEntry[] {
   const teams = new Map<string, TeamAccumulator>();
 
   const filtered =
@@ -34,21 +34,25 @@ export function computeLadder(results: readonly MatchResult[], upToRound?: numbe
 
   for (const match of filtered) {
     if (match.status !== "Complete") continue;
+    if (match.homePoints === null || match.awayPoints === null) continue;
+
+    const homePoints = match.homePoints;
+    const awayPoints = match.awayPoints;
 
     const home = getOrCreate(teams, match.homeTeam);
     const away = getOrCreate(teams, match.awayTeam);
 
     home.played++;
     away.played++;
-    home.pointsFor += match.homePoints;
-    home.pointsAgainst += match.awayPoints;
-    away.pointsFor += match.awayPoints;
-    away.pointsAgainst += match.homePoints;
+    home.pointsFor += homePoints;
+    home.pointsAgainst += awayPoints;
+    away.pointsFor += awayPoints;
+    away.pointsAgainst += homePoints;
 
-    if (match.homePoints > match.awayPoints) {
+    if (homePoints > awayPoints) {
       home.wins++;
       away.losses++;
-    } else if (match.awayPoints > match.homePoints) {
+    } else if (awayPoints > homePoints) {
       away.wins++;
       home.losses++;
     } else {

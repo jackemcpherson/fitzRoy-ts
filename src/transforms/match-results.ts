@@ -1,5 +1,5 @@
 /**
- * Pure transforms for flattening raw AFL API match items into typed MatchResult objects.
+ * Pure transforms for flattening raw AFL API match items into typed Match objects.
  */
 
 import { parseDate } from "../lib/date-utils";
@@ -9,7 +9,7 @@ import { normaliseVenueName } from "../lib/venue-mapping";
 import type {
   CompetitionCode,
   DataSource,
-  MatchResult,
+  Match,
   MatchStatus,
   QuarterScore,
   RoundType,
@@ -105,19 +105,19 @@ function findPeriod(
 }
 
 /**
- * Transform raw AFL API match items into typed MatchResult objects.
+ * Transform raw AFL API match items into typed Match objects.
  *
  * @param items - Raw match items from the /cfs/ endpoint.
  * @param season - The season year for these matches.
  * @param competition - The competition code.
- * @returns Flattened, normalised MatchResult array.
+ * @returns Flattened, normalised Match array.
  */
 export function transformMatchItems(
   items: readonly MatchItem[],
   season: number,
   competition: CompetitionCode,
   source: DataSource = "afl-api",
-): MatchResult[] {
+): Match[] {
   return items.map((item) => {
     const homeScore = item.score?.homeTeamScore;
     const awayScore = item.score?.awayTeamScore;

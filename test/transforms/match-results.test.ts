@@ -49,7 +49,7 @@ function first<T>(arr: T[]): T {
 }
 
 describe("transformMatchItems", () => {
-  it("transforms a match item into a MatchResult", () => {
+  it("transforms a match item into a Match", () => {
     const results = transformMatchItems([makeMatchItem()], 2025, "AFLM");
 
     expect(results).toHaveLength(1);

@@ -17,14 +17,7 @@ import {
   parseBasicStats,
 } from "../transforms/footywire-player-stats";
 import { finalsRoundNumber, inferRoundType, toRoundCode } from "../transforms/match-results";
-import type {
-  Fixture,
-  MatchResult,
-  PlayerDetails,
-  PlayerStats,
-  RoundType,
-  TeamStatsEntry,
-} from "../types";
+import type { Match, PlayerDetails, PlayerStats, RoundType, TeamStatsEntry } from "../types";
 
 const FOOTYWIRE_BASE = "https://www.footywire.com/afl/footy";
 
@@ -89,7 +82,7 @@ export class FootyWireClient {
    * @param year - The season year.
    * @returns Array of match results.
    */
-  async fetchSeasonResults(year: number): Promise<Result<MatchResult[], ScrapeError>> {
+  async fetchSeasonResults(year: number): Promise<Result<Match[], ScrapeError>> {
     const url = `${FOOTYWIRE_BASE}/ft_match_list?year=${year}`;
     const htmlResult = await this.fetchHtml(url);
 
@@ -249,7 +242,7 @@ export class FootyWireClient {
    * @param year - The season year.
    * @returns Array of fixture entries.
    */
-  async fetchSeasonFixture(year: number): Promise<Result<Fixture[], ScrapeError>> {
+  async fetchSeasonFixture(year: number): Promise<Result<Match[], ScrapeError>> {
     const url = `${FOOTYWIRE_BASE}/ft_match_list?year=${year}`;
     const htmlResult = await this.fetchHtml(url);
     if (!htmlResult.success) return htmlResult;
@@ -312,15 +305,15 @@ export class FootyWireClient {
 }
 
 /**
- * Parse FootyWire match list HTML into MatchResult objects.
+ * Parse FootyWire match list HTML into Match objects.
  *
  * @param html - Raw HTML from the FootyWire match list page.
  * @param year - The season year used for date parsing and metadata.
  * @returns Array of match results extracted from the page.
  */
-export function parseMatchList(html: string, year: number): MatchResult[] {
+export function parseMatchList(html: string, year: number): Match[] {
   const $ = cheerio.load(html);
-  const results: MatchResult[] = [];
+  const results: Match[] = [];
   let currentRound = 0;
   let lastHARound = 0;
   let currentRoundType: RoundType = "HomeAndAway";
@@ -431,14 +424,14 @@ export function parseMatchList(html: string, year: number): MatchResult[] {
 }
 
 /**
- * Parse FootyWire match list HTML into Fixture objects.
+ * Parse FootyWire match list HTML into Match objects.
  *
- * Similar to parseMatchList but returns Fixture type (no scores required).
+ * Similar to parseMatchList but returns Match type (no scores required).
  * Includes both played and upcoming matches.
  */
-export function parseFixtureList(html: string, year: number): Fixture[] {
+export function parseFixtureList(html: string, year: number): Match[] {
   const $ = cheerio.load(html);
-  const fixtures: Fixture[] = [];
+  const fixtures: Match[] = [];
   let currentRound = 0;
   let lastHARound = 0;
   let currentRoundType: RoundType = "HomeAndAway";
@@ -488,11 +481,38 @@ export function parseFixtureList(html: string, year: number): Fixture[] {
       season: year,
       roundNumber: currentRound,
       roundType: currentRoundType,
+      roundName: null,
       date,
       venue: normaliseVenueName(venue),
       homeTeam,
       awayTeam,
+      homeGoals: null,
+      homeBehinds: null,
+      homePoints: null,
+      awayGoals: null,
+      awayBehinds: null,
+      awayPoints: null,
+      margin: null,
+      q1Home: null,
+      q2Home: null,
+      q3Home: null,
+      q4Home: null,
+      q1Away: null,
+      q2Away: null,
+      q3Away: null,
+      q4Away: null,
       status: hasScore ? "Complete" : "Upcoming",
+      attendance: null,
+      weatherTempCelsius: null,
+      weatherType: null,
+      roundCode: null,
+      venueState: null,
+      venueTimezone: null,
+      homeRushedBehinds: null,
+      awayRushedBehinds: null,
+      homeMinutesInFront: null,
+      awayMinutesInFront: null,
+      source: "footywire",
       competition: "AFLM",
     });
   });
