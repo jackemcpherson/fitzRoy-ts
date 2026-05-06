@@ -31,6 +31,9 @@ or `-c VFLW` to any command.
 
 ### Added
 
+- **Source-adapter architecture** — every public API function (`fetchMatches`, `fetchPlayerStats`, `fetchLadder`, `fetchLineup`, `fetchSquad`, `fetchTeamStats`) is now a 3-line registry lookup that delegates to a per-source-per-capability adapter. Adapters live in `src/sources/adapters/` (one file per source) and declare an inline `coverage: Map<CompetitionCode, SeasonRange>` so the public API can validate requests *before* dispatching. Adding a new source becomes "implement the relevant capability interfaces, register in `adapters/index.ts`" with no changes to any `src/api/*` file
+- `UnsupportedCompetitionError` and `OutOfRangeError` — structured errors with optional `suggestion` field. The CLI prints the suggestion on its own indented "Try:" line; library callers can read `error.suggestion` programmatically. Per ADR-0001, the public API never silently falls back to another source, but it always names a sensible alternative
+- `MatchSource`, `PlayerStatsSource`, `SquadSource`, `LineupSource`, `LadderSource`, `TeamStatsSource` — the per-capability adapter interfaces, plus the `checkCoverage` helper and `SeasonRange` / `CoverageMap` types
 - **CLI consolidated to six commands** — every old command is reachable via the new surface:
   - `team` — list teams; with `-s` returns the season's squad; with `-s -r` returns match-day lineups (subsumes `teams`, `squad`, `lineup`)
   - `player` — biographical lookup (replaces `player-details`)
