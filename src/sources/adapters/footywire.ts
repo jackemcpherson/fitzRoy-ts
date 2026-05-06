@@ -5,6 +5,7 @@
  * its own class so per-capability coverage stays accurate.
  */
 
+import { batchedMap } from "../../lib/concurrency";
 import { parseDate } from "../../lib/date-utils";
 import { ok, type Result } from "../../lib/result";
 import { normaliseTeamName } from "../../lib/team-mapping";
@@ -70,25 +71,18 @@ export class FootyWirePlayerStatsSource implements PlayerStatsSource {
 
     if (entries.length === 0) return ok([]);
 
+    const results = await batchedMap(
+      entries,
+      (e) => this.client.fetchMatchPlayerStats(e.matchId, query.season, e.roundNumber),
+      { batchSize: 5, delayMs: 500 },
+    );
+
     const allStats: PlayerStats[] = [];
-    const batchSize = 5;
-    for (let i = 0; i < entries.length; i += batchSize) {
-      const batch = entries.slice(i, i + batchSize);
-      const results = await Promise.all(
-        batch.map((e) => this.client.fetchMatchPlayerStats(e.matchId, query.season, e.roundNumber)),
-      );
-
-      for (const result of results) {
-        if (result.success) {
-          allStats.push(...result.data);
-        }
-      }
-
-      if (i + batchSize < entries.length) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
+    for (const result of results) {
+      if (result.success) {
+        allStats.push(...result.data);
       }
     }
-
     return ok(allStats);
   }
 }
