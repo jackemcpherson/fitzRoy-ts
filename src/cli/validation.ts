@@ -7,7 +7,13 @@
 
 import { normaliseTeamName } from "../lib/team-mapping";
 import type { MatchItem } from "../lib/validation";
-import type { CompetitionCode, DataSource, TeamStatsSummaryType } from "../types";
+import type {
+  AwardType,
+  CompetitionCode,
+  DataSource,
+  MatchStatus,
+  TeamStatsSummaryType,
+} from "../types";
 
 const VALID_SOURCES: readonly DataSource[] = [
   "afl-api",
@@ -16,10 +22,26 @@ const VALID_SOURCES: readonly DataSource[] = [
   "squiggle",
   "fryzigg",
 ];
-const VALID_COMPETITIONS: readonly CompetitionCode[] = ["AFLM", "AFLW"];
+const VALID_COMPETITIONS: readonly CompetitionCode[] = ["AFLM", "AFLW", "VFL", "VFLW"];
 const VALID_FORMATS = ["table", "json", "csv"] as const;
 type OutputFormat = (typeof VALID_FORMATS)[number];
 const VALID_SUMMARIES = ["totals", "averages"] as const;
+const VALID_AWARD_TYPES: readonly AwardType[] = [
+  "brownlow",
+  "all-australian",
+  "rising-star",
+  "coleman",
+  "coaches",
+];
+const VALID_MATCH_STATUSES: readonly MatchStatus[] = [
+  "Upcoming",
+  "Live",
+  "Complete",
+  "Postponed",
+  "Cancelled",
+];
+const VALID_GROUP_BY = ["player", "team"] as const;
+export type GroupBy = (typeof VALID_GROUP_BY)[number];
 
 /** Validate and parse a season year string. */
 export function validateSeason(raw: string): number {
@@ -63,7 +85,7 @@ export function validateFormat(raw: string | undefined): OutputFormat | undefine
 /** Validate a competition code string (case-insensitive). */
 export function validateCompetition(raw: string): CompetitionCode {
   const upper = raw.toUpperCase();
-  if (upper === "AFLM" || upper === "AFLW") {
+  if (upper === "AFLM" || upper === "AFLW" || upper === "VFL" || upper === "VFLW") {
     return upper;
   }
   throw new Error(
@@ -94,6 +116,37 @@ export function validateSummary(raw: string): TeamStatsSummaryType {
   throw new Error(
     `Invalid summary type: "${raw}" — valid values are: ${VALID_SUMMARIES.join(", ")}`,
   );
+}
+
+/** Validate an award type string (case-insensitive). */
+export function validateAwardType(raw: string): AwardType {
+  const lower = raw.toLowerCase();
+  if (VALID_AWARD_TYPES.includes(lower as AwardType)) {
+    return lower as AwardType;
+  }
+  throw new Error(
+    `Invalid award type: "${raw}" — valid values are: ${VALID_AWARD_TYPES.join(", ")}`,
+  );
+}
+
+/** Validate a match status string (case-insensitive). */
+export function validateMatchStatus(raw: string): MatchStatus {
+  const lower = raw.toLowerCase();
+  for (const valid of VALID_MATCH_STATUSES) {
+    if (valid.toLowerCase() === lower) return valid;
+  }
+  throw new Error(
+    `Invalid status: "${raw}" — valid values are: ${VALID_MATCH_STATUSES.join(", ")}`,
+  );
+}
+
+/** Validate a --by grouping flag. */
+export function validateGroupBy(raw: string): GroupBy {
+  const lower = raw.toLowerCase();
+  if (VALID_GROUP_BY.includes(lower as GroupBy)) {
+    return lower as GroupBy;
+  }
+  throw new Error(`Invalid --by value: "${raw}" — valid values are: ${VALID_GROUP_BY.join(", ")}`);
 }
 
 /**
