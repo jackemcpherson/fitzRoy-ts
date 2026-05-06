@@ -7,12 +7,13 @@
  */
 
 import { ok, type Result } from "../../lib/result";
-import type { Match, MatchQuery } from "../../types";
+import type { Match, MatchQuery, PlayerStats, PlayerStatsQuery } from "../../types";
 import { AflTablesClient } from "../afl-tables";
-import type { MatchSource } from "./capabilities";
+import type { MatchSource, PlayerStatsSource } from "./capabilities";
 import type { CoverageMap } from "./coverage";
 
 const AFL_TABLES_MATCH_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 1897 }]]);
+const AFL_TABLES_PLAYER_STATS_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 1965 }]]);
 
 /** AFL Tables as a MatchSource (AFLM only, 1897+). */
 export class AflTablesMatchSource implements MatchSource {
@@ -27,5 +28,22 @@ export class AflTablesMatchSource implements MatchSource {
     const filtered =
       query.round != null ? result.data.filter((m) => m.roundNumber === query.round) : result.data;
     return ok(filtered);
+  }
+}
+
+/** AFL Tables as a PlayerStatsSource (AFLM only, ~1965+). */
+export class AflTablesPlayerStatsSource implements PlayerStatsSource {
+  readonly id = "afl-tables" as const;
+  readonly coverage = AFL_TABLES_PLAYER_STATS_COVERAGE;
+
+  constructor(private readonly client: AflTablesClient = new AflTablesClient()) {}
+
+  async fetchPlayerStats(query: PlayerStatsQuery): Promise<Result<PlayerStats[], Error>> {
+    const result = await this.client.fetchSeasonPlayerStats(query.season);
+    if (!result.success) return result;
+    if (query.round != null) {
+      return ok(result.data.filter((s) => s.roundNumber === query.round));
+    }
+    return result;
   }
 }

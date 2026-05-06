@@ -13,10 +13,11 @@
  * this module *is* what gets imported.
  */
 
-import { AflApiMatchSource } from "./afl-api";
-import { AflTablesMatchSource } from "./afl-tables";
-import { FootyWireMatchSource } from "./footywire";
-import { registerMatchSource } from "./registry";
+import { AflApiMatchSource, AflApiPlayerStatsSource } from "./afl-api";
+import { AflTablesMatchSource, AflTablesPlayerStatsSource } from "./afl-tables";
+import { FootyWireMatchSource, FootyWirePlayerStatsSource } from "./footywire";
+import { FryziggPlayerStatsSource } from "./fryzigg";
+import { registerMatchSource, registerPlayerStatsSource } from "./registry";
 import { SquiggleMatchSource } from "./squiggle";
 
 // ---------------------------------------------------------------------------
@@ -26,6 +27,14 @@ registerMatchSource(new AflApiMatchSource());
 registerMatchSource(new FootyWireMatchSource());
 registerMatchSource(new AflTablesMatchSource());
 registerMatchSource(new SquiggleMatchSource());
+
+// ---------------------------------------------------------------------------
+// PlayerStats
+// ---------------------------------------------------------------------------
+registerPlayerStatsSource(new AflApiPlayerStatsSource());
+registerPlayerStatsSource(new FootyWirePlayerStatsSource());
+registerPlayerStatsSource(new AflTablesPlayerStatsSource());
+registerPlayerStatsSource(new FryziggPlayerStatsSource());
 
 // ---------------------------------------------------------------------------
 // Re-exports — public surface for src/api/*

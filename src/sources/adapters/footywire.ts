@@ -6,12 +6,13 @@
  */
 
 import { ok, type Result } from "../../lib/result";
-import type { Match, MatchQuery } from "../../types";
+import type { Match, MatchQuery, PlayerStats, PlayerStatsQuery } from "../../types";
 import { FootyWireClient } from "../footywire";
-import type { MatchSource } from "./capabilities";
+import type { MatchSource, PlayerStatsSource } from "./capabilities";
 import type { CoverageMap } from "./coverage";
 
 const FOOTYWIRE_MATCH_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 2010 }]]);
+const FOOTYWIRE_PLAYER_STATS_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 2010 }]]);
 
 /** FootyWire as a MatchSource (AFLM only, ~2010+). */
 export class FootyWireMatchSource implements MatchSource {
@@ -29,5 +30,51 @@ export class FootyWireMatchSource implements MatchSource {
     const filtered =
       query.round != null ? result.data.filter((m) => m.roundNumber === query.round) : result.data;
     return ok(filtered);
+  }
+}
+
+/**
+ * FootyWire as a PlayerStatsSource (AFLM only, ~2010+).
+ *
+ * Scrapes per-match stats sequentially in batches of 5 with a delay
+ * between batches to be respectful to the FootyWire site.
+ */
+export class FootyWirePlayerStatsSource implements PlayerStatsSource {
+  readonly id = "footywire" as const;
+  readonly coverage = FOOTYWIRE_PLAYER_STATS_COVERAGE;
+
+  constructor(private readonly client: FootyWireClient = new FootyWireClient()) {}
+
+  async fetchPlayerStats(query: PlayerStatsQuery): Promise<Result<PlayerStats[], Error>> {
+    const idsResult = await this.client.fetchSeasonMatchIds(query.season);
+    if (!idsResult.success) return idsResult;
+
+    const entries =
+      query.round != null
+        ? idsResult.data.filter((e) => e.roundNumber === query.round)
+        : idsResult.data;
+
+    if (entries.length === 0) return ok([]);
+
+    const allStats: PlayerStats[] = [];
+    const batchSize = 5;
+    for (let i = 0; i < entries.length; i += batchSize) {
+      const batch = entries.slice(i, i + batchSize);
+      const results = await Promise.all(
+        batch.map((e) => this.client.fetchMatchPlayerStats(e.matchId, query.season, e.roundNumber)),
+      );
+
+      for (const result of results) {
+        if (result.success) {
+          allStats.push(...result.data);
+        }
+      }
+
+      if (i + batchSize < entries.length) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+    }
+
+    return ok(allStats);
   }
 }
