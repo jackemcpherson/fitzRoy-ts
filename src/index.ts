@@ -6,7 +6,6 @@
  */
 
 export { fetchAwards } from "./api/awards";
-export { fetchCoachesVotes } from "./api/coaches-votes";
 export { fetchLadder } from "./api/ladder";
 export { fetchLineup } from "./api/lineup";
 export { fetchMatches } from "./api/match";

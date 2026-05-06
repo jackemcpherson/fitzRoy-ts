@@ -431,6 +431,14 @@ export type Award =
 export interface AwardQuery {
   readonly award: AwardType;
   readonly season: number;
+  /** Coaches votes are competition-scoped; defaults to AFLM. Other awards ignore. */
+  readonly competition?: CompetitionCode | undefined;
+  /** Coaches votes only — narrow to a specific round. */
+  readonly round?: number | undefined;
+  /** Coaches votes only — narrow to matches involving a team. */
+  readonly team?: string | undefined;
+  /** Coleman only — limit to top N goal-kickers (default: all players who scored). */
+  readonly limit?: number | undefined;
 }
 
 // ---------------------------------------------------------------------------

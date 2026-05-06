@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `fetchMatches(query: MatchQuery)` — single library function for matches in any temporal scope. Filters by `season`, `round`, `matchId`, `team`, and `status`. Subsumes the old `fetchMatchResults` and `fetchFixture`
 - `MatchQuery` interface as the unified shape for all match queries
 - `AflApiClient.fetchSeasonMatchItems` accepts an `{ includeUpcoming?: boolean }` option (default: false, preserves the existing CONCLUDED-only filter for callers that want it)
+- `fetchAwards({ award: "coleman", season, [limit] })` — Coleman Medal leaderboard, computed from PlayerStats by summing goals per player and ranking
+- `fetchAwards({ award: "coaches", season, [round, team, competition] })` — AFLCA coaches votes, folded in from the deprecated `fetchCoachesVotes`
+- `rankColemanFromStats` exported as a pure helper for testing and downstream composition
+- `AwardQuery` interface widened with optional `competition`, `round`, `team`, `limit` fields (used per-award-type)
 
 ### Changed
 
@@ -20,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **BREAKING:** `Fixture` interface removed — replaced by `Match` with nullable score fields
 - **BREAKING:** `fetchMatchResults` removed. Use `fetchMatches({ ..., status: "Complete" })` for the same behaviour
 - **BREAKING:** `fetchFixture` removed. Use `fetchMatches({ ..., status: "Upcoming" })` for the same behaviour
+- **BREAKING:** `fetchCoachesVotes` removed. Use `fetchAwards({ award: "coaches", season, ... })` for the same behaviour
 - **BREAKING:** `AflApiClient.fetchTeams` now takes a `CompetitionCode` (e.g. `"AFLM"`) instead of a raw `teamType` string. The teamType lookup is internal
 - `AwardType` widened to include `"coleman"` and `"coaches"`. `Award` discriminated union extended with `ColemanLeader` and `CoachesVote`. The `coaches` and `coleman` award fetching wires up in a follow-up
 - `transformMatchItems` now produces null score fields for matches without score data (upcoming matches), instead of defaulting to 0

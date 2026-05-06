@@ -1,5 +1,5 @@
 import { defineCommand } from "citty";
-import { fetchCoachesVotes } from "../../index";
+import { fetchAwards } from "../../index";
 import { withErrorBoundary } from "../error-boundary";
 import { COMPETITION_FLAG, OUTPUT_FLAGS, ROUND_FLAG, SEASON_FLAG, TEAM_FLAG } from "../flags";
 import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
@@ -38,7 +38,7 @@ export const coachesVotesCommand = defineCommand({
     const team = args.team ? await resolveTeamNameOrPrompt(args.team) : undefined;
 
     const result = await withSpinner("Fetching coaches votes…", () =>
-      fetchCoachesVotes({ season, round, competition, team }),
+      fetchAwards({ award: "coaches", season, round, competition, team }),
     );
 
     if (!result.success) {
