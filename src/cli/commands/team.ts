@@ -21,7 +21,7 @@ import {
   resolveFormat,
   type TableColumnConfig,
 } from "../formatters/index";
-import { resolveMatchOrPrompt, resolveTeamOrPrompt } from "../resolvers";
+import { resolveMatchOrPrompt, resolveTeamNameOrPrompt } from "../resolvers";
 import { showSummary, withSpinner } from "../ui";
 import {
   validateCompetition,
@@ -145,12 +145,10 @@ export const teamCommand = defineCommand({
     const teamName = args.name || args.team;
     if (season != null && teamName) {
       // Squad mode
-      const teamsResult = await withSpinner("Resolving team…", () => fetchTeams({ competition }));
-      if (!teamsResult.success) throw teamsResult.error;
-      const teamId = await resolveTeamOrPrompt(teamName, teamsResult.data);
+      const team = await resolveTeamNameOrPrompt(teamName);
 
       const result = await withSpinner("Fetching squad…", () =>
-        fetchSquad({ teamId, season, competition }),
+        fetchSquad({ team, season, competition }),
       );
       if (!result.success) throw result.error;
 

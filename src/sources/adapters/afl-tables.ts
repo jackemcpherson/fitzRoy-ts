@@ -6,6 +6,7 @@
  * their own coverage in their own classes.
  */
 
+import { parseDate } from "../../lib/date-utils";
 import { ok, type Result } from "../../lib/result";
 import { normaliseTeamName } from "../../lib/team-mapping";
 import { computeLadder } from "../../transforms/computed-ladder";
@@ -16,17 +17,27 @@ import type {
   MatchQuery,
   PlayerStats,
   PlayerStatsQuery,
+  Squad,
+  SquadPlayer,
+  SquadQuery,
   TeamStatsEntry,
   TeamStatsQuery,
 } from "../../types";
 import { AflTablesClient } from "../afl-tables";
-import type { LadderSource, MatchSource, PlayerStatsSource, TeamStatsSource } from "./capabilities";
+import type {
+  LadderSource,
+  MatchSource,
+  PlayerStatsSource,
+  SquadSource,
+  TeamStatsSource,
+} from "./capabilities";
 import type { CoverageMap } from "./coverage";
 
 const AFL_TABLES_MATCH_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 1897 }]]);
 const AFL_TABLES_PLAYER_STATS_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 1965 }]]);
 const AFL_TABLES_TEAM_STATS_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 1965 }]]);
 const AFL_TABLES_LADDER_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 1897 }]]);
+const AFL_TABLES_SQUAD_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 1897 }]]);
 
 /** AFL Tables as a MatchSource (AFLM only, 1897+). */
 export class AflTablesMatchSource implements MatchSource {
@@ -107,6 +118,53 @@ export class AflTablesTeamStatsSource implements TeamStatsSource {
       );
     }
     return ok(enriched);
+  }
+}
+
+/**
+ * AFL Tables as a SquadSource — scrapes the team page for the all-time
+ * roster. AFL Tables doesn't publish per-season squads, so the `season`
+ * field is carried through but the player list is the all-time roster
+ * for the team. This matches the existing `fetchPlayerList` semantics.
+ */
+export class AflTablesSquadSource implements SquadSource {
+  readonly id = "afl-tables" as const;
+  readonly coverage = AFL_TABLES_SQUAD_COVERAGE;
+
+  constructor(private readonly client: AflTablesClient = new AflTablesClient()) {}
+
+  async fetchSquad(query: SquadQuery): Promise<Result<Squad, Error>> {
+    const competition = query.competition ?? "AFLM";
+    const teamName = normaliseTeamName(query.team);
+    const result = await this.client.fetchPlayerList(teamName);
+    if (!result.success) return result;
+
+    const players: SquadPlayer[] = result.data.map((p) => ({
+      playerId: p.playerId,
+      givenName: p.givenName,
+      surname: p.surname,
+      displayName: p.displayName,
+      jumperNumber: p.jumperNumber,
+      position: p.position,
+      dateOfBirth: p.dateOfBirth ? parseDate(p.dateOfBirth) : null,
+      heightCm: p.heightCm,
+      weightKg: p.weightKg,
+      draftYear: p.draftYear,
+      draftPosition: p.draftPosition,
+      draftType: p.draftType,
+      debutYear: p.debutYear,
+      recruitedFrom: p.recruitedFrom,
+      gamesPlayed: p.gamesPlayed,
+      goals: p.goals,
+    }));
+
+    return ok({
+      teamId: teamName,
+      teamName,
+      season: query.season,
+      players,
+      competition,
+    });
   }
 }
 

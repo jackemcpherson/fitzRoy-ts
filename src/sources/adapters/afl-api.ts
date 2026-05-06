@@ -164,12 +164,10 @@ export class AflApiSquadSource implements SquadSource {
     const seasonResult = await this.client.resolveCompSeason(competition, query.season);
     if (!seasonResult.success) return seasonResult;
 
-    const teamId = Number.parseInt(query.teamId, 10);
-    if (Number.isNaN(teamId)) {
-      return err(new ValidationError(`Invalid team ID: ${query.teamId}`));
-    }
+    const teamIdResult = await this.resolveTeamId(query.team, competition);
+    if (!teamIdResult.success) return teamIdResult;
 
-    const squadResult = await this.client.fetchSquad(teamId, seasonResult.data);
+    const squadResult = await this.client.fetchSquad(teamIdResult.data, seasonResult.data);
     if (!squadResult.success) return squadResult;
 
     const players: SquadPlayer[] = squadResult.data.squad.players.map((p) => ({
@@ -192,12 +190,28 @@ export class AflApiSquadSource implements SquadSource {
     }));
 
     return ok({
-      teamId: query.teamId,
-      teamName: normaliseTeamName(squadResult.data.squad.team?.name ?? query.teamId),
+      teamId: String(teamIdResult.data),
+      teamName: normaliseTeamName(squadResult.data.squad.team?.name ?? query.team),
       season: query.season,
       players,
       competition,
     });
+  }
+
+  /** Resolve a canonical team name to the AFL API's numeric team ID. */
+  private async resolveTeamId(
+    teamName: string,
+    competition: "AFLM" | "AFLW" | "VFL" | "VFLW",
+  ): Promise<Result<number, Error>> {
+    const teamsResult = await this.client.fetchTeams(competition);
+    if (!teamsResult.success) return teamsResult;
+
+    const normalised = normaliseTeamName(teamName);
+    const match = teamsResult.data.find((t) => normaliseTeamName(t.name) === normalised);
+    if (!match) {
+      return err(new ValidationError(`Team not found in ${competition}: ${teamName}`));
+    }
+    return ok(match.id);
   }
 }
 

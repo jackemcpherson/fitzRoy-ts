@@ -53,14 +53,17 @@ export async function fetchTeams(query?: TeamQuery): Promise<Result<Team[], Erro
 /**
  * Fetch a team's squad roster for a season.
  *
- * SquadQuery has no `source` field (only AFL API supports squad data
- * today), so we route to the registry's default source.
+ * `query.team` is the canonical team name; adapters handle their own
+ * translation (AFL API resolves it to a numeric ID; scrapers use the
+ * name directly). When `query.source` is omitted, routes to the default
+ * source for the squad capability.
  */
 export async function fetchSquad(query: SquadQuery): Promise<Result<Squad, Error>> {
+  const source = query.source ?? squadRegistry.defaultSource;
   const adapterR = dispatch(squadRegistry, "squad", {
-    source: squadRegistry.defaultSource,
+    source,
     competition: query.competition,
     season: query.season,
   });
-  return Result.flatMapAsync(adapterR, (a) => a.fetchSquad(query));
+  return Result.flatMapAsync(adapterR, (a) => a.fetchSquad({ ...query, source }));
 }

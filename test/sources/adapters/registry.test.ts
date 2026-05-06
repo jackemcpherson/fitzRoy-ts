@@ -54,8 +54,8 @@ describe("source-adapter registry", () => {
   });
 
   describe("Squad registrations", () => {
-    it("registers afl-api only", () => {
-      expect(squadRegistry.list()).toEqual(["afl-api"]);
+    it("registers afl-api, footywire, and afl-tables", () => {
+      expect([...squadRegistry.list()].sort()).toEqual(["afl-api", "afl-tables", "footywire"]);
     });
   });
 

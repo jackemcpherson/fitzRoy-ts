@@ -309,6 +309,14 @@ export interface SquadPlayer {
   readonly draftType: string | null;
   readonly debutYear: number | null;
   readonly recruitedFrom: string | null;
+  /**
+   * Career games played. Populated by FootyWire and AFL Tables (their
+   * team-list pages report career counts). `null` for `afl-api` — the
+   * squad endpoint doesn't carry career stats.
+   */
+  readonly gamesPlayed?: number | null;
+  /** Career goals. Populated alongside `gamesPlayed`; same source caveat. */
+  readonly goals?: number | null;
 }
 
 /** A team's squad for a given season. */
@@ -529,8 +537,10 @@ export interface TeamQuery {
 
 /** Query for a team's squad. */
 export interface SquadQuery {
-  readonly teamId: string;
+  /** Canonical team name (e.g. "Carlton"). Adapters handle their own translation. */
+  readonly team: string;
   readonly season: number;
+  readonly source?: DataSource | undefined;
   readonly competition?: CompetitionCode | undefined;
 }
 

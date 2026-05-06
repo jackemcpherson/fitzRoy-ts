@@ -79,10 +79,10 @@ export function buildLadderQuery(
 }
 
 export function buildSquadQuery(
-  args: Pick<ValidatedCommonArgs, "season" | "competition"> & { teamId: string },
+  args: Pick<ValidatedCommonArgs, "season" | "competition"> & { team: string },
 ): SquadQuery {
   return {
-    teamId: args.teamId,
+    team: args.team,
     season: args.season,
     competition: args.competition,
   };

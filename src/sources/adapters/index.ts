@@ -24,11 +24,13 @@ import {
   AflTablesLadderSource,
   AflTablesMatchSource,
   AflTablesPlayerStatsSource,
+  AflTablesSquadSource,
   AflTablesTeamStatsSource,
 } from "./afl-tables";
 import {
   FootyWireMatchSource,
   FootyWirePlayerStatsSource,
+  FootyWireSquadSource,
   FootyWireTeamStatsSource,
 } from "./footywire";
 import { FryziggPlayerStatsSource } from "./fryzigg";
@@ -65,9 +67,15 @@ teamStatsRegistry.register(new FootyWireTeamStatsSource());
 teamStatsRegistry.register(new AflTablesTeamStatsSource());
 
 // ---------------------------------------------------------------------------
-// Squad / Lineup (AFL API only)
+// Squad — AFL API (all comps), FootyWire and AFL Tables (AFLM only).
 // ---------------------------------------------------------------------------
 squadRegistry.register(new AflApiSquadSource());
+squadRegistry.register(new FootyWireSquadSource());
+squadRegistry.register(new AflTablesSquadSource());
+
+// ---------------------------------------------------------------------------
+// Lineup (AFL API only)
+// ---------------------------------------------------------------------------
 lineupRegistry.register(new AflApiLineupSource());
 
 // ---------------------------------------------------------------------------
