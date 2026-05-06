@@ -7,10 +7,9 @@
 
 export { fetchAwards } from "./api/awards";
 export { fetchCoachesVotes } from "./api/coaches-votes";
-export { fetchFixture } from "./api/fixture";
 export { fetchLadder } from "./api/ladder";
 export { fetchLineup } from "./api/lineup";
-export { fetchMatchResults } from "./api/match-results";
+export { fetchMatches } from "./api/match";
 export { fetchPlayerDetails } from "./api/player-details";
 export { fetchPlayerStats } from "./api/player-stats";
 export { fetchTeamStats } from "./api/team-stats";
@@ -125,6 +124,7 @@ export type {
   BrownlowVote,
   CoachesVote,
   CoachesVoteQuery,
+  ColemanLeader,
   CompetitionCode,
   DataSource,
   Ladder,
@@ -134,6 +134,7 @@ export type {
   LineupPlayer,
   LineupQuery,
   Match,
+  MatchQuery,
   MatchStatus,
   PlayerDetails,
   PlayerDetailsQuery,

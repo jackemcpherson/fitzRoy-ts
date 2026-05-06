@@ -424,6 +424,7 @@ export class AflApiClient {
    */
   async fetchSeasonMatchItems(
     seasonId: number,
+    options?: { includeUpcoming?: boolean },
   ): Promise<Result<MatchItem[], AflApiError | ValidationError>> {
     const roundsResult = await this.resolveRounds(seasonId);
     if (!roundsResult.success) {
@@ -434,15 +435,18 @@ export class AflApiClient {
 
     const results = await batchedMap(providerIds, (id) => this.fetchRoundMatchItems(id));
 
+    const includeUpcoming = options?.includeUpcoming ?? false;
     const allItems: MatchItem[] = [];
     for (const result of results) {
       if (!result.success) {
         return result;
       }
-      const concluded = result.data.filter(
-        (item) => item.match.status === "CONCLUDED" || item.match.status === "COMPLETE",
-      );
-      allItems.push(...concluded);
+      const items = includeUpcoming
+        ? result.data
+        : result.data.filter(
+            (item) => item.match.status === "CONCLUDED" || item.match.status === "COMPLETE",
+          );
+      allItems.push(...items);
     }
 
     return ok(allItems);

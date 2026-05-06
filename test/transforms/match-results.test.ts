@@ -85,13 +85,15 @@ describe("transformMatchItems", () => {
     expect(r.q4Away).toEqual({ goals: 1, behinds: 6, points: 12 });
   });
 
-  it("handles missing score gracefully", () => {
+  it("returns null score fields when match has no score (upcoming)", () => {
     const item = makeMatchItem({ score: undefined });
     const r = first(transformMatchItems([item], 2025, "AFLM"));
 
-    expect(r.homePoints).toBe(0);
-    expect(r.awayPoints).toBe(0);
-    expect(r.margin).toBe(0);
+    expect(r.homePoints).toBeNull();
+    expect(r.awayPoints).toBeNull();
+    expect(r.margin).toBeNull();
+    expect(r.homeGoals).toBeNull();
+    expect(r.awayGoals).toBeNull();
     expect(r.q1Home).toBeNull();
   });
 

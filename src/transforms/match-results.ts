@@ -122,8 +122,9 @@ export function transformMatchItems(
     const homeScore = item.score?.homeTeamScore;
     const awayScore = item.score?.awayTeamScore;
 
-    const homePoints = homeScore?.matchScore.totalScore ?? 0;
-    const awayPoints = awayScore?.matchScore.totalScore ?? 0;
+    const homePoints = homeScore ? homeScore.matchScore.totalScore : null;
+    const awayPoints = awayScore ? awayScore.matchScore.totalScore : null;
+    const margin = homePoints !== null && awayPoints !== null ? homePoints - awayPoints : null;
 
     return {
       matchId: item.match.matchId,
@@ -136,13 +137,13 @@ export function transformMatchItems(
       homeTeam: normaliseTeamName(item.match.homeTeam.name),
       awayTeam: normaliseTeamName(item.match.awayTeam.name),
 
-      homeGoals: homeScore?.matchScore.goals ?? 0,
-      homeBehinds: homeScore?.matchScore.behinds ?? 0,
+      homeGoals: homeScore ? homeScore.matchScore.goals : null,
+      homeBehinds: homeScore ? homeScore.matchScore.behinds : null,
       homePoints,
-      awayGoals: awayScore?.matchScore.goals ?? 0,
-      awayBehinds: awayScore?.matchScore.behinds ?? 0,
+      awayGoals: awayScore ? awayScore.matchScore.goals : null,
+      awayBehinds: awayScore ? awayScore.matchScore.behinds : null,
       awayPoints,
-      margin: homePoints - awayPoints,
+      margin,
 
       q1Home: findPeriod(homeScore?.periodScore, 1),
       q2Home: findPeriod(homeScore?.periodScore, 2),

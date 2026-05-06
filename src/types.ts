@@ -468,6 +468,25 @@ export interface SeasonRoundQuery {
   readonly competition?: CompetitionCode | undefined;
 }
 
+/**
+ * Unified query for matches in any temporal scope.
+ *
+ * - `season` is required (matches are always season-scoped)
+ * - `round` narrows to one round
+ * - `matchId` narrows to one specific match
+ * - `team` filters to matches involving the named team (home or away)
+ * - `status` filters by match state (e.g. "Upcoming" for fixtures only)
+ */
+export interface MatchQuery {
+  readonly source: DataSource;
+  readonly season: number;
+  readonly round?: number | undefined;
+  readonly matchId?: string | undefined;
+  readonly team?: string | undefined;
+  readonly status?: MatchStatus | undefined;
+  readonly competition?: CompetitionCode | undefined;
+}
+
 /** Query for player stats (by season/round or specific match). */
 export interface PlayerStatsQuery {
   readonly source: DataSource;

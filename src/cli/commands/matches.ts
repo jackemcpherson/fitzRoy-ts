@@ -1,5 +1,5 @@
 import { defineCommand } from "citty";
-import { fetchMatchResults } from "../../index";
+import { fetchMatches } from "../../index";
 import { withErrorBoundary } from "../error-boundary";
 import { COMPETITION_FLAG, OUTPUT_FLAGS, ROUND_FLAG, SEASON_FLAG, SOURCE_FLAG } from "../flags";
 import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
@@ -42,7 +42,7 @@ export const matchesCommand = defineCommand({
     const format = validateFormat(args.format);
 
     const result = await withSpinner("Fetching match results…", () =>
-      fetchMatchResults({ source, season, round, competition }),
+      fetchMatches({ source, season, round, competition, status: "Complete" }),
     );
 
     if (!result.success) {

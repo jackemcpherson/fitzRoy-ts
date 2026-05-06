@@ -1,5 +1,5 @@
 import { defineCommand } from "citty";
-import { fetchFixture } from "../../index";
+import { fetchMatches } from "../../index";
 import { withErrorBoundary } from "../error-boundary";
 import { COMPETITION_FLAG, OUTPUT_FLAGS, ROUND_FLAG, SEASON_FLAG, SOURCE_FLAG } from "../flags";
 import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
@@ -40,7 +40,7 @@ export const fixtureCommand = defineCommand({
     const format = validateFormat(args.format);
 
     const result = await withSpinner("Fetching fixture…", () =>
-      fetchFixture({ source, season, round, competition }),
+      fetchMatches({ source, season, round, competition, status: "Upcoming" }),
     );
 
     if (!result.success) {
