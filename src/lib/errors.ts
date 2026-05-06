@@ -57,6 +57,43 @@ export function aflwUnsupportedError(source: string): UnsupportedSourceError {
   );
 }
 
+/**
+ * Error when a source is registered for an operation but does not cover the
+ * requested competition. The optional suggestion names another source that
+ * does cover it (per ADR-0001 — no silent fallback; explicit suggestion only).
+ */
+export class UnsupportedCompetitionError extends Error {
+  override readonly name = "UnsupportedCompetitionError";
+
+  constructor(
+    message: string,
+    readonly source: string,
+    readonly competition: string,
+    readonly suggestion?: string,
+  ) {
+    super(message);
+  }
+}
+
+/**
+ * Error when the requested season is outside the source's coverage for the
+ * given competition. The optional suggestion names another source that does
+ * cover the season.
+ */
+export class OutOfRangeError extends Error {
+  override readonly name = "OutOfRangeError";
+
+  constructor(
+    message: string,
+    readonly source: string,
+    readonly competition: string,
+    readonly season: number,
+    readonly suggestion?: string,
+  ) {
+    super(message);
+  }
+}
+
 /** Error when data fails Zod schema validation. */
 export class ValidationError extends Error {
   override readonly name = "ValidationError";

@@ -7,6 +7,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-05-06
+
+### Migration guide (1.x → 2.0)
+
+| Old (1.x)                              | New (2.0)                                     |
+|----------------------------------------|-----------------------------------------------|
+| `fetchMatchResults({...})`             | `fetchMatches({..., status: "Complete"})`     |
+| `fetchFixture({...})`                  | `fetchMatches({..., status: "Upcoming"})`     |
+| `fetchCoachesVotes({...})`             | `fetchAwards({award: "coaches", ...})`        |
+| `MatchResult`, `Fixture` types         | `Match` (with nullable score fields)          |
+| `fitzroy matches` / `fitzroy fixture`  | `fitzroy match [--status Complete\|Upcoming]` |
+| `fitzroy teams`                        | `fitzroy team`                                |
+| `fitzroy squad --team X -s S`          | `fitzroy team --name X -s S`                  |
+| `fitzroy lineup -s S -r R`             | `fitzroy team -s S -r R`                      |
+| `fitzroy team-stats -s S`              | `fitzroy stats -s S --by team`                |
+| `fitzroy player-details ...`           | `fitzroy player ...`                          |
+| `fitzroy coaches-votes ...`            | `fitzroy awards --type coaches ...`           |
+
+VFL and VFLW (AFL Reserves men's and women's) are now first-class
+competitions via the AFL API from 2021 onwards. Pass `--competition VFL`
+or `-c VFLW` to any command.
+
+### Added
+
+- **Source-adapter architecture** — every public API function (`fetchMatches`, `fetchPlayerStats`, `fetchLadder`, `fetchLineup`, `fetchSquad`, `fetchTeamStats`) is now a 3-line registry lookup that delegates to a per-source-per-capability adapter. Adapters live in `src/sources/adapters/` (one file per source) and declare an inline `coverage: Map<CompetitionCode, SeasonRange>` so the public API can validate requests *before* dispatching. Adding a new source becomes "implement the relevant capability interfaces, register in `adapters/index.ts`" with no changes to any `src/api/*` file
+- `UnsupportedCompetitionError` and `OutOfRangeError` — structured errors with optional `suggestion` field. The CLI prints the suggestion on its own indented "Try:" line; library callers can read `error.suggestion` programmatically. Per ADR-0001, the public API never silently falls back to another source, but it always names a sensible alternative
+- `MatchSource`, `PlayerStatsSource`, `SquadSource`, `LineupSource`, `LadderSource`, `TeamStatsSource` — the per-capability adapter interfaces, plus the `checkCoverage` helper and `SeasonRange` / `CoverageMap` types
+- **CLI consolidated to six commands** — every old command is reachable via the new surface:
+  - `team` — list teams; with `-s` returns the season's squad; with `-s -r` returns match-day lineups (subsumes `teams`, `squad`, `lineup`)
+  - `player` — biographical lookup (replaces `player-details`)
+  - `match` — matches in any temporal scope; `--status Upcoming` for fixtures (subsumes `matches`, `fixture`)
+  - `stats` — `--by player` (default) or `--by team` (subsumes `team-stats`)
+  - `ladder` — unchanged in surface, rewritten with the command builder
+  - `awards` — `--type {brownlow,coleman,coaches,all-australian,rising-star}` (subsumes `coaches-votes`)
+- `defineFitzroyCommand` (src/cli/command-builder.ts) — internal helper that owns per-command boilerplate (Citty wrapping, validation pipeline, spinner, error boundary, format dispatch)
+- `fetchMatches(query: MatchQuery)` — single library function for matches in any temporal scope. Filters by `season`, `round`, `matchId`, `team`, and `status`. Subsumes the old `fetchMatchResults` and `fetchFixture`
+- `MatchQuery` interface as the unified shape for all match queries
+- `AflApiClient.fetchSeasonMatchItems` accepts an `{ includeUpcoming?: boolean }` option (default: false, preserves the existing CONCLUDED-only filter for callers that want it)
+- `fetchAwards({ award: "coleman", season, [limit] })` — Coleman Medal leaderboard, computed from PlayerStats by summing goals per player and ranking
+- `fetchAwards({ award: "coaches", season, [round, team, competition] })` — AFLCA coaches votes, folded in from the deprecated `fetchCoachesVotes`
+- `rankColemanFromStats` exported as a pure helper for testing and downstream composition
+- `AwardQuery` interface widened with optional `competition`, `round`, `team`, `limit` fields (used per-award-type)
+
+### Changed
+
+- **BREAKING:** `CompetitionCode` widened to `"AFLM" | "AFLW" | "VFL" | "VFLW"`. VFL (AFL Reserves men's) and VFLW are first-class via the AFL API from 2021+
+- **BREAKING:** `MatchResult` interface renamed to `Match`. Score and quarter-score fields are now nullable so that scheduled matches (formerly `Fixture`) and completed matches share one type. Use `match.status === "Upcoming"` to distinguish
+- **BREAKING:** `Fixture` interface removed — replaced by `Match` with nullable score fields
+- **BREAKING:** `fetchMatchResults` removed. Use `fetchMatches({ ..., status: "Complete" })` for the same behaviour
+- **BREAKING:** `fetchFixture` removed. Use `fetchMatches({ ..., status: "Upcoming" })` for the same behaviour
+- **BREAKING:** `fetchCoachesVotes` removed. Use `fetchAwards({ award: "coaches", season, ... })` for the same behaviour
+- **BREAKING:** CLI command renames (the eight old commands were deleted):
+  - `fitzroy matches` / `fitzroy fixture` → `fitzroy match [--status Complete | --status Upcoming]`
+  - `fitzroy teams` → `fitzroy team`
+  - `fitzroy squad --team X -s S` → `fitzroy team --name X -s S`
+  - `fitzroy lineup -s S -r R` → `fitzroy team -s S -r R`
+  - `fitzroy team-stats -s S` → `fitzroy stats -s S --by team`
+  - `fitzroy player-details` → `fitzroy player`
+  - `fitzroy coaches-votes` → `fitzroy awards --type coaches`
+- **BREAKING:** `AflApiClient.fetchTeams` now takes a `CompetitionCode` (e.g. `"AFLM"`) instead of a raw `teamType` string. The teamType lookup is internal
+- `AwardType` widened to include `"coleman"` and `"coaches"`. `Award` discriminated union extended with `ColemanLeader` and `CoachesVote`. The `coaches` and `coleman` award fetching wires up in a follow-up
+- `transformMatchItems` now produces null score fields for matches without score data (upcoming matches), instead of defaulting to 0
+
+### Fixed
+
+- `AflApiClient.resolveCompetitionId` now uses a hardcoded `(CompetitionCode → competitionId)` map instead of a `code` lookup against `/competitions`. Four entries in the AFL API's competition list share `code="AFL"` (Premiership, Preseason, Origin, Indigenous All Stars) so the lookup was load-bearing on response order
+
 ## [1.8.0] - 2026-05-01
 
 ### Added

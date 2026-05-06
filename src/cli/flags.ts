@@ -56,7 +56,7 @@ export const SOURCE_FLAG = {
 export const COMPETITION_FLAG = {
   competition: {
     type: "string" as const,
-    description: "Competition code (AFLM or AFLW)",
+    description: "Competition code (AFLM, AFLW, VFL, VFLW)",
     default: "AFLM",
     alias: "c",
   },
@@ -66,7 +66,7 @@ export const COMPETITION_FLAG = {
 export const OPTIONAL_COMPETITION_FLAG = {
   competition: {
     type: "string" as const,
-    description: "Competition code (AFLM or AFLW)",
+    description: "Competition code (AFLM, AFLW, VFL, VFLW)",
     alias: "c",
   },
 } as const;
@@ -104,5 +104,39 @@ export const PLAYER_FLAG = {
     type: "string" as const,
     description: "Filter by player name",
     alias: "p",
+  },
+} as const;
+
+/** Match ID flag (optional filter — narrows to one specific match). */
+export const MATCH_ID_FLAG = {
+  id: {
+    type: "string" as const,
+    description: "Specific match ID (provider-assigned, e.g. CD_M20250140101)",
+  },
+} as const;
+
+/** Match status filter flag (Upcoming, Complete, Live, Postponed, Cancelled). */
+export const STATUS_FLAG = {
+  status: {
+    type: "string" as const,
+    description: "Filter by match status (Upcoming, Live, Complete, Postponed, Cancelled)",
+  },
+} as const;
+
+/** Award type flag for the awards command. */
+export const AWARD_TYPE_FLAG = {
+  type: {
+    type: "string" as const,
+    description: "Award type (brownlow, coleman, coaches, all-australian, rising-star)",
+    required: true,
+  },
+} as const;
+
+/** Grouping flag for the stats command (--by player|team). */
+export const BY_FLAG = {
+  by: {
+    type: "string" as const,
+    description: "Group stats by: player (default) or team",
+    default: "player",
   },
 } as const;

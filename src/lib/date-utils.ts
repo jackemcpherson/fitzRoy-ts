@@ -7,6 +7,8 @@
  * @module
  */
 
+import type { CompetitionCode } from "../types";
+
 /**
  * Parse any AFL date string or timestamp into a correct UTC Date.
  *
@@ -142,11 +144,11 @@ export function toAestString(date: Date): string {
 /**
  * Resolve the default season for a competition when none is provided.
  *
- * AFLM uses the current calendar year. AFLW seasons run ahead of the
- * calendar year (e.g. the "2025" AFLW season starts in late 2024/early 2025),
- * so the default is the previous year.
+ * AFLM, VFL, and VFLW use the current calendar year. AFLW seasons run ahead
+ * of the calendar year (e.g. the "2025" AFLW season starts in late 2024/early
+ * 2025), so the default is the previous year.
  */
-export function resolveDefaultSeason(competition: "AFLM" | "AFLW" = "AFLM"): number {
+export function resolveDefaultSeason(competition: CompetitionCode = "AFLM"): number {
   const year = new Date().getFullYear();
   return competition === "AFLW" ? year - 1 : year;
 }

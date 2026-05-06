@@ -17,7 +17,12 @@ import { ScrapeError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import type { CompetitionCode } from "../types";
 
-const FRYZIGG_URLS: Record<CompetitionCode, string> = {
+/**
+ * Fryzigg only publishes AFLM and AFLW datasets. VFL/VFLW are not available
+ * from this source — the public API will return an UnsupportedSourceError
+ * for those competitions in the source-adapter refactor (Phase B).
+ */
+const FRYZIGG_URLS: Partial<Record<CompetitionCode, string>> = {
   AFLM: "http://www.fryziggafl.net/static/fryziggafl.rds",
   AFLW: "http://www.fryziggafl.net/static/aflw_player_stats.rds",
 };
@@ -55,6 +60,9 @@ export class FryziggClient {
    */
   async fetchPlayerStats(competition: CompetitionCode): Promise<Result<DataFrame, ScrapeError>> {
     const url = FRYZIGG_URLS[competition];
+    if (!url) {
+      return err(new ScrapeError(`Fryzigg does not publish ${competition} data`, "fryzigg"));
+    }
 
     try {
       const response = await this.fetchFn(url, {

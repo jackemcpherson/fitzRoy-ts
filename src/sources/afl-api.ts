@@ -13,7 +13,6 @@ import { AflApiError, ValidationError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import {
   AflApiTokenSchema,
-  CompetitionListSchema,
   CompseasonListSchema,
   type LadderResponse,
   LadderResponseSchema,
@@ -43,6 +42,32 @@ const API_BASE = "https://aflapi.afl.com.au/afl/v2";
 
 /** Base URL for /cfs/ endpoints (requires WMCTok token). */
 const CFS_BASE = "https://api.afl.com.au/cfs/afl";
+
+/**
+ * Hardcoded competition IDs for the AFL API.
+ *
+ * The `/competitions` endpoint returns multiple entries sharing `code="AFL"`
+ * (Premiership, Preseason, Origin, Indigenous All Stars), so we cannot rely
+ * on `code` alone to disambiguate. These IDs were verified by probing
+ * `/competitions` on 2026-05-06.
+ */
+const AFL_API_COMP_IDS: Record<CompetitionCode, number> = {
+  AFLM: 1,
+  AFLW: 3,
+  VFL: 7,
+  VFLW: 11,
+};
+
+/**
+ * The `teamType` value used by the AFL API to scope `/teams` queries to
+ * the right competition.
+ */
+const AFL_API_TEAM_TYPES: Record<CompetitionCode, string> = {
+  AFLM: "MEN",
+  AFLW: "WOMEN",
+  VFL: "VFL_MEN",
+  VFLW: "VFL_WOMEN",
+};
 
 /** Cached token with expiry tracking. */
 interface CachedToken {
@@ -267,30 +292,18 @@ export class AflApiClient {
   /**
    * Resolve a competition code (e.g. "AFLM") to its API competition ID.
    *
+   * Returns the hardcoded mapping from {@link AFL_API_COMP_IDS}. The previous
+   * implementation looked up by `code` field on `/competitions`, but four
+   * competitions share `code="AFL"` (Premiership, Preseason, Origin,
+   * Indigenous All Stars), so the lookup was load-bearing on response order.
+   *
    * @param code - The competition code to resolve.
-   * @returns The competition ID string on success.
+   * @returns The competition ID on success.
    */
   async resolveCompetitionId(
     code: CompetitionCode,
   ): Promise<Result<number, AflApiError | ValidationError>> {
-    const result = await this.fetchJson(
-      `${API_BASE}/competitions?pageSize=50`,
-      CompetitionListSchema,
-    );
-
-    if (!result.success) {
-      return result;
-    }
-
-    // The API uses "AFL" for AFLM; map our domain code to the API code.
-    const apiCode = code === "AFLM" ? "AFL" : code;
-    const competition = result.data.competitions.find((c) => c.code === apiCode);
-
-    if (!competition) {
-      return err(new AflApiError(`Competition not found for code: ${code}`));
-    }
-
-    return ok(competition.id);
+    return ok(AFL_API_COMP_IDS[code]);
   }
 
   /**
@@ -411,6 +424,7 @@ export class AflApiClient {
    */
   async fetchSeasonMatchItems(
     seasonId: number,
+    options?: { includeUpcoming?: boolean },
   ): Promise<Result<MatchItem[], AflApiError | ValidationError>> {
     const roundsResult = await this.resolveRounds(seasonId);
     if (!roundsResult.success) {
@@ -421,15 +435,18 @@ export class AflApiClient {
 
     const results = await batchedMap(providerIds, (id) => this.fetchRoundMatchItems(id));
 
+    const includeUpcoming = options?.includeUpcoming ?? false;
     const allItems: MatchItem[] = [];
     for (const result of results) {
       if (!result.success) {
         return result;
       }
-      const concluded = result.data.filter(
-        (item) => item.match.status === "CONCLUDED" || item.match.status === "COMPLETE",
-      );
-      allItems.push(...concluded);
+      const items = includeUpcoming
+        ? result.data
+        : result.data.filter(
+            (item) => item.match.status === "CONCLUDED" || item.match.status === "COMPLETE",
+          );
+      allItems.push(...items);
     }
 
     return ok(allItems);
@@ -463,19 +480,25 @@ export class AflApiClient {
   }
 
   /**
-   * Fetch team list, optionally filtered by team type.
+   * Fetch team list, optionally filtered by competition.
    *
-   * @param teamType - Optional filter (e.g. "MEN", "WOMEN").
+   * Pass a `CompetitionCode` to scope the result to that competition's teams
+   * (uses {@link AFL_API_TEAM_TYPES} internally).
+   *
+   * @param competition - Optional CompetitionCode filter (e.g. "AFLM", "VFL").
    * @returns Array of team items.
    */
-  async fetchTeams(teamType?: string): Promise<Result<TeamItem[], AflApiError | ValidationError>> {
-    const result = await this.fetchJson(`${API_BASE}/teams?pageSize=100`, TeamListSchema);
+  async fetchTeams(
+    competition?: CompetitionCode,
+  ): Promise<Result<TeamItem[], AflApiError | ValidationError>> {
+    const result = await this.fetchJson(`${API_BASE}/teams?pageSize=500`, TeamListSchema);
 
     if (!result.success) {
       return result;
     }
 
-    if (teamType) {
+    if (competition) {
+      const teamType = AFL_API_TEAM_TYPES[competition];
       return ok(result.data.teams.filter((t) => t.teamType === teamType));
     }
 

@@ -1,5 +1,5 @@
 /**
- * Pure transforms for flattening raw AFL API match items into typed MatchResult objects.
+ * Pure transforms for flattening raw AFL API match items into typed Match objects.
  */
 
 import { parseDate } from "../lib/date-utils";
@@ -9,7 +9,7 @@ import { normaliseVenueName } from "../lib/venue-mapping";
 import type {
   CompetitionCode,
   DataSource,
-  MatchResult,
+  Match,
   MatchStatus,
   QuarterScore,
   RoundType,
@@ -105,25 +105,26 @@ function findPeriod(
 }
 
 /**
- * Transform raw AFL API match items into typed MatchResult objects.
+ * Transform raw AFL API match items into typed Match objects.
  *
  * @param items - Raw match items from the /cfs/ endpoint.
  * @param season - The season year for these matches.
  * @param competition - The competition code.
- * @returns Flattened, normalised MatchResult array.
+ * @returns Flattened, normalised Match array.
  */
 export function transformMatchItems(
   items: readonly MatchItem[],
   season: number,
   competition: CompetitionCode,
   source: DataSource = "afl-api",
-): MatchResult[] {
+): Match[] {
   return items.map((item) => {
     const homeScore = item.score?.homeTeamScore;
     const awayScore = item.score?.awayTeamScore;
 
-    const homePoints = homeScore?.matchScore.totalScore ?? 0;
-    const awayPoints = awayScore?.matchScore.totalScore ?? 0;
+    const homePoints = homeScore ? homeScore.matchScore.totalScore : null;
+    const awayPoints = awayScore ? awayScore.matchScore.totalScore : null;
+    const margin = homePoints !== null && awayPoints !== null ? homePoints - awayPoints : null;
 
     return {
       matchId: item.match.matchId,
@@ -136,13 +137,13 @@ export function transformMatchItems(
       homeTeam: normaliseTeamName(item.match.homeTeam.name),
       awayTeam: normaliseTeamName(item.match.awayTeam.name),
 
-      homeGoals: homeScore?.matchScore.goals ?? 0,
-      homeBehinds: homeScore?.matchScore.behinds ?? 0,
+      homeGoals: homeScore ? homeScore.matchScore.goals : null,
+      homeBehinds: homeScore ? homeScore.matchScore.behinds : null,
       homePoints,
-      awayGoals: awayScore?.matchScore.goals ?? 0,
-      awayBehinds: awayScore?.matchScore.behinds ?? 0,
+      awayGoals: awayScore ? awayScore.matchScore.goals : null,
+      awayBehinds: awayScore ? awayScore.matchScore.behinds : null,
       awayPoints,
-      margin: homePoints - awayPoints,
+      margin,
 
       q1Home: findPeriod(homeScore?.periodScore, 1),
       q2Home: findPeriod(homeScore?.periodScore, 2),

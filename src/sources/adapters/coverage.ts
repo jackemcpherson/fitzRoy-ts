@@ -1,0 +1,126 @@
+/**
+ * Coverage descriptors and the check helper that backs every per-capability
+ * registry lookup.
+ *
+ * Each adapter declares a static `coverage` map of `CompetitionCode →
+ * SeasonRange`. The public API uses {@link checkCoverage} to validate a
+ * request against the chosen source's coverage *before* dispatching, so
+ * out-of-range requests fail with a structured error and a suggestion
+ * (per ADR-0001) rather than a confusing 404 from the source.
+ */
+
+import {
+  OutOfRangeError,
+  UnsupportedCompetitionError,
+  UnsupportedSourceError,
+} from "../../lib/errors";
+import type { Result } from "../../lib/result";
+import { err, ok } from "../../lib/result";
+import type { CompetitionCode, DataSource } from "../../types";
+
+/** A range of seasons that an adapter supports for a given competition. */
+export interface SeasonRange {
+  readonly minSeason: number;
+  readonly maxSeason?: number | undefined;
+}
+
+/** Map declaring which competitions × seasons an adapter covers. */
+export type CoverageMap = ReadonlyMap<CompetitionCode, SeasonRange>;
+
+/** What the public API knows about a request before delegating to an adapter. */
+export interface CoverageRequest {
+  readonly source: DataSource;
+  readonly operation: string;
+  readonly competition: CompetitionCode;
+  readonly season: number;
+}
+
+/**
+ * Check whether the requested (competition, season) lies within a coverage map.
+ *
+ * Returns `ok(undefined)` on hit, or a structured error on miss. The optional
+ * `suggestion` is folded into the error so the user can act on it.
+ */
+export function checkCoverage(
+  coverage: CoverageMap,
+  request: CoverageRequest,
+  suggestion?: string,
+): Result<undefined, UnsupportedCompetitionError | OutOfRangeError> {
+  const range = coverage.get(request.competition);
+  if (!range) {
+    return err(
+      new UnsupportedCompetitionError(
+        `${request.source} does not provide ${request.operation} data for ${request.competition}`,
+        request.source,
+        request.competition,
+        suggestion,
+      ),
+    );
+  }
+  if (request.season < range.minSeason) {
+    return err(
+      new OutOfRangeError(
+        `${request.source} only covers ${request.competition} ${request.operation} from ${range.minSeason}; you asked for ${request.season}`,
+        request.source,
+        request.competition,
+        request.season,
+        suggestion,
+      ),
+    );
+  }
+  if (range.maxSeason != null && request.season > range.maxSeason) {
+    return err(
+      new OutOfRangeError(
+        `${request.source} only covers ${request.competition} ${request.operation} up to ${range.maxSeason}; you asked for ${request.season}`,
+        request.source,
+        request.competition,
+        request.season,
+        suggestion,
+      ),
+    );
+  }
+  return ok(undefined);
+}
+
+/** Convenience helper for the "wrong source ID entirely" case. */
+export function unsupportedSourceForOperation(
+  source: DataSource,
+  operation: string,
+  registered: readonly DataSource[],
+): UnsupportedSourceError {
+  return new UnsupportedSourceError(
+    `${source} does not provide ${operation} data. Supported sources: ${registered.join(", ")}.`,
+    source,
+  );
+}
+
+/** Minimal shape we need to reason about an adapter when looking for alternatives. */
+interface AdapterLike {
+  readonly id: DataSource;
+  readonly coverage: CoverageMap;
+}
+
+/**
+ * Find another adapter from the same capability registry whose coverage
+ * includes the requested (competition, season). Used to produce smart
+ * "Try: --source X" suggestions when the chosen adapter can't serve the
+ * request.
+ *
+ * Returns the first matching adapter that isn't the one we already tried,
+ * or undefined when no alternative exists. Per ADR-0001 we never *use* the
+ * alternative — we just name it in the error.
+ */
+export function findAlternativeSource(
+  adapters: readonly AdapterLike[],
+  request: { source: DataSource; competition: CompetitionCode; season: number },
+): DataSource | undefined {
+  for (const adapter of adapters) {
+    if (adapter.id === request.source) continue;
+    const range = adapter.coverage.get(request.competition);
+    if (!range) continue;
+    if (request.season < range.minSeason) continue;
+    if (range.maxSeason != null && request.season > range.maxSeason) continue;
+    return adapter.id;
+  }
+  return undefined;
+}

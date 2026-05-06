@@ -10,7 +10,7 @@
 // ---------------------------------------------------------------------------
 
 /** AFL competition codes. */
-export type CompetitionCode = "AFLM" | "AFLW";
+export type CompetitionCode = "AFLM" | "AFLW" | "VFL" | "VFLW";
 
 /** Round classification. */
 export type RoundType = "HomeAndAway" | "Finals";
@@ -33,16 +33,18 @@ export interface QuarterScore {
 }
 
 // ---------------------------------------------------------------------------
-// Match result
+// Match
 // ---------------------------------------------------------------------------
 
 /**
- * A completed or in-progress match with scores.
+ * An AFL match in any state — scheduled, in-progress, or completed.
  *
- * One row per match. Quarter scores are optional — historical data
- * from AFL Tables may not include them.
+ * One row per match. A "fixture" is a Match with `status="Upcoming"` and
+ * null score fields; a completed match has the score fields populated.
+ * Quarter scores are nullable — historical data from AFL Tables may not
+ * include them.
  */
-export interface MatchResult {
+export interface Match {
   /** Provider-assigned match identifier (e.g. AFL API `matchProviderId`). */
   readonly matchId: string;
   readonly season: number;
@@ -55,16 +57,19 @@ export interface MatchResult {
   readonly homeTeam: string;
   readonly awayTeam: string;
 
-  /** Total goals-behinds-points for each team. */
-  readonly homeGoals: number;
-  readonly homeBehinds: number;
-  readonly homePoints: number;
-  readonly awayGoals: number;
-  readonly awayBehinds: number;
-  readonly awayPoints: number;
+  /**
+   * Total goals-behinds-points for each team. Null when the match has not
+   * yet been played (status="Upcoming").
+   */
+  readonly homeGoals: number | null;
+  readonly homeBehinds: number | null;
+  readonly homePoints: number | null;
+  readonly awayGoals: number | null;
+  readonly awayBehinds: number | null;
+  readonly awayPoints: number | null;
 
-  /** Positive = home win, negative = away win. */
-  readonly margin: number;
+  /** Positive = home win, negative = away win. Null for upcoming matches. */
+  readonly margin: number | null;
 
   /** Per-quarter scores (null when unavailable). */
   readonly q1Home: QuarterScore | null;
@@ -222,24 +227,6 @@ export interface PlayerStats {
 }
 
 // ---------------------------------------------------------------------------
-// Fixture (upcoming/scheduled matches)
-// ---------------------------------------------------------------------------
-
-/** A scheduled match (may not yet have scores). */
-export interface Fixture {
-  readonly matchId: string;
-  readonly season: number;
-  readonly roundNumber: number;
-  readonly roundType: RoundType;
-  readonly date: Date;
-  readonly venue: string;
-  readonly homeTeam: string;
-  readonly awayTeam: string;
-  readonly status: MatchStatus;
-  readonly competition: CompetitionCode;
-}
-
-// ---------------------------------------------------------------------------
 // Lineup / roster
 // ---------------------------------------------------------------------------
 
@@ -322,6 +309,14 @@ export interface SquadPlayer {
   readonly draftType: string | null;
   readonly debutYear: number | null;
   readonly recruitedFrom: string | null;
+  /**
+   * Career games played. Populated by FootyWire and AFL Tables (their
+   * team-list pages report career counts). `null` for `afl-api` — the
+   * squad endpoint doesn't carry career stats.
+   */
+  readonly gamesPlayed?: number | null;
+  /** Career goals. Populated alongside `gamesPlayed`; same source caveat. */
+  readonly goals?: number | null;
 }
 
 /** A team's squad for a given season. */
@@ -379,7 +374,7 @@ export interface PlayerDetailsQuery {
 // ---------------------------------------------------------------------------
 
 /** Types of awards available. */
-export type AwardType = "brownlow" | "all-australian" | "rising-star";
+export type AwardType = "brownlow" | "all-australian" | "rising-star" | "coleman" | "coaches";
 
 /** A Brownlow Medal vote tally for a player. */
 export interface BrownlowVote {
@@ -420,13 +415,38 @@ export interface RisingStarNomination {
   readonly tackles: number | null;
 }
 
+/** A Coleman Medal leaderboard entry (top goal-kickers per season). */
+export interface ColemanLeader {
+  readonly type: "coleman";
+  readonly season: number;
+  /** 1 = season leader, 2 = runner-up, etc. */
+  readonly position: number;
+  readonly player: string;
+  readonly team: string;
+  readonly goals: number;
+  readonly gamesPlayed: number | null;
+}
+
 /** Discriminated union of award types. */
-export type Award = BrownlowVote | AllAustralianSelection | RisingStarNomination;
+export type Award =
+  | BrownlowVote
+  | AllAustralianSelection
+  | RisingStarNomination
+  | ColemanLeader
+  | CoachesVote;
 
 /** Query parameters for fetching awards. */
 export interface AwardQuery {
   readonly award: AwardType;
   readonly season: number;
+  /** Coaches votes are competition-scoped; defaults to AFLM. Other awards ignore. */
+  readonly competition?: CompetitionCode | undefined;
+  /** Coaches votes only — narrow to a specific round. */
+  readonly round?: number | undefined;
+  /** Coaches votes only — narrow to matches involving a team. */
+  readonly team?: string | undefined;
+  /** Coleman only — limit to top N goal-kickers (default: all players who scored). */
+  readonly limit?: number | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -435,6 +455,7 @@ export interface AwardQuery {
 
 /** AFLCA coaches votes for a player in a single match. */
 export interface CoachesVote {
+  readonly type: "coaches";
   readonly season: number;
   readonly round: number;
   readonly homeTeam: string;
@@ -463,10 +484,23 @@ export interface SeasonRoundQuery {
   readonly competition?: CompetitionCode | undefined;
 }
 
-/** Query for a specific match. */
+/**
+ * Unified query for matches in any temporal scope.
+ *
+ * - `season` is required (matches are always season-scoped)
+ * - `round` narrows to one round
+ * - `matchId` narrows to one specific match
+ * - `team` filters to matches involving the named team (home or away)
+ * - `status` filters by match state (e.g. "Upcoming" for fixtures only)
+ */
 export interface MatchQuery {
   readonly source: DataSource;
-  readonly matchId: string;
+  readonly season: number;
+  readonly round?: number | undefined;
+  readonly matchId?: string | undefined;
+  readonly team?: string | undefined;
+  readonly status?: MatchStatus | undefined;
+  readonly competition?: CompetitionCode | undefined;
 }
 
 /** Query for player stats (by season/round or specific match). */
@@ -503,8 +537,10 @@ export interface TeamQuery {
 
 /** Query for a team's squad. */
 export interface SquadQuery {
-  readonly teamId: string;
+  /** Canonical team name (e.g. "Carlton"). Adapters handle their own translation. */
+  readonly team: string;
   readonly season: number;
+  readonly source?: DataSource | undefined;
   readonly competition?: CompetitionCode | undefined;
 }
 

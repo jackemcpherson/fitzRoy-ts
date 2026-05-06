@@ -1,77 +1,215 @@
 /**
- * Public API for fetching AFL awards data from FootyWire.
+ * Public API for fetching AFL season-recognition data.
+ *
+ * Awards is concept-first, not source-first: `fetchAwards` dispatches on the
+ * `award` type to either *fetch* (Brownlow, Coaches votes, All-Australian,
+ * Rising Star) or *compute* (Coleman from PlayerStats). The source
+ * heterogeneity is hidden from the caller.
  */
 
 import { ScrapeError } from "../lib/errors";
-import { err, ok, type Result } from "../lib/result";
+import { err, ok, Result } from "../lib/result";
+import { normaliseTeamName } from "../lib/team-mapping";
+import { AflCoachesClient } from "../sources/afl-coaches";
 import { FootyWireClient } from "../sources/footywire";
 import {
   parseAllAustralian,
   parseBrownlowVotes,
   parseRisingStarNominations,
 } from "../transforms/awards";
-import type { Award, AwardQuery } from "../types";
+import type { Award, AwardQuery, ColemanLeader, PlayerStats } from "../types";
+import { fetchPlayerStats } from "./player-stats";
 
 const FOOTYWIRE_BASE = "https://www.footywire.com/afl/footy";
 
 /**
- * Fetch awards data from FootyWire.
+ * Fetch awards data for a season.
  *
- * @param query - Award type and season.
+ * @param query - Award type and season; some award types accept additional
+ * filters (see {@link AwardQuery}).
  * @returns Array of award entries (discriminated union by `type` field).
  *
  * @example
  * ```ts
- * const result = await fetchAwards({ award: "brownlow", season: 2023 });
+ * await fetchAwards({ award: "brownlow", season: 2023 });
+ * await fetchAwards({ award: "coleman", season: 2024, limit: 10 });
+ * await fetchAwards({ award: "coaches", season: 2024, round: 3 });
  * ```
  */
 export async function fetchAwards(query: AwardQuery): Promise<Result<Award[], Error>> {
-  const client = new FootyWireClient();
-
   switch (query.award) {
-    case "brownlow": {
-      const url = `${FOOTYWIRE_BASE}/brownlow_medal?year=${query.season}`;
-      const htmlResult = await client.fetchPage(url);
-      if (!htmlResult.success) return htmlResult;
+    case "brownlow":
+      return fetchFootyWireAward(
+        `${FOOTYWIRE_BASE}/brownlow_medal?year=${query.season}`,
+        (html) => parseBrownlowVotes(html, query.season),
+        "Brownlow",
+        query.season,
+      );
 
-      const votes = parseBrownlowVotes(htmlResult.data, query.season);
-      if (votes.length === 0) {
-        return err(
-          new ScrapeError(`No Brownlow data found for season ${query.season}`, "footywire"),
-        );
-      }
-      return ok(votes);
-    }
+    case "all-australian":
+      return fetchFootyWireAward(
+        `${FOOTYWIRE_BASE}/all_australian_selection?year=${query.season}`,
+        (html) => parseAllAustralian(html, query.season),
+        "All-Australian",
+        query.season,
+      );
 
-    case "all-australian": {
-      const url = `${FOOTYWIRE_BASE}/all_australian_selection?year=${query.season}`;
-      const htmlResult = await client.fetchPage(url);
-      if (!htmlResult.success) return htmlResult;
+    case "rising-star":
+      return fetchFootyWireAward(
+        `${FOOTYWIRE_BASE}/rising_star_nominations?year=${query.season}`,
+        (html) => parseRisingStarNominations(html, query.season),
+        "Rising Star",
+        query.season,
+      );
 
-      const selections = parseAllAustralian(htmlResult.data, query.season);
-      if (selections.length === 0) {
-        return err(
-          new ScrapeError(`No All-Australian data found for season ${query.season}`, "footywire"),
-        );
-      }
-      return ok(selections);
-    }
+    case "coaches":
+      return fetchCoachesVotes(query);
 
-    case "rising-star": {
-      const url = `${FOOTYWIRE_BASE}/rising_star_nominations?year=${query.season}`;
-      const htmlResult = await client.fetchPage(url);
-      if (!htmlResult.success) return htmlResult;
-
-      const nominations = parseRisingStarNominations(htmlResult.data, query.season);
-      if (nominations.length === 0) {
-        return err(
-          new ScrapeError(`No Rising Star data found for season ${query.season}`, "footywire"),
-        );
-      }
-      return ok(nominations);
-    }
+    case "coleman":
+      return fetchColemanLeaderboard(query);
 
     default:
-      return err(new ScrapeError(`Unknown award type: ${query.award}`, "footywire"));
+      return err(
+        new ScrapeError(`Unknown award type: ${(query as AwardQuery).award}`, "footywire"),
+      );
   }
+}
+
+/** Fetch a FootyWire award page and apply its parser. */
+async function fetchFootyWireAward(
+  url: string,
+  parse: (html: string) => Award[],
+  label: string,
+  season: number,
+): Promise<Result<Award[], Error>> {
+  const client = new FootyWireClient();
+  const htmlResult = await client.fetchPage(url);
+  if (!htmlResult.success) return htmlResult;
+
+  const data = parse(htmlResult.data);
+  if (data.length === 0) {
+    return err(new ScrapeError(`No ${label} data found for season ${season}`, "footywire"));
+  }
+  return ok(data);
+}
+
+/**
+ * Fetch AFLCA coaches votes (folded in from the deprecated `fetchCoachesVotes`).
+ *
+ * Available from ~2006 for AFLM and ~2018 for AFLW.
+ */
+async function fetchCoachesVotes(query: AwardQuery): Promise<Result<Award[], Error>> {
+  const competition = query.competition ?? "AFLM";
+
+  if (query.season < 2006) {
+    return err(new ScrapeError("No coaches votes data available before 2006", "afl-coaches"));
+  }
+  if (competition === "AFLW" && query.season < 2018) {
+    return err(new ScrapeError("No AFLW coaches votes data available before 2018", "afl-coaches"));
+  }
+  if (competition === "VFL" || competition === "VFLW") {
+    return err(
+      new ScrapeError(`No coaches votes data available for ${competition}`, "afl-coaches"),
+    );
+  }
+
+  const client = new AflCoachesClient();
+  const result =
+    query.round != null
+      ? await client.scrapeRoundVotes(
+          query.season,
+          query.round,
+          competition,
+          query.round >= 24 && query.season >= 2018,
+        )
+      : await client.fetchSeasonVotes(query.season, competition);
+
+  if (!result.success) return result;
+
+  let votes = result.data;
+  if (query.team != null) {
+    const target = normaliseTeamName(query.team);
+    votes = votes.filter(
+      (v) => normaliseTeamName(v.homeTeam) === target || normaliseTeamName(v.awayTeam) === target,
+    );
+  }
+  return ok(votes);
+}
+
+/**
+ * Compute the Coleman Medal leaderboard from PlayerStats.
+ *
+ * The Coleman Medal is the AFL's award for the leading goal-kicker in the
+ * home-and-away season. We sum `goals` per player across the season's matches
+ * and rank descending. Ties share the same `position`.
+ */
+async function fetchColemanLeaderboard(query: AwardQuery): Promise<Result<Award[], Error>> {
+  const competition = query.competition ?? "AFLM";
+  if (competition === "VFL" || competition === "VFLW") {
+    return err(
+      new ScrapeError(
+        `Coleman Medal is not awarded in ${competition}; use Coleman-equivalent stats query`,
+        "afl-api",
+      ),
+    );
+  }
+
+  const statsR = await fetchPlayerStats({
+    source: "afl-api",
+    season: query.season,
+    competition,
+  });
+  return Result.map(statsR, (stats) => rankColemanFromStats(stats, query.season, query.limit));
+}
+
+/** Pure transform: PlayerStats[] → ranked ColemanLeader[]. */
+export function rankColemanFromStats(
+  stats: readonly PlayerStats[],
+  season: number,
+  limit?: number,
+): ColemanLeader[] {
+  const accumulator = new Map<
+    string,
+    { player: string; team: string; goals: number; gamesPlayed: number }
+  >();
+
+  for (const s of stats) {
+    if (s.goals == null) continue;
+    const key = s.playerId;
+    const existing = accumulator.get(key);
+    if (existing) {
+      existing.goals += s.goals;
+      existing.gamesPlayed += 1;
+    } else {
+      accumulator.set(key, {
+        player: s.displayName,
+        team: s.team,
+        goals: s.goals,
+        gamesPlayed: 1,
+      });
+    }
+  }
+
+  const ranked = [...accumulator.values()]
+    .filter((entry) => entry.goals > 0)
+    .sort((a, b) => b.goals - a.goals);
+
+  let lastGoals = -1;
+  let lastPosition = 0;
+  const leaderboard: ColemanLeader[] = ranked.map((entry, index) => {
+    const position = entry.goals === lastGoals ? lastPosition : index + 1;
+    lastGoals = entry.goals;
+    lastPosition = position;
+    return {
+      type: "coleman" as const,
+      season,
+      position,
+      player: entry.player,
+      team: entry.team,
+      goals: entry.goals,
+      gamesPlayed: entry.gamesPlayed,
+    };
+  });
+
+  return limit != null ? leaderboard.slice(0, limit) : leaderboard;
 }

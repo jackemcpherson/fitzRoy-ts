@@ -2,17 +2,11 @@
  * Public API for fetching team lists and squad rosters.
  */
 
-import { parseDate } from "../lib/date-utils";
-import { ValidationError } from "../lib/errors";
-import { err, ok, type Result } from "../lib/result";
+import { ok, Result } from "../lib/result";
 import { AFL_SENIOR_TEAMS, normaliseTeamName } from "../lib/team-mapping";
+import { dispatch, squadRegistry } from "../sources/adapters/index";
 import { AflApiClient } from "../sources/afl-api";
-import type { CompetitionCode, Squad, SquadPlayer, SquadQuery, Team, TeamQuery } from "../types";
-
-/** Map a CompetitionCode to the API's team type filter string ("MEN" or "WOMEN"). */
-function teamTypeForComp(comp: CompetitionCode): string {
-  return comp === "AFLW" ? "WOMEN" : "MEN";
-}
+import type { CompetitionCode, Squad, SquadQuery, Team, TeamQuery } from "../types";
 
 /** Map raw API team objects to domain Team objects, filtering to senior teams only. */
 function toTeams(
@@ -32,17 +26,17 @@ function toTeams(
 /**
  * Fetch team lists.
  *
- * @param query - Optional competition and team type filters.
+ * @param query - Optional competition filter (defaults to AFLM and AFLW combined).
  * @returns Array of teams.
  */
 export async function fetchTeams(query?: TeamQuery): Promise<Result<Team[], Error>> {
   const client = new AflApiClient();
 
-  // When no competition specified, fetch both AFLM and AFLW teams
-  if (!query?.competition && !query?.teamType) {
+  // When no competition specified, fetch both AFLM and AFLW teams (the AFL "senior" comps).
+  if (!query?.competition) {
     const [menResult, womenResult] = await Promise.all([
-      client.fetchTeams("MEN"),
-      client.fetchTeams("WOMEN"),
+      client.fetchTeams("AFLM"),
+      client.fetchTeams("AFLW"),
     ]);
     if (!menResult.success) return menResult;
     if (!womenResult.success) return womenResult;
@@ -50,60 +44,26 @@ export async function fetchTeams(query?: TeamQuery): Promise<Result<Team[], Erro
     return ok([...toTeams(menResult.data, "AFLM"), ...toTeams(womenResult.data, "AFLW")]);
   }
 
-  const competition = query?.competition ?? "AFLM";
-  const teamType = query?.teamType ?? teamTypeForComp(competition);
-
-  const result = await client.fetchTeams(teamType);
+  const result = await client.fetchTeams(query.competition);
   if (!result.success) return result;
 
-  return ok(toTeams(result.data, competition));
+  return ok(toTeams(result.data, query.competition));
 }
 
 /**
  * Fetch a team's squad roster for a season.
  *
- * @param query - Team ID, season, and optional competition.
- * @returns Squad with player list.
+ * `query.team` is the canonical team name; adapters handle their own
+ * translation (AFL API resolves it to a numeric ID; scrapers use the
+ * name directly). When `query.source` is omitted, routes to the default
+ * source for the squad capability.
  */
 export async function fetchSquad(query: SquadQuery): Promise<Result<Squad, Error>> {
-  const client = new AflApiClient();
-  const competition = query.competition ?? "AFLM";
-
-  const seasonResult = await client.resolveCompSeason(competition, query.season);
-  if (!seasonResult.success) return seasonResult;
-
-  const teamId = Number.parseInt(query.teamId, 10);
-  if (Number.isNaN(teamId)) {
-    return err(new ValidationError(`Invalid team ID: ${query.teamId}`));
-  }
-
-  const squadResult = await client.fetchSquad(teamId, seasonResult.data);
-  if (!squadResult.success) return squadResult;
-
-  const players: SquadPlayer[] = squadResult.data.squad.players.map((p) => ({
-    playerId: p.player.providerId ?? String(p.player.id),
-    givenName: p.player.firstName,
-    surname: p.player.surname,
-    displayName: `${p.player.firstName} ${p.player.surname}`,
-    jumperNumber: p.jumperNumber ?? null,
-    position: p.position ?? null,
-    dateOfBirth: p.player.dateOfBirth ? parseDate(p.player.dateOfBirth) : null,
-    heightCm: p.player.heightInCm || null,
-    weightKg: p.player.weightInKg || null,
-    draftYear: p.player.draftYear ? Number.parseInt(p.player.draftYear, 10) || null : null,
-    draftPosition: p.player.draftPosition
-      ? Number.parseInt(p.player.draftPosition, 10) || null
-      : null,
-    draftType: p.player.draftType ?? null,
-    debutYear: p.player.debutYear ? Number.parseInt(p.player.debutYear, 10) || null : null,
-    recruitedFrom: p.player.recruitedFrom ?? null,
-  }));
-
-  return ok({
-    teamId: query.teamId,
-    teamName: normaliseTeamName(squadResult.data.squad.team?.name ?? query.teamId),
+  const source = query.source ?? squadRegistry.defaultSource;
+  const adapterR = dispatch(squadRegistry, "squad", {
+    source,
+    competition: query.competition,
     season: query.season,
-    players,
-    competition,
   });
+  return Result.flatMapAsync(adapterR, (a) => a.fetchSquad({ ...query, source }));
 }

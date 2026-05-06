@@ -261,49 +261,21 @@ describe("AflApiClient", () => {
   });
 
   describe("resolveCompetitionId", () => {
-    it("returns the competition ID for AFLM (mapped to AFL code)", async () => {
-      const competitions = {
-        competitions: [
-          { id: 1, name: "Toyota AFL Premiership", code: "AFL" },
-          { id: 3, name: "NAB AFLW", code: "AFLW" },
-        ],
-      };
-      const fetchFn = vi.fn().mockResolvedValueOnce(mockResponse(competitions));
+    it("returns the hardcoded competition ID for each competition", async () => {
+      const fetchFn = vi.fn();
       const client = new AflApiClient({ fetchFn });
 
-      const result = await client.resolveCompetitionId("AFLM");
+      const aflm = await client.resolveCompetitionId("AFLM");
+      const aflw = await client.resolveCompetitionId("AFLW");
+      const vfl = await client.resolveCompetitionId("VFL");
+      const vflw = await client.resolveCompetitionId("VFLW");
 
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data).toBe(1);
-      }
-    });
-
-    it("returns error when competition code is not found", async () => {
-      const competitions = {
-        competitions: [{ id: 1, name: "Toyota AFL Premiership", code: "AFL" }],
-      };
-      const fetchFn = vi.fn().mockResolvedValueOnce(mockResponse(competitions));
-      const client = new AflApiClient({ fetchFn });
-
-      const result = await client.resolveCompetitionId("AFLW");
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toBeInstanceOf(AflApiError);
-        expect(result.error.message).toContain("AFLW");
-      }
-    });
-
-    it("propagates fetch errors", async () => {
-      const fetchFn = vi
-        .fn()
-        .mockResolvedValueOnce(mockResponse({}, { status: 500, statusText: "Server Error" }));
-      const client = new AflApiClient({ fetchFn });
-
-      const result = await client.resolveCompetitionId("AFLM");
-
-      expect(result.success).toBe(false);
+      expect(aflm.success && aflm.data).toBe(1);
+      expect(aflw.success && aflw.data).toBe(3);
+      expect(vfl.success && vfl.data).toBe(7);
+      expect(vflw.success && vflw.data).toBe(11);
+      // Hardcoded map — never hits the network.
+      expect(fetchFn).not.toHaveBeenCalled();
     });
   });
 
@@ -666,22 +638,42 @@ describe("AflApiClient", () => {
       }
     });
 
-    it("filters by team type when provided", async () => {
+    it("filters by competition when provided", async () => {
       const teams = {
         teams: [
           { id: 1, name: "Adelaide Crows", teamType: "MEN" },
           { id: 2, name: "Adelaide Crows W", teamType: "WOMEN" },
+          { id: 3, name: "Footscray Bulldogs", teamType: "VFL_MEN" },
         ],
       };
       const fetchFn = vi.fn().mockResolvedValueOnce(mockResponse(teams));
       const client = new AflApiClient({ fetchFn });
 
-      const result = await client.fetchTeams("MEN");
+      const result = await client.fetchTeams("AFLM");
 
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data).toHaveLength(1);
         expect(result.data[0]?.name).toBe("Adelaide Crows");
+      }
+    });
+
+    it("scopes to VFL teams when given VFL", async () => {
+      const teams = {
+        teams: [
+          { id: 1, name: "Adelaide Crows", teamType: "MEN" },
+          { id: 3, name: "Footscray Bulldogs", teamType: "VFL_MEN" },
+        ],
+      };
+      const fetchFn = vi.fn().mockResolvedValueOnce(mockResponse(teams));
+      const client = new AflApiClient({ fetchFn });
+
+      const result = await client.fetchTeams("VFL");
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data).toHaveLength(1);
+        expect(result.data[0]?.name).toBe("Footscray Bulldogs");
       }
     });
   });

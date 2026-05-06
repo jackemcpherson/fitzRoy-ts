@@ -14,7 +14,7 @@ import { normaliseVenueName } from "../lib/venue-mapping";
 import { extractGameUrls, parseAflTablesGameStats } from "../transforms/afl-tables-player-stats";
 import { finalsRoundNumber, inferRoundType, toRoundCode } from "../transforms/match-results";
 import type {
-  MatchResult,
+  Match,
   PlayerDetails,
   PlayerStats,
   QuarterScore,
@@ -45,7 +45,7 @@ export class AflTablesClient {
    * @param year - The season year (1897 to present).
    * @returns Array of match results.
    */
-  async fetchSeasonResults(year: number): Promise<Result<MatchResult[], ScrapeError>> {
+  async fetchSeasonResults(year: number): Promise<Result<Match[], ScrapeError>> {
     const url = `${AFL_TABLES_BASE}/${year}.html`;
     try {
       const response = await this.fetchFn(url, {
@@ -231,7 +231,7 @@ export class AflTablesClient {
 }
 
 /**
- * Parse AFL Tables season page HTML into MatchResult objects.
+ * Parse AFL Tables season page HTML into Match objects.
  *
  * AFL Tables uses a pair of `<tr>` rows per match within separate `<table>` elements.
  * The first row has the home team, quarter scores, total, date/venue/attendance.
@@ -241,9 +241,9 @@ export class AflTablesClient {
  * @param year - The season year for metadata.
  * @returns Array of match results extracted from the page.
  */
-export function parseSeasonPage(html: string, year: number): MatchResult[] {
+export function parseSeasonPage(html: string, year: number): Match[] {
   const $ = cheerio.load(html);
-  const results: MatchResult[] = [];
+  const results: Match[] = [];
   let currentRound = 0;
   let currentRoundType: RoundType = "HomeAndAway";
   let currentRoundName = "";
