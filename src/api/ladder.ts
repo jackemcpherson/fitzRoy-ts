@@ -5,13 +5,8 @@
  * each adapter (see `src/sources/adapters/`).
  */
 
-import { err, type Result } from "../lib/result";
-import {
-  checkCoverage,
-  findAlternativeSource,
-  ladderRegistry,
-  unsupportedSourceForOperation,
-} from "../sources/adapters/index";
+import { Result } from "../lib/result";
+import { dispatch, ladderRegistry } from "../sources/adapters/index";
 import type { Ladder, LadderQuery } from "../types";
 
 /**
@@ -23,24 +18,6 @@ import type { Ladder, LadderQuery } from "../types";
  * ```
  */
 export async function fetchLadder(query: LadderQuery): Promise<Result<Ladder, Error>> {
-  const adapter = ladderRegistry.get(query.source);
-  if (!adapter) {
-    return err(unsupportedSourceForOperation(query.source, "ladder", ladderRegistry.list()));
-  }
-
-  const competition = query.competition ?? "AFLM";
-  const alternative = findAlternativeSource(ladderRegistry.all(), {
-    source: query.source,
-    competition,
-    season: query.season,
-  });
-  const suggestion = alternative ? `--source ${alternative}` : undefined;
-  const coverage = checkCoverage(
-    adapter.coverage,
-    { source: query.source, operation: "ladder", competition, season: query.season },
-    suggestion,
-  );
-  if (!coverage.success) return coverage;
-
-  return adapter.fetchLadder(query);
+  const adapterR = dispatch(ladderRegistry, "ladder", query);
+  return Result.flatMapAsync(adapterR, (a) => a.fetchLadder(query));
 }

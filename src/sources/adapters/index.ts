@@ -97,6 +97,7 @@ export {
   type SeasonRange,
   unsupportedSourceForOperation,
 } from "./coverage";
+export { type DispatchQuery, dispatch } from "./dispatch";
 export {
   CapabilityRegistry,
   ladderRegistry,

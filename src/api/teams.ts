@@ -2,13 +2,9 @@
  * Public API for fetching team lists and squad rosters.
  */
 
-import { err, ok, type Result } from "../lib/result";
+import { ok, Result } from "../lib/result";
 import { AFL_SENIOR_TEAMS, normaliseTeamName } from "../lib/team-mapping";
-import {
-  checkCoverage,
-  squadRegistry,
-  unsupportedSourceForOperation,
-} from "../sources/adapters/index";
+import { dispatch, squadRegistry } from "../sources/adapters/index";
 import { AflApiClient } from "../sources/afl-api";
 import type { CompetitionCode, Squad, SquadQuery, Team, TeamQuery } from "../types";
 
@@ -57,26 +53,14 @@ export async function fetchTeams(query?: TeamQuery): Promise<Result<Team[], Erro
 /**
  * Fetch a team's squad roster for a season.
  *
- * The dispatch is a 3-line registry lookup — per-source logic lives in
- * each adapter (see `src/sources/adapters/`). SquadQuery has no `source`
- * field today (only AFL API supports it), so we route to the default
- * SquadSource directly.
+ * SquadQuery has no `source` field (only AFL API supports squad data
+ * today), so we route to the registry's default source.
  */
 export async function fetchSquad(query: SquadQuery): Promise<Result<Squad, Error>> {
-  const sourceId = squadRegistry.defaultSource;
-  const adapter = squadRegistry.get(sourceId);
-  if (!adapter) {
-    return err(unsupportedSourceForOperation(sourceId, "squad", squadRegistry.list()));
-  }
-
-  const competition = query.competition ?? "AFLM";
-  const coverage = checkCoverage(adapter.coverage, {
-    source: sourceId,
-    operation: "squad",
-    competition,
+  const adapterR = dispatch(squadRegistry, "squad", {
+    source: squadRegistry.defaultSource,
+    competition: query.competition,
     season: query.season,
   });
-  if (!coverage.success) return coverage;
-
-  return adapter.fetchSquad(query);
+  return Result.flatMapAsync(adapterR, (a) => a.fetchSquad(query));
 }

@@ -5,13 +5,8 @@
  * each adapter (see `src/sources/adapters/`).
  */
 
-import { err, type Result } from "../lib/result";
-import {
-  checkCoverage,
-  findAlternativeSource,
-  playerStatsRegistry,
-  unsupportedSourceForOperation,
-} from "../sources/adapters/index";
+import { Result } from "../lib/result";
+import { dispatch, playerStatsRegistry } from "../sources/adapters/index";
 import type { PlayerStats, PlayerStatsQuery } from "../types";
 
 /**
@@ -27,26 +22,6 @@ import type { PlayerStats, PlayerStatsQuery } from "../types";
 export async function fetchPlayerStats(
   query: PlayerStatsQuery,
 ): Promise<Result<PlayerStats[], Error>> {
-  const adapter = playerStatsRegistry.get(query.source);
-  if (!adapter) {
-    return err(
-      unsupportedSourceForOperation(query.source, "player stats", playerStatsRegistry.list()),
-    );
-  }
-
-  const competition = query.competition ?? "AFLM";
-  const alternative = findAlternativeSource(playerStatsRegistry.all(), {
-    source: query.source,
-    competition,
-    season: query.season,
-  });
-  const suggestion = alternative ? `--source ${alternative}` : undefined;
-  const coverage = checkCoverage(
-    adapter.coverage,
-    { source: query.source, operation: "player stats", competition, season: query.season },
-    suggestion,
-  );
-  if (!coverage.success) return coverage;
-
-  return adapter.fetchPlayerStats(query);
+  const adapterR = dispatch(playerStatsRegistry, "player stats", query);
+  return Result.flatMapAsync(adapterR, (a) => a.fetchPlayerStats(query));
 }

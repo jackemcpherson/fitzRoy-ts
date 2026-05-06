@@ -8,14 +8,9 @@
  * each adapter (see `src/sources/adapters/`).
  */
 
-import { err, ok, type Result } from "../lib/result";
-import { normaliseTeamName } from "../lib/team-mapping";
-import {
-  checkCoverage,
-  findAlternativeSource,
-  matchRegistry,
-  unsupportedSourceForOperation,
-} from "../sources/adapters/index";
+import { Result } from "../lib/result";
+import { dispatch, matchRegistry } from "../sources/adapters/index";
+import { filterMatches } from "../transforms/match";
 import type { Match, MatchQuery } from "../types";
 
 /**
@@ -34,42 +29,7 @@ import type { Match, MatchQuery } from "../types";
  * ```
  */
 export async function fetchMatches(query: MatchQuery): Promise<Result<Match[], Error>> {
-  const adapter = matchRegistry.get(query.source);
-  if (!adapter) {
-    return err(unsupportedSourceForOperation(query.source, "match", matchRegistry.list()));
-  }
-
-  const competition = query.competition ?? "AFLM";
-  const alternative = findAlternativeSource(matchRegistry.all(), {
-    source: query.source,
-    competition,
-    season: query.season,
-  });
-  const suggestion = alternative ? `--source ${alternative}` : undefined;
-  const coverage = checkCoverage(
-    adapter.coverage,
-    { source: query.source, operation: "match", competition, season: query.season },
-    suggestion,
-  );
-  if (!coverage.success) return coverage;
-
-  const fetched = await adapter.fetchMatches(query);
-  if (!fetched.success) return fetched;
-  return ok(applyClientFilters(fetched.data, query));
-}
-
-/** Apply matchId/team/status filters that the source didn't already apply. */
-function applyClientFilters(matches: readonly Match[], query: MatchQuery): Match[] {
-  let filtered: readonly Match[] = matches;
-  if (query.matchId !== undefined) {
-    filtered = filtered.filter((m) => m.matchId === query.matchId);
-  }
-  if (query.team !== undefined) {
-    const target = normaliseTeamName(query.team);
-    filtered = filtered.filter((m) => m.homeTeam === target || m.awayTeam === target);
-  }
-  if (query.status !== undefined) {
-    filtered = filtered.filter((m) => m.status === query.status);
-  }
-  return [...filtered];
+  const adapterR = dispatch(matchRegistry, "match", query);
+  const fetchedR = await Result.flatMapAsync(adapterR, (a) => a.fetchMatches(query));
+  return Result.map(fetchedR, (matches) => filterMatches(matches, query));
 }

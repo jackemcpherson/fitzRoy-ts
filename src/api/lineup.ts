@@ -5,13 +5,8 @@
  * each adapter (see `src/sources/adapters/`).
  */
 
-import { err, type Result } from "../lib/result";
-import {
-  checkCoverage,
-  findAlternativeSource,
-  lineupRegistry,
-  unsupportedSourceForOperation,
-} from "../sources/adapters/index";
+import { Result } from "../lib/result";
+import { dispatch, lineupRegistry } from "../sources/adapters/index";
 import type { Lineup, LineupQuery } from "../types";
 
 /**
@@ -21,24 +16,6 @@ import type { Lineup, LineupQuery } from "../types";
  * When omitted, returns lineups for all matches in the round.
  */
 export async function fetchLineup(query: LineupQuery): Promise<Result<Lineup[], Error>> {
-  const adapter = lineupRegistry.get(query.source);
-  if (!adapter) {
-    return err(unsupportedSourceForOperation(query.source, "lineup", lineupRegistry.list()));
-  }
-
-  const competition = query.competition ?? "AFLM";
-  const alternative = findAlternativeSource(lineupRegistry.all(), {
-    source: query.source,
-    competition,
-    season: query.season,
-  });
-  const suggestion = alternative ? `--source ${alternative}` : undefined;
-  const coverage = checkCoverage(
-    adapter.coverage,
-    { source: query.source, operation: "lineup", competition, season: query.season },
-    suggestion,
-  );
-  if (!coverage.success) return coverage;
-
-  return adapter.fetchLineup(query);
+  const adapterR = dispatch(lineupRegistry, "lineup", query);
+  return Result.flatMapAsync(adapterR, (a) => a.fetchLineup(query));
 }

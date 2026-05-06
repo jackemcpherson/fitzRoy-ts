@@ -8,17 +8,16 @@
  * the suggestion target) is `afl-tables` (see `teamStatsRegistry.defaultSource`).
  */
 
-import { err, type Result } from "../lib/result";
-import {
-  checkCoverage,
-  findAlternativeSource,
-  teamStatsRegistry,
-  unsupportedSourceForOperation,
-} from "../sources/adapters/index";
+import { Result } from "../lib/result";
+import { dispatch, teamStatsRegistry } from "../sources/adapters/index";
 import type { TeamStatsEntry, TeamStatsQuery } from "../types";
 
 /**
  * Fetch team-level aggregate statistics for a season.
+ *
+ * TeamStatsQuery has no per-call competition (every TeamStats source we
+ * support is AFLM-only), so dispatch checks coverage against AFLM by
+ * convention.
  *
  * @example
  * ```ts
@@ -28,26 +27,6 @@ import type { TeamStatsEntry, TeamStatsQuery } from "../types";
 export async function fetchTeamStats(
   query: TeamStatsQuery,
 ): Promise<Result<TeamStatsEntry[], Error>> {
-  const adapter = teamStatsRegistry.get(query.source);
-  if (!adapter) {
-    return err(unsupportedSourceForOperation(query.source, "team stats", teamStatsRegistry.list()));
-  }
-
-  // TeamStats has no per-call competition (the query type doesn't carry one),
-  // so coverage is checked against AFLM by convention — every TeamStats source
-  // we support is AFLM-only.
-  const alternative = findAlternativeSource(teamStatsRegistry.all(), {
-    source: query.source,
-    competition: "AFLM",
-    season: query.season,
-  });
-  const suggestion = alternative ? `--source ${alternative}` : undefined;
-  const coverage = checkCoverage(
-    adapter.coverage,
-    { source: query.source, operation: "team stats", competition: "AFLM", season: query.season },
-    suggestion,
-  );
-  if (!coverage.success) return coverage;
-
-  return adapter.fetchTeamStats(query);
+  const adapterR = dispatch(teamStatsRegistry, "team stats", { ...query, competition: "AFLM" });
+  return Result.flatMapAsync(adapterR, (a) => a.fetchTeamStats(query));
 }
