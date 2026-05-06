@@ -8,7 +8,7 @@
  */
 
 import { ScrapeError } from "../lib/errors";
-import { err, ok, type Result } from "../lib/result";
+import { err, ok, Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
 import { AflCoachesClient } from "../sources/afl-coaches";
 import { FootyWireClient } from "../sources/footywire";
@@ -154,14 +154,12 @@ async function fetchColemanLeaderboard(query: AwardQuery): Promise<Result<Award[
     );
   }
 
-  const statsResult = await fetchPlayerStats({
+  const statsR = await fetchPlayerStats({
     source: "afl-api",
     season: query.season,
     competition,
   });
-  if (!statsResult.success) return statsResult;
-
-  return ok(rankColemanFromStats(statsResult.data, query.season, query.limit));
+  return Result.map(statsR, (stats) => rankColemanFromStats(stats, query.season, query.limit));
 }
 
 /** Pure transform: PlayerStats[] → ranked ColemanLeader[]. */
