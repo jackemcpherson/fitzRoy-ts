@@ -48,10 +48,9 @@ export function checkCoverage(
 ): Result<undefined, UnsupportedCompetitionError | OutOfRangeError> {
   const range = coverage.get(request.competition);
   if (!range) {
-    const tail = suggestion ? ` Try ${suggestion}.` : "";
     return err(
       new UnsupportedCompetitionError(
-        `${request.source} does not provide ${request.operation} data for ${request.competition}.${tail}`,
+        `${request.source} does not provide ${request.operation} data for ${request.competition}`,
         request.source,
         request.competition,
         suggestion,
@@ -59,10 +58,9 @@ export function checkCoverage(
     );
   }
   if (request.season < range.minSeason) {
-    const tail = suggestion ? ` Try ${suggestion}.` : "";
     return err(
       new OutOfRangeError(
-        `${request.source} only covers ${request.competition} ${request.operation} from ${range.minSeason}; you asked for ${request.season}.${tail}`,
+        `${request.source} only covers ${request.competition} ${request.operation} from ${range.minSeason}; you asked for ${request.season}`,
         request.source,
         request.competition,
         request.season,
@@ -71,10 +69,9 @@ export function checkCoverage(
     );
   }
   if (range.maxSeason != null && request.season > range.maxSeason) {
-    const tail = suggestion ? ` Try ${suggestion}.` : "";
     return err(
       new OutOfRangeError(
-        `${request.source} only covers ${request.competition} ${request.operation} up to ${range.maxSeason}; you asked for ${request.season}.${tail}`,
+        `${request.source} only covers ${request.competition} ${request.operation} up to ${range.maxSeason}; you asked for ${request.season}`,
         request.source,
         request.competition,
         request.season,

@@ -3,17 +3,20 @@
  *
  * Subsumes the old `fetchMatchResults` and `fetchFixture`. Use the `status`
  * filter to scope to upcoming or completed matches; omit it to get all.
+ *
+ * The dispatch is a 3-line registry lookup — per-source logic lives in
+ * each adapter (see `src/sources/adapters/`).
  */
 
-import { aflwUnsupportedError, UnsupportedSourceError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
-import { AflApiClient } from "../sources/afl-api";
-import { AflTablesClient } from "../sources/afl-tables";
-import { FootyWireClient } from "../sources/footywire";
-import { SquiggleClient } from "../sources/squiggle";
-import { transformMatchItems } from "../transforms/match-results";
-import { transformSquiggleGamesToFixture } from "../transforms/squiggle";
+import {
+  checkCoverage,
+  defaultSourceByCapability,
+  getMatchSource,
+  listMatchSources,
+  unsupportedSourceForOperation,
+} from "../sources/adapters/index";
 import type { Match, MatchQuery } from "../types";
 
 /**
@@ -32,10 +35,40 @@ import type { Match, MatchQuery } from "../types";
  * ```
  */
 export async function fetchMatches(query: MatchQuery): Promise<Result<Match[], Error>> {
+  const adapter = getMatchSource(query.source);
+  if (!adapter) {
+    return err(unsupportedSourceForOperation(query.source, "match", listMatchSources()));
+  }
+
   const competition = query.competition ?? "AFLM";
-  const fetched = await fetchAll(query, competition);
+  const suggestion = suggestionFor(query.source, competition);
+  const coverage = checkCoverage(
+    adapter.coverage,
+    { source: query.source, operation: "match", competition, season: query.season },
+    suggestion,
+  );
+  if (!coverage.success) return coverage;
+
+  const fetched = await adapter.fetchMatches(query);
   if (!fetched.success) return fetched;
   return ok(applyClientFilters(fetched.data, query));
+}
+
+/**
+ * Suggest an alternative source when the chosen one can't serve the request.
+ *
+ * Per ADR-0001 we never silently fall back, but the error message names
+ * the senior alternative so the user can act on it. Returns undefined when
+ * no alternative would help (i.e. the user is already on the default).
+ */
+function suggestionFor(source: string, competition: string): string | undefined {
+  if (source === defaultSourceByCapability.match) return undefined;
+  // For non-AFLM competitions, only afl-api covers them; suggest the default.
+  if (competition !== "AFLM") {
+    return `--source ${defaultSourceByCapability.match}`;
+  }
+  // For older AFLM seasons (pre-2012), afl-tables has the deepest coverage.
+  return `--source afl-tables for older AFLM seasons, or --source ${defaultSourceByCapability.match} for current data`;
 }
 
 /** Apply matchId/team/status filters that the source didn't already apply. */
@@ -52,66 +85,4 @@ function applyClientFilters(matches: readonly Match[], query: MatchQuery): Match
     filtered = filtered.filter((m) => m.status === query.status);
   }
   return [...filtered];
-}
-
-/** Fetch all matches from the source for the requested season ± round. */
-async function fetchAll(
-  query: MatchQuery,
-  competition: "AFLM" | "AFLW" | "VFL" | "VFLW",
-): Promise<Result<Match[], Error>> {
-  switch (query.source) {
-    case "afl-api": {
-      const client = new AflApiClient();
-      const seasonResult = await client.resolveCompSeason(competition, query.season);
-      if (!seasonResult.success) return seasonResult;
-
-      const includeUpcoming = query.status !== "Complete";
-      const itemsResult =
-        query.round != null
-          ? await client.fetchRoundMatchItemsByNumber(seasonResult.data, query.round)
-          : await client.fetchSeasonMatchItems(seasonResult.data, { includeUpcoming });
-      if (!itemsResult.success) return itemsResult;
-      return ok(transformMatchItems(itemsResult.data, query.season, competition));
-    }
-
-    case "footywire": {
-      if (competition !== "AFLM") return err(aflwUnsupportedError("footywire"));
-      const client = new FootyWireClient();
-      // fetchSeasonFixture returns all matches (any status). fetchSeasonResults
-      // returns only completed. Use the broader call so the client filters apply.
-      const result = await client.fetchSeasonFixture(query.season);
-      if (!result.success) return result;
-      const filtered =
-        query.round != null
-          ? result.data.filter((m) => m.roundNumber === query.round)
-          : result.data;
-      return ok(filtered);
-    }
-
-    case "afl-tables": {
-      if (competition !== "AFLM") return err(aflwUnsupportedError("afl-tables"));
-      const client = new AflTablesClient();
-      const result = await client.fetchSeasonResults(query.season);
-      if (!result.success) return result;
-      const filtered =
-        query.round != null
-          ? result.data.filter((m) => m.roundNumber === query.round)
-          : result.data;
-      return ok(filtered);
-    }
-
-    case "squiggle": {
-      if (competition !== "AFLM") return err(aflwUnsupportedError("squiggle"));
-      const client = new SquiggleClient();
-      const result = await client.fetchGames(query.season, query.round ?? undefined, 100);
-      if (!result.success) return result;
-      return ok(transformSquiggleGamesToFixture(result.data.games, query.season));
-    }
-
-    case "fryzigg":
-      return err(new UnsupportedSourceError("Fryzigg does not provide match data", query.source));
-
-    default:
-      return err(new UnsupportedSourceError(`Unsupported source: ${query.source}`, query.source));
-  }
 }
