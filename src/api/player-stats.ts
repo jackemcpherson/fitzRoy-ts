@@ -7,8 +7,9 @@
 
 import { err, type Result } from "../lib/result";
 import {
+  allPlayerStatsSources,
   checkCoverage,
-  defaultSourceByCapability,
+  findAlternativeSource,
   getPlayerStatsSource,
   listPlayerStatsSources,
   unsupportedSourceForOperation,
@@ -36,10 +37,12 @@ export async function fetchPlayerStats(
   }
 
   const competition = query.competition ?? "AFLM";
-  const suggestion =
-    query.source === defaultSourceByCapability.playerStats
-      ? undefined
-      : `--source ${defaultSourceByCapability.playerStats}`;
+  const alternative = findAlternativeSource(allPlayerStatsSources(), {
+    source: query.source,
+    competition,
+    season: query.season,
+  });
+  const suggestion = alternative ? `--source ${alternative}` : undefined;
   const coverage = checkCoverage(
     adapter.coverage,
     { source: query.source, operation: "player stats", competition, season: query.season },

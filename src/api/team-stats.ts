@@ -10,8 +10,9 @@
 
 import { err, type Result } from "../lib/result";
 import {
+  allTeamStatsSources,
   checkCoverage,
-  defaultSourceByCapability,
+  findAlternativeSource,
   getTeamStatsSource,
   listTeamStatsSources,
   unsupportedSourceForOperation,
@@ -37,10 +38,12 @@ export async function fetchTeamStats(
   // TeamStats has no per-call competition (the query type doesn't carry one),
   // so coverage is checked against AFLM by convention — every TeamStats source
   // we support is AFLM-only.
-  const suggestion =
-    query.source === defaultSourceByCapability.teamStats
-      ? undefined
-      : `--source ${defaultSourceByCapability.teamStats}`;
+  const alternative = findAlternativeSource(allTeamStatsSources(), {
+    source: query.source,
+    competition: "AFLM",
+    season: query.season,
+  });
+  const suggestion = alternative ? `--source ${alternative}` : undefined;
   const coverage = checkCoverage(
     adapter.coverage,
     { source: query.source, operation: "team stats", competition: "AFLM", season: query.season },

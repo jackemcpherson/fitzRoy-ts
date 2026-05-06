@@ -87,6 +87,26 @@ export function listLadderSources(): readonly DataSource[] {
   return [...ladderSources.keys()];
 }
 
+/** All registered adapters for a capability — used by the smart suggestion helper. */
+export function allMatchSources(): readonly MatchSource[] {
+  return [...matchSources.values()];
+}
+export function allPlayerStatsSources(): readonly PlayerStatsSource[] {
+  return [...playerStatsSources.values()];
+}
+export function allTeamStatsSources(): readonly TeamStatsSource[] {
+  return [...teamStatsSources.values()];
+}
+export function allSquadSources(): readonly SquadSource[] {
+  return [...squadSources.values()];
+}
+export function allLineupSources(): readonly LineupSource[] {
+  return [...lineupSources.values()];
+}
+export function allLadderSources(): readonly LadderSource[] {
+  return [...ladderSources.values()];
+}
+
 /**
  * Per-capability default source. Used by the CLI when `--source` is omitted
  * and as the source-suggestion target for OutOfRangeError messages.

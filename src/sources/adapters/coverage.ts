@@ -93,3 +93,34 @@ export function unsupportedSourceForOperation(
     source,
   );
 }
+
+/** Minimal shape we need to reason about an adapter when looking for alternatives. */
+interface AdapterLike {
+  readonly id: DataSource;
+  readonly coverage: CoverageMap;
+}
+
+/**
+ * Find another adapter from the same capability registry whose coverage
+ * includes the requested (competition, season). Used to produce smart
+ * "Try: --source X" suggestions when the chosen adapter can't serve the
+ * request.
+ *
+ * Returns the first matching adapter that isn't the one we already tried,
+ * or undefined when no alternative exists. Per ADR-0001 we never *use* the
+ * alternative — we just name it in the error.
+ */
+export function findAlternativeSource(
+  adapters: readonly AdapterLike[],
+  request: { source: DataSource; competition: CompetitionCode; season: number },
+): DataSource | undefined {
+  for (const adapter of adapters) {
+    if (adapter.id === request.source) continue;
+    const range = adapter.coverage.get(request.competition);
+    if (!range) continue;
+    if (request.season < range.minSeason) continue;
+    if (range.maxSeason != null && request.season > range.maxSeason) continue;
+    return adapter.id;
+  }
+  return undefined;
+}

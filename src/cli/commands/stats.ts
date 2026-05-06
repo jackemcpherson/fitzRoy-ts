@@ -126,7 +126,11 @@ export const statsCommand = defineCommand({
     const groupBy = validateGroupBy(args.by);
 
     if (groupBy === "team") {
-      const source = validateSource(args.source === "afl-api" ? "afl-tables" : args.source);
+      // No silent fallback: if the user is on the default --source (afl-api,
+      // which has no team-stats endpoint), surface the structured error from
+      // the registry so they explicitly switch with `--source afl-tables` or
+      // `--source footywire`. Per ADR-0001.
+      const source = validateSource(args.source);
       const summaryType = args.summary ? validateSummary(args.summary) : undefined;
       const result = await withSpinner("Fetching team stats…", () =>
         fetchTeamStats({

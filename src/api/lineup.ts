@@ -7,8 +7,9 @@
 
 import { err, type Result } from "../lib/result";
 import {
+  allLineupSources,
   checkCoverage,
-  defaultSourceByCapability,
+  findAlternativeSource,
   getLineupSource,
   listLineupSources,
   unsupportedSourceForOperation,
@@ -28,10 +29,12 @@ export async function fetchLineup(query: LineupQuery): Promise<Result<Lineup[], 
   }
 
   const competition = query.competition ?? "AFLM";
-  const suggestion =
-    query.source === defaultSourceByCapability.lineup
-      ? undefined
-      : `--source ${defaultSourceByCapability.lineup}`;
+  const alternative = findAlternativeSource(allLineupSources(), {
+    source: query.source,
+    competition,
+    season: query.season,
+  });
+  const suggestion = alternative ? `--source ${alternative}` : undefined;
   const coverage = checkCoverage(
     adapter.coverage,
     { source: query.source, operation: "lineup", competition, season: query.season },

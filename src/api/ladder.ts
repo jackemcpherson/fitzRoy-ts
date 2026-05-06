@@ -7,8 +7,9 @@
 
 import { err, type Result } from "../lib/result";
 import {
+  allLadderSources,
   checkCoverage,
-  defaultSourceByCapability,
+  findAlternativeSource,
   getLadderSource,
   listLadderSources,
   unsupportedSourceForOperation,
@@ -30,10 +31,12 @@ export async function fetchLadder(query: LadderQuery): Promise<Result<Ladder, Er
   }
 
   const competition = query.competition ?? "AFLM";
-  const suggestion =
-    query.source === defaultSourceByCapability.ladder
-      ? undefined
-      : `--source ${defaultSourceByCapability.ladder}`;
+  const alternative = findAlternativeSource(allLadderSources(), {
+    source: query.source,
+    competition,
+    season: query.season,
+  });
+  const suggestion = alternative ? `--source ${alternative}` : undefined;
   const coverage = checkCoverage(
     adapter.coverage,
     { source: query.source, operation: "ladder", competition, season: query.season },

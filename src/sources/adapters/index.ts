@@ -92,10 +92,17 @@ export {
   type CoverageMap,
   type CoverageRequest,
   checkCoverage,
+  findAlternativeSource,
   type SeasonRange,
   unsupportedSourceForOperation,
 } from "./coverage";
 export {
+  allLadderSources,
+  allLineupSources,
+  allMatchSources,
+  allPlayerStatsSources,
+  allSquadSources,
+  allTeamStatsSources,
   defaultSourceByCapability,
   getLadderSource,
   getLineupSource,
