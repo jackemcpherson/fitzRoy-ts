@@ -3,7 +3,14 @@
  */
 
 import pc from "picocolors";
-import { AflApiError, ScrapeError, UnsupportedSourceError, ValidationError } from "../lib/errors";
+import {
+  AflApiError,
+  OutOfRangeError,
+  ScrapeError,
+  UnsupportedCompetitionError,
+  UnsupportedSourceError,
+  ValidationError,
+} from "../lib/errors";
 
 /** Format an error into a human-readable, coloured message (no stack trace). */
 export function formatError(error: unknown): string {
@@ -21,6 +28,14 @@ export function formatError(error: unknown): string {
   }
   if (error instanceof UnsupportedSourceError) {
     return `${pc.red("Unsupported source:")} ${error.message}`;
+  }
+  if (error instanceof UnsupportedCompetitionError) {
+    const suggestion = error.suggestion ? `\n  ${pc.cyan("Try:")} ${error.suggestion}` : "";
+    return `${pc.red("Unsupported competition:")} ${error.message}${suggestion}`;
+  }
+  if (error instanceof OutOfRangeError) {
+    const suggestion = error.suggestion ? `\n  ${pc.cyan("Try:")} ${error.suggestion}` : "";
+    return `${pc.red("Season out of range:")} ${error.message}${suggestion}`;
   }
   if (error instanceof Error) {
     return `${pc.red("Error:")} ${error.message}`;
