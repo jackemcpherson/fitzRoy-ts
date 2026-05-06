@@ -13,12 +13,34 @@
  * this module *is* what gets imported.
  */
 
-import { AflApiMatchSource, AflApiPlayerStatsSource } from "./afl-api";
-import { AflTablesMatchSource, AflTablesPlayerStatsSource } from "./afl-tables";
-import { FootyWireMatchSource, FootyWirePlayerStatsSource } from "./footywire";
+import {
+  AflApiLadderSource,
+  AflApiLineupSource,
+  AflApiMatchSource,
+  AflApiPlayerStatsSource,
+  AflApiSquadSource,
+} from "./afl-api";
+import {
+  AflTablesLadderSource,
+  AflTablesMatchSource,
+  AflTablesPlayerStatsSource,
+  AflTablesTeamStatsSource,
+} from "./afl-tables";
+import {
+  FootyWireMatchSource,
+  FootyWirePlayerStatsSource,
+  FootyWireTeamStatsSource,
+} from "./footywire";
 import { FryziggPlayerStatsSource } from "./fryzigg";
-import { registerMatchSource, registerPlayerStatsSource } from "./registry";
-import { SquiggleMatchSource } from "./squiggle";
+import {
+  registerLadderSource,
+  registerLineupSource,
+  registerMatchSource,
+  registerPlayerStatsSource,
+  registerSquadSource,
+  registerTeamStatsSource,
+} from "./registry";
+import { SquiggleLadderSource, SquiggleMatchSource } from "./squiggle";
 
 // ---------------------------------------------------------------------------
 // Match
@@ -35,6 +57,25 @@ registerPlayerStatsSource(new AflApiPlayerStatsSource());
 registerPlayerStatsSource(new FootyWirePlayerStatsSource());
 registerPlayerStatsSource(new AflTablesPlayerStatsSource());
 registerPlayerStatsSource(new FryziggPlayerStatsSource());
+
+// ---------------------------------------------------------------------------
+// TeamStats (no AFL API endpoint — afl-tables is the senior fallback)
+// ---------------------------------------------------------------------------
+registerTeamStatsSource(new FootyWireTeamStatsSource());
+registerTeamStatsSource(new AflTablesTeamStatsSource());
+
+// ---------------------------------------------------------------------------
+// Squad / Lineup (AFL API only)
+// ---------------------------------------------------------------------------
+registerSquadSource(new AflApiSquadSource());
+registerLineupSource(new AflApiLineupSource());
+
+// ---------------------------------------------------------------------------
+// Ladder
+// ---------------------------------------------------------------------------
+registerLadderSource(new AflApiLadderSource());
+registerLadderSource(new AflTablesLadderSource());
+registerLadderSource(new SquiggleLadderSource());
 
 // ---------------------------------------------------------------------------
 // Re-exports — public surface for src/api/*

@@ -11,7 +11,7 @@ describe("public API source validation", () => {
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.message).toContain("only available from the AFL API");
+      expect(result.error.message).toContain("footywire does not provide lineup");
     }
   });
 
@@ -22,7 +22,7 @@ describe("public API source validation", () => {
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.message).toContain("only available from the AFL API");
+      expect(result.error.message).toContain("footywire does not provide ladder");
     }
   });
 
@@ -34,7 +34,7 @@ describe("public API source validation", () => {
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.message).toContain("only available from the AFL API");
+      expect(result.error.message).toContain("squiggle does not provide lineup");
     }
   });
 });

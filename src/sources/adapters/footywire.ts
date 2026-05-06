@@ -6,13 +6,21 @@
  */
 
 import { ok, type Result } from "../../lib/result";
-import type { Match, MatchQuery, PlayerStats, PlayerStatsQuery } from "../../types";
+import type {
+  Match,
+  MatchQuery,
+  PlayerStats,
+  PlayerStatsQuery,
+  TeamStatsEntry,
+  TeamStatsQuery,
+} from "../../types";
 import { FootyWireClient } from "../footywire";
-import type { MatchSource, PlayerStatsSource } from "./capabilities";
+import type { MatchSource, PlayerStatsSource, TeamStatsSource } from "./capabilities";
 import type { CoverageMap } from "./coverage";
 
 const FOOTYWIRE_MATCH_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 2010 }]]);
 const FOOTYWIRE_PLAYER_STATS_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 2010 }]]);
+const FOOTYWIRE_TEAM_STATS_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 2010 }]]);
 
 /** FootyWire as a MatchSource (AFLM only, ~2010+). */
 export class FootyWireMatchSource implements MatchSource {
@@ -76,5 +84,18 @@ export class FootyWirePlayerStatsSource implements PlayerStatsSource {
     }
 
     return ok(allStats);
+  }
+}
+
+/** FootyWire as a TeamStatsSource (AFLM only). */
+export class FootyWireTeamStatsSource implements TeamStatsSource {
+  readonly id = "footywire" as const;
+  readonly coverage = FOOTYWIRE_TEAM_STATS_COVERAGE;
+
+  constructor(private readonly client: FootyWireClient = new FootyWireClient()) {}
+
+  async fetchTeamStats(query: TeamStatsQuery): Promise<Result<TeamStatsEntry[], Error>> {
+    const summaryType = query.summaryType ?? "totals";
+    return this.client.fetchTeamStats(query.season, summaryType);
   }
 }

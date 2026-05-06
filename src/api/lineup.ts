@@ -1,12 +1,18 @@
 /**
  * Public API for fetching match lineup/roster data.
+ *
+ * The dispatch is a 3-line registry lookup — per-source logic lives in
+ * each adapter (see `src/sources/adapters/`).
  */
 
-import { batchedMap } from "../lib/concurrency";
-import { AflApiError, UnsupportedSourceError } from "../lib/errors";
-import { err, ok, type Result } from "../lib/result";
-import { AflApiClient } from "../sources/afl-api";
-import { transformMatchRoster } from "../transforms/lineup";
+import { err, type Result } from "../lib/result";
+import {
+  checkCoverage,
+  defaultSourceByCapability,
+  getLineupSource,
+  listLineupSources,
+  unsupportedSourceForOperation,
+} from "../sources/adapters/index";
 import type { Lineup, LineupQuery } from "../types";
 
 /**
@@ -14,49 +20,24 @@ import type { Lineup, LineupQuery } from "../types";
  *
  * When `matchId` is provided, returns a single-element array for that match.
  * When omitted, returns lineups for all matches in the round.
- *
- * @param query - Source, season, round, optional matchId, and competition.
- * @returns Array of lineups.
  */
 export async function fetchLineup(query: LineupQuery): Promise<Result<Lineup[], Error>> {
+  const adapter = getLineupSource(query.source);
+  if (!adapter) {
+    return err(unsupportedSourceForOperation(query.source, "lineup", listLineupSources()));
+  }
+
   const competition = query.competition ?? "AFLM";
-
-  if (query.source !== "afl-api") {
-    return err(
-      new UnsupportedSourceError(
-        "Lineup data is only available from the AFL API source.",
-        query.source,
-      ),
-    );
-  }
-
-  const client = new AflApiClient();
-
-  if (query.matchId) {
-    const rosterResult = await client.fetchMatchRoster(query.matchId);
-    if (!rosterResult.success) return rosterResult;
-    return ok([transformMatchRoster(rosterResult.data, query.season, query.round, competition)]);
-  }
-
-  const seasonResult = await client.resolveCompSeason(competition, query.season);
-  if (!seasonResult.success) return seasonResult;
-
-  const matchItems = await client.fetchRoundMatchItemsByNumber(seasonResult.data, query.round);
-  if (!matchItems.success) return matchItems;
-
-  if (matchItems.data.length === 0) {
-    return err(new AflApiError(`No matches found for round ${query.round}`));
-  }
-
-  const rosterResults = await batchedMap(matchItems.data, (item) =>
-    client.fetchMatchRoster(item.match.matchId),
+  const suggestion =
+    query.source === defaultSourceByCapability.lineup
+      ? undefined
+      : `--source ${defaultSourceByCapability.lineup}`;
+  const coverage = checkCoverage(
+    adapter.coverage,
+    { source: query.source, operation: "lineup", competition, season: query.season },
+    suggestion,
   );
+  if (!coverage.success) return coverage;
 
-  const lineups: Lineup[] = [];
-  for (const rosterResult of rosterResults) {
-    if (!rosterResult.success) return rosterResult;
-    lineups.push(transformMatchRoster(rosterResult.data, query.season, query.round, competition));
-  }
-
-  return ok(lineups);
+  return adapter.fetchLineup(query);
 }
