@@ -55,13 +55,17 @@ const LINEUP_COLUMNS: TableColumnConfig[] = [
   { key: "position", label: "Pos", maxWidth: 12 },
 ];
 
-function flattenLineups(lineups: readonly Lineup[]): Record<string, unknown>[] {
+function flattenLineups(
+  lineups: readonly Lineup[],
+  teamFilter?: string,
+): Record<string, unknown>[] {
   const rows: Record<string, unknown>[] = [];
   for (const lineup of lineups) {
     for (const { players, team } of [
       { players: lineup.homePlayers, team: lineup.homeTeam },
       { players: lineup.awayPlayers, team: lineup.awayTeam },
     ]) {
+      if (teamFilter != null && team !== teamFilter) continue;
       for (const p of players) {
         rows.push({
           matchId: lineup.matchId,
@@ -139,7 +143,7 @@ export const teamCommand = defineCommand({
       console.log(
         resolvedFormat === "json"
           ? formatOutput(data, formatOptions)
-          : formatOutput(flattenLineups(data), formatOptions),
+          : formatOutput(flattenLineups(data, teamName ?? undefined), formatOptions),
       );
       return;
     }

@@ -133,10 +133,17 @@ export function parseRisingStarNominations(html: string, season: number): Rising
       .map((_, c) => $(c).text().trim())
       .get();
 
+    // FootyWire uses "Rd" (current), "Rnd", or "Round" depending on era —
+    // accept any of those leading-cell values. Older parser only accepted
+    // the long form and silently returned [] for every season (#91).
+    const firstCell = headerCells[0]?.toLowerCase().trim();
     if (
       headerCells.length >= 15 &&
-      (headerCells[0]?.toLowerCase().includes("round") ||
-        headerCells[0]?.toLowerCase().includes("rnd"))
+      (firstCell === "rd" ||
+        firstCell === "rnd" ||
+        firstCell === "round" ||
+        firstCell?.startsWith("round") ||
+        firstCell?.startsWith("rnd"))
     ) {
       targetRows = rows;
       return false; // break

@@ -42,6 +42,20 @@ export async function fetchAwards(query: AwardQuery): Promise<Result<Award[], Er
 }
 
 async function fetchAwardsRaw(query: AwardQuery): Promise<Result<Award[], Error>> {
+  // FootyWire-scraped award pages cover AFLM only. Reject non-AFLM
+  // requests up front instead of silently returning AFLM data (#82).
+  const isFootyWireScraped =
+    query.award === "brownlow" || query.award === "all-australian" || query.award === "rising-star";
+  const competition = query.competition ?? "AFLM";
+  if (isFootyWireScraped && competition !== "AFLM") {
+    return err(
+      new ScrapeError(
+        `${query.award} is only available for AFLM via the FootyWire scraper. ${competition} awards are not yet supported.`,
+        "footywire",
+      ),
+    );
+  }
+
   switch (query.award) {
     case "brownlow":
       return fetchFootyWireAward(

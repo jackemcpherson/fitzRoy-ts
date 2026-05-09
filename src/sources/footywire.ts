@@ -435,6 +435,11 @@ export function parseMatchList(html: string, year: number): Match[] {
  * Includes both played and upcoming matches.
  */
 export function parseFixtureList(html: string, year: number): Match[] {
+  // TODO(#111): when AFLW is wired up to FootyWire, accept a `competition`
+  // parameter and roll dates over to the next calendar year for rows whose
+  // month is earlier than the AFLW opener (currently August). AFLM
+  // seasons are calendar-year-aligned so the current logic is correct;
+  // the AFLW path is latent until coverage opens up.
   const $ = cheerio.load(html);
   const fixtures: Match[] = [];
   let currentRound = 0;
