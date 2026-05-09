@@ -7,47 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-
-- `match --source footywire`: completed games now emit
-  `homePoints`/`awayPoints`/`margin`/`homeGoals`/`homeBehinds`/`awayGoals`/`awayBehinds`
-  instead of `null`. The fixture-list parser detected `status: "Complete"`
-  but never extracted the score column. (#122)
-- `stats --match <team> -r N` filter now applies on
-  `--source footywire` and `--source afl-tables` (previously ignored —
-  returned the full round). The match resolver now also returns the
-  participating teams; the CLI post-filters non-afl-api results to those
-  teams. (#123)
-- `awards --type brownlow`: parser now reads from FootyWire's actual
-  9-column layout (`Player, Team, V, 3V, 2V, 1V, Played, Polled, V/G`).
-  `votes` is read directly from the canonical `V` total; `polledGames`,
-  `isMedallist`, and `competition` are populated correctly; the `' W'`
-  medallist suffix is stripped from `player`. (#124)
-- `player --source fryzigg`: now rejects with a clear error
-  (`fryzigg does not provide squad data. Supported sources:
-  afl-api, footywire, afl-tables`) instead of silently returning `[]`.
-  (#126)
-
-### Changed
-
-- `awards --type coleman` now defaults to `--limit 25` at the CLI surface
-  when not specified (the Coleman is a top-N leaderboard by definition;
-  500-row dumps were unfriendly). The library API still returns the full
-  ranking when `limit` is omitted. (#125)
-- `package.json`: added `prerelease` script (`typecheck && check && test
-  && build`) so contributors can lock dist freshness with one command
-  before tagging. The npm publish flow already rebuilds via
-  `prepublishOnly`. (#126)
-
 ## [2.1.0] - 2026-05-09
 
-This release closes 38 issues from an adversarial review of v2.0
+This release closes 43 issues from an adversarial review of v2.0
 (8 issues across CLI plumbing, 25 across data correctness, library
 exports, scraper quality, and polish, plus the 5 Phase 8 canonical type
 contracts: `Ladder` envelope, `team` verb discriminated union,
 `TeamMetricSet`, `Award` variant alignment + Brownlow enhancements,
 canonical `Player`). Plus per-match Brownlow attribution from AFL
-Tables (#117).
+Tables (#117) and 5 follow-ups from the v2.1.0 release-smoke matrix
+(#122–#126).
 
 ### Breaking changes
 
@@ -209,6 +178,13 @@ Tables (#117).
 - `--match-id` validates upstream provider format
   (`CD_M{digits}`) so malformed IDs error fast instead of producing
   an opaque HTTP 400. (#95)
+- `awards --type coleman` now defaults to `--limit 25` at the CLI
+  surface when not specified (the Coleman is a top-N leaderboard by
+  definition; 500-row dumps were unfriendly). The library API still
+  returns the full ranking when `limit` is omitted. (#125)
+- `package.json`: added `prerelease` script
+  (`typecheck && check && test && build`) so contributors can lock
+  dist freshness with one command before tagging. (#126)
 
 ### Fixed
 
@@ -231,6 +207,23 @@ Tables (#117).
   doesn't fire today.
 - AFL Tables player stats: per-match `brownlowVotes` now populated
   correctly from the `BR` column (was hardcoded `null`). (#117)
+- `match --source footywire`: completed games now emit
+  `homePoints`/`awayPoints`/`margin`/`homeGoals`/`homeBehinds`/`awayGoals`/`awayBehinds`
+  instead of `null`. The fixture-list parser detected
+  `status: "Complete"` but never extracted the score column. (#122)
+- `stats --match <team> -r N` filter now applies on
+  `--source footywire` and `--source afl-tables` (previously ignored —
+  returned the full round). The match resolver now also returns the
+  participating teams; the CLI post-filters non-afl-api results to those
+  teams. (#123)
+- `awards --type brownlow`: parser now reads from FootyWire's actual
+  9-column layout (`Player, Team, V, 3V, 2V, 1V, Played, Polled, V/G`).
+  `votes` is read directly from the canonical `V` total; `polledGames`,
+  `isMedallist`, and `competition` are populated correctly; the `" W"`
+  medallist suffix is stripped from `player`. (#124)
+- `player --source fryzigg`: now rejects with a clear error
+  (`Unsupported source: fryzigg does not provide squad data`) instead
+  of silently returning `[]`. (#126)
 
 ## [2.0.0] - 2026-05-06
 
