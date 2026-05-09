@@ -6,7 +6,6 @@
  * their own coverage in their own classes.
  */
 
-import { parseDate } from "../../lib/date-utils";
 import { ok, type Result } from "../../lib/result";
 import { normaliseTeamName } from "../../lib/team-mapping";
 import { computeLadder } from "../../transforms/computed-ladder";
@@ -15,10 +14,10 @@ import type {
   LadderQuery,
   Match,
   MatchQuery,
+  Player,
   PlayerStats,
   PlayerStatsQuery,
   Squad,
-  SquadPlayer,
   SquadQuery,
   TeamStatsEntry,
   TeamStatsQuery,
@@ -150,14 +149,14 @@ export class AflTablesSquadSource implements SquadSource {
     const result = await this.client.fetchPlayerList(teamName);
     if (!result.success) return result;
 
-    const players: SquadPlayer[] = result.data.map((p) => ({
+    const players: Player[] = result.data.map((p) => ({
       playerId: p.playerId,
       givenName: p.givenName,
       surname: p.surname,
       displayName: p.displayName,
       jumperNumber: p.jumperNumber,
       position: p.position,
-      dateOfBirth: p.dateOfBirth ? parseDate(p.dateOfBirth) : null,
+      dateOfBirth: p.dateOfBirth ?? null,
       heightCm: p.heightCm,
       weightKg: p.weightKg,
       draftYear: p.draftYear,
@@ -165,8 +164,11 @@ export class AflTablesSquadSource implements SquadSource {
       draftType: p.draftType,
       debutYear: p.debutYear,
       recruitedFrom: p.recruitedFrom,
-      gamesPlayed: p.gamesPlayed,
-      goals: p.goals,
+      gamesPlayed: p.gamesPlayed ?? null,
+      goals: p.goals ?? null,
+      team: teamName,
+      source: "afl-tables",
+      competition,
     }));
 
     return ok({

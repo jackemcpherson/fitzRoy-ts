@@ -53,7 +53,7 @@ const LINEUP_COLUMNS: TableColumnConfig[] = [
   { key: "team", label: "Team", maxWidth: 20 },
   { key: "displayName", label: "Player", maxWidth: 24 },
   { key: "jumperNumber", label: "#", maxWidth: 4 },
-  { key: "position", label: "Pos", maxWidth: 12 },
+  { key: "matchPosition", label: "Pos", maxWidth: 12 },
 ];
 
 function flattenLineups(
@@ -73,7 +73,7 @@ function flattenLineups(
           team,
           displayName: p.displayName,
           jumperNumber: p.jumperNumber,
-          position: p.position,
+          matchPosition: p.matchPosition,
           isEmergency: p.isEmergency,
           isSubstitute: p.isSubstitute,
         });

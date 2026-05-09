@@ -245,7 +245,12 @@ export interface LineupPlayer {
   readonly surname: string;
   readonly displayName: string;
   readonly jumperNumber: number | null;
-  readonly position: string | null;
+  /**
+   * On-field role assigned for THIS match (e.g. "Forward Pocket Right",
+   * "BACK_POCKET"). Distinct from `Player.position` (career standing
+   * role) — renamed in 2.1.0 to disambiguate the two semantics. (#96)
+   */
+  readonly matchPosition: string | null;
   readonly isEmergency: boolean;
   readonly isSubstitute: boolean;
 }
@@ -301,15 +306,26 @@ export interface Team {
   readonly competition: CompetitionCode;
 }
 
-/** A player within a team squad for a season. */
-export interface SquadPlayer {
+/**
+ * Canonical player record. One shape for every operation that returns
+ * player data — squad rosters, biographical details, and any future
+ * player-shaped surface (e.g. injuries, contract status). Bio fields
+ * are nullable so per-source coverage gaps round-trip honestly.
+ *
+ * `LineupPlayer` is intentionally NOT this shape — the AFL match roster
+ * endpoint doesn't carry bio data, so the lineup type stays its own
+ * lean record. (#96)
+ */
+export interface Player {
   readonly playerId: string;
   readonly givenName: string;
   readonly surname: string;
   readonly displayName: string;
   readonly jumperNumber: number | null;
+  /** Career standing position (e.g. `KEY_FORWARD`). Nullable per source. */
   readonly position: string | null;
-  readonly dateOfBirth: Date | null;
+  /** ISO 8601 date string (`"YYYY-MM-DD"`). Nullable per source. */
+  readonly dateOfBirth: string | null;
   readonly heightCm: number | null;
   readonly weightKg: number | null;
   readonly draftYear: number | null;
@@ -319,20 +335,30 @@ export interface SquadPlayer {
   readonly recruitedFrom: string | null;
   /**
    * Career games played. Populated by FootyWire and AFL Tables (their
-   * team-list pages report career counts). `null` for `afl-api` — the
+   * team-list pages carry career counts). `null` for `afl-api` — the
    * squad endpoint doesn't carry career stats.
    */
-  readonly gamesPlayed?: number | null;
+  readonly gamesPlayed: number | null;
   /** Career goals. Populated alongside `gamesPlayed`; same source caveat. */
-  readonly goals?: number | null;
+  readonly goals: number | null;
+  readonly team: string;
+  readonly source: DataSource;
+  readonly competition: CompetitionCode;
 }
+
+/**
+ * @deprecated Use {@link Player}. Removed in 2.1.0; alias retained
+ * temporarily for downstream type-only references. Will be deleted in
+ * 3.0.
+ */
+export type SquadPlayer = Player;
 
 /** A team's squad for a given season. */
 export interface Squad {
   readonly teamId: string;
   readonly teamName: string;
   readonly season: number;
-  readonly players: readonly SquadPlayer[];
+  readonly players: readonly Player[];
   readonly competition: CompetitionCode;
 }
 
@@ -354,32 +380,11 @@ export type TeamResponse =
 // Player details (biographical data)
 // ---------------------------------------------------------------------------
 
-/** Biographical details for a single player. */
-export interface PlayerDetails {
-  readonly playerId: string;
-  readonly givenName: string;
-  readonly surname: string;
-  readonly displayName: string;
-  readonly team: string;
-  readonly jumperNumber: number | null;
-  readonly position: string | null;
-  readonly dateOfBirth: string | null;
-  readonly heightCm: number | null;
-  readonly weightKg: number | null;
-  /**
-   * Career games played. `null` for `afl-api` source — the squad endpoint
-   * does not provide career statistics. Use `footywire` or `afl-tables` for this field.
-   */
-  readonly gamesPlayed: number | null;
-  readonly goals: number | null;
-  readonly draftYear: number | null;
-  readonly draftPosition: number | null;
-  readonly draftType: string | null;
-  readonly debutYear: number | null;
-  readonly recruitedFrom: string | null;
-  readonly source: DataSource;
-  readonly competition: CompetitionCode;
-}
+/**
+ * Biographical details for a single player. Now an alias for the
+ * canonical {@link Player} type — these were converged in 2.1.0. (#96)
+ */
+export type PlayerDetails = Player;
 
 /** Query parameters for fetching player details. */
 export interface PlayerDetailsQuery {

@@ -147,6 +147,7 @@ export type {
   Match,
   MatchQuery,
   MatchStatus,
+  Player,
   PlayerDetails,
   PlayerDetailsQuery,
   PlayerStats,

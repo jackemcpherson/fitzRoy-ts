@@ -71,6 +71,17 @@ own grilling pass.
   (now preserves `teamId`/`teamName`/`season`/`competition`); lineup
   mode → `{ mode: "lineup", lineups }`. Table and CSV output unchanged.
   (#99)
+- **`SquadPlayer` and `PlayerDetails` types converged into a single
+  canonical `Player` type** (19 fields). Bio fields nullable per source;
+  `team`, `source`, `competition` always present on every record.
+  `Squad.players` is now `Player[]`. `dateOfBirth` is now `string | null`
+  (ISO 8601 `"YYYY-MM-DD"`) on every record (was `Date | null` on
+  `SquadPlayer`). `LineupPlayer` is intentionally NOT converged with
+  `Player` (the AFL match roster endpoint doesn't carry bio data) — it
+  remains its own lean type. `LineupPlayer.position` renamed to
+  `matchPosition` to disambiguate from career standing position.
+  `SquadPlayer` and `PlayerDetails` retained as deprecated type aliases
+  for one minor version. (#96)
 - **`TeamStatsEntry.stats: Record<string, number>` removed in favour of
   `for: TeamMetricSet` and `against: TeamMetricSet`** (canonical,
   source-portable). New field `competition: CompetitionCode` added.

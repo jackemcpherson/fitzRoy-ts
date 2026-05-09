@@ -24,10 +24,10 @@ import type {
   LineupQuery,
   Match,
   MatchQuery,
+  Player,
   PlayerStats,
   PlayerStatsQuery,
   Squad,
-  SquadPlayer,
   SquadQuery,
 } from "../../types";
 import { AflApiClient } from "../afl-api";
@@ -170,14 +170,15 @@ export class AflApiSquadSource implements SquadSource {
     const squadResult = await this.client.fetchSquad(teamIdResult.data, seasonResult.data);
     if (!squadResult.success) return squadResult;
 
-    const players: SquadPlayer[] = squadResult.data.squad.players.map((p) => ({
+    const teamName = normaliseTeamName(squadResult.data.squad.team?.name ?? query.team);
+    const players: Player[] = squadResult.data.squad.players.map((p) => ({
       playerId: p.player.providerId ?? String(p.player.id),
       givenName: p.player.firstName,
       surname: p.player.surname,
       displayName: `${p.player.firstName} ${p.player.surname}`,
       jumperNumber: p.jumperNumber ?? null,
       position: p.position ?? null,
-      dateOfBirth: p.player.dateOfBirth ? parseDate(p.player.dateOfBirth) : null,
+      dateOfBirth: p.player.dateOfBirth ?? null,
       heightCm: p.player.heightInCm || null,
       weightKg: p.player.weightInKg || null,
       draftYear: p.player.draftYear ? Number.parseInt(p.player.draftYear, 10) || null : null,
@@ -187,11 +188,17 @@ export class AflApiSquadSource implements SquadSource {
       draftType: p.player.draftType ?? null,
       debutYear: p.player.debutYear ? Number.parseInt(p.player.debutYear, 10) || null : null,
       recruitedFrom: p.player.recruitedFrom ?? null,
+      // AFL API squad endpoint doesn't carry career counters
+      gamesPlayed: null,
+      goals: null,
+      team: teamName,
+      source: "afl-api",
+      competition,
     }));
 
     return ok({
       teamId: String(teamIdResult.data),
-      teamName: normaliseTeamName(squadResult.data.squad.team?.name ?? query.team),
+      teamName,
       season: query.season,
       players,
       competition,
