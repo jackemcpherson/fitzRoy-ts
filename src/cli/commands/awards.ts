@@ -22,6 +22,7 @@ import { resolveTeamNameOrPrompt } from "../resolvers";
 import {
   validateAwardType,
   validateCompetition,
+  validateLimit,
   validateRound,
   validateSeason,
 } from "../validation";
@@ -65,7 +66,13 @@ export const awardsCommand = defineFitzroyCommand<AwardsArgs & Record<string, un
     const round = args.round ? validateRound(args.round) : undefined;
     const competition = validateCompetition(args.competition);
     const team = args.team ? await resolveTeamNameOrPrompt(args.team) : undefined;
-    const limit = args.limit ? Number(args.limit) : undefined;
+    const limit = validateLimit(args.limit);
+
+    if (round != null && award !== "coaches") {
+      throw new Error(
+        `--round is not supported for --type ${award}. Round-scoped data is only available for coaches votes; brownlow, all-australian, rising-star, and coleman are season-level.`,
+      );
+    }
 
     return fetchAwards({ award, season, round, competition, team, limit });
   },

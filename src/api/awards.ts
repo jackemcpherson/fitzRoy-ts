@@ -37,6 +37,11 @@ const FOOTYWIRE_BASE = "https://www.footywire.com/afl/footy";
  * ```
  */
 export async function fetchAwards(query: AwardQuery): Promise<Result<Award[], Error>> {
+  const fetched = await fetchAwardsRaw(query);
+  return Result.map(fetched, (entries) => applyAwardFilters(entries, query));
+}
+
+async function fetchAwardsRaw(query: AwardQuery): Promise<Result<Award[], Error>> {
   switch (query.award) {
     case "brownlow":
       return fetchFootyWireAward(
@@ -73,6 +78,45 @@ export async function fetchAwards(query: AwardQuery): Promise<Result<Award[], Er
         new ScrapeError(`Unknown award type: ${(query as AwardQuery).award}`, "footywire"),
       );
   }
+}
+
+/**
+ * Apply `--team` and `--limit` filters that the per-award branches don't
+ * already apply themselves (coaches applies team; coleman applies limit).
+ * Idempotent — safe to call after branches that have already filtered.
+ */
+function applyAwardFilters(entries: readonly Award[], query: AwardQuery): Award[] {
+  let result: readonly Award[] = entries;
+
+  if (query.team != null) {
+    const target = normaliseTeamName(query.team);
+    result = result.filter((entry) => awardEntryTeamMatches(entry, target));
+  }
+
+  if (query.limit != null) {
+    result = result.slice(0, query.limit);
+  }
+
+  return [...result];
+}
+
+/**
+ * Test whether an Award entry references the given (already-normalised)
+ * team. Awards have heterogeneous team fields — Brownlow has `team`, Coaches
+ * has `homeTeam`/`awayTeam`, Coleman has `team`, RisingStar has `team`,
+ * AllAustralian has `team`.
+ */
+function awardEntryTeamMatches(entry: Award, normalisedTarget: string): boolean {
+  if ("team" in entry && entry.team != null) {
+    return normaliseTeamName(entry.team) === normalisedTarget;
+  }
+  if ("homeTeam" in entry && "awayTeam" in entry) {
+    return (
+      normaliseTeamName(entry.homeTeam) === normalisedTarget ||
+      normaliseTeamName(entry.awayTeam) === normalisedTarget
+    );
+  }
+  return false;
 }
 
 /** Fetch a FootyWire award page and apply its parser. */

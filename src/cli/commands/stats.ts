@@ -9,16 +9,19 @@
 import { defineCommand } from "citty";
 import { fetchPlayerStats, fetchTeamStats } from "../../index";
 import { fuzzySearch } from "../../lib/fuzzy";
+import { playerStatsRegistry, teamStatsRegistry } from "../../sources/adapters/registry";
+import type { DataSource } from "../../types";
+import { rejectUnknownFlags } from "../command-builder";
 import { withErrorBoundary } from "../error-boundary";
 import {
   BY_FLAG,
   COMPETITION_FLAG,
   MATCH_ID_FLAG,
+  OPTIONAL_SOURCE_FLAG,
   OUTPUT_FLAGS,
   PLAYER_FLAG,
   ROUND_FLAG,
   SEASON_FLAG,
-  SOURCE_FLAG,
   TEAM_FLAG,
 } from "../flags";
 import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
@@ -100,25 +103,28 @@ function flattenTeamEntries(
   });
 }
 
+const STATS_ARGS = {
+  ...SEASON_FLAG,
+  ...ROUND_FLAG,
+  ...BY_FLAG,
+  match: { type: "string", description: "Filter by team name to find a specific match" },
+  ...MATCH_ID_FLAG,
+  ...OPTIONAL_SOURCE_FLAG,
+  ...COMPETITION_FLAG,
+  ...PLAYER_FLAG,
+  ...TEAM_FLAG,
+  summary: { type: "string", description: "Team-stats summary type: totals or averages" },
+  ...OUTPUT_FLAGS,
+} as const;
+
 export const statsCommand = defineCommand({
   meta: {
     name: "stats",
     description: "Fetch performance stats — `--by player` (default) or `--by team`",
   },
-  args: {
-    ...SEASON_FLAG,
-    ...ROUND_FLAG,
-    ...BY_FLAG,
-    match: { type: "string", description: "Filter by team name to find a specific match" },
-    ...MATCH_ID_FLAG,
-    ...SOURCE_FLAG,
-    ...COMPETITION_FLAG,
-    ...PLAYER_FLAG,
-    ...TEAM_FLAG,
-    summary: { type: "string", description: "Team-stats summary type: totals or averages" },
-    ...OUTPUT_FLAGS,
-  },
+  args: STATS_ARGS,
   run: withErrorBoundary(async ({ args }) => {
+    rejectUnknownFlags(STATS_ARGS, process.argv);
     const season = validateSeason(args.season);
     const round = args.round ? validateRound(args.round) : undefined;
     const competition = validateCompetition(args.competition);
@@ -126,11 +132,14 @@ export const statsCommand = defineCommand({
     const groupBy = validateGroupBy(args.by);
 
     if (groupBy === "team") {
-      // No silent fallback: if the user is on the default --source (afl-api,
-      // which has no team-stats endpoint), surface the structured error from
-      // the registry so they explicitly switch with `--source afl-tables` or
-      // `--source footywire`. Per ADR-0001.
-      const source = validateSource(args.source);
+      if (round != null) {
+        throw new Error(
+          "--round is not supported for --by team. Team-stats sources (footywire, afl-tables) only expose season-level aggregates.",
+        );
+      }
+      const source: DataSource = args.source
+        ? validateSource(args.source)
+        : teamStatsRegistry.defaultSource;
       const summaryType = args.summary ? validateSummary(args.summary) : undefined;
       const result = await withSpinner("Fetching team stats…", () =>
         fetchTeamStats({
@@ -155,7 +164,9 @@ export const statsCommand = defineCommand({
       return;
     }
 
-    const source = validateSource(args.source);
+    const source: DataSource = args.source
+      ? validateSource(args.source)
+      : playerStatsRegistry.defaultSource;
 
     const matchId = await resolveMatchId({
       matchIdArg: args.id as string | undefined,

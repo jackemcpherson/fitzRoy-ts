@@ -8,7 +8,13 @@
 
 import { fetchPlayerDetails } from "../../index";
 import { defineFitzroyCommand } from "../command-builder";
-import { COMPETITION_FLAG, OPTIONAL_SEASON_FLAG, OUTPUT_FLAGS, TEAM_FLAG } from "../flags";
+import {
+  COMPETITION_FLAG,
+  OPTIONAL_SEASON_FLAG,
+  OUTPUT_FLAGS,
+  SOURCE_FLAG,
+  TEAM_FLAG,
+} from "../flags";
 import type { TableColumnConfig } from "../formatters/index";
 import { resolveTeamNameOrPrompt } from "../resolvers";
 import {
@@ -43,11 +49,7 @@ export const playerCommand = defineFitzroyCommand<PlayerArgs & Record<string, un
   },
   args: {
     ...TEAM_FLAG,
-    source: {
-      type: "string",
-      description: "Data source: afl-api, footywire, afl-tables",
-      default: "afl-api",
-    },
+    ...SOURCE_FLAG,
     ...OPTIONAL_SEASON_FLAG,
     ...COMPETITION_FLAG,
     ...OUTPUT_FLAGS,

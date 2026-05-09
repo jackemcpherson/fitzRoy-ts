@@ -12,6 +12,7 @@
 import { defineCommand } from "citty";
 import { fetchLineup, fetchSquad, fetchTeams } from "../../index";
 import type { Lineup } from "../../types";
+import { rejectUnknownFlags } from "../command-builder";
 import { withErrorBoundary } from "../error-boundary";
 import { COMPETITION_FLAG, OUTPUT_FLAGS, ROUND_FLAG, SOURCE_FLAG, TEAM_FLAG } from "../flags";
 import {
@@ -77,23 +78,26 @@ function flattenLineups(lineups: readonly Lineup[]): Record<string, unknown>[] {
   return rows;
 }
 
+const TEAM_ARGS = {
+  name: { type: "string", description: "Team name (required for squad/lineup zoom)" },
+  season: { type: "string", description: "Season year (e.g. 2025)", alias: "s" },
+  ...ROUND_FLAG,
+  match: { type: "string", description: "Filter lineups to a specific match (team name)" },
+  "match-id": { type: "string", description: "Specific match provider ID (advanced)" },
+  ...SOURCE_FLAG,
+  ...COMPETITION_FLAG,
+  ...TEAM_FLAG,
+  ...OUTPUT_FLAGS,
+} as const;
+
 export const teamCommand = defineCommand({
   meta: {
     name: "team",
     description: "Team identity. Add -s for the season squad, -s -r for the match-day lineup.",
   },
-  args: {
-    name: { type: "string", description: "Team name (required for squad/lineup zoom)" },
-    season: { type: "string", description: "Season year (e.g. 2025)", alias: "s" },
-    ...ROUND_FLAG,
-    match: { type: "string", description: "Filter lineups to a specific match (team name)" },
-    "match-id": { type: "string", description: "Specific match provider ID (advanced)" },
-    ...SOURCE_FLAG,
-    ...COMPETITION_FLAG,
-    ...TEAM_FLAG,
-    ...OUTPUT_FLAGS,
-  },
+  args: TEAM_ARGS,
   run: withErrorBoundary(async ({ args }) => {
+    rejectUnknownFlags(TEAM_ARGS, process.argv);
     const season = validateOptionalSeason(args.season);
     const round = args.round ? validateRound(args.round) : undefined;
     const source = validateSource(args.source);
@@ -146,7 +150,7 @@ export const teamCommand = defineCommand({
       const team = await resolveTeamNameOrPrompt(teamName);
 
       const result = await withSpinner("Fetching squad…", () =>
-        fetchSquad({ team, season, competition }),
+        fetchSquad({ source, team, season, competition }),
       );
       if (!result.success) throw result.error;
 
@@ -165,9 +169,34 @@ export const teamCommand = defineCommand({
     }
 
     // Default: list teams
+    if (source !== "afl-api") {
+      throw new Error(
+        `--source ${source} is not supported for the team list. The team list is only available from afl-api; add --season (and --name) for squad mode, or --season --round for lineup mode, where other sources apply.`,
+      );
+    }
+
     const result = await withSpinner("Fetching teams…", () => fetchTeams({ competition }));
     if (!result.success) throw result.error;
-    showSummary(`Loaded ${result.data.length} teams`);
+
+    const filterName = args.name || args.team;
+    const data = filterName
+      ? result.data.filter((t) => {
+          const target = filterName.toLowerCase();
+          return (
+            t.name.toLowerCase() === target ||
+            t.abbreviation.toLowerCase() === target ||
+            t.teamId === filterName
+          );
+        })
+      : result.data;
+
+    if (filterName && data.length === 0) {
+      throw new Error(
+        `No team matched "${filterName}". Available: ${result.data.map((t) => `${t.name} (${t.abbreviation})`).join(", ")}`,
+      );
+    }
+
+    showSummary(`Loaded ${data.length} team${data.length === 1 ? "" : "s"}`);
     const formatOptions: FormatOptions = {
       json: args.json,
       csv: args.csv,
@@ -175,6 +204,6 @@ export const teamCommand = defineCommand({
       full: args.full,
       columns: TEAMS_COLUMNS,
     };
-    console.log(formatOutput(result.data, formatOptions));
+    console.log(formatOutput(data, formatOptions));
   }),
 });

@@ -13,6 +13,7 @@ const SHORT_TO_LONG: Readonly<Record<string, string>> = {
   "-j": "--json",
   "-t": "--team",
   "-p": "--player",
+  "-o": "--format",
 };
 
 /** Rewrite short flags in `process.argv` to their long equivalents. */
