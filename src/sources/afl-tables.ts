@@ -167,12 +167,11 @@ export class AflTablesClient {
       });
 
       if (!response.ok) {
-        return err(
-          new ScrapeError(
-            `AFL Tables stats request failed: ${response.status} (${url})`,
-            "afl-tables",
-          ),
-        );
+        const friendly =
+          response.status === 404
+            ? `AFL Tables has no team stats for ${year}`
+            : `AFL Tables stats request failed: ${response.status}`;
+        return err(new ScrapeError(friendly, "afl-tables"));
       }
 
       const html = await response.text();

@@ -43,7 +43,16 @@ export interface MatchResolverInput {
  * to scope the match search.
  */
 export async function resolveMatchId(input: MatchResolverInput): Promise<string | undefined> {
-  if (input.matchIdArg) return input.matchIdArg;
+  if (input.matchIdArg) {
+    // Pre-validate the format so a malformed --match-id fails fast with a
+    // clear message instead of an opaque 400 from the upstream API (#95).
+    if (!/^CD_M\d+$/.test(input.matchIdArg)) {
+      throw new Error(
+        `Invalid --match-id "${input.matchIdArg}" — expected format like "CD_M20240140101" (provider-assigned).`,
+      );
+    }
+    return input.matchIdArg;
+  }
   if (!input.matchArg) return undefined;
 
   if (input.round == null) {

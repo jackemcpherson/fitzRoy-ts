@@ -90,6 +90,13 @@ export async function resolveTeamNameOrPrompt(
   teamNames?: readonly string[],
 ): Promise<string> {
   const trimmed = query.trim();
+
+  // Numeric team IDs are valid input per the help text (#95). Pass them
+  // through unchanged — the adapter's own ID-aware lookup handles them.
+  if (/^\d+$/.test(trimmed)) {
+    return trimmed;
+  }
+
   const canonical = normaliseTeamName(trimmed);
 
   // Empty allow-list = "skip strict validation" — used for VFL/VFLW where

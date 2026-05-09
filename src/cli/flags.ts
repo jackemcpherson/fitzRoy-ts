@@ -95,7 +95,7 @@ export const OUTPUT_FLAGS = {
 export const REQUIRED_TEAM_FLAG = {
   team: {
     type: "string" as const,
-    description: "Team name, abbreviation, or ID (e.g. Carlton, CARL, 5)",
+    description: "Team name or abbreviation (e.g. Carlton, CARL)",
     required: true,
     alias: "t",
   },
