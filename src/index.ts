@@ -21,8 +21,15 @@ export {
   parseFootyWireDate,
   toAestString,
 } from "./lib/date-utils";
-export { AflApiError, ScrapeError, UnsupportedSourceError, ValidationError } from "./lib/errors";
-export { type Err, err, type Ok, ok, type Result } from "./lib/result";
+export {
+  AflApiError,
+  OutOfRangeError,
+  ScrapeError,
+  UnsupportedCompetitionError,
+  UnsupportedSourceError,
+  ValidationError,
+} from "./lib/errors";
+export { type Err, err, type Ok, ok, Result } from "./lib/result";
 export {
   type SquiggleGame,
   SquiggleGameSchema,
