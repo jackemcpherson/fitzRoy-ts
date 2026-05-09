@@ -18,7 +18,14 @@ import {
   parseBasicStats,
 } from "../transforms/footywire-player-stats";
 import { finalsRoundNumber, inferRoundType, toRoundCode } from "../transforms/match-results";
-import type { Match, PlayerDetails, PlayerStats, RoundType, TeamStatsEntry } from "../types";
+import type {
+  Match,
+  PlayerDetails,
+  PlayerStats,
+  RoundType,
+  TeamMetricSet,
+  TeamStatsEntry,
+} from "../types";
 
 const FOOTYWIRE_BASE = "https://www.footywire.com/afl/footy";
 
@@ -288,11 +295,11 @@ export class FootyWireClient {
     if (!oppResult.success) return oppResult;
 
     try {
-      const teamStats = parseFootyWireTeamStats(teamResult.data, year, "for");
-      const oppStats = parseFootyWireTeamStats(oppResult.data, year, "against");
+      const teamStats = parseFootyWireTeamStats(teamResult.data, year);
+      const oppStats = parseFootyWireTeamStats(oppResult.data, year);
 
-      // Merge team and opposition stats by team name
-      const merged = mergeTeamAndOppStats(teamStats, oppStats);
+      // Merge into canonical for/against TeamStatsEntry per team
+      const merged = mergeTeamAndOppStats(teamStats, oppStats, year);
       return ok(merged);
     } catch (cause) {
       return err(
@@ -548,39 +555,77 @@ export function parseFixtureList(html: string, year: number): Match[] {
  * @param suffix - "for" or "against" to prefix stat keys.
  * @returns Array of team stats entries.
  */
-export function parseFootyWireTeamStats(
-  html: string,
-  year: number,
-  suffix: "for" | "against",
-): TeamStatsEntry[] {
+/** Intermediate per-direction parse result before for/against merge. */
+interface FootyWireDirectionEntry {
+  readonly team: string;
+  readonly gamesPlayed: number;
+  readonly metrics: TeamMetricSet;
+}
+
+/** Build a fully-nullable TeamMetricSet — caller fills in the fields a source supplies. */
+function emptyMetricSet(): TeamMetricSet {
+  return {
+    kicks: null,
+    handballs: null,
+    disposals: null,
+    marks: null,
+    goals: null,
+    behinds: null,
+    goalAssists: null,
+    tackles: null,
+    hitouts: null,
+    freesFor: null,
+    freesAgainst: null,
+    clearances: null,
+    clangers: null,
+    inside50s: null,
+    rebound50s: null,
+    contestedPossessions: null,
+    uncontestedPossessions: null,
+    contestedMarks: null,
+    marksInside50: null,
+    onePercenters: null,
+    bounces: null,
+    brownlowVotes: null,
+    fantasyPoints: null,
+    supercoachPoints: null,
+  };
+}
+
+/** FootyWire short-code → canonical TeamMetricSet field. */
+const FOOTYWIRE_METRIC_MAP: Readonly<Record<string, keyof TeamMetricSet>> = {
+  K: "kicks",
+  HB: "handballs",
+  D: "disposals",
+  M: "marks",
+  G: "goals",
+  GA: "goalAssists",
+  I50: "inside50s",
+  BH: "behinds",
+  T: "tackles",
+  HO: "hitouts",
+  FF: "freesFor",
+  FA: "freesAgainst",
+  CL: "clearances",
+  CG: "clangers",
+  R50: "rebound50s",
+  AF: "fantasyPoints",
+  SC: "supercoachPoints",
+};
+
+const FOOTYWIRE_STAT_KEYS = Object.keys(FOOTYWIRE_METRIC_MAP);
+
+// year retained for API symmetry (callers may want to pass it for future
+// per-year branching) even though the canonical entry is built later.
+export function parseFootyWireTeamStats(html: string, _year: number): FootyWireDirectionEntry[] {
   const $ = cheerio.load(html);
-  const entries: TeamStatsEntry[] = [];
+  const entries: FootyWireDirectionEntry[] = [];
 
   const tables = $("table");
   // The R package uses tables[[11]] (1-indexed) → index 10 in 0-indexed
   // Fallback: look for table with class "sortable" or one containing team data
   const mainTable = tables.length > 10 ? $(tables[10]) : $("table.sortable").first();
   if (mainTable.length === 0) return entries;
-
-  const STAT_KEYS = [
-    "K",
-    "HB",
-    "D",
-    "M",
-    "G",
-    "GA",
-    "I50",
-    "BH",
-    "T",
-    "HO",
-    "FF",
-    "FA",
-    "CL",
-    "CG",
-    "R50",
-    "AF",
-    "SC",
-  ];
 
   const rows = mainTable.find("tr");
   rows.each((rowIdx, row) => {
@@ -598,20 +643,21 @@ export function parseFootyWireTeamStats(
     const parseNum = (cell: ReturnType<typeof $>) => Number.parseFloat(cell.text().trim()) || 0;
 
     const gamesPlayed = parseNum($(cells[2]));
-    const stats: Record<string, number> = {};
+    const metrics: Record<string, number | null> = { ...emptyMetricSet() };
 
-    // Columns 3-19 (0-indexed) map to STAT_KEYS
-    for (let i = 0; i < STAT_KEYS.length; i++) {
-      const key = suffix === "against" ? `${STAT_KEYS[i]}_against` : (STAT_KEYS[i] as string);
-      stats[key] = parseNum($(cells[i + 3]));
+    // Columns 3-19 (0-indexed) map to FOOTYWIRE_STAT_KEYS
+    for (let i = 0; i < FOOTYWIRE_STAT_KEYS.length; i++) {
+      const shortCode = FOOTYWIRE_STAT_KEYS[i];
+      if (shortCode == null) continue;
+      const canonical = FOOTYWIRE_METRIC_MAP[shortCode];
+      if (canonical == null) continue;
+      metrics[canonical] = parseNum($(cells[i + 3]));
     }
 
     entries.push({
-      season: year,
       team: teamName,
       gamesPlayed,
-      stats,
-      source: "footywire",
+      metrics: metrics as unknown as TeamMetricSet,
     });
   });
 
@@ -619,23 +665,29 @@ export function parseFootyWireTeamStats(
 }
 
 /**
- * Merge team "for" stats and "against" stats into a single entry per team.
+ * Merge per-direction parse results into the canonical TeamStatsEntry
+ * shape (one entry per team with both `for` and `against` metric sets).
  */
 function mergeTeamAndOppStats(
-  teamStats: TeamStatsEntry[],
-  oppStats: TeamStatsEntry[],
+  forStats: readonly FootyWireDirectionEntry[],
+  againstStats: readonly FootyWireDirectionEntry[],
+  year: number,
 ): TeamStatsEntry[] {
-  const oppMap = new Map<string, Readonly<Record<string, number>>>();
-  for (const entry of oppStats) {
-    oppMap.set(entry.team, entry.stats);
+  const againstMap = new Map<string, FootyWireDirectionEntry>();
+  for (const entry of againstStats) {
+    againstMap.set(entry.team, entry);
   }
 
-  return teamStats.map((entry) => {
-    const opp = oppMap.get(entry.team);
-    if (!opp) return entry;
+  return forStats.map((forEntry) => {
+    const againstEntry = againstMap.get(forEntry.team);
     return {
-      ...entry,
-      stats: { ...entry.stats, ...opp },
+      season: year,
+      competition: "AFLM" as const,
+      team: forEntry.team,
+      gamesPlayed: forEntry.gamesPlayed,
+      for: forEntry.metrics,
+      against: againstEntry?.metrics ?? emptyMetricSet(),
+      source: "footywire" as const,
     };
   });
 }

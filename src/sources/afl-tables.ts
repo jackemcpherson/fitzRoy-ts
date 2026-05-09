@@ -20,6 +20,7 @@ import type {
   PlayerStats,
   QuarterScore,
   RoundType,
+  TeamMetricSet,
   TeamStatsEntry,
 } from "../types";
 
@@ -547,14 +548,75 @@ function parseAttendanceFromInfo(text: string): number | null {
 /** Headers that indicate a games-played column. */
 const GP_HEADERS = new Set(["gm", "gp", "p", "mp", "games"]);
 
+/** AFL Tables raw header → canonical TeamMetricSet field. (#98) */
+const AFL_TABLES_TEAM_METRIC_MAP: Readonly<Record<string, keyof TeamMetricSet>> = {
+  KI: "kicks",
+  MK: "marks",
+  HB: "handballs",
+  DI: "disposals",
+  GL: "goals",
+  BH: "behinds",
+  HO: "hitouts",
+  TK: "tackles",
+  RB: "rebound50s",
+  CL: "clearances",
+  CG: "clangers",
+  FF: "freesFor",
+  FA: "freesAgainst",
+  BR: "brownlowVotes",
+  CP: "contestedPossessions",
+  UP: "uncontestedPossessions",
+  CM: "contestedMarks",
+  MI: "marksInside50",
+  "1%": "onePercenters",
+  BO: "bounces",
+  GA: "goalAssists",
+  I50: "inside50s",
+};
+
+function emptyMetricSet(): TeamMetricSet {
+  return {
+    kicks: null,
+    handballs: null,
+    disposals: null,
+    marks: null,
+    goals: null,
+    behinds: null,
+    goalAssists: null,
+    tackles: null,
+    hitouts: null,
+    freesFor: null,
+    freesAgainst: null,
+    clearances: null,
+    clangers: null,
+    inside50s: null,
+    rebound50s: null,
+    contestedPossessions: null,
+    uncontestedPossessions: null,
+    contestedMarks: null,
+    marksInside50: null,
+    onePercenters: null,
+    bounces: null,
+    brownlowVotes: null,
+    fantasyPoints: null,
+    supercoachPoints: null,
+  };
+}
+
+interface AflTablesTeamData {
+  gamesPlayed: number;
+  forMetrics: Record<string, number | null>;
+  againstMetrics: Record<string, number | null>;
+}
+
 export function parseAflTablesTeamStats(html: string, year: number): TeamStatsEntry[] {
   const $ = cheerio.load(html);
-  const teamMap = new Map<string, { gamesPlayed: number; stats: Record<string, number> }>();
+  const teamMap = new Map<string, AflTablesTeamData>();
 
   const tables = $("table");
 
   /** Parse a single stats table into the teamMap. */
-  function parseTable(tableIdx: number, suffix: "_for" | "_against"): void {
+  function parseTable(tableIdx: number, direction: "for" | "against"): void {
     if (tableIdx >= tables.length) return;
     const $table = $(tables[tableIdx]);
     const rows = $table.find("tr");
@@ -582,38 +644,47 @@ export function parseAflTablesTeamStats(html: string, year: number): TeamStatsEn
       if (!teamName) continue;
 
       if (!teamMap.has(teamName)) {
-        teamMap.set(teamName, { gamesPlayed: 0, stats: {} });
+        teamMap.set(teamName, {
+          gamesPlayed: 0,
+          forMetrics: { ...emptyMetricSet() },
+          againstMetrics: { ...emptyMetricSet() },
+        });
       }
       const entry = teamMap.get(teamName);
       if (!entry) continue;
 
-      if (gpColIdx >= 0 && suffix === "_for") {
+      if (gpColIdx >= 0 && direction === "for") {
         const gpVal = Number.parseFloat($(cells[gpColIdx]).text().trim().replace(/,/g, "")) || 0;
         entry.gamesPlayed = gpVal;
       }
 
+      const target = direction === "for" ? entry.forMetrics : entry.againstMetrics;
       for (let ci = 1; ci < cells.length; ci++) {
         if (ci === gpColIdx) continue;
 
         const header = headers[ci];
         if (!header) continue;
+        const canonical = AFL_TABLES_TEAM_METRIC_MAP[header];
+        if (canonical == null) continue; // unknown header — skip
         const value = Number.parseFloat($(cells[ci]).text().trim().replace(/,/g, "")) || 0;
-        entry.stats[`${header}${suffix}`] = value;
+        target[canonical] = value;
       }
     }
   }
 
   // R package: tables[[2]] = "For", tables[[3]] = "Against" (1-indexed)
-  parseTable(1, "_for");
-  parseTable(2, "_against");
+  parseTable(1, "for");
+  parseTable(2, "against");
 
   const entries: TeamStatsEntry[] = [];
   for (const [team, data] of teamMap) {
     entries.push({
       season: year,
+      competition: "AFLM",
       team,
       gamesPlayed: data.gamesPlayed,
-      stats: data.stats,
+      for: data.forMetrics as unknown as TeamMetricSet,
+      against: data.againstMetrics as unknown as TeamMetricSet,
       source: "afl-tables",
     });
   }

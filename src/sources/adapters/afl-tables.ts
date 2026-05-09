@@ -105,20 +105,26 @@ export class AflTablesTeamStatsSource implements TeamStatsSource {
     }));
 
     if (summaryType === "averages") {
-      return ok(
-        enriched.map((entry) => ({
-          ...entry,
-          stats: Object.fromEntries(
-            Object.entries(entry.stats).map(([k, v]) => [
-              k,
-              entry.gamesPlayed > 0 ? +(v / entry.gamesPlayed).toFixed(1) : 0,
-            ]),
-          ),
-        })),
-      );
+      return ok(enriched.map((entry) => averageMetrics(entry)));
     }
     return ok(enriched);
   }
+}
+
+/** Convert a TeamStatsEntry's `for`/`against` totals into per-game averages. */
+function averageMetrics(entry: TeamStatsEntry): TeamStatsEntry {
+  const divide = (set: TeamStatsEntry["for"]): TeamStatsEntry["for"] => {
+    if (entry.gamesPlayed <= 0) return set;
+    const out = { ...set };
+    for (const key of Object.keys(out) as (keyof typeof out)[]) {
+      const v = out[key];
+      if (v != null) {
+        out[key] = +(v / entry.gamesPlayed).toFixed(1);
+      }
+    }
+    return out;
+  };
+  return { ...entry, for: divide(entry.for), against: divide(entry.against) };
 }
 
 /**

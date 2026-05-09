@@ -592,16 +592,52 @@ export interface SquadQuery {
 export type TeamStatsSummaryType = "totals" | "averages";
 
 /**
- * Aggregate statistics for a single team in a season.
- *
- * The `stats` record uses flexible string keys because stat columns
- * differ between data sources (FootyWire vs AFL Tables).
+ * Canonical, source-portable team-stat metric set. Every metric is
+ * nullable so source-asymmetric data (e.g. AFL Tables exposes
+ * `brownlowVotes` aggregates; FootyWire exposes `fantasyPoints`/
+ * `supercoachPoints`) round-trips honestly. Adapters handle their
+ * source→canonical mapping. (#98)
+ */
+export interface TeamMetricSet {
+  readonly kicks: number | null;
+  readonly handballs: number | null;
+  readonly disposals: number | null;
+  readonly marks: number | null;
+  readonly goals: number | null;
+  readonly behinds: number | null;
+  readonly goalAssists: number | null;
+  readonly tackles: number | null;
+  readonly hitouts: number | null;
+  readonly freesFor: number | null;
+  readonly freesAgainst: number | null;
+  readonly clearances: number | null;
+  readonly clangers: number | null;
+  readonly inside50s: number | null;
+  readonly rebound50s: number | null;
+  readonly contestedPossessions: number | null;
+  readonly uncontestedPossessions: number | null;
+  readonly contestedMarks: number | null;
+  readonly marksInside50: number | null;
+  readonly onePercenters: number | null;
+  readonly bounces: number | null;
+  readonly brownlowVotes: number | null;
+  readonly fantasyPoints: number | null;
+  readonly supercoachPoints: number | null;
+}
+
+/**
+ * Aggregate statistics for a single team in a season. Replaces the
+ * source-specific `stats: Record<string, number>` with canonical
+ * `for`/`against` metric sets so the shape is portable across sources.
+ * (#98)
  */
 export interface TeamStatsEntry {
   readonly season: number;
+  readonly competition: CompetitionCode;
   readonly team: string;
   readonly gamesPlayed: number;
-  readonly stats: Readonly<Record<string, number>>;
+  readonly for: TeamMetricSet;
+  readonly against: TeamMetricSet;
   readonly source: DataSource;
 }
 

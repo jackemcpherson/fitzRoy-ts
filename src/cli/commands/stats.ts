@@ -51,57 +51,15 @@ const PLAYER_COLUMNS: TableColumnConfig[] = [
 const TEAM_COLUMNS: TableColumnConfig[] = [
   { key: "team", label: "Team", maxWidth: 24 },
   { key: "gamesPlayed", label: "GP", maxWidth: 5 },
-  { key: "K", label: "K", maxWidth: 6 },
-  { key: "HB", label: "HB", maxWidth: 6 },
-  { key: "D", label: "D", maxWidth: 6 },
-  { key: "M", label: "M", maxWidth: 6 },
-  { key: "G", label: "G", maxWidth: 6 },
-  { key: "B", label: "B", maxWidth: 6 },
-  { key: "T", label: "T", maxWidth: 6 },
-  { key: "I50", label: "I50", maxWidth: 6 },
+  { key: "for.kicks", label: "K", maxWidth: 6 },
+  { key: "for.handballs", label: "HB", maxWidth: 6 },
+  { key: "for.disposals", label: "D", maxWidth: 6 },
+  { key: "for.marks", label: "M", maxWidth: 6 },
+  { key: "for.goals", label: "G", maxWidth: 6 },
+  { key: "for.behinds", label: "B", maxWidth: 6 },
+  { key: "for.tackles", label: "T", maxWidth: 6 },
+  { key: "for.inside50s", label: "I50", maxWidth: 6 },
 ];
-
-/**
- * Normalise AFL Tables stat keys to the FootyWire short form so a single
- * column set works across both sources.
- */
-const AFL_TABLES_KEY_MAP: Readonly<Record<string, string>> = {
-  KI_for: "K",
-  MK_for: "M",
-  HB_for: "HB",
-  DI_for: "D",
-  GL_for: "G",
-  BH_for: "B",
-  HO_for: "HO",
-  TK_for: "T",
-  RB_for: "RB",
-  IF_for: "IF",
-  CL_for: "CL",
-  CG_for: "CG",
-  FF_for: "FF",
-  BR_for: "BR",
-  CP_for: "CP",
-  UP_for: "UP",
-  CM_for: "CM",
-  MI_for: "MI",
-  "1%_for": "1%",
-  BO_for: "BO",
-  GA_for: "GA",
-  I50_for: "I50",
-};
-
-function flattenTeamEntries(
-  data: readonly { team: string; gamesPlayed: number; stats: Readonly<Record<string, number>> }[],
-): Record<string, unknown>[] {
-  return data.map((entry) => {
-    const { stats, ...rest } = entry;
-    const normalised: Record<string, number> = {};
-    for (const [key, value] of Object.entries(stats)) {
-      normalised[AFL_TABLES_KEY_MAP[key] ?? key] = value;
-    }
-    return { ...rest, ...normalised };
-  });
-}
 
 const STATS_ARGS = {
   ...SEASON_FLAG,
@@ -149,7 +107,6 @@ export const statsCommand = defineCommand({
         }),
       );
       if (!result.success) throw result.error;
-      const flat = flattenTeamEntries(result.data);
       showSummary(
         `Loaded stats for ${result.data.length} teams (${season}${summaryType ? `, ${summaryType}` : ""})`,
       );
@@ -160,7 +117,7 @@ export const statsCommand = defineCommand({
         full: args.full,
         columns: TEAM_COLUMNS,
       };
-      console.log(formatOutput(flat, formatOptions));
+      console.log(formatOutput(result.data as readonly object[], formatOptions));
       return;
     }
 

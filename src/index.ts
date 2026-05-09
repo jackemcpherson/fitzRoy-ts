@@ -159,6 +159,7 @@ export type {
   SquadPlayer,
   SquadQuery,
   Team,
+  TeamMetricSet,
   TeamQuery,
   TeamResponse,
   TeamStatsEntry,

@@ -71,6 +71,16 @@ own grilling pass.
   (now preserves `teamId`/`teamName`/`season`/`competition`); lineup
   mode → `{ mode: "lineup", lineups }`. Table and CSV output unchanged.
   (#99)
+- **`TeamStatsEntry.stats: Record<string, number>` removed in favour of
+  `for: TeamMetricSet` and `against: TeamMetricSet`** (canonical,
+  source-portable). New field `competition: CompetitionCode` added.
+  AFL Tables-only metrics (`brownlowVotes`, `contestedPossessions`,
+  `uncontestedPossessions`, `contestedMarks`, `marksInside50`,
+  `onePercenters`, `bounces`) and FootyWire-only metrics
+  (`fantasyPoints`, `supercoachPoints`) appear in both shapes as `null`
+  where the source doesn't supply them. CLI table column `B` (behinds)
+  was previously empty for `--source footywire` due to a `BH`/`B` key
+  mismatch — now populated correctly via canonical `for.behinds`. (#98)
 - **`Award` discriminated union variants aligned:**
   `CoachesVote.playerName` → `player`; `ColemanLeader.position` → `rank`.
   `competition: CompetitionCode` field added to all five variants
