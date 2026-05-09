@@ -153,6 +153,8 @@ own grilling pass.
 - FootyWire fixture year-rollover documented as a TODO for #111;
   AFLW isn't currently registered to FootyWire so the latent bug
   doesn't fire today.
+- AFL Tables player stats: per-match `brownlowVotes` now populated
+  correctly from the `BR` column (was hardcoded `null`). (#117)
 
 ## [2.0.0] - 2026-05-06
 

@@ -120,7 +120,7 @@ export function parseAflTablesGameStats(
           goalEfficiency: null,
           shotEfficiency: null,
           interchangeCounts: null,
-          brownlowVotes: null,
+          brownlowVotes: safeInt(cells[16] ?? ""),
           supercoachScore: null,
           dreamTeamPoints: null,
           effectiveDisposals: null,

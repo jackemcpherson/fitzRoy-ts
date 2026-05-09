@@ -58,4 +58,13 @@ describe("AFL Tables player stats parsing", () => {
     const blakey = stats.find((s) => s.surname === "Blakey");
     expect(blakey?.jumperNumber).toBe(22);
   });
+
+  it("populates per-match Brownlow votes from BR column (#117)", () => {
+    const stats = parseAflTablesGameStats(html, "111620240307", 2024, 1);
+    const voteRows = stats.filter((s) => s.brownlowVotes != null && s.brownlowVotes > 0);
+    const totalVotes = voteRows.reduce((n, s) => n + (s.brownlowVotes ?? 0), 0);
+    expect(totalVotes).toBe(6);
+    const voteCounts = voteRows.map((s) => s.brownlowVotes).sort();
+    expect(voteCounts).toEqual([1, 2, 3]);
+  });
 });
