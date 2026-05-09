@@ -136,7 +136,7 @@ export function transformSquiggleStandings(standings: readonly SquiggleStanding[
     draws: s.draws,
     pointsFor: s.for,
     pointsAgainst: s.against,
-    percentage: s.percentage,
+    percentage: Math.round(s.percentage * 10) / 10,
     premiershipsPoints: s.pts,
     form: null,
   }));

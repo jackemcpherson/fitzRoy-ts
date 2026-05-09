@@ -122,10 +122,15 @@ export class AflTablesTeamStatsSource implements TeamStatsSource {
 }
 
 /**
- * AFL Tables as a SquadSource — scrapes the team page for the all-time
- * roster. AFL Tables doesn't publish per-season squads, so the `season`
- * field is carried through but the player list is the all-time roster
- * for the team. This matches the existing `fetchPlayerList` semantics.
+ * AFL Tables as a SquadSource — scrapes the team page for the **all-time
+ * roster**, NOT a per-season squad. AFL Tables doesn't publish per-season
+ * squad lists, so the `season` field is stamped onto the response for
+ * cross-source compatibility but does not actually filter the player list.
+ *
+ * **Caveat for callers (#88):** asking for `season: 1900` and `season: 2024`
+ * returns the same all-time list. If you need an accurate seasonal squad,
+ * use `--source afl-api` (2012+ only). For pre-2012 seasons the all-time
+ * roster is the only available proxy.
  */
 export class AflTablesSquadSource implements SquadSource {
   readonly id = "afl-tables" as const;

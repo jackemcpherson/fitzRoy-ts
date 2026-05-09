@@ -39,15 +39,17 @@ describe("AFL Tables player stats parsing", () => {
     }
   });
 
-  it("handles null/empty stat cells gracefully", () => {
+  it("coerces blank cells to 0 for tracked stats (#108)", () => {
     const stats = parseAflTablesGameStats(html, "111620240307", 2024, 1);
-    // Amartey had empty cells for HB, GL, etc.
+    // Amartey had empty cells for HB, GL, etc. AFL Tables prints blank for
+    // zero; we now coerce to 0 to align with afl-api / footywire which
+    // explicitly return 0 for scoreless players.
     const amartey = stats.find((s) => s.surname === "Amartey");
     expect(amartey).toBeDefined();
     if (amartey) {
       expect(amartey.kicks).toBe(3);
-      expect(amartey.handballs).toBeNull(); // empty cell
-      expect(amartey.goals).toBeNull(); // empty cell
+      expect(amartey.handballs).toBe(0);
+      expect(amartey.goals).toBe(0);
     }
   });
 
