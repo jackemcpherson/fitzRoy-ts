@@ -113,7 +113,7 @@ export class AflCoachesClient {
     }
 
     try {
-      const votes = parseCoachesVotesHtml(htmlResult.data, season, roundNumber);
+      const votes = parseCoachesVotesHtml(htmlResult.data, season, roundNumber, competition);
       return ok(votes);
     } catch (cause) {
       return err(
@@ -180,6 +180,7 @@ export function parseCoachesVotesHtml(
   html: string,
   season: number,
   roundNumber: number,
+  competition: CompetitionCode,
 ): CoachesVote[] {
   const $ = cheerio.load(html);
 
@@ -239,10 +240,11 @@ export function parseCoachesVotesHtml(
     votes.push({
       type: "coaches",
       season,
+      competition,
       round: roundNumber,
       homeTeam,
       awayTeam,
-      playerName,
+      player: playerName,
       votes: voteCount,
     });
   }

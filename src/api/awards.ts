@@ -17,7 +17,7 @@ import {
   parseBrownlowVotes,
   parseRisingStarNominations,
 } from "../transforms/awards";
-import type { Award, AwardQuery, ColemanLeader, PlayerStats } from "../types";
+import type { Award, AwardQuery, ColemanLeader, CompetitionCode, PlayerStats } from "../types";
 import { fetchPlayerStats } from "./player-stats";
 
 const FOOTYWIRE_BASE = "https://www.footywire.com/afl/footy";
@@ -60,7 +60,7 @@ async function fetchAwardsRaw(query: AwardQuery): Promise<Result<Award[], Error>
     case "brownlow":
       return fetchFootyWireAward(
         `${FOOTYWIRE_BASE}/brownlow_medal?year=${query.season}`,
-        (html) => parseBrownlowVotes(html, query.season),
+        (html) => parseBrownlowVotes(html, query.season, competition),
         "Brownlow",
         query.season,
       );
@@ -68,7 +68,7 @@ async function fetchAwardsRaw(query: AwardQuery): Promise<Result<Award[], Error>
     case "all-australian":
       return fetchFootyWireAward(
         `${FOOTYWIRE_BASE}/all_australian_selection?year=${query.season}`,
-        (html) => parseAllAustralian(html, query.season),
+        (html) => parseAllAustralian(html, query.season, competition),
         "All-Australian",
         query.season,
       );
@@ -76,7 +76,7 @@ async function fetchAwardsRaw(query: AwardQuery): Promise<Result<Award[], Error>
     case "rising-star":
       return fetchFootyWireAward(
         `${FOOTYWIRE_BASE}/rising_star_nominations?year=${query.season}`,
-        (html) => parseRisingStarNominations(html, query.season),
+        (html) => parseRisingStarNominations(html, query.season, competition),
         "Rising Star",
         query.season,
       );
@@ -217,13 +217,16 @@ async function fetchColemanLeaderboard(query: AwardQuery): Promise<Result<Award[
     season: query.season,
     competition,
   });
-  return Result.map(statsR, (stats) => rankColemanFromStats(stats, query.season, query.limit));
+  return Result.map(statsR, (stats) =>
+    rankColemanFromStats(stats, query.season, competition, query.limit),
+  );
 }
 
 /** Pure transform: PlayerStats[] → ranked ColemanLeader[]. */
 export function rankColemanFromStats(
   stats: readonly PlayerStats[],
   season: number,
+  competition: CompetitionCode,
   limit?: number,
 ): ColemanLeader[] {
   const accumulator = new Map<
@@ -253,15 +256,16 @@ export function rankColemanFromStats(
     .sort((a, b) => b.goals - a.goals);
 
   let lastGoals = -1;
-  let lastPosition = 0;
+  let lastRank = 0;
   const leaderboard: ColemanLeader[] = ranked.map((entry, index) => {
-    const position = entry.goals === lastGoals ? lastPosition : index + 1;
+    const rank = entry.goals === lastGoals ? lastRank : index + 1;
     lastGoals = entry.goals;
-    lastPosition = position;
+    lastRank = rank;
     return {
       type: "coleman" as const,
       season,
-      position,
+      competition,
+      rank,
       player: entry.player,
       team: entry.team,
       goals: entry.goals,

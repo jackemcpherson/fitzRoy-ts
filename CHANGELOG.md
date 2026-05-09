@@ -71,6 +71,17 @@ own grilling pass.
   (now preserves `teamId`/`teamName`/`season`/`competition`); lineup
   mode → `{ mode: "lineup", lineups }`. Table and CSV output unchanged.
   (#99)
+- **`Award` discriminated union variants aligned:**
+  `CoachesVote.playerName` → `player`; `ColemanLeader.position` → `rank`.
+  `competition: CompetitionCode` field added to all five variants
+  (`brownlow`, `all-australian`, `rising-star`, `coleman`, `coaches`).
+  `BrownlowVote` adds `polledGames: number | null` (count of games where
+  the player polled ≥1 vote, R fitzRoy parity) and `isMedallist: boolean`
+  (parsed from R's `" W"` suffix on the medallist's name; suffix stripped
+  from `player`. For source data without the suffix the medallist is
+  derived from the maximum vote count, with ties honoured). CLI `awards`
+  table now uses per-type column dispatch — rows render their actual
+  fields rather than empty cells from naming mismatches. (#97)
 
 ### Added
 

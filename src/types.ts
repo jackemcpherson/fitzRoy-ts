@@ -402,6 +402,7 @@ export type AwardType = "brownlow" | "all-australian" | "rising-star" | "coleman
 export interface BrownlowVote {
   readonly type: "brownlow";
   readonly season: number;
+  readonly competition: CompetitionCode;
   readonly player: string;
   readonly team: string;
   readonly votes: number;
@@ -409,12 +410,25 @@ export interface BrownlowVote {
   readonly votes2: number;
   readonly votes1: number;
   readonly gamesPolled: number | null;
+  /**
+   * Number of games where this player polled at least 1 vote
+   * (R fitzRoy parity — `Polled` column).
+   */
+  readonly polledGames: number | null;
+  /**
+   * True for the Brownlow medallist of the season (R fitzRoy denotes
+   * this with a trailing " W" suffix on the player name; the suffix is
+   * stripped from `player` and surfaced here as a structured boolean).
+   */
+  readonly isMedallist: boolean;
 }
 
 /** An All-Australian team selection. */
 export interface AllAustralianSelection {
   readonly type: "all-australian";
   readonly season: number;
+  readonly competition: CompetitionCode;
+  /** Footy position (e.g. `FB`, `HBF`, `C`). */
   readonly position: string;
   readonly player: string;
   readonly team: string;
@@ -424,6 +438,7 @@ export interface AllAustralianSelection {
 export interface RisingStarNomination {
   readonly type: "rising-star";
   readonly season: number;
+  readonly competition: CompetitionCode;
   readonly round: number;
   readonly player: string;
   readonly team: string;
@@ -441,8 +456,9 @@ export interface RisingStarNomination {
 export interface ColemanLeader {
   readonly type: "coleman";
   readonly season: number;
+  readonly competition: CompetitionCode;
   /** 1 = season leader, 2 = runner-up, etc. */
-  readonly position: number;
+  readonly rank: number;
   readonly player: string;
   readonly team: string;
   readonly goals: number;
@@ -479,10 +495,12 @@ export interface AwardQuery {
 export interface CoachesVote {
   readonly type: "coaches";
   readonly season: number;
+  readonly competition: CompetitionCode;
   readonly round: number;
   readonly homeTeam: string;
   readonly awayTeam: string;
-  readonly playerName: string;
+  /** Player who received the votes (renamed from `playerName` in 2.1.0 for variant alignment). */
+  readonly player: string;
   readonly votes: number;
 }
 

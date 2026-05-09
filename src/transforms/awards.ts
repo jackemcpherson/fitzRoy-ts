@@ -5,7 +5,24 @@
 import * as cheerio from "cheerio";
 import { safeInt } from "../lib/parse-utils";
 import { normaliseTeamName } from "../lib/team-mapping";
-import type { AllAustralianSelection, BrownlowVote, RisingStarNomination } from "../types";
+import type {
+  AllAustralianSelection,
+  BrownlowVote,
+  CompetitionCode,
+  RisingStarNomination,
+} from "../types";
+
+/**
+ * Strip a trailing " W" suffix from a Brownlow player name (R fitzRoy
+ * convention denoting the medallist). Returns the stripped name and a
+ * structured `isMedallist` boolean.
+ */
+function stripMedallistSuffix(raw: string): { player: string; isMedallist: boolean } {
+  if (raw.endsWith(" W")) {
+    return { player: raw.slice(0, -2).trim(), isMedallist: true };
+  }
+  return { player: raw, isMedallist: false };
+}
 
 /**
  * Parse Brownlow Medal player votes from FootyWire HTML.
@@ -13,7 +30,11 @@ import type { AllAustralianSelection, BrownlowVote, RisingStarNomination } from 
  * The page has a table with 9 columns:
  * Player, Team, 3V, 2V, 1V, Players_With_Votes, Games_Polled, Polled, V/G
  */
-export function parseBrownlowVotes(html: string, season: number): BrownlowVote[] {
+export function parseBrownlowVotes(
+  html: string,
+  season: number,
+  competition: CompetitionCode = "AFLM",
+): BrownlowVote[] {
   const $ = cheerio.load(html);
   const results: BrownlowVote[] = [];
 
@@ -37,19 +58,23 @@ export function parseBrownlowVotes(html: string, season: number): BrownlowVote[]
       const tds = $(row).find("td");
       if (tds.length < 9) return;
 
-      const player = $(tds[0]).text().trim();
+      const rawPlayer = $(tds[0]).text().trim();
       const team = normaliseTeamName($(tds[1]).text().trim());
 
-      if (!player || player.toLowerCase() === "player") return;
+      if (!rawPlayer || rawPlayer.toLowerCase() === "player") return;
+
+      const { player, isMedallist: suffixMedallist } = stripMedallistSuffix(rawPlayer);
 
       const votes3 = safeInt($(tds[2]).text()) ?? 0;
       const votes2 = safeInt($(tds[3]).text()) ?? 0;
       const votes1 = safeInt($(tds[4]).text()) ?? 0;
       const gamesPolled = safeInt($(tds[6]).text());
+      const polledGames = safeInt($(tds[7]).text());
 
       results.push({
         type: "brownlow",
         season,
+        competition,
         player,
         team,
         votes: votes3 * 3 + votes2 * 2 + votes1,
@@ -57,9 +82,22 @@ export function parseBrownlowVotes(html: string, season: number): BrownlowVote[]
         votes2,
         votes1,
         gamesPolled,
+        polledGames,
+        isMedallist: suffixMedallist,
       });
     });
   });
+
+  // Derive isMedallist by max votes when no row carried the " W" suffix
+  // (FootyWire HTML doesn't use the suffix; R-format input does). Ties
+  // are honoured — multiple medallists share isMedallist=true.
+  const anyMarked = results.some((r) => r.isMedallist);
+  if (!anyMarked && results.length > 0) {
+    const maxVotes = results.reduce((max, r) => (r.votes > max ? r.votes : max), 0);
+    if (maxVotes > 0) {
+      return results.map((r) => (r.votes === maxVotes ? { ...r, isMedallist: true } : r));
+    }
+  }
 
   return results;
 }
@@ -69,7 +107,11 @@ export function parseBrownlowVotes(html: string, season: number): BrownlowVote[]
  *
  * The page uses specific row indices for the final 22 team layout.
  */
-export function parseAllAustralian(html: string, season: number): AllAustralianSelection[] {
+export function parseAllAustralian(
+  html: string,
+  season: number,
+  competition: CompetitionCode = "AFLM",
+): AllAustralianSelection[] {
   const $ = cheerio.load(html);
   const results: AllAustralianSelection[] = [];
 
@@ -100,6 +142,7 @@ export function parseAllAustralian(html: string, season: number): AllAustralianS
         results.push({
           type: "all-australian",
           season,
+          competition,
           position,
           player: playerName,
           team,
@@ -116,7 +159,11 @@ export function parseAllAustralian(html: string, season: number): AllAustralianS
  *
  * Uses table index 11 (0-based: 10) which has the nomination data.
  */
-export function parseRisingStarNominations(html: string, season: number): RisingStarNomination[] {
+export function parseRisingStarNominations(
+  html: string,
+  season: number,
+  competition: CompetitionCode = "AFLM",
+): RisingStarNomination[] {
   const $ = cheerio.load(html);
   const results: RisingStarNomination[] = [];
 
@@ -171,6 +218,7 @@ export function parseRisingStarNominations(html: string, season: number): Rising
     results.push({
       type: "rising-star",
       season,
+      competition,
       round,
       player,
       team,
