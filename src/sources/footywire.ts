@@ -10,6 +10,7 @@ import { parseDate } from "../lib/date-utils";
 import { ScrapeError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
+import { emptyMetricSet } from "../lib/team-metrics";
 import { normaliseVenueName } from "../lib/venue-mapping";
 import { resolveVenueTimezone } from "../lib/venue-timezones";
 import {
@@ -560,36 +561,6 @@ interface FootyWireDirectionEntry {
   readonly team: string;
   readonly gamesPlayed: number;
   readonly metrics: TeamMetricSet;
-}
-
-/** Build a fully-nullable TeamMetricSet — caller fills in the fields a source supplies. */
-function emptyMetricSet(): TeamMetricSet {
-  return {
-    kicks: null,
-    handballs: null,
-    disposals: null,
-    marks: null,
-    goals: null,
-    behinds: null,
-    goalAssists: null,
-    tackles: null,
-    hitouts: null,
-    freesFor: null,
-    freesAgainst: null,
-    clearances: null,
-    clangers: null,
-    inside50s: null,
-    rebound50s: null,
-    contestedPossessions: null,
-    uncontestedPossessions: null,
-    contestedMarks: null,
-    marksInside50: null,
-    onePercenters: null,
-    bounces: null,
-    brownlowVotes: null,
-    fantasyPoints: null,
-    supercoachPoints: null,
-  };
 }
 
 /** FootyWire short-code → canonical TeamMetricSet field. */

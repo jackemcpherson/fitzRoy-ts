@@ -37,6 +37,8 @@ export function parseBrownlowVotes(
 ): BrownlowVote[] {
   const $ = cheerio.load(html);
   const results: BrownlowVote[] = [];
+  let anyMarked = false;
+  let maxVotes = 0;
 
   $("table").each((_i, table) => {
     const rows = $(table).find("tr");
@@ -70,6 +72,10 @@ export function parseBrownlowVotes(
       const votes1 = safeInt($(tds[4]).text()) ?? 0;
       const gamesPolled = safeInt($(tds[6]).text());
       const polledGames = safeInt($(tds[7]).text());
+      const votes = votes3 * 3 + votes2 * 2 + votes1;
+
+      if (suffixMedallist) anyMarked = true;
+      if (votes > maxVotes) maxVotes = votes;
 
       results.push({
         type: "brownlow",
@@ -77,7 +83,7 @@ export function parseBrownlowVotes(
         competition,
         player,
         team,
-        votes: votes3 * 3 + votes2 * 2 + votes1,
+        votes,
         votes3,
         votes2,
         votes1,
@@ -91,12 +97,8 @@ export function parseBrownlowVotes(
   // Derive isMedallist by max votes when no row carried the " W" suffix
   // (FootyWire HTML doesn't use the suffix; R-format input does). Ties
   // are honoured — multiple medallists share isMedallist=true.
-  const anyMarked = results.some((r) => r.isMedallist);
-  if (!anyMarked && results.length > 0) {
-    const maxVotes = results.reduce((max, r) => (r.votes > max ? r.votes : max), 0);
-    if (maxVotes > 0) {
-      return results.map((r) => (r.votes === maxVotes ? { ...r, isMedallist: true } : r));
-    }
+  if (!anyMarked && maxVotes > 0) {
+    return results.map((r) => (r.votes === maxVotes ? { ...r, isMedallist: true } : r));
   }
 
   return results;

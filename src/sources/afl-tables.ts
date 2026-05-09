@@ -10,6 +10,7 @@ import { localToUtc, parseDate } from "../lib/date-utils";
 import { ScrapeError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
+import { emptyMetricSet } from "../lib/team-metrics";
 import { normaliseVenueName } from "../lib/venue-mapping";
 import { resolveVenueTimezone } from "../lib/venue-timezones";
 import { extractGameUrls, parseAflTablesGameStats } from "../transforms/afl-tables-player-stats";
@@ -573,35 +574,6 @@ const AFL_TABLES_TEAM_METRIC_MAP: Readonly<Record<string, keyof TeamMetricSet>> 
   GA: "goalAssists",
   I50: "inside50s",
 };
-
-function emptyMetricSet(): TeamMetricSet {
-  return {
-    kicks: null,
-    handballs: null,
-    disposals: null,
-    marks: null,
-    goals: null,
-    behinds: null,
-    goalAssists: null,
-    tackles: null,
-    hitouts: null,
-    freesFor: null,
-    freesAgainst: null,
-    clearances: null,
-    clangers: null,
-    inside50s: null,
-    rebound50s: null,
-    contestedPossessions: null,
-    uncontestedPossessions: null,
-    contestedMarks: null,
-    marksInside50: null,
-    onePercenters: null,
-    bounces: null,
-    brownlowVotes: null,
-    fantasyPoints: null,
-    supercoachPoints: null,
-  };
-}
 
 interface AflTablesTeamData {
   gamesPlayed: number;

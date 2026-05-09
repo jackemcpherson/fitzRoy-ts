@@ -11,7 +11,7 @@
 
 import { defineCommand } from "citty";
 import { fetchLineup, fetchSquad, fetchTeams } from "../../index";
-import type { Lineup } from "../../types";
+import type { Lineup, TeamResponse } from "../../types";
 import { rejectUnknownFlags } from "../command-builder";
 import { withErrorBoundary } from "../error-boundary";
 import { COMPETITION_FLAG, OUTPUT_FLAGS, ROUND_FLAG, SOURCE_FLAG, TEAM_FLAG } from "../flags";
@@ -55,6 +55,17 @@ const LINEUP_COLUMNS: TableColumnConfig[] = [
   { key: "jumperNumber", label: "#", maxWidth: 4 },
   { key: "matchPosition", label: "Pos", maxWidth: 12 },
 ];
+
+function printTeamResponse(
+  jsonPayload: TeamResponse,
+  tableData: readonly object[],
+  formatOptions: FormatOptions,
+): void {
+  const resolvedFormat = resolveFormat(formatOptions);
+  console.log(
+    resolvedFormat === "json" ? formatJson(jsonPayload) : formatOutput(tableData, formatOptions),
+  );
+}
 
 function flattenLineups(
   lineups: readonly Lineup[],
@@ -140,11 +151,10 @@ export const teamCommand = defineCommand({
         full: args.full,
         columns: LINEUP_COLUMNS,
       };
-      const resolvedFormat = resolveFormat(formatOptions);
-      console.log(
-        resolvedFormat === "json"
-          ? formatJson({ mode: "lineup", lineups: data })
-          : formatOutput(flattenLineups(data, teamName ?? undefined), formatOptions),
+      printTeamResponse(
+        { mode: "lineup", lineups: data },
+        flattenLineups(data, teamName ?? undefined),
+        formatOptions,
       );
       return;
     }
@@ -175,12 +185,7 @@ export const teamCommand = defineCommand({
         full: args.full,
         columns: SQUAD_COLUMNS,
       };
-      const resolvedFormat = resolveFormat(formatOptions);
-      console.log(
-        resolvedFormat === "json"
-          ? formatJson({ mode: "squad", squad: result.data })
-          : formatOutput(result.data.players, formatOptions),
-      );
+      printTeamResponse({ mode: "squad", squad: result.data }, result.data.players, formatOptions);
       return;
     }
 
@@ -220,11 +225,6 @@ export const teamCommand = defineCommand({
       full: args.full,
       columns: TEAMS_COLUMNS,
     };
-    const resolvedFormat = resolveFormat(formatOptions);
-    console.log(
-      resolvedFormat === "json"
-        ? formatJson({ mode: "list", teams: data })
-        : formatOutput(data, formatOptions),
-    );
+    printTeamResponse({ mode: "list", teams: data }, data, formatOptions);
   }),
 });
