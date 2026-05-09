@@ -50,7 +50,11 @@ export interface Match {
   readonly season: number;
   readonly roundNumber: number;
   readonly roundType: RoundType;
-  /** Human-readable round name (e.g. "Round 1", "Qualifying Final"). Null for scraped sources. */
+  /**
+   * Human-readable round name (e.g. "Round 1", "Qualifying Final"). Populated
+   * by AFL API, AFL Tables, and FootyWire; null only for sources that don't
+   * expose round labels (e.g. Squiggle).
+   */
   readonly roundName: string | null;
   readonly date: Date;
   readonly venue: string;
@@ -88,7 +92,11 @@ export interface Match {
   readonly weatherTempCelsius: number | null;
   readonly weatherType: string | null;
 
-  /** Normalised round code (e.g. "R1", "QF", "GF"). Null for scraped sources. */
+  /**
+   * Normalised round code (e.g. "R1", "QF", "GF"). Populated by AFL API, AFL
+   * Tables, and FootyWire; null only for sources that don't expose round
+   * labels (e.g. Squiggle).
+   */
   readonly roundCode: string | null;
 
   /** Venue metadata (null for scraped sources). */

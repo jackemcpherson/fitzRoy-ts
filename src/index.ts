@@ -19,6 +19,7 @@ export {
   parseAflTablesDate,
   parseDate,
   parseFootyWireDate,
+  resolveDefaultSeason,
   toAestString,
 } from "./lib/date-utils";
 export {

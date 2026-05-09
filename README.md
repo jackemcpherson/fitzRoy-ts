@@ -24,29 +24,86 @@ npm install fitzroy
 
 ## Library Usage
 
+All public functions return `Result<T, E>` — check `result.success` before
+accessing `result.data` (or `result.error` on failure):
+
 ```typescript
-import { fetchMatches, fetchPlayerStats, fetchLadder, fetchAwards } from "fitzroy";
+import { fetchMatches, resolveDefaultSeason, Result } from "fitzroy";
 
-// Matches for a season
-const matches = await fetchMatches({ source: "afl-api", season: 2025, competition: "AFLM" });
+const season = resolveDefaultSeason("AFLM");
+const r = await fetchMatches({ source: "afl-api", season });
 
-// Only completed matches (the old fetchMatchResults behaviour)
-const completed = await fetchMatches({ source: "afl-api", season: 2025, status: "Complete" });
-
-// Upcoming fixtures
-const upcoming = await fetchMatches({ source: "afl-api", season: 2025, status: "Upcoming" });
-
-// Player stats for a specific round
-const stats = await fetchPlayerStats({ source: "afl-api", season: 2025, round: 1 });
-
-// Ladder standings
-const ladder = await fetchLadder({ source: "afl-api", season: 2025 });
-
-// Coleman Medal leaderboard (computed from PlayerStats)
-const coleman = await fetchAwards({ award: "coleman", season: 2025, limit: 10 });
+if (!r.success) {
+  console.error(r.error);
+  process.exit(1);
+}
+console.log(`${r.data.length} matches in ${season}`);
 ```
 
-All functions return `Result<T, Error>` — check `result.success` before accessing `result.data`.
+The composition combinators on the `Result` namespace help chain calls without
+the `if (!r.success) return r` boilerplate accumulating at every call site:
+
+```typescript
+const summary = Result.map(r, (matches) => matches.length);
+```
+
+### Public API
+
+| Function | Query type | Returns |
+|---|---|---|
+| `fetchMatches` | `MatchQuery` | `Result<Match[], Error>` |
+| `fetchPlayerStats` | `PlayerStatsQuery` | `Result<PlayerStats[], Error>` |
+| `fetchTeamStats` | `TeamStatsQuery` | `Result<TeamStatsEntry[], Error>` |
+| `fetchLadder` | `LadderQuery` | `Result<Ladder, Error>` |
+| `fetchTeams` | `TeamQuery` | `Result<Team[], Error>` |
+| `fetchSquad` | `SquadQuery` | `Result<Squad, Error>` |
+| `fetchLineup` | `LineupQuery` | `Result<Lineup[], Error>` |
+| `fetchPlayerDetails` | `PlayerDetailsQuery` | `Result<PlayerDetails[], Error>` |
+| `fetchAwards` | `AwardQuery` | `Result<Award[], Error>` |
+
+Examples for each (using `resolveDefaultSeason` so the snippets stay stable
+year-on-year):
+
+```typescript
+import {
+  fetchAwards,
+  fetchLadder,
+  fetchLineup,
+  fetchMatches,
+  fetchPlayerDetails,
+  fetchPlayerStats,
+  fetchSquad,
+  fetchTeamStats,
+  fetchTeams,
+  resolveDefaultSeason,
+} from "fitzroy";
+
+const season = resolveDefaultSeason("AFLM");
+
+// All matches for a season
+await fetchMatches({ source: "afl-api", season });
+// Only completed
+await fetchMatches({ source: "afl-api", season, status: "Complete" });
+// Upcoming fixtures
+await fetchMatches({ source: "afl-api", season, status: "Upcoming" });
+
+// Player and team stats for round 1
+await fetchPlayerStats({ source: "afl-api", season, round: 1 });
+await fetchTeamStats({ source: "afl-api", season, round: 1 });
+
+// Ladder
+await fetchLadder({ source: "afl-api", season });
+
+// Team identity
+await fetchTeams({ source: "afl-api", competition: "AFLM" });
+await fetchSquad({ source: "afl-api", season, team: "Carlton" });
+await fetchLineup({ source: "afl-api", season, round: 1 });
+await fetchPlayerDetails({ source: "afl-api", season, team: "Carlton" });
+
+// Awards
+await fetchAwards({ award: "coleman", season, limit: 10 });
+await fetchAwards({ award: "brownlow", season });
+```
 
 ## CLI
 
