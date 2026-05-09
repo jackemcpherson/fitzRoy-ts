@@ -62,7 +62,10 @@ export function computeLadder(results: readonly Match[], upToRound?: number): La
   }
 
   const entries: LadderEntry[] = [...teams.entries()].map(([teamName, acc]) => {
-    const percentage = acc.pointsAgainst === 0 ? 0 : (acc.pointsFor / acc.pointsAgainst) * 100;
+    // Round to 1 decimal place to match the AFL website's display
+    // convention and align with afl-api's truncation (#113).
+    const rawPercentage = acc.pointsAgainst === 0 ? 0 : (acc.pointsFor / acc.pointsAgainst) * 100;
+    const percentage = Math.round(rawPercentage * 10) / 10;
     const premiershipsPoints = acc.wins * 4 + acc.draws * 2;
 
     return {

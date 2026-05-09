@@ -78,7 +78,11 @@ export async function resolveTeamOrPrompt(
  * (e.g. `player-details`, `coaches-votes`).
  *
  * @param query - User-provided team text.
- * @param teamNames - Optional explicit list of team names to search. Defaults to AFL senior teams.
+ * @param teamNames - Optional explicit list of team names to search. When
+ * omitted, defaults to AFL senior (AFLM) teams. For VFL/VFLW which include
+ * standalone clubs not in the AFLM list, callers should pass an empty
+ * array to skip the strict allow-list and let downstream resolution
+ * happen at the adapter (#81).
  * @returns The resolved canonical team name.
  */
 export async function resolveTeamNameOrPrompt(
@@ -87,8 +91,21 @@ export async function resolveTeamNameOrPrompt(
 ): Promise<string> {
   const trimmed = query.trim();
 
-  // Check alias map — handles both aliases and exact canonical names
+  // Numeric team IDs are valid input per the help text (#95). Pass them
+  // through unchanged — the adapter's own ID-aware lookup handles them.
+  if (/^\d+$/.test(trimmed)) {
+    return trimmed;
+  }
+
   const canonical = normaliseTeamName(trimmed);
+
+  // Empty allow-list = "skip strict validation" — used for VFL/VFLW where
+  // the standalone clubs aren't in AFL_SENIOR_TEAMS. The adapter does the
+  // real resolution against the per-competition team list.
+  if (teamNames != null && teamNames.length === 0) {
+    return canonical;
+  }
+
   const candidates = teamNames ?? [...AFL_SENIOR_TEAMS];
 
   if (candidates.includes(canonical)) {

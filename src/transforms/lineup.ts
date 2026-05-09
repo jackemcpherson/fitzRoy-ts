@@ -42,7 +42,7 @@ export function transformMatchRoster(
         surname: inner.playerName.surname,
         displayName: `${inner.playerName.givenName} ${inner.playerName.surname}`,
         jumperNumber: p.jumperNumber ?? null,
-        position,
+        matchPosition: position,
         isEmergency: position !== null && EMERGENCY_POSITIONS.has(position),
         isSubstitute: position !== null && SUBSTITUTE_POSITIONS.has(position),
       };

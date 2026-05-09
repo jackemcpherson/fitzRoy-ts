@@ -17,7 +17,7 @@ import {
   parseBrownlowVotes,
   parseRisingStarNominations,
 } from "../transforms/awards";
-import type { Award, AwardQuery, ColemanLeader, PlayerStats } from "../types";
+import type { Award, AwardQuery, ColemanLeader, CompetitionCode, PlayerStats } from "../types";
 import { fetchPlayerStats } from "./player-stats";
 
 const FOOTYWIRE_BASE = "https://www.footywire.com/afl/footy";
@@ -37,11 +37,30 @@ const FOOTYWIRE_BASE = "https://www.footywire.com/afl/footy";
  * ```
  */
 export async function fetchAwards(query: AwardQuery): Promise<Result<Award[], Error>> {
+  const fetched = await fetchAwardsRaw(query);
+  return Result.map(fetched, (entries) => applyAwardFilters(entries, query));
+}
+
+async function fetchAwardsRaw(query: AwardQuery): Promise<Result<Award[], Error>> {
+  // FootyWire-scraped award pages cover AFLM only. Reject non-AFLM
+  // requests up front instead of silently returning AFLM data (#82).
+  const isFootyWireScraped =
+    query.award === "brownlow" || query.award === "all-australian" || query.award === "rising-star";
+  const competition = query.competition ?? "AFLM";
+  if (isFootyWireScraped && competition !== "AFLM") {
+    return err(
+      new ScrapeError(
+        `${query.award} is only available for AFLM via the FootyWire scraper. ${competition} awards are not yet supported.`,
+        "footywire",
+      ),
+    );
+  }
+
   switch (query.award) {
     case "brownlow":
       return fetchFootyWireAward(
         `${FOOTYWIRE_BASE}/brownlow_medal?year=${query.season}`,
-        (html) => parseBrownlowVotes(html, query.season),
+        (html) => parseBrownlowVotes(html, query.season, competition),
         "Brownlow",
         query.season,
       );
@@ -49,7 +68,7 @@ export async function fetchAwards(query: AwardQuery): Promise<Result<Award[], Er
     case "all-australian":
       return fetchFootyWireAward(
         `${FOOTYWIRE_BASE}/all_australian_selection?year=${query.season}`,
-        (html) => parseAllAustralian(html, query.season),
+        (html) => parseAllAustralian(html, query.season, competition),
         "All-Australian",
         query.season,
       );
@@ -57,7 +76,7 @@ export async function fetchAwards(query: AwardQuery): Promise<Result<Award[], Er
     case "rising-star":
       return fetchFootyWireAward(
         `${FOOTYWIRE_BASE}/rising_star_nominations?year=${query.season}`,
-        (html) => parseRisingStarNominations(html, query.season),
+        (html) => parseRisingStarNominations(html, query.season, competition),
         "Rising Star",
         query.season,
       );
@@ -73,6 +92,45 @@ export async function fetchAwards(query: AwardQuery): Promise<Result<Award[], Er
         new ScrapeError(`Unknown award type: ${(query as AwardQuery).award}`, "footywire"),
       );
   }
+}
+
+/**
+ * Apply `--team` and `--limit` filters that the per-award branches don't
+ * already apply themselves (coaches applies team; coleman applies limit).
+ * Idempotent — safe to call after branches that have already filtered.
+ */
+function applyAwardFilters(entries: readonly Award[], query: AwardQuery): Award[] {
+  let result: readonly Award[] = entries;
+
+  if (query.team != null) {
+    const target = normaliseTeamName(query.team);
+    result = result.filter((entry) => awardEntryTeamMatches(entry, target));
+  }
+
+  if (query.limit != null) {
+    result = result.slice(0, query.limit);
+  }
+
+  return [...result];
+}
+
+/**
+ * Test whether an Award entry references the given (already-normalised)
+ * team. Awards have heterogeneous team fields — Brownlow has `team`, Coaches
+ * has `homeTeam`/`awayTeam`, Coleman has `team`, RisingStar has `team`,
+ * AllAustralian has `team`.
+ */
+function awardEntryTeamMatches(entry: Award, normalisedTarget: string): boolean {
+  if ("team" in entry && entry.team != null) {
+    return normaliseTeamName(entry.team) === normalisedTarget;
+  }
+  if ("homeTeam" in entry && "awayTeam" in entry) {
+    return (
+      normaliseTeamName(entry.homeTeam) === normalisedTarget ||
+      normaliseTeamName(entry.awayTeam) === normalisedTarget
+    );
+  }
+  return false;
 }
 
 /** Fetch a FootyWire award page and apply its parser. */
@@ -159,13 +217,16 @@ async function fetchColemanLeaderboard(query: AwardQuery): Promise<Result<Award[
     season: query.season,
     competition,
   });
-  return Result.map(statsR, (stats) => rankColemanFromStats(stats, query.season, query.limit));
+  return Result.map(statsR, (stats) =>
+    rankColemanFromStats(stats, query.season, competition, query.limit),
+  );
 }
 
 /** Pure transform: PlayerStats[] → ranked ColemanLeader[]. */
 export function rankColemanFromStats(
   stats: readonly PlayerStats[],
   season: number,
+  competition: CompetitionCode,
   limit?: number,
 ): ColemanLeader[] {
   const accumulator = new Map<
@@ -195,15 +256,16 @@ export function rankColemanFromStats(
     .sort((a, b) => b.goals - a.goals);
 
   let lastGoals = -1;
-  let lastPosition = 0;
+  let lastRank = 0;
   const leaderboard: ColemanLeader[] = ranked.map((entry, index) => {
-    const position = entry.goals === lastGoals ? lastPosition : index + 1;
+    const rank = entry.goals === lastGoals ? lastRank : index + 1;
     lastGoals = entry.goals;
-    lastPosition = position;
+    lastRank = rank;
     return {
       type: "coleman" as const,
       season,
-      position,
+      competition,
+      rank,
       player: entry.player,
       team: entry.team,
       goals: entry.goals,

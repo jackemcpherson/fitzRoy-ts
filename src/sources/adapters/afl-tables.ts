@@ -6,7 +6,6 @@
  * their own coverage in their own classes.
  */
 
-import { parseDate } from "../../lib/date-utils";
 import { ok, type Result } from "../../lib/result";
 import { normaliseTeamName } from "../../lib/team-mapping";
 import { computeLadder } from "../../transforms/computed-ladder";
@@ -15,10 +14,10 @@ import type {
   LadderQuery,
   Match,
   MatchQuery,
+  Player,
   PlayerStats,
   PlayerStatsQuery,
   Squad,
-  SquadPlayer,
   SquadQuery,
   TeamStatsEntry,
   TeamStatsQuery,
@@ -105,27 +104,38 @@ export class AflTablesTeamStatsSource implements TeamStatsSource {
     }));
 
     if (summaryType === "averages") {
-      return ok(
-        enriched.map((entry) => ({
-          ...entry,
-          stats: Object.fromEntries(
-            Object.entries(entry.stats).map(([k, v]) => [
-              k,
-              entry.gamesPlayed > 0 ? +(v / entry.gamesPlayed).toFixed(1) : 0,
-            ]),
-          ),
-        })),
-      );
+      return ok(enriched.map((entry) => averageMetrics(entry)));
     }
     return ok(enriched);
   }
 }
 
+/** Convert a TeamStatsEntry's `for`/`against` totals into per-game averages. */
+function averageMetrics(entry: TeamStatsEntry): TeamStatsEntry {
+  const divide = (set: TeamStatsEntry["for"]): TeamStatsEntry["for"] => {
+    if (entry.gamesPlayed <= 0) return set;
+    const out = { ...set };
+    for (const key of Object.keys(out) as (keyof typeof out)[]) {
+      const v = out[key];
+      if (v != null) {
+        out[key] = +(v / entry.gamesPlayed).toFixed(1);
+      }
+    }
+    return out;
+  };
+  return { ...entry, for: divide(entry.for), against: divide(entry.against) };
+}
+
 /**
- * AFL Tables as a SquadSource — scrapes the team page for the all-time
- * roster. AFL Tables doesn't publish per-season squads, so the `season`
- * field is carried through but the player list is the all-time roster
- * for the team. This matches the existing `fetchPlayerList` semantics.
+ * AFL Tables as a SquadSource — scrapes the team page for the **all-time
+ * roster**, NOT a per-season squad. AFL Tables doesn't publish per-season
+ * squad lists, so the `season` field is stamped onto the response for
+ * cross-source compatibility but does not actually filter the player list.
+ *
+ * **Caveat for callers (#88):** asking for `season: 1900` and `season: 2024`
+ * returns the same all-time list. If you need an accurate seasonal squad,
+ * use `--source afl-api` (2012+ only). For pre-2012 seasons the all-time
+ * roster is the only available proxy.
  */
 export class AflTablesSquadSource implements SquadSource {
   readonly id = "afl-tables" as const;
@@ -139,14 +149,14 @@ export class AflTablesSquadSource implements SquadSource {
     const result = await this.client.fetchPlayerList(teamName);
     if (!result.success) return result;
 
-    const players: SquadPlayer[] = result.data.map((p) => ({
+    const players: Player[] = result.data.map((p) => ({
       playerId: p.playerId,
       givenName: p.givenName,
       surname: p.surname,
       displayName: p.displayName,
       jumperNumber: p.jumperNumber,
       position: p.position,
-      dateOfBirth: p.dateOfBirth ? parseDate(p.dateOfBirth) : null,
+      dateOfBirth: p.dateOfBirth ?? null,
       heightCm: p.heightCm,
       weightKg: p.weightKg,
       draftYear: p.draftYear,
@@ -154,8 +164,11 @@ export class AflTablesSquadSource implements SquadSource {
       draftType: p.draftType,
       debutYear: p.debutYear,
       recruitedFrom: p.recruitedFrom,
-      gamesPlayed: p.gamesPlayed,
-      goals: p.goals,
+      gamesPlayed: p.gamesPlayed ?? null,
+      goals: p.goals ?? null,
+      team: teamName,
+      source: "afl-tables",
+      competition,
     }));
 
     return ok({

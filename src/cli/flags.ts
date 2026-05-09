@@ -47,8 +47,20 @@ export const REQUIRED_ROUND_FLAG = {
 export const SOURCE_FLAG = {
   source: {
     type: "string" as const,
-    description: "Data source",
+    description: "Data source: afl-api, footywire, afl-tables, squiggle, fryzigg",
     default: "afl-api",
+  },
+} as const;
+
+/**
+ * Data source flag with no default — for commands where the appropriate
+ * default depends on a runtime branch (e.g. `stats --by team` defaults to
+ * afl-tables, `stats --by player` defaults to afl-api).
+ */
+export const OPTIONAL_SOURCE_FLAG = {
+  source: {
+    type: "string" as const,
+    description: "Data source: afl-api, footywire, afl-tables, squiggle, fryzigg",
   },
 } as const;
 
@@ -75,7 +87,7 @@ export const OPTIONAL_COMPETITION_FLAG = {
 export const OUTPUT_FLAGS = {
   json: { type: "boolean" as const, description: "Output as JSON", alias: "j" },
   csv: { type: "boolean" as const, description: "Output as CSV" },
-  format: { type: "string" as const, description: "Output format: table, json, csv" },
+  format: { type: "string" as const, description: "Output format: table, json, csv", alias: "o" },
   full: { type: "boolean" as const, description: "Show all columns in table output" },
 } as const;
 
@@ -83,7 +95,7 @@ export const OUTPUT_FLAGS = {
 export const REQUIRED_TEAM_FLAG = {
   team: {
     type: "string" as const,
-    description: "Team name, abbreviation, or ID (e.g. Carlton, CARL, 5)",
+    description: "Team name or abbreviation (e.g. Carlton, CARL)",
     required: true,
     alias: "t",
   },

@@ -1,6 +1,6 @@
 {
   "name": "fitzroy",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "TypeScript port of the fitzRoy R package — programmatic access to AFL data including match results, player stats, fixtures, ladders, and more",
   "type": "module",
   "main": "./dist/index.js",
@@ -39,7 +39,8 @@
     "check": "biome check .",
     "format": "biome format --write .",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "bun run build"
+    "prepublishOnly": "bun run build",
+    "prerelease": "npm run typecheck && npm run check && npm run test && bun run build"
   },
   "dependencies": {
     "@clack/prompts": "^1.1.0",

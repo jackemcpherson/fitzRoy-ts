@@ -39,6 +39,7 @@ coverage/
 plans/
 AGENTS.md
 CONTEXT.md
+HANDOFF.md
 docs/adr/
 
 # comparison test outputs (keep scripts, ignore generated data)

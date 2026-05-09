@@ -50,7 +50,11 @@ export interface Match {
   readonly season: number;
   readonly roundNumber: number;
   readonly roundType: RoundType;
-  /** Human-readable round name (e.g. "Round 1", "Qualifying Final"). Null for scraped sources. */
+  /**
+   * Human-readable round name (e.g. "Round 1", "Qualifying Final"). Populated
+   * by AFL API, AFL Tables, and FootyWire; null only for sources that don't
+   * expose round labels (e.g. Squiggle).
+   */
   readonly roundName: string | null;
   readonly date: Date;
   readonly venue: string;
@@ -88,7 +92,11 @@ export interface Match {
   readonly weatherTempCelsius: number | null;
   readonly weatherType: string | null;
 
-  /** Normalised round code (e.g. "R1", "QF", "GF"). Null for scraped sources. */
+  /**
+   * Normalised round code (e.g. "R1", "QF", "GF"). Populated by AFL API, AFL
+   * Tables, and FootyWire; null only for sources that don't expose round
+   * labels (e.g. Squiggle).
+   */
   readonly roundCode: string | null;
 
   /** Venue metadata (null for scraped sources). */
@@ -237,7 +245,12 @@ export interface LineupPlayer {
   readonly surname: string;
   readonly displayName: string;
   readonly jumperNumber: number | null;
-  readonly position: string | null;
+  /**
+   * On-field role assigned for THIS match (e.g. "Forward Pocket Right",
+   * "BACK_POCKET"). Distinct from `Player.position` (career standing
+   * role) — renamed in 2.1.0 to disambiguate the two semantics. (#96)
+   */
+  readonly matchPosition: string | null;
   readonly isEmergency: boolean;
   readonly isSubstitute: boolean;
 }
@@ -293,15 +306,26 @@ export interface Team {
   readonly competition: CompetitionCode;
 }
 
-/** A player within a team squad for a season. */
-export interface SquadPlayer {
+/**
+ * Canonical player record. One shape for every operation that returns
+ * player data — squad rosters, biographical details, and any future
+ * player-shaped surface (e.g. injuries, contract status). Bio fields
+ * are nullable so per-source coverage gaps round-trip honestly.
+ *
+ * `LineupPlayer` is intentionally NOT this shape — the AFL match roster
+ * endpoint doesn't carry bio data, so the lineup type stays its own
+ * lean record. (#96)
+ */
+export interface Player {
   readonly playerId: string;
   readonly givenName: string;
   readonly surname: string;
   readonly displayName: string;
   readonly jumperNumber: number | null;
+  /** Career standing position (e.g. `KEY_FORWARD`). Nullable per source. */
   readonly position: string | null;
-  readonly dateOfBirth: Date | null;
+  /** ISO 8601 date string (`"YYYY-MM-DD"`). Nullable per source. */
+  readonly dateOfBirth: string | null;
   readonly heightCm: number | null;
   readonly weightKg: number | null;
   readonly draftYear: number | null;
@@ -311,53 +335,56 @@ export interface SquadPlayer {
   readonly recruitedFrom: string | null;
   /**
    * Career games played. Populated by FootyWire and AFL Tables (their
-   * team-list pages report career counts). `null` for `afl-api` — the
+   * team-list pages carry career counts). `null` for `afl-api` — the
    * squad endpoint doesn't carry career stats.
    */
-  readonly gamesPlayed?: number | null;
+  readonly gamesPlayed: number | null;
   /** Career goals. Populated alongside `gamesPlayed`; same source caveat. */
-  readonly goals?: number | null;
+  readonly goals: number | null;
+  readonly team: string;
+  readonly source: DataSource;
+  readonly competition: CompetitionCode;
 }
+
+/**
+ * @deprecated Use {@link Player}. Removed in 2.1.0; alias retained
+ * temporarily for downstream type-only references. Will be deleted in
+ * 3.0.
+ */
+export type SquadPlayer = Player;
 
 /** A team's squad for a given season. */
 export interface Squad {
   readonly teamId: string;
   readonly teamName: string;
   readonly season: number;
-  readonly players: readonly SquadPlayer[];
+  readonly players: readonly Player[];
   readonly competition: CompetitionCode;
 }
+
+/**
+ * Discriminated union returned by the `team` CLI verb. Each variant
+ * wraps the existing typed shape for that mode so JSON consumers can
+ * deserialise into a known type via the `mode` discriminator. (#99)
+ *
+ * - `list`: bare `team` invocation — list of teams in a competition.
+ * - `squad`: `team --season Y --name X` — a team's roster for a season.
+ * - `lineup`: `team --season Y --round R [--name X]` — match-day lineups.
+ */
+export type TeamResponse =
+  | { readonly mode: "list"; readonly teams: readonly Team[] }
+  | { readonly mode: "squad"; readonly squad: Squad }
+  | { readonly mode: "lineup"; readonly lineups: readonly Lineup[] };
 
 // ---------------------------------------------------------------------------
 // Player details (biographical data)
 // ---------------------------------------------------------------------------
 
-/** Biographical details for a single player. */
-export interface PlayerDetails {
-  readonly playerId: string;
-  readonly givenName: string;
-  readonly surname: string;
-  readonly displayName: string;
-  readonly team: string;
-  readonly jumperNumber: number | null;
-  readonly position: string | null;
-  readonly dateOfBirth: string | null;
-  readonly heightCm: number | null;
-  readonly weightKg: number | null;
-  /**
-   * Career games played. `null` for `afl-api` source — the squad endpoint
-   * does not provide career statistics. Use `footywire` or `afl-tables` for this field.
-   */
-  readonly gamesPlayed: number | null;
-  readonly goals: number | null;
-  readonly draftYear: number | null;
-  readonly draftPosition: number | null;
-  readonly draftType: string | null;
-  readonly debutYear: number | null;
-  readonly recruitedFrom: string | null;
-  readonly source: DataSource;
-  readonly competition: CompetitionCode;
-}
+/**
+ * Biographical details for a single player. Now an alias for the
+ * canonical {@link Player} type — these were converged in 2.1.0. (#96)
+ */
+export type PlayerDetails = Player;
 
 /** Query parameters for fetching player details. */
 export interface PlayerDetailsQuery {
@@ -380,6 +407,7 @@ export type AwardType = "brownlow" | "all-australian" | "rising-star" | "coleman
 export interface BrownlowVote {
   readonly type: "brownlow";
   readonly season: number;
+  readonly competition: CompetitionCode;
   readonly player: string;
   readonly team: string;
   readonly votes: number;
@@ -387,12 +415,25 @@ export interface BrownlowVote {
   readonly votes2: number;
   readonly votes1: number;
   readonly gamesPolled: number | null;
+  /**
+   * Number of games where this player polled at least 1 vote
+   * (R fitzRoy parity — `Polled` column).
+   */
+  readonly polledGames: number | null;
+  /**
+   * True for the Brownlow medallist of the season (R fitzRoy denotes
+   * this with a trailing " W" suffix on the player name; the suffix is
+   * stripped from `player` and surfaced here as a structured boolean).
+   */
+  readonly isMedallist: boolean;
 }
 
 /** An All-Australian team selection. */
 export interface AllAustralianSelection {
   readonly type: "all-australian";
   readonly season: number;
+  readonly competition: CompetitionCode;
+  /** Footy position (e.g. `FB`, `HBF`, `C`). */
   readonly position: string;
   readonly player: string;
   readonly team: string;
@@ -402,6 +443,7 @@ export interface AllAustralianSelection {
 export interface RisingStarNomination {
   readonly type: "rising-star";
   readonly season: number;
+  readonly competition: CompetitionCode;
   readonly round: number;
   readonly player: string;
   readonly team: string;
@@ -419,8 +461,9 @@ export interface RisingStarNomination {
 export interface ColemanLeader {
   readonly type: "coleman";
   readonly season: number;
+  readonly competition: CompetitionCode;
   /** 1 = season leader, 2 = runner-up, etc. */
-  readonly position: number;
+  readonly rank: number;
   readonly player: string;
   readonly team: string;
   readonly goals: number;
@@ -457,10 +500,12 @@ export interface AwardQuery {
 export interface CoachesVote {
   readonly type: "coaches";
   readonly season: number;
+  readonly competition: CompetitionCode;
   readonly round: number;
   readonly homeTeam: string;
   readonly awayTeam: string;
-  readonly playerName: string;
+  /** Player who received the votes (renamed from `playerName` in 2.1.0 for variant alignment). */
+  readonly player: string;
   readonly votes: number;
 }
 
@@ -552,16 +597,52 @@ export interface SquadQuery {
 export type TeamStatsSummaryType = "totals" | "averages";
 
 /**
- * Aggregate statistics for a single team in a season.
- *
- * The `stats` record uses flexible string keys because stat columns
- * differ between data sources (FootyWire vs AFL Tables).
+ * Canonical, source-portable team-stat metric set. Every metric is
+ * nullable so source-asymmetric data (e.g. AFL Tables exposes
+ * `brownlowVotes` aggregates; FootyWire exposes `fantasyPoints`/
+ * `supercoachPoints`) round-trips honestly. Adapters handle their
+ * source→canonical mapping. (#98)
+ */
+export interface TeamMetricSet {
+  readonly kicks: number | null;
+  readonly handballs: number | null;
+  readonly disposals: number | null;
+  readonly marks: number | null;
+  readonly goals: number | null;
+  readonly behinds: number | null;
+  readonly goalAssists: number | null;
+  readonly tackles: number | null;
+  readonly hitouts: number | null;
+  readonly freesFor: number | null;
+  readonly freesAgainst: number | null;
+  readonly clearances: number | null;
+  readonly clangers: number | null;
+  readonly inside50s: number | null;
+  readonly rebound50s: number | null;
+  readonly contestedPossessions: number | null;
+  readonly uncontestedPossessions: number | null;
+  readonly contestedMarks: number | null;
+  readonly marksInside50: number | null;
+  readonly onePercenters: number | null;
+  readonly bounces: number | null;
+  readonly brownlowVotes: number | null;
+  readonly fantasyPoints: number | null;
+  readonly supercoachPoints: number | null;
+}
+
+/**
+ * Aggregate statistics for a single team in a season. Replaces the
+ * source-specific `stats: Record<string, number>` with canonical
+ * `for`/`against` metric sets so the shape is portable across sources.
+ * (#98)
  */
 export interface TeamStatsEntry {
   readonly season: number;
+  readonly competition: CompetitionCode;
   readonly team: string;
   readonly gamesPlayed: number;
-  readonly stats: Readonly<Record<string, number>>;
+  readonly for: TeamMetricSet;
+  readonly against: TeamMetricSet;
   readonly source: DataSource;
 }
 

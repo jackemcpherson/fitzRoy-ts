@@ -6,6 +6,7 @@ import { parseDate } from "../lib/date-utils";
 import type { SquiggleGame, SquiggleStanding } from "../lib/squiggle-validation";
 import { normaliseTeamName } from "../lib/team-mapping";
 import { normaliseVenueName } from "../lib/venue-mapping";
+import { resolveVenueTimezone } from "../lib/venue-timezones";
 import type { LadderEntry, Match, MatchStatus } from "../types";
 import { inferRoundType, toRoundCode } from "./match-results";
 
@@ -58,7 +59,7 @@ export function transformSquiggleGamesToResults(
       weatherType: null,
       roundCode: toRoundCode(g.roundname),
       venueState: null,
-      venueTimezone: g.tz || null,
+      venueTimezone: resolveVenueTimezone(normaliseVenueName(g.venue)) ?? null,
       homeRushedBehinds: null,
       awayRushedBehinds: null,
       homeMinutesInFront: null,
@@ -111,7 +112,7 @@ export function transformSquiggleGamesToFixture(
       weatherType: null,
       roundCode: toRoundCode(g.roundname),
       venueState: null,
-      venueTimezone: g.tz || null,
+      venueTimezone: resolveVenueTimezone(normaliseVenueName(g.venue)) ?? null,
       homeRushedBehinds: null,
       awayRushedBehinds: null,
       homeMinutesInFront: null,
@@ -135,7 +136,7 @@ export function transformSquiggleStandings(standings: readonly SquiggleStanding[
     draws: s.draws,
     pointsFor: s.for,
     pointsAgainst: s.against,
-    percentage: s.percentage,
+    percentage: Math.round(s.percentage * 10) / 10,
     premiershipsPoints: s.pts,
     form: null,
   }));

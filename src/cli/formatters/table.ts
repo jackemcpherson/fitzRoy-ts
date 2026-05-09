@@ -40,6 +40,20 @@ function toDisplayValue(value: unknown): string {
   return String(value);
 }
 
+/**
+ * Read a (possibly dotted) key path from a row. `"for.kicks"` walks
+ * `row.for.kicks`. Single-segment keys behave like plain index access.
+ */
+function readPath(row: Record<string, unknown>, key: string): unknown {
+  if (!key.includes(".")) return row[key];
+  let current: unknown = row;
+  for (const segment of key.split(".")) {
+    if (current == null || typeof current !== "object") return undefined;
+    current = (current as Record<string, unknown>)[segment];
+  }
+  return current;
+}
+
 function truncate(str: string, maxLen: number): string {
   if (str.length <= maxLen) return str;
   return `${str.slice(0, maxLen - 1)}…`;
@@ -71,7 +85,7 @@ export function formatTable(data: Record<string, unknown>[], options: TableOptio
     for (let i = 0; i < columns.length; i++) {
       const col = columns[i];
       if (!col) continue;
-      const len = toDisplayValue(row[col.key]).length;
+      const len = toDisplayValue(readPath(row, col.key)).length;
       const current = colWidths[i];
       if (current !== undefined && len > current) {
         colWidths[i] = len;
@@ -123,7 +137,7 @@ export function formatTable(data: Record<string, unknown>[], options: TableOptio
       const col = columns[i];
       const width = colWidths[i];
       if (!col || width === undefined) return "";
-      const val = toDisplayValue(row[col.key]);
+      const val = toDisplayValue(readPath(row, col.key));
       return truncate(val, width).padEnd(width);
     });
     return parts.join("  ");

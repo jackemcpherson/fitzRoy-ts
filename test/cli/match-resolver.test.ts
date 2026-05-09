@@ -9,23 +9,35 @@ import { resolveMatchId } from "../../src/cli/match-resolver";
 describe("resolveMatchId", () => {
   it("returns matchIdArg unchanged when present (no fetch needed)", async () => {
     const result = await resolveMatchId({
-      matchIdArg: "CD_M_2025_R1_HOME_AWAY",
+      matchIdArg: "CD_M20250140101",
       competition: "AFLM",
       season: 2025,
       round: 1,
     });
-    expect(result).toBe("CD_M_2025_R1_HOME_AWAY");
+    expect(result).toEqual({ matchId: "CD_M20250140101" });
+    expect(result?.participants).toBeUndefined();
   });
 
   it("returns matchIdArg even when matchArg is also given (matchIdArg wins)", async () => {
     const result = await resolveMatchId({
-      matchIdArg: "CD_M_EXPLICIT",
+      matchIdArg: "CD_M20250140102",
       matchArg: "Carlton",
       competition: "AFLM",
       season: 2025,
       round: 1,
     });
-    expect(result).toBe("CD_M_EXPLICIT");
+    expect(result?.matchId).toBe("CD_M20250140102");
+  });
+
+  it("rejects malformed --match-id with a clear error (#95)", async () => {
+    await expect(
+      resolveMatchId({
+        matchIdArg: "BAD_ID",
+        competition: "AFLM",
+        season: 2025,
+        round: 1,
+      }),
+    ).rejects.toThrow(/Invalid --match-id "BAD_ID"/);
   });
 
   it("returns undefined when neither matchIdArg nor matchArg is given", async () => {

@@ -15,7 +15,7 @@ import { err, ok, type Result } from "../../lib/result";
 import { AFL_API_TEAM_IDS, normaliseTeamName } from "../../lib/team-mapping";
 import { transformLadderEntries } from "../../transforms/ladder";
 import { transformMatchRoster } from "../../transforms/lineup";
-import { transformMatchItems } from "../../transforms/match-results";
+import { inferRoundType, transformMatchItems } from "../../transforms/match-results";
 import { transformPlayerStats } from "../../transforms/player-stats";
 import type {
   Ladder,
@@ -24,10 +24,10 @@ import type {
   LineupQuery,
   Match,
   MatchQuery,
+  Player,
   PlayerStats,
   PlayerStatsQuery,
   Squad,
-  SquadPlayer,
   SquadQuery,
 } from "../../types";
 import { AflApiClient } from "../afl-api";
@@ -170,14 +170,15 @@ export class AflApiSquadSource implements SquadSource {
     const squadResult = await this.client.fetchSquad(teamIdResult.data, seasonResult.data);
     if (!squadResult.success) return squadResult;
 
-    const players: SquadPlayer[] = squadResult.data.squad.players.map((p) => ({
+    const teamName = normaliseTeamName(squadResult.data.squad.team?.name ?? query.team);
+    const players: Player[] = squadResult.data.squad.players.map((p) => ({
       playerId: p.player.providerId ?? String(p.player.id),
       givenName: p.player.firstName,
       surname: p.player.surname,
       displayName: `${p.player.firstName} ${p.player.surname}`,
       jumperNumber: p.jumperNumber ?? null,
       position: p.position ?? null,
-      dateOfBirth: p.player.dateOfBirth ? parseDate(p.player.dateOfBirth) : null,
+      dateOfBirth: p.player.dateOfBirth ?? null,
       heightCm: p.player.heightInCm || null,
       weightKg: p.player.weightInKg || null,
       draftYear: p.player.draftYear ? Number.parseInt(p.player.draftYear, 10) || null : null,
@@ -187,11 +188,17 @@ export class AflApiSquadSource implements SquadSource {
       draftType: p.player.draftType ?? null,
       debutYear: p.player.debutYear ? Number.parseInt(p.player.debutYear, 10) || null : null,
       recruitedFrom: p.player.recruitedFrom ?? null,
+      // AFL API squad endpoint doesn't carry career counters
+      gamesPlayed: null,
+      goals: null,
+      team: teamName,
+      source: "afl-api",
+      competition,
     }));
 
     return ok({
       teamId: String(teamIdResult.data),
-      teamName: normaliseTeamName(squadResult.data.squad.team?.name ?? query.team),
+      teamName,
       season: query.season,
       players,
       competition,
@@ -270,13 +277,34 @@ export class AflApiLadderSource implements LadderSource {
     const seasonResult = await this.client.resolveCompSeason(competition, query.season);
     if (!seasonResult.success) return seasonResult;
 
+    const roundsResult = await this.client.resolveRounds(seasonResult.data);
+    if (!roundsResult.success) return roundsResult;
+
     let roundId: number | undefined;
     if (query.round != null) {
-      const roundsResult = await this.client.resolveRounds(seasonResult.data);
-      if (!roundsResult.success) return roundsResult;
+      // Honour an explicit round number.
       const round = roundsResult.data.find((r) => r.roundNumber === query.round);
       if (round) {
         roundId = round.id;
+      }
+    } else {
+      // No explicit round — resolve to the latest *completed* H&A round.
+      // Finals don't alter the ladder (it's a Home & Away artefact only),
+      // so we always anchor the default to H&A. Without this, the AFL API
+      // returns a stale early-season snapshot for completed seasons (#90).
+      const haRounds = roundsResult.data.filter((r) => inferRoundType(r.name) === "HomeAndAway");
+      const now = Date.now();
+      const completedHa = haRounds.filter((r) => {
+        if (r.utcEndTime == null) return false;
+        const end = new Date(r.utcEndTime).getTime();
+        return Number.isFinite(end) && end <= now;
+      });
+      // Sort by roundNumber descending — pick the latest. If no round has
+      // ended yet (very early in a season), pass through with no roundId
+      // so the API returns whatever it considers current.
+      const latest = completedHa.sort((a, b) => b.roundNumber - a.roundNumber)[0];
+      if (latest) {
+        roundId = latest.id;
       }
     }
 

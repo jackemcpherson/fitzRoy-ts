@@ -9,16 +9,19 @@
 import { defineCommand } from "citty";
 import { fetchPlayerStats, fetchTeamStats } from "../../index";
 import { fuzzySearch } from "../../lib/fuzzy";
+import { playerStatsRegistry, teamStatsRegistry } from "../../sources/adapters/registry";
+import type { DataSource } from "../../types";
+import { rejectUnknownFlags } from "../command-builder";
 import { withErrorBoundary } from "../error-boundary";
 import {
   BY_FLAG,
   COMPETITION_FLAG,
   MATCH_ID_FLAG,
+  OPTIONAL_SOURCE_FLAG,
   OUTPUT_FLAGS,
   PLAYER_FLAG,
   ROUND_FLAG,
   SEASON_FLAG,
-  SOURCE_FLAG,
   TEAM_FLAG,
 } from "../flags";
 import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
@@ -48,77 +51,38 @@ const PLAYER_COLUMNS: TableColumnConfig[] = [
 const TEAM_COLUMNS: TableColumnConfig[] = [
   { key: "team", label: "Team", maxWidth: 24 },
   { key: "gamesPlayed", label: "GP", maxWidth: 5 },
-  { key: "K", label: "K", maxWidth: 6 },
-  { key: "HB", label: "HB", maxWidth: 6 },
-  { key: "D", label: "D", maxWidth: 6 },
-  { key: "M", label: "M", maxWidth: 6 },
-  { key: "G", label: "G", maxWidth: 6 },
-  { key: "B", label: "B", maxWidth: 6 },
-  { key: "T", label: "T", maxWidth: 6 },
-  { key: "I50", label: "I50", maxWidth: 6 },
+  { key: "for.kicks", label: "K", maxWidth: 6 },
+  { key: "for.handballs", label: "HB", maxWidth: 6 },
+  { key: "for.disposals", label: "D", maxWidth: 6 },
+  { key: "for.marks", label: "M", maxWidth: 6 },
+  { key: "for.goals", label: "G", maxWidth: 6 },
+  { key: "for.behinds", label: "B", maxWidth: 6 },
+  { key: "for.tackles", label: "T", maxWidth: 6 },
+  { key: "for.inside50s", label: "I50", maxWidth: 6 },
 ];
 
-/**
- * Normalise AFL Tables stat keys to the FootyWire short form so a single
- * column set works across both sources.
- */
-const AFL_TABLES_KEY_MAP: Readonly<Record<string, string>> = {
-  KI_for: "K",
-  MK_for: "M",
-  HB_for: "HB",
-  DI_for: "D",
-  GL_for: "G",
-  BH_for: "B",
-  HO_for: "HO",
-  TK_for: "T",
-  RB_for: "RB",
-  IF_for: "IF",
-  CL_for: "CL",
-  CG_for: "CG",
-  FF_for: "FF",
-  BR_for: "BR",
-  CP_for: "CP",
-  UP_for: "UP",
-  CM_for: "CM",
-  MI_for: "MI",
-  "1%_for": "1%",
-  BO_for: "BO",
-  GA_for: "GA",
-  I50_for: "I50",
-};
-
-function flattenTeamEntries(
-  data: readonly { team: string; gamesPlayed: number; stats: Readonly<Record<string, number>> }[],
-): Record<string, unknown>[] {
-  return data.map((entry) => {
-    const { stats, ...rest } = entry;
-    const normalised: Record<string, number> = {};
-    for (const [key, value] of Object.entries(stats)) {
-      normalised[AFL_TABLES_KEY_MAP[key] ?? key] = value;
-    }
-    return { ...rest, ...normalised };
-  });
-}
+const STATS_ARGS = {
+  ...SEASON_FLAG,
+  ...ROUND_FLAG,
+  ...BY_FLAG,
+  match: { type: "string", description: "Filter by team name to find a specific match" },
+  ...MATCH_ID_FLAG,
+  ...OPTIONAL_SOURCE_FLAG,
+  ...COMPETITION_FLAG,
+  ...PLAYER_FLAG,
+  ...TEAM_FLAG,
+  summary: { type: "string", description: "Team-stats summary type: totals or averages" },
+  ...OUTPUT_FLAGS,
+} as const;
 
 export const statsCommand = defineCommand({
   meta: {
     name: "stats",
     description: "Fetch performance stats — `--by player` (default) or `--by team`",
   },
-  args: {
-    ...SEASON_FLAG,
-    ...ROUND_FLAG,
-    ...BY_FLAG,
-    match: { type: "string", description: "Filter by team name to find a specific match" },
-    ...MATCH_ID_FLAG,
-    ...SOURCE_FLAG,
-    ...COMPETITION_FLAG,
-    ...PLAYER_FLAG,
-    ...TEAM_FLAG,
-    summary: { type: "string", description: "Team-stats summary type: totals or averages" },
-    ...OUTPUT_FLAGS,
-  },
+  args: STATS_ARGS,
   run: withErrorBoundary(async ({ args }) => {
+    rejectUnknownFlags(STATS_ARGS, process.argv);
     const season = validateSeason(args.season);
     const round = args.round ? validateRound(args.round) : undefined;
     const competition = validateCompetition(args.competition);
@@ -126,11 +90,14 @@ export const statsCommand = defineCommand({
     const groupBy = validateGroupBy(args.by);
 
     if (groupBy === "team") {
-      // No silent fallback: if the user is on the default --source (afl-api,
-      // which has no team-stats endpoint), surface the structured error from
-      // the registry so they explicitly switch with `--source afl-tables` or
-      // `--source footywire`. Per ADR-0001.
-      const source = validateSource(args.source);
+      if (round != null) {
+        throw new Error(
+          "--round is not supported for --by team. Team-stats sources (footywire, afl-tables) only expose season-level aggregates.",
+        );
+      }
+      const source: DataSource = args.source
+        ? validateSource(args.source)
+        : teamStatsRegistry.defaultSource;
       const summaryType = args.summary ? validateSummary(args.summary) : undefined;
       const result = await withSpinner("Fetching team stats…", () =>
         fetchTeamStats({
@@ -140,7 +107,6 @@ export const statsCommand = defineCommand({
         }),
       );
       if (!result.success) throw result.error;
-      const flat = flattenTeamEntries(result.data);
       showSummary(
         `Loaded stats for ${result.data.length} teams (${season}${summaryType ? `, ${summaryType}` : ""})`,
       );
@@ -151,13 +117,15 @@ export const statsCommand = defineCommand({
         full: args.full,
         columns: TEAM_COLUMNS,
       };
-      console.log(formatOutput(flat, formatOptions));
+      console.log(formatOutput(result.data as readonly object[], formatOptions));
       return;
     }
 
-    const source = validateSource(args.source);
+    const source: DataSource = args.source
+      ? validateSource(args.source)
+      : playerStatsRegistry.defaultSource;
 
-    const matchId = await resolveMatchId({
+    const matchResolution = await resolveMatchId({
       matchIdArg: args.id as string | undefined,
       matchArg: args.match,
       competition,
@@ -168,11 +136,24 @@ export const statsCommand = defineCommand({
     const teamFilter = args.team ? await resolveTeamNameOrPrompt(args.team) : undefined;
 
     const result = await withSpinner("Fetching player stats…", () =>
-      fetchPlayerStats({ source, season, round, matchId, competition }),
+      fetchPlayerStats({
+        source,
+        season,
+        round,
+        matchId: matchResolution?.matchId,
+        competition,
+      }),
     );
     if (!result.success) throw result.error;
 
     let data = result.data;
+    // Sources other than afl-api ignore matchId at the adapter layer (#123).
+    // When --match resolved to a known game, post-filter to its participants
+    // so cross-source behaviour matches afl-api's per-match scoping.
+    if (matchResolution?.participants) {
+      const { homeTeam, awayTeam } = matchResolution.participants;
+      data = data.filter((p) => p.team === homeTeam || p.team === awayTeam);
+    }
     if (teamFilter) {
       data = data.filter((p) => p.team === teamFilter);
     }

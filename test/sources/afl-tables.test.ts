@@ -31,10 +31,16 @@ describe("parseSeasonPage", () => {
     expect(first.awayGoals).toBe(9);
     expect(first.awayBehinds).toBe(10);
 
-    // Quarter scores
+    // Quarter scores — per-quarter (not cumulative). Sum across all four
+    // quarters equals the total (#103).
     expect(first.q1Home).toEqual({ goals: 3, behinds: 3, points: 21 });
-    expect(first.q4Home).toEqual({ goals: 12, behinds: 14, points: 86 });
     expect(first.q1Away).toEqual({ goals: 1, behinds: 6, points: 12 });
+    const homeTotalFromQuarters =
+      (first.q1Home?.points ?? 0) +
+      (first.q2Home?.points ?? 0) +
+      (first.q3Home?.points ?? 0) +
+      (first.q4Home?.points ?? 0);
+    expect(homeTotalFromQuarters).toBe(first.homePoints);
 
     // Metadata
     expect(first.attendance).toBe(40012);
@@ -44,12 +50,15 @@ describe("parseSeasonPage", () => {
     expect(first.date?.getUTCDate()).toBe(7);
   });
 
-  it("extracts round numbers across multiple rounds", () => {
+  it("remaps Opening Round to round 0 for 2024+ seasons (#102)", () => {
     const results = parseSeasonPage(fixtureHtml, 2024);
 
-    expect(results[0]?.roundNumber).toBe(1);
-    expect(results[1]?.roundNumber).toBe(1);
-    expect(results[2]?.roundNumber).toBe(2);
+    // The fixture's "Round 1" is actually the AFL's Opening Round (4 games);
+    // its "Round 2" is the AFL's Round 1. After remapping:
+    expect(results[0]?.roundNumber).toBe(0);
+    expect(results[0]?.roundName).toBe("Opening Round");
+    expect(results[1]?.roundNumber).toBe(0);
+    expect(results[2]?.roundNumber).toBe(1);
   });
 
   it("returns empty array for empty HTML", () => {

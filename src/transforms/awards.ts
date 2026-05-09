@@ -5,17 +5,43 @@
 import * as cheerio from "cheerio";
 import { safeInt } from "../lib/parse-utils";
 import { normaliseTeamName } from "../lib/team-mapping";
-import type { AllAustralianSelection, BrownlowVote, RisingStarNomination } from "../types";
+import type {
+  AllAustralianSelection,
+  BrownlowVote,
+  CompetitionCode,
+  RisingStarNomination,
+} from "../types";
+
+/**
+ * Strip a trailing " W" suffix from a Brownlow player name (R fitzRoy
+ * convention denoting the medallist). Returns the stripped name and a
+ * structured `isMedallist` boolean.
+ */
+function stripMedallistSuffix(raw: string): { player: string; isMedallist: boolean } {
+  if (raw.endsWith(" W")) {
+    return { player: raw.slice(0, -2).trim(), isMedallist: true };
+  }
+  return { player: raw, isMedallist: false };
+}
 
 /**
  * Parse Brownlow Medal player votes from FootyWire HTML.
  *
  * The page has a table with 9 columns:
- * Player, Team, 3V, 2V, 1V, Players_With_Votes, Games_Polled, Polled, V/G
+ * Player, Team, V, 3V, 2V, 1V, Played, Polled, V/G
+ *
+ * `V` is the canonical season vote total. `3V`/`2V`/`1V` are *counts* of
+ * vote-receiving performances at each weight (so V === 3*3V + 2*2V + 1V).
  */
-export function parseBrownlowVotes(html: string, season: number): BrownlowVote[] {
+export function parseBrownlowVotes(
+  html: string,
+  season: number,
+  competition: CompetitionCode = "AFLM",
+): BrownlowVote[] {
   const $ = cheerio.load(html);
   const results: BrownlowVote[] = [];
+  let anyMarked = false;
+  let maxVotes = 0;
 
   $("table").each((_i, table) => {
     const rows = $(table).find("tr");
@@ -37,29 +63,50 @@ export function parseBrownlowVotes(html: string, season: number): BrownlowVote[]
       const tds = $(row).find("td");
       if (tds.length < 9) return;
 
-      const player = $(tds[0]).text().trim();
+      const rawPlayer = $(tds[0]).text().trim();
       const team = normaliseTeamName($(tds[1]).text().trim());
 
-      if (!player || player.toLowerCase() === "player") return;
+      if (!rawPlayer || rawPlayer.toLowerCase() === "player") return;
 
-      const votes3 = safeInt($(tds[2]).text()) ?? 0;
-      const votes2 = safeInt($(tds[3]).text()) ?? 0;
-      const votes1 = safeInt($(tds[4]).text()) ?? 0;
+      const { player, isMedallist: suffixMedallist } = stripMedallistSuffix(rawPlayer);
+
+      // Read V directly from column 2 — it's the canonical weighted total.
+      // Counts of 3v/2v/1v performances follow in cols 3-5. Computing
+      // votes from those would also work but means an extra trust step
+      // when columns drift.
+      const votes = safeInt($(tds[2]).text()) ?? 0;
+      const votes3 = safeInt($(tds[3]).text()) ?? 0;
+      const votes2 = safeInt($(tds[4]).text()) ?? 0;
+      const votes1 = safeInt($(tds[5]).text()) ?? 0;
       const gamesPolled = safeInt($(tds[6]).text());
+      const polledGames = safeInt($(tds[7]).text());
+
+      if (suffixMedallist) anyMarked = true;
+      if (votes > maxVotes) maxVotes = votes;
 
       results.push({
         type: "brownlow",
         season,
+        competition,
         player,
         team,
-        votes: votes3 * 3 + votes2 * 2 + votes1,
+        votes,
         votes3,
         votes2,
         votes1,
         gamesPolled,
+        polledGames,
+        isMedallist: suffixMedallist,
       });
     });
   });
+
+  // Derive isMedallist by max votes when no row carried the " W" suffix
+  // (FootyWire HTML doesn't use the suffix; R-format input does). Ties
+  // are honoured — multiple medallists share isMedallist=true.
+  if (!anyMarked && maxVotes > 0) {
+    return results.map((r) => (r.votes === maxVotes ? { ...r, isMedallist: true } : r));
+  }
 
   return results;
 }
@@ -69,7 +116,11 @@ export function parseBrownlowVotes(html: string, season: number): BrownlowVote[]
  *
  * The page uses specific row indices for the final 22 team layout.
  */
-export function parseAllAustralian(html: string, season: number): AllAustralianSelection[] {
+export function parseAllAustralian(
+  html: string,
+  season: number,
+  competition: CompetitionCode = "AFLM",
+): AllAustralianSelection[] {
   const $ = cheerio.load(html);
   const results: AllAustralianSelection[] = [];
 
@@ -100,6 +151,7 @@ export function parseAllAustralian(html: string, season: number): AllAustralianS
         results.push({
           type: "all-australian",
           season,
+          competition,
           position,
           player: playerName,
           team,
@@ -116,7 +168,11 @@ export function parseAllAustralian(html: string, season: number): AllAustralianS
  *
  * Uses table index 11 (0-based: 10) which has the nomination data.
  */
-export function parseRisingStarNominations(html: string, season: number): RisingStarNomination[] {
+export function parseRisingStarNominations(
+  html: string,
+  season: number,
+  competition: CompetitionCode = "AFLM",
+): RisingStarNomination[] {
   const $ = cheerio.load(html);
   const results: RisingStarNomination[] = [];
 
@@ -133,10 +189,17 @@ export function parseRisingStarNominations(html: string, season: number): Rising
       .map((_, c) => $(c).text().trim())
       .get();
 
+    // FootyWire uses "Rd" (current), "Rnd", or "Round" depending on era —
+    // accept any of those leading-cell values. Older parser only accepted
+    // the long form and silently returned [] for every season (#91).
+    const firstCell = headerCells[0]?.toLowerCase().trim();
     if (
       headerCells.length >= 15 &&
-      (headerCells[0]?.toLowerCase().includes("round") ||
-        headerCells[0]?.toLowerCase().includes("rnd"))
+      (firstCell === "rd" ||
+        firstCell === "rnd" ||
+        firstCell === "round" ||
+        firstCell?.startsWith("round") ||
+        firstCell?.startsWith("rnd"))
     ) {
       targetRows = rows;
       return false; // break
@@ -164,6 +227,7 @@ export function parseRisingStarNominations(html: string, season: number): Rising
     results.push({
       type: "rising-star",
       season,
+      competition,
       round,
       player,
       team,

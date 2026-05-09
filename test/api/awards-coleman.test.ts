@@ -104,13 +104,14 @@ describe("rankColemanFromStats", () => {
       makeStats("p3", "Jeremy Cameron", "Geelong", 2, "M1"),
     ];
 
-    const result = rankColemanFromStats(stats, 2025);
+    const result = rankColemanFromStats(stats, 2025, "AFLM");
 
     expect(result).toHaveLength(3);
     expect(result[0]).toMatchObject({
       type: "coleman",
       season: 2025,
-      position: 1,
+      competition: "AFLM",
+      rank: 1,
       player: "Charlie Curnow",
       team: "Carlton",
       goals: 7,
@@ -129,11 +130,11 @@ describe("rankColemanFromStats", () => {
       makeStats("p3", "Player Three", "T3", 3),
     ];
 
-    const result = rankColemanFromStats(stats, 2025);
+    const result = rankColemanFromStats(stats, 2025, "AFLM");
 
-    expect(result[0]?.position).toBe(1);
-    expect(result[1]?.position).toBe(1);
-    expect(result[2]?.position).toBe(3);
+    expect(result[0]?.rank).toBe(1);
+    expect(result[1]?.rank).toBe(1);
+    expect(result[2]?.rank).toBe(3);
   });
 
   it("excludes players with zero or null goals", () => {
@@ -143,7 +144,7 @@ describe("rankColemanFromStats", () => {
       makeStats("p3", "Missing Stats", "T3", null),
     ];
 
-    const result = rankColemanFromStats(stats, 2025);
+    const result = rankColemanFromStats(stats, 2025, "AFLM");
 
     expect(result).toHaveLength(1);
     expect(result[0]?.player).toBe("Goal Scorer");
@@ -157,7 +158,7 @@ describe("rankColemanFromStats", () => {
       makeStats("p4", "Fourth", "T4", 20),
     ];
 
-    const result = rankColemanFromStats(stats, 2025, 2);
+    const result = rankColemanFromStats(stats, 2025, "AFLM", 2);
 
     expect(result).toHaveLength(2);
     expect(result.map((r) => r.player)).toEqual(["First", "Second"]);
@@ -169,6 +170,6 @@ describe("rankColemanFromStats", () => {
       makeStats("p2", "P2", "T2", null),
     ];
 
-    expect(rankColemanFromStats(stats, 2025)).toEqual([]);
+    expect(rankColemanFromStats(stats, 2025, "AFLM")).toEqual([]);
   });
 });

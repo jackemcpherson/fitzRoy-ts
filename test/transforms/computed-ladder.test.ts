@@ -123,14 +123,14 @@ describe("computeLadder", () => {
     expect(sydney?.played).toBe(2); // Finals not counted
   });
 
-  it("calculates percentage correctly", () => {
+  it("calculates percentage correctly (rounded to 1dp, #113)", () => {
     const ladder = computeLadder(results);
 
     const sydney = ladder.find((e) => e.team === "Sydney");
     expect(sydney).toBeDefined();
     if (sydney) {
-      const expected = (sydney.pointsFor / sydney.pointsAgainst) * 100;
-      expect(sydney.percentage).toBeCloseTo(expected, 2);
+      const expected = Math.round((sydney.pointsFor / sydney.pointsAgainst) * 100 * 10) / 10;
+      expect(sydney.percentage).toBe(expected);
     }
   });
 });

@@ -7,6 +7,224 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-05-09
+
+This release closes 43 issues from an adversarial review of v2.0
+(8 issues across CLI plumbing, 25 across data correctness, library
+exports, scraper quality, and polish, plus the 5 Phase 8 canonical type
+contracts: `Ladder` envelope, `team` verb discriminated union,
+`TeamMetricSet`, `Award` variant alignment + Brownlow enhancements,
+canonical `Player`). Plus per-match Brownlow attribution from AFL
+Tables (#117) and 5 follow-ups from the v2.1.0 release-smoke matrix
+(#122–#126).
+
+### Breaking changes
+
+- **`Match.venueTimezone` now consistently emits IANA timezone strings**
+  (e.g. `"Australia/Brisbane"`) across all sources. Previously: AFL API
+  returned IANA, Squiggle returned offset strings (`"+11:00"`),
+  FootyWire returned null, AFL Tables returned null. Squiggle and
+  FootyWire now resolve via the new venue→IANA static map; AFL Tables
+  resolves the same way for time-of-day-bearing matches. (#109 part 1)
+- **`Match.q1Home..q4Home` (and away) from `--source afl-tables` are now
+  per-quarter, not cumulative running totals.** `q1+q2+q3+q4` now equals
+  the total for all sources. Anyone summing quarter splits from
+  afl-tables was previously getting nonsense; output is now correct
+  but the values change. (#103)
+- **`Match.roundNumber === 0` is the new convention for AFL "Opening
+  Round"** (introduced 2024). AFL API already used this; AFL Tables now
+  matches. `-r 1` returns Round 1 proper across all sources. AFL
+  Tables consumers expecting `-r 1` to mean "the first round of the
+  AFL Tables season summary" (which was Opening Round for 2024+) will
+  see different data. (#102)
+- **Awards `--source` flag rejected.** The `awards` command never
+  honoured `--source` because the dispatch is per-award-type, not
+  per-source. Previously silently ignored; now Citty rejects it as an
+  unknown flag. (#86)
+- **`stats --by team --round X` rejected.** Previously silently dropped
+  `--round` and returned season totals; now errors with a clear
+  message that team-stats sources only expose season aggregates. (#94)
+- **`awards --type X --round Y` rejected for season-level awards.**
+  Previously silently dropped on brownlow/all-australian/rising-star/
+  coleman; now errors. Coaches votes are still round-scopable. (#94)
+- **`team` bare-list mode rejects `--source != afl-api`.** Only AFL API
+  exposes a teams-list endpoint; the flag is no longer silently ignored
+  in this branch. (#85)
+- **`awards --type {brownlow,all-australian,rising-star} -c AFLW`
+  rejected.** Previously silently returned AFLM data; now errors. (#82)
+- **AFL Tables blank stat cells now emit `0`, not `null`,** for columns
+  the source actually tracks (kicks, marks, goals, …). Matches the
+  shape from afl-api / footywire. (#108)
+- **Ladder `percentage` rounded to 1dp** (matches the AFL website's
+  display convention; was full float precision on afl-tables and
+  squiggle). (#113)
+- **Default-round ladder on `--source afl-api` now resolves to the
+  latest *completed* H&A round** instead of whatever the upstream
+  API picks (which was an early-season snapshot). Finals don't alter
+  the ladder. (#90)
+- **`fitzroy ladder --json` now emits the full `Ladder` envelope**
+  (`{ season, roundNumber, competition, entries }`) instead of a flat
+  `LadderEntry[]`. Pipe consumers must read `.entries` for row data.
+  Table and CSV output unchanged. (#101)
+- **`fitzroy team --json` now emits a discriminated union `TeamResponse`**
+  with `mode: "list" | "squad" | "lineup"` rather than mode-specific raw
+  arrays. Each variant wraps the existing typed shape — list mode →
+  `{ mode: "list", teams }`; squad mode → `{ mode: "squad", squad }`
+  (now preserves `teamId`/`teamName`/`season`/`competition`); lineup
+  mode → `{ mode: "lineup", lineups }`. Table and CSV output unchanged.
+  (#99)
+- **`SquadPlayer` and `PlayerDetails` types converged into a single
+  canonical `Player` type** (19 fields). Bio fields nullable per source;
+  `team`, `source`, `competition` always present on every record.
+  `Squad.players` is now `Player[]`. `dateOfBirth` is now `string | null`
+  (ISO 8601 `"YYYY-MM-DD"`) on every record (was `Date | null` on
+  `SquadPlayer`). `LineupPlayer` is intentionally NOT converged with
+  `Player` (the AFL match roster endpoint doesn't carry bio data) — it
+  remains its own lean type. `LineupPlayer.position` renamed to
+  `matchPosition` to disambiguate from career standing position.
+  `SquadPlayer` and `PlayerDetails` retained as deprecated type aliases
+  for one minor version. (#96)
+- **`TeamStatsEntry.stats: Record<string, number>` removed in favour of
+  `for: TeamMetricSet` and `against: TeamMetricSet`** (canonical,
+  source-portable). New field `competition: CompetitionCode` added.
+  AFL Tables-only metrics (`brownlowVotes`, `contestedPossessions`,
+  `uncontestedPossessions`, `contestedMarks`, `marksInside50`,
+  `onePercenters`, `bounces`) and FootyWire-only metrics
+  (`fantasyPoints`, `supercoachPoints`) appear in both shapes as `null`
+  where the source doesn't supply them. CLI table column `B` (behinds)
+  was previously empty for `--source footywire` due to a `BH`/`B` key
+  mismatch — now populated correctly via canonical `for.behinds`. (#98)
+- **`Award` discriminated union variants aligned:**
+  `CoachesVote.playerName` → `player`; `ColemanLeader.position` → `rank`.
+  `competition: CompetitionCode` field added to all five variants
+  (`brownlow`, `all-australian`, `rising-star`, `coleman`, `coaches`).
+  `BrownlowVote` adds `polledGames: number | null` (count of games where
+  the player polled ≥1 vote, R fitzRoy parity) and `isMedallist: boolean`
+  (parsed from R's `" W"` suffix on the medallist's name; suffix stripped
+  from `player`. For source data without the suffix the medallist is
+  derived from the maximum vote count, with ties honoured). CLI `awards`
+  table now uses per-type column dispatch — rows render their actual
+  fields rather than empty cells from naming mismatches. (#97)
+
+### Added
+
+- **`localToUtc(timezone, year, month, day, h, m): Result<Date,
+  DstGapError>`** — venue-tz-aware local→UTC conversion that
+  surfaces DST spring-forward gaps as a Result error instead of
+  silently mapping to the wrong instant. Replaces the
+  Melbourne-only `melbourneLocalToUtc` helper. (#110)
+- **`DstGapError`** — new error class returned by `localToUtc` for
+  non-existent local times.
+- **`resolveVenueTimezone(canonicalVenue): string | null`** — static
+  venue → IANA tz lookup covering all current AFLM/AFLW venues.
+- **`ParseDateOptions`** — `parseDate` now accepts a venue or explicit
+  timezone alongside the legacy `defaultYear` form. FootyWire passes
+  the venue through so non-Melbourne venues produce correct UTC
+  instants instead of being 1-3h wrong. (#105)
+- **`-o` short alias for `--format`** (kubectl / gh / aws convention).
+  (#100)
+- **`OPTIONAL_SOURCE_FLAG`** — sibling of the shared `SOURCE_FLAG` for
+  commands that need to resolve the default at runtime against a
+  per-capability registry (e.g. `stats --by team` defaults to
+  `afl-tables`, not `afl-api`). (#87)
+
+### Changed
+
+- `parseDate` now honours explicit `+HH:MM` / `-HH:MM` ISO offsets
+  instead of stripping them and silently re-appending `Z`. (#105
+  latent variant)
+- `Result` namespace value, `OutOfRangeError`, and
+  `UnsupportedCompetitionError` now exported from the package.
+  Previously declared in `.d.ts` but missing at runtime / unimportable.
+  (#106, #107)
+- `resolveDefaultSeason` exported for library consumers.
+- README now documents all 9 public functions (was 4 of 9), drops the
+  stale `fetchMatchResults` reference, and uses `resolveDefaultSeason`
+  in examples so the snippets don't go time-stale. (#112)
+- TSDoc on `Match.roundCode` / `roundName` corrected — they're
+  populated by every source except Squiggle, not "null for scraped
+  sources". (#114)
+- `team --name X -s Y` (squad mode) now threads `--source` through to
+  the underlying call. Previously every squad lookup hit afl-api
+  regardless of what the user typed. (#84)
+- `team` list now applies `--name`/`--team` filter. Previously silently
+  dropped filter flags in bare-list mode. (#115)
+- `team --name X -t Y -s Y -r R` lineup output filters table rows to
+  the chosen team's players (was showing both teams). (#77)
+- `awards --team` / `--limit` now apply post-filters across every
+  award type, not just coaches/coleman. (#92)
+- `awards --limit` validates: must be a positive integer (was
+  silently accepting negatives, zero, and non-numeric). (#93)
+- `team -c VFL` and `team -c VFLW` now include the standalone
+  (non-AFL-aligned) clubs (Box Hill, Sandringham, Williamstown, …);
+  previously stripped by the AFLM-senior allow-list. (#80)
+- `team --name X -c VFL --season Y` (squad mode) now resolves
+  standalone VFL/VFLW clubs; previously rejected anything not in the
+  AFLM senior list. (#81)
+- `team -c AFLW` returns 18 clubs (was 14). The 4 AFLW clubs missing
+  from the upstream `/teams` endpoint (Essendon, Hawthorn, Sydney
+  Swans, Port Adelaide) are now backfilled using their MEN team IDs,
+  matching the convention AFLW match data already uses. (#83)
+- `--source` description in the shared flag now lists all five valid
+  sources; player.ts's outlier inline override removed. (#116)
+- Fryzigg coverage capped at 2024 so the dispatcher suggests
+  alternatives for current-season requests. (#89)
+- AFL Tables 404 messages now friendlier and don't leak the upstream
+  URL. (#89)
+- CSV format flattens nested objects into dotted scalar columns
+  (`q1Home_goals`, `q1Home_behinds`, `q1Home_points`). Previously
+  emitted JSON-encoded objects that standard CSV consumers
+  couldn't parse. (#95)
+- `--match-id` validates upstream provider format
+  (`CD_M{digits}`) so malformed IDs error fast instead of producing
+  an opaque HTTP 400. (#95)
+- `awards --type coleman` now defaults to `--limit 25` at the CLI
+  surface when not specified (the Coleman is a top-N leaderboard by
+  definition; 500-row dumps were unfriendly). The library API still
+  returns the full ranking when `limit` is omitted. (#125)
+- `package.json`: added `prerelease` script
+  (`typecheck && check && test && build`) so contributors can lock
+  dist freshness with one command before tagging. (#126)
+
+### Fixed
+
+- AFL Tables match `date` field now preserves time-of-day; previously
+  every match was timestamped at midnight UTC. (#104)
+- AFL Tables round-name no longer carries " * see notes Rnd Att: …"
+  attendance/footnote suffix; cleaned to "Round 1" / finals labels.
+  (#113)
+- AFL Tables `Squad` adapter docstring strengthened to clarify that
+  `season` is stamped through but the player list is the all-time
+  roster. (#88)
+- Rising-star scraper recognises FootyWire's "Rd" header (and "Rnd",
+  "Round" for older eras); previously matched only "Round" / "Rnd"
+  and returned empty for every season tested. (#91)
+- Stats schemas accept `null` for `playerJumperNumber` /
+  `jumperNumber` so VFL/VFLW and pre-2018 AFLW stats no longer fail
+  Zod validation when any player has no assigned number. (#79)
+- FootyWire fixture year-rollover documented as a TODO for #111;
+  AFLW isn't currently registered to FootyWire so the latent bug
+  doesn't fire today.
+- AFL Tables player stats: per-match `brownlowVotes` now populated
+  correctly from the `BR` column (was hardcoded `null`). (#117)
+- `match --source footywire`: completed games now emit
+  `homePoints`/`awayPoints`/`margin`/`homeGoals`/`homeBehinds`/`awayGoals`/`awayBehinds`
+  instead of `null`. The fixture-list parser detected
+  `status: "Complete"` but never extracted the score column. (#122)
+- `stats --match <team> -r N` filter now applies on
+  `--source footywire` and `--source afl-tables` (previously ignored —
+  returned the full round). The match resolver now also returns the
+  participating teams; the CLI post-filters non-afl-api results to those
+  teams. (#123)
+- `awards --type brownlow`: parser now reads from FootyWire's actual
+  9-column layout (`Player, Team, V, 3V, 2V, 1V, Played, Polled, V/G`).
+  `votes` is read directly from the canonical `V` total; `polledGames`,
+  `isMedallist`, and `competition` are populated correctly; the `" W"`
+  medallist suffix is stripped from `player`. (#124)
+- `player --source fryzigg`: now rejects with a clear error
+  (`Unsupported source: fryzigg does not provide squad data`) instead
+  of silently returning `[]`. (#126)
+
 ## [2.0.0] - 2026-05-06
 
 ### Migration guide (1.x → 2.0)

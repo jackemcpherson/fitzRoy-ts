@@ -14,15 +14,26 @@ export { fetchPlayerStats } from "./api/player-stats";
 export { fetchTeamStats } from "./api/team-stats";
 export { fetchSquad, fetchTeams } from "./api/teams";
 export {
+  localToUtc,
+  type ParseDateOptions,
   parseAflApiDate,
   parseAflApiMatchTime,
   parseAflTablesDate,
   parseDate,
   parseFootyWireDate,
+  resolveDefaultSeason,
   toAestString,
 } from "./lib/date-utils";
-export { AflApiError, ScrapeError, UnsupportedSourceError, ValidationError } from "./lib/errors";
-export { type Err, err, type Ok, ok, type Result } from "./lib/result";
+export {
+  AflApiError,
+  DstGapError,
+  OutOfRangeError,
+  ScrapeError,
+  UnsupportedCompetitionError,
+  UnsupportedSourceError,
+  ValidationError,
+} from "./lib/errors";
+export { type Err, err, type Ok, ok, Result } from "./lib/result";
 export {
   type SquiggleGame,
   SquiggleGameSchema,
@@ -95,6 +106,7 @@ export {
   TeamScoreSchema,
 } from "./lib/validation";
 export { normaliseVenueName } from "./lib/venue-mapping";
+export { resolveVenueTimezone } from "./lib/venue-timezones";
 export { AflApiClient, type AflApiClientOptions } from "./sources/afl-api";
 export { AflCoachesClient, type AflCoachesClientOptions } from "./sources/afl-coaches";
 export { AflTablesClient, type AflTablesClientOptions } from "./sources/afl-tables";
@@ -135,6 +147,7 @@ export type {
   Match,
   MatchQuery,
   MatchStatus,
+  Player,
   PlayerDetails,
   PlayerDetailsQuery,
   PlayerStats,
@@ -147,7 +160,9 @@ export type {
   SquadPlayer,
   SquadQuery,
   Team,
+  TeamMetricSet,
   TeamQuery,
+  TeamResponse,
   TeamStatsEntry,
   TeamStatsQuery,
   TeamStatsSummaryType,

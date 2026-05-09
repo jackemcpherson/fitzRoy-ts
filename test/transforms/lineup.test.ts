@@ -88,7 +88,7 @@ describe("transformMatchRoster", () => {
     expect(p?.surname).toBe("Martin");
     expect(p?.displayName).toBe("Dustin Martin");
     expect(p?.jumperNumber).toBe(4);
-    expect(p?.position).toBe("FWD");
+    expect(p?.matchPosition).toBe("FWD");
   });
 
   it("identifies substitute positions", () => {

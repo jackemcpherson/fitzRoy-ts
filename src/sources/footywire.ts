@@ -10,14 +10,23 @@ import { parseDate } from "../lib/date-utils";
 import { ScrapeError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
+import { emptyMetricSet } from "../lib/team-metrics";
 import { normaliseVenueName } from "../lib/venue-mapping";
+import { resolveVenueTimezone } from "../lib/venue-timezones";
 import {
   mergeFootyWireStats,
   parseAdvancedStats,
   parseBasicStats,
 } from "../transforms/footywire-player-stats";
 import { finalsRoundNumber, inferRoundType, toRoundCode } from "../transforms/match-results";
-import type { Match, PlayerDetails, PlayerStats, RoundType, TeamStatsEntry } from "../types";
+import type {
+  Match,
+  PlayerDetails,
+  PlayerStats,
+  RoundType,
+  TeamMetricSet,
+  TeamStatsEntry,
+} from "../types";
 
 const FOOTYWIRE_BASE = "https://www.footywire.com/afl/footy";
 
@@ -287,11 +296,11 @@ export class FootyWireClient {
     if (!oppResult.success) return oppResult;
 
     try {
-      const teamStats = parseFootyWireTeamStats(teamResult.data, year, "for");
-      const oppStats = parseFootyWireTeamStats(oppResult.data, year, "against");
+      const teamStats = parseFootyWireTeamStats(teamResult.data, year);
+      const oppStats = parseFootyWireTeamStats(oppResult.data, year);
 
-      // Merge team and opposition stats by team name
-      const merged = mergeTeamAndOppStats(teamStats, oppStats);
+      // Merge into canonical for/against TeamStatsEntry per team
+      const merged = mergeTeamAndOppStats(teamStats, oppStats, year);
       return ok(merged);
     } catch (cause) {
       return err(
@@ -370,8 +379,12 @@ export function parseMatchList(html: string, year: number): Match[] {
     const midMatch = /mid=(\d+)/.exec(scoreLink);
     const matchId = midMatch?.[1] ? `FW_${midMatch[1]}` : `FW_${year}_R${currentRound}_${homeTeam}`;
 
-    // Parse date
-    const date = parseDate(dateText, year) ?? new Date(Date.UTC(year, 0, 1));
+    // Parse date with venue tz so non-Melbourne games (Brisbane, Perth, Adelaide)
+    // produce the correct UTC instant.
+    const canonicalVenue = normaliseVenueName(venue);
+    const date =
+      parseDate(dateText, { defaultYear: year, venue: canonicalVenue }) ??
+      new Date(Date.UTC(year, 0, 1));
 
     // Estimate goals/behinds (FootyWire only gives total score on this page)
     const homeGoals = Math.floor(homePoints / 6);
@@ -386,7 +399,7 @@ export function parseMatchList(html: string, year: number): Match[] {
       roundType: currentRoundType,
       roundName: currentRoundName || null,
       date,
-      venue: normaliseVenueName(venue),
+      venue: canonicalVenue,
       homeTeam,
       awayTeam,
       homeGoals,
@@ -410,7 +423,7 @@ export function parseMatchList(html: string, year: number): Match[] {
       weatherType: null,
       roundCode: toRoundCode(currentRoundName),
       venueState: null,
-      venueTimezone: null,
+      venueTimezone: resolveVenueTimezone(canonicalVenue),
       homeRushedBehinds: null,
       awayRushedBehinds: null,
       homeMinutesInFront: null,
@@ -430,6 +443,11 @@ export function parseMatchList(html: string, year: number): Match[] {
  * Includes both played and upcoming matches.
  */
 export function parseFixtureList(html: string, year: number): Match[] {
+  // TODO(#111): when AFLW is wired up to FootyWire, accept a `competition`
+  // parameter and roll dates over to the next calendar year for rows whose
+  // month is earlier than the AFLW opener (currently August). AFLM
+  // seasons are calendar-year-aligned so the current logic is correct;
+  // the AFLW path is latent until coverage opens up.
   const $ = cheerio.load(html);
   const fixtures: Match[] = [];
   let currentRound = 0;
@@ -468,13 +486,36 @@ export function parseFixtureList(html: string, year: number): Match[] {
     const homeTeam = normaliseTeamName($(teamLinks[0]).text().trim());
     const awayTeam = normaliseTeamName($(teamLinks[1]).text().trim());
 
-    const date = parseDate(dateText, year) ?? new Date(Date.UTC(year, 0, 1));
+    const canonicalVenue = normaliseVenueName(venue);
+    const date =
+      parseDate(dateText, { defaultYear: year, venue: canonicalVenue }) ??
+      new Date(Date.UTC(year, 0, 1));
     gameNumber++;
 
-    // Check if we have a score (match played) or not (upcoming)
+    // Check if we have a score (match played) or not (upcoming).
+    // When present, populate homePoints/awayPoints + estimated goals/behinds
+    // so completed matches don't return as score-less. (#122)
     const scoreCell = cells.length >= 5 ? $(cells[4]) : null;
     const scoreText = scoreCell?.text().trim() ?? "";
-    const hasScore = /\d+-\d+/.test(scoreText);
+    const scoreMatch = /(\d+)-(\d+)/.exec(scoreText);
+    const hasScore = scoreMatch !== null;
+
+    let homePoints: number | null = null;
+    let awayPoints: number | null = null;
+    let homeGoals: number | null = null;
+    let homeBehinds: number | null = null;
+    let awayGoals: number | null = null;
+    let awayBehinds: number | null = null;
+    let margin: number | null = null;
+    if (scoreMatch) {
+      homePoints = Number.parseInt(scoreMatch[1] ?? "0", 10);
+      awayPoints = Number.parseInt(scoreMatch[2] ?? "0", 10);
+      homeGoals = Math.floor(homePoints / 6);
+      homeBehinds = homePoints - homeGoals * 6;
+      awayGoals = Math.floor(awayPoints / 6);
+      awayBehinds = awayPoints - awayGoals * 6;
+      margin = homePoints - awayPoints;
+    }
 
     fixtures.push({
       matchId: `FW_${year}_R${currentRound}_G${gameNumber}`,
@@ -483,16 +524,16 @@ export function parseFixtureList(html: string, year: number): Match[] {
       roundType: currentRoundType,
       roundName: null,
       date,
-      venue: normaliseVenueName(venue),
+      venue: canonicalVenue,
       homeTeam,
       awayTeam,
-      homeGoals: null,
-      homeBehinds: null,
-      homePoints: null,
-      awayGoals: null,
-      awayBehinds: null,
-      awayPoints: null,
-      margin: null,
+      homeGoals,
+      homeBehinds,
+      homePoints,
+      awayGoals,
+      awayBehinds,
+      awayPoints,
+      margin,
       q1Home: null,
       q2Home: null,
       q3Home: null,
@@ -507,7 +548,7 @@ export function parseFixtureList(html: string, year: number): Match[] {
       weatherType: null,
       roundCode: null,
       venueState: null,
-      venueTimezone: null,
+      venueTimezone: resolveVenueTimezone(canonicalVenue),
       homeRushedBehinds: null,
       awayRushedBehinds: null,
       homeMinutesInFront: null,
@@ -535,39 +576,47 @@ export function parseFixtureList(html: string, year: number): Match[] {
  * @param suffix - "for" or "against" to prefix stat keys.
  * @returns Array of team stats entries.
  */
-export function parseFootyWireTeamStats(
-  html: string,
-  year: number,
-  suffix: "for" | "against",
-): TeamStatsEntry[] {
+/** Intermediate per-direction parse result before for/against merge. */
+interface FootyWireDirectionEntry {
+  readonly team: string;
+  readonly gamesPlayed: number;
+  readonly metrics: TeamMetricSet;
+}
+
+/** FootyWire short-code → canonical TeamMetricSet field. */
+const FOOTYWIRE_METRIC_MAP: Readonly<Record<string, keyof TeamMetricSet>> = {
+  K: "kicks",
+  HB: "handballs",
+  D: "disposals",
+  M: "marks",
+  G: "goals",
+  GA: "goalAssists",
+  I50: "inside50s",
+  BH: "behinds",
+  T: "tackles",
+  HO: "hitouts",
+  FF: "freesFor",
+  FA: "freesAgainst",
+  CL: "clearances",
+  CG: "clangers",
+  R50: "rebound50s",
+  AF: "fantasyPoints",
+  SC: "supercoachPoints",
+};
+
+const FOOTYWIRE_STAT_KEYS = Object.keys(FOOTYWIRE_METRIC_MAP);
+
+// year retained for API symmetry (callers may want to pass it for future
+// per-year branching) even though the canonical entry is built later.
+export function parseFootyWireTeamStats(html: string, _year: number): FootyWireDirectionEntry[] {
   const $ = cheerio.load(html);
-  const entries: TeamStatsEntry[] = [];
+  const entries: FootyWireDirectionEntry[] = [];
 
   const tables = $("table");
   // The R package uses tables[[11]] (1-indexed) → index 10 in 0-indexed
   // Fallback: look for table with class "sortable" or one containing team data
   const mainTable = tables.length > 10 ? $(tables[10]) : $("table.sortable").first();
   if (mainTable.length === 0) return entries;
-
-  const STAT_KEYS = [
-    "K",
-    "HB",
-    "D",
-    "M",
-    "G",
-    "GA",
-    "I50",
-    "BH",
-    "T",
-    "HO",
-    "FF",
-    "FA",
-    "CL",
-    "CG",
-    "R50",
-    "AF",
-    "SC",
-  ];
 
   const rows = mainTable.find("tr");
   rows.each((rowIdx, row) => {
@@ -585,20 +634,21 @@ export function parseFootyWireTeamStats(
     const parseNum = (cell: ReturnType<typeof $>) => Number.parseFloat(cell.text().trim()) || 0;
 
     const gamesPlayed = parseNum($(cells[2]));
-    const stats: Record<string, number> = {};
+    const metrics: Record<string, number | null> = { ...emptyMetricSet() };
 
-    // Columns 3-19 (0-indexed) map to STAT_KEYS
-    for (let i = 0; i < STAT_KEYS.length; i++) {
-      const key = suffix === "against" ? `${STAT_KEYS[i]}_against` : (STAT_KEYS[i] as string);
-      stats[key] = parseNum($(cells[i + 3]));
+    // Columns 3-19 (0-indexed) map to FOOTYWIRE_STAT_KEYS
+    for (let i = 0; i < FOOTYWIRE_STAT_KEYS.length; i++) {
+      const shortCode = FOOTYWIRE_STAT_KEYS[i];
+      if (shortCode == null) continue;
+      const canonical = FOOTYWIRE_METRIC_MAP[shortCode];
+      if (canonical == null) continue;
+      metrics[canonical] = parseNum($(cells[i + 3]));
     }
 
     entries.push({
-      season: year,
       team: teamName,
       gamesPlayed,
-      stats,
-      source: "footywire",
+      metrics: metrics as unknown as TeamMetricSet,
     });
   });
 
@@ -606,23 +656,29 @@ export function parseFootyWireTeamStats(
 }
 
 /**
- * Merge team "for" stats and "against" stats into a single entry per team.
+ * Merge per-direction parse results into the canonical TeamStatsEntry
+ * shape (one entry per team with both `for` and `against` metric sets).
  */
 function mergeTeamAndOppStats(
-  teamStats: TeamStatsEntry[],
-  oppStats: TeamStatsEntry[],
+  forStats: readonly FootyWireDirectionEntry[],
+  againstStats: readonly FootyWireDirectionEntry[],
+  year: number,
 ): TeamStatsEntry[] {
-  const oppMap = new Map<string, Readonly<Record<string, number>>>();
-  for (const entry of oppStats) {
-    oppMap.set(entry.team, entry.stats);
+  const againstMap = new Map<string, FootyWireDirectionEntry>();
+  for (const entry of againstStats) {
+    againstMap.set(entry.team, entry);
   }
 
-  return teamStats.map((entry) => {
-    const opp = oppMap.get(entry.team);
-    if (!opp) return entry;
+  return forStats.map((forEntry) => {
+    const againstEntry = againstMap.get(forEntry.team);
     return {
-      ...entry,
-      stats: { ...entry.stats, ...opp },
+      season: year,
+      competition: "AFLM" as const,
+      team: forEntry.team,
+      gamesPlayed: forEntry.gamesPlayed,
+      for: forEntry.metrics,
+      against: againstEntry?.metrics ?? emptyMetricSet(),
+      source: "footywire" as const,
     };
   });
 }

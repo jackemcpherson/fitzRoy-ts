@@ -6,11 +6,13 @@
  */
 
 import * as cheerio from "cheerio";
-import { parseDate } from "../lib/date-utils";
+import { localToUtc, parseDate } from "../lib/date-utils";
 import { ScrapeError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
+import { emptyMetricSet } from "../lib/team-metrics";
 import { normaliseVenueName } from "../lib/venue-mapping";
+import { resolveVenueTimezone } from "../lib/venue-timezones";
 import { extractGameUrls, parseAflTablesGameStats } from "../transforms/afl-tables-player-stats";
 import { finalsRoundNumber, inferRoundType, toRoundCode } from "../transforms/match-results";
 import type {
@@ -19,6 +21,7 @@ import type {
   PlayerStats,
   QuarterScore,
   RoundType,
+  TeamMetricSet,
   TeamStatsEntry,
 } from "../types";
 
@@ -166,12 +169,11 @@ export class AflTablesClient {
       });
 
       if (!response.ok) {
-        return err(
-          new ScrapeError(
-            `AFL Tables stats request failed: ${response.status} (${url})`,
-            "afl-tables",
-          ),
-        );
+        const friendly =
+          response.status === 404
+            ? `AFL Tables has no team stats for ${year}`
+            : `AFL Tables stats request failed: ${response.status}`;
+        return err(new ScrapeError(friendly, "afl-tables"));
       }
 
       const html = await response.text();
@@ -304,13 +306,24 @@ export function parseSeasonPage(html: string, year: number): Match[] {
 
     // Date and venue from fourth cell of home row
     const infoText = $(homeCells[3]).text().trim();
-    const date = parseDateFromInfo(infoText, year);
     const venue = normaliseVenueName(parseVenueFromInfo($(homeCells[3]).html() ?? ""));
+    const venueTimezone = resolveVenueTimezone(venue);
+    const date = parseDateFromInfo(infoText, year, venueTimezone);
     const attendance = parseAttendanceFromInfo(infoText);
+
+    // AFL Tables stores quarter scores as running totals; convert to per-quarter
+    // so q1+q2+q3+q4 == total (matching afl-api / footywire / squiggle).
+    const homePerQuarter = toPerQuarter(homeQuarters);
+    const awayPerQuarter = toPerQuarter(awayQuarters);
 
     // Final quarter gives total goals.behinds
     const homeFinal = homeQuarters[3];
     const awayFinal = awayQuarters[3];
+
+    // Round name and code from the round-header text — strip any trailing
+    // "* see notes Rnd Att: ..." footnote / attendance summary the AFL Tables
+    // page glues onto the header (#113).
+    const cleanRoundName = cleanRoundLabel(currentRoundName);
 
     matchCounter++;
 
@@ -319,7 +332,7 @@ export function parseSeasonPage(html: string, year: number): Match[] {
       season: year,
       roundNumber: currentRound,
       roundType: currentRoundType,
-      roundName: currentRoundName || null,
+      roundName: cleanRoundName || null,
       date,
       venue,
       homeTeam,
@@ -331,21 +344,21 @@ export function parseSeasonPage(html: string, year: number): Match[] {
       awayBehinds: awayFinal?.behinds ?? 0,
       awayPoints,
       margin: homePoints - awayPoints,
-      q1Home: homeQuarters[0] ?? null,
-      q2Home: homeQuarters[1] ?? null,
-      q3Home: homeQuarters[2] ?? null,
-      q4Home: homeQuarters[3] ?? null,
-      q1Away: awayQuarters[0] ?? null,
-      q2Away: awayQuarters[1] ?? null,
-      q3Away: awayQuarters[2] ?? null,
-      q4Away: awayQuarters[3] ?? null,
+      q1Home: homePerQuarter[0] ?? null,
+      q2Home: homePerQuarter[1] ?? null,
+      q3Home: homePerQuarter[2] ?? null,
+      q4Home: homePerQuarter[3] ?? null,
+      q1Away: awayPerQuarter[0] ?? null,
+      q2Away: awayPerQuarter[1] ?? null,
+      q3Away: awayPerQuarter[2] ?? null,
+      q4Away: awayPerQuarter[3] ?? null,
       status: "Complete",
       attendance,
       weatherTempCelsius: null,
       weatherType: null,
-      roundCode: toRoundCode(currentRoundName),
+      roundCode: toRoundCode(cleanRoundName),
       venueState: null,
-      venueTimezone: null,
+      venueTimezone,
       homeRushedBehinds: null,
       awayRushedBehinds: null,
       homeMinutesInFront: null,
@@ -355,7 +368,87 @@ export function parseSeasonPage(html: string, year: number): Match[] {
     });
   });
 
-  return results;
+  return remapOpeningRound(results, year);
+}
+
+/**
+ * AFL Tables numbers Opening Round as Round 1 (and the actual season opener as
+ * Round 2). The other sources adopt the AFL's convention: Opening Round is
+ * round 0, and Round 1 is the proper opener. Detect Opening Round (year ≥
+ * 2024 and the first H&A round has fewer than 9 games) and shift all H&A
+ * round numbers down by one. Finals round numbering is independent.
+ */
+function remapOpeningRound(matches: readonly Match[], year: number): Match[] {
+  if (year < 2024) return [...matches];
+
+  // Count games in the lowest-numbered H&A round.
+  const haRounds = matches.filter((m) => m.roundType === "HomeAndAway");
+  if (haRounds.length === 0) return [...matches];
+  const minRound = Math.min(...haRounds.map((m) => m.roundNumber));
+  const firstRoundGames = haRounds.filter((m) => m.roundNumber === minRound).length;
+  if (firstRoundGames >= 9) return [...matches];
+
+  // Opening Round detected — shift all H&A rounds down by 1.
+  return matches.map((m) =>
+    m.roundType === "HomeAndAway"
+      ? {
+          ...m,
+          roundNumber: m.roundNumber - 1,
+          roundName: m.roundNumber === 1 ? "Opening Round" : `Round ${m.roundNumber - 1}`,
+          roundCode: m.roundNumber === 1 ? "OR" : `R${m.roundNumber - 1}`,
+        }
+      : m,
+  );
+}
+
+/**
+ * Convert a sequence of cumulative-total quarter scores into per-quarter
+ * scores. AFL Tables' "quarter-by-quarter line score" is cumulative; we
+ * normalise so q1+q2+q3+q4 == total (#103).
+ */
+function toPerQuarter(
+  cumulative: readonly (QuarterScore | undefined)[],
+): (QuarterScore | undefined)[] {
+  const out: (QuarterScore | undefined)[] = [];
+  let prevGoals = 0;
+  let prevBehinds = 0;
+  let prevPoints = 0;
+  for (const q of cumulative) {
+    if (q == null) {
+      out.push(undefined);
+      continue;
+    }
+    out.push({
+      goals: q.goals - prevGoals,
+      behinds: q.behinds - prevBehinds,
+      points: q.points - prevPoints,
+    });
+    prevGoals = q.goals;
+    prevBehinds = q.behinds;
+    prevPoints = q.points;
+  }
+  return out;
+}
+
+/**
+ * Strip AFL Tables' attendance/footnote suffix from a round-header label.
+ * Input: `"Round 1 * see notes Rnd Att: 116,700 (29,175) Tot Att: ..."`
+ * Output: `"Round 1"`. Also handles bare finals labels ("Qualifying Final",
+ * "Grand Final", etc.) by truncating at the first asterisk or the "Att:"
+ * marker, whichever comes first.
+ */
+function cleanRoundLabel(raw: string): string {
+  if (!raw) return "";
+  const collapsed = raw.replace(/ /g, " ").replace(/\s+/g, " ").trim();
+  // Match leading "Round N" or a finals label.
+  const finalsMatch =
+    /^(Round\s+\d+|Opening\s+Round|Qualifying\s+Final|Elimination\s+Final|Semi[- ]?Final|Preliminary\s+Final|Grand\s+Final)/i.exec(
+      collapsed,
+    );
+  if (finalsMatch?.[1]) return finalsMatch[1];
+  // Fallback: strip everything from the first asterisk or "Att:" onward.
+  const cut = collapsed.search(/\s*\*|\s+(?:Rnd|Tot)\s+Att:/i);
+  return cut >= 0 ? collapsed.slice(0, cut).trim() : collapsed;
 }
 
 /**
@@ -374,14 +467,50 @@ function parseQuarterScores(text: string): (QuarterScore | undefined)[] {
   });
 }
 
-/** Parse date from the info cell text (e.g. "Thu 07-Mar-2024 7:30 PM Att: ..."). */
-function parseDateFromInfo(text: string, year: number): Date {
-  // Extract just the date portion before the time/attendance info
-  const dateMatch = /(\d{1,2}-[A-Z][a-z]{2}-\d{4})/.exec(text);
-  if (dateMatch?.[1]) {
-    return parseDate(dateMatch[1]) ?? new Date(year, 0, 1);
+/**
+ * Parse date (and, when present, time-of-day) from the info cell text
+ * (e.g. `"Thu 07-Mar-2024 7:30 PM Att: ..."`). Time-of-day is interpreted
+ * in the venue's IANA tz when supplied, falling back to Australia/Melbourne
+ * for unknown venues. Previously discarded the time entirely (#104).
+ */
+function parseDateFromInfo(text: string, year: number, venueTimezone: string | null): Date {
+  const m = /(\d{1,2})-([A-Z][a-z]{2})-(\d{4})(?:\s+(\d{1,2}):(\d{2})\s*([AaPp][Mm]))?/.exec(text);
+  if (!m) return parseDate(text) ?? new Date(year, 0, 1);
+
+  const day = Number.parseInt(m[1] ?? "0", 10);
+  const monthStr = (m[2] ?? "").toLowerCase();
+  const yearN = Number.parseInt(m[3] ?? `${year}`, 10);
+  const months: Readonly<Record<string, number>> = {
+    jan: 0,
+    feb: 1,
+    mar: 2,
+    apr: 3,
+    may: 4,
+    jun: 5,
+    jul: 6,
+    aug: 7,
+    sep: 8,
+    oct: 9,
+    nov: 10,
+    dec: 11,
+  };
+  const monthIndex = months[monthStr];
+  if (monthIndex == null) return parseDate(text) ?? new Date(year, 0, 1);
+
+  // No time → midnight UTC (matches AFL Tables' historical convention pre-2010s).
+  if (!m[4] || !m[5] || !m[6]) {
+    return new Date(Date.UTC(yearN, monthIndex, day));
   }
-  return parseDate(text) ?? new Date(year, 0, 1);
+
+  let hours = Number.parseInt(m[4], 10);
+  const minutes = Number.parseInt(m[5], 10);
+  const ampm = m[6].toLowerCase();
+  if (ampm === "pm" && hours < 12) hours += 12;
+  if (ampm === "am" && hours === 12) hours = 0;
+
+  const tz = venueTimezone ?? "Australia/Melbourne";
+  const result = localToUtc(tz, yearN, monthIndex, day, hours, minutes);
+  return result.success ? result.data : new Date(Date.UTC(yearN, monthIndex, day));
 }
 
 /** Parse venue from the info cell HTML. */
@@ -420,14 +549,46 @@ function parseAttendanceFromInfo(text: string): number | null {
 /** Headers that indicate a games-played column. */
 const GP_HEADERS = new Set(["gm", "gp", "p", "mp", "games"]);
 
+/** AFL Tables raw header → canonical TeamMetricSet field. (#98) */
+const AFL_TABLES_TEAM_METRIC_MAP: Readonly<Record<string, keyof TeamMetricSet>> = {
+  KI: "kicks",
+  MK: "marks",
+  HB: "handballs",
+  DI: "disposals",
+  GL: "goals",
+  BH: "behinds",
+  HO: "hitouts",
+  TK: "tackles",
+  RB: "rebound50s",
+  CL: "clearances",
+  CG: "clangers",
+  FF: "freesFor",
+  FA: "freesAgainst",
+  BR: "brownlowVotes",
+  CP: "contestedPossessions",
+  UP: "uncontestedPossessions",
+  CM: "contestedMarks",
+  MI: "marksInside50",
+  "1%": "onePercenters",
+  BO: "bounces",
+  GA: "goalAssists",
+  I50: "inside50s",
+};
+
+interface AflTablesTeamData {
+  gamesPlayed: number;
+  forMetrics: Record<string, number | null>;
+  againstMetrics: Record<string, number | null>;
+}
+
 export function parseAflTablesTeamStats(html: string, year: number): TeamStatsEntry[] {
   const $ = cheerio.load(html);
-  const teamMap = new Map<string, { gamesPlayed: number; stats: Record<string, number> }>();
+  const teamMap = new Map<string, AflTablesTeamData>();
 
   const tables = $("table");
 
   /** Parse a single stats table into the teamMap. */
-  function parseTable(tableIdx: number, suffix: "_for" | "_against"): void {
+  function parseTable(tableIdx: number, direction: "for" | "against"): void {
     if (tableIdx >= tables.length) return;
     const $table = $(tables[tableIdx]);
     const rows = $table.find("tr");
@@ -455,38 +616,47 @@ export function parseAflTablesTeamStats(html: string, year: number): TeamStatsEn
       if (!teamName) continue;
 
       if (!teamMap.has(teamName)) {
-        teamMap.set(teamName, { gamesPlayed: 0, stats: {} });
+        teamMap.set(teamName, {
+          gamesPlayed: 0,
+          forMetrics: { ...emptyMetricSet() },
+          againstMetrics: { ...emptyMetricSet() },
+        });
       }
       const entry = teamMap.get(teamName);
       if (!entry) continue;
 
-      if (gpColIdx >= 0 && suffix === "_for") {
+      if (gpColIdx >= 0 && direction === "for") {
         const gpVal = Number.parseFloat($(cells[gpColIdx]).text().trim().replace(/,/g, "")) || 0;
         entry.gamesPlayed = gpVal;
       }
 
+      const target = direction === "for" ? entry.forMetrics : entry.againstMetrics;
       for (let ci = 1; ci < cells.length; ci++) {
         if (ci === gpColIdx) continue;
 
         const header = headers[ci];
         if (!header) continue;
+        const canonical = AFL_TABLES_TEAM_METRIC_MAP[header];
+        if (canonical == null) continue; // unknown header — skip
         const value = Number.parseFloat($(cells[ci]).text().trim().replace(/,/g, "")) || 0;
-        entry.stats[`${header}${suffix}`] = value;
+        target[canonical] = value;
       }
     }
   }
 
   // R package: tables[[2]] = "For", tables[[3]] = "Against" (1-indexed)
-  parseTable(1, "_for");
-  parseTable(2, "_against");
+  parseTable(1, "for");
+  parseTable(2, "against");
 
   const entries: TeamStatsEntry[] = [];
   for (const [team, data] of teamMap) {
     entries.push({
       season: year,
+      competition: "AFLM",
       team,
       gamesPlayed: data.gamesPlayed,
-      stats: data.stats,
+      for: data.forMetrics as unknown as TeamMetricSet,
+      against: data.againstMetrics as unknown as TeamMetricSet,
       source: "afl-tables",
     });
   }

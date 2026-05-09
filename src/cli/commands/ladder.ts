@@ -1,12 +1,32 @@
 /**
  * `ladder` command — season standings.
+ *
+ * Bypasses `defineFitzroyCommand` because the JSON output preserves the
+ * full `Ladder` envelope (`season`, `roundNumber`, `competition`,
+ * `entries`) while table/CSV output flattens to `entries[]`. The shared
+ * builder only supports flat-array results. (#101)
  */
 
+import { defineCommand } from "citty";
 import { fetchLadder } from "../../index";
-import { defineFitzroyCommand } from "../command-builder";
+import { rejectUnknownFlags } from "../command-builder";
+import { withErrorBoundary } from "../error-boundary";
 import { COMPETITION_FLAG, OUTPUT_FLAGS, ROUND_FLAG, SEASON_FLAG, SOURCE_FLAG } from "../flags";
-import type { TableColumnConfig } from "../formatters/index";
-import { validateCompetition, validateRound, validateSeason, validateSource } from "../validation";
+import {
+  type FormatOptions,
+  formatJson,
+  formatOutput,
+  resolveFormat,
+  type TableColumnConfig,
+} from "../formatters/index";
+import { showSummary, withSpinner } from "../ui";
+import {
+  validateCompetition,
+  validateFormat,
+  validateRound,
+  validateSeason,
+  validateSource,
+} from "../validation";
 
 const DEFAULT_COLUMNS: TableColumnConfig[] = [
   { key: "position", label: "Pos", maxWidth: 4 },
@@ -18,38 +38,50 @@ const DEFAULT_COLUMNS: TableColumnConfig[] = [
   { key: "premiershipsPoints", label: "Pts", maxWidth: 5 },
 ];
 
-interface LadderArgs {
-  season: string;
-  round?: string;
-  source: string;
-  competition: string;
-}
+const LADDER_ARGS = {
+  ...SEASON_FLAG,
+  ...ROUND_FLAG,
+  ...SOURCE_FLAG,
+  ...COMPETITION_FLAG,
+  ...OUTPUT_FLAGS,
+} as const;
 
-export const ladderCommand = defineFitzroyCommand<LadderArgs & Record<string, unknown>, object>({
+export const ladderCommand = defineCommand({
   meta: {
     name: "ladder",
     description: "Fetch ladder standings for a season",
   },
-  args: {
-    ...SEASON_FLAG,
-    ...ROUND_FLAG,
-    ...SOURCE_FLAG,
-    ...COMPETITION_FLAG,
-    ...OUTPUT_FLAGS,
-  },
-  columns: DEFAULT_COLUMNS,
-  spinner: "Fetching ladder…",
-  run: async (args) => {
-    const season = validateSeason(args.season);
-    const round = args.round ? validateRound(args.round) : undefined;
-    const source = validateSource(args.source);
-    const competition = validateCompetition(args.competition);
+  args: LADDER_ARGS,
+  run: withErrorBoundary(async ({ args }) => {
+    rejectUnknownFlags(LADDER_ARGS, process.argv);
+    const season = validateSeason(args.season as string);
+    const round = args.round ? validateRound(args.round as string) : undefined;
+    const source = validateSource(args.source as string);
+    const competition = validateCompetition(args.competition as string);
+    const format = validateFormat(args.format as string | undefined);
 
-    const result = await fetchLadder({ source, season, round, competition });
-    if (!result.success) return result;
-    // Surface the entries[] for tabular output.
-    return { success: true, data: [...result.data.entries] };
-  },
-  summary: (data, args) =>
-    `Loaded ladder for ${args.season}${args.round ? ` round ${args.round}` : ""} (${data.length} teams)`,
+    const result = await withSpinner("Fetching ladder…", () =>
+      fetchLadder({ source, season, round, competition }),
+    );
+    if (!result.success) throw result.error;
+
+    const ladder = result.data;
+    showSummary(
+      `Loaded ladder for ${season}${round ? ` round ${round}` : ""} (${ladder.entries.length} teams)`,
+    );
+
+    const formatOptions: FormatOptions = {
+      json: args.json as boolean | undefined,
+      csv: args.csv as boolean | undefined,
+      format,
+      full: args.full as boolean | undefined,
+      columns: DEFAULT_COLUMNS,
+    };
+    const resolved = resolveFormat(formatOptions);
+    console.log(
+      resolved === "json"
+        ? formatJson(ladder)
+        : formatOutput(ladder.entries as readonly object[], formatOptions),
+    );
+  }),
 });

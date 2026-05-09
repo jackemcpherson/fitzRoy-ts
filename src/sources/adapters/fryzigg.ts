@@ -12,9 +12,14 @@ import { FryziggClient } from "../fryzigg";
 import type { PlayerStatsSource } from "./capabilities";
 import type { CoverageMap } from "./coverage";
 
+// Fryzigg is a static RDS dump that updates infrequently. Cap the coverage
+// at the latest snapshot year so dispatch can suggest --source afl-api for
+// current-season requests instead of returning empty/stale rows (#89).
+const FRYZIGG_LATEST_SNAPSHOT = 2024;
+
 const FRYZIGG_PLAYER_STATS_COVERAGE: CoverageMap = new Map([
-  ["AFLM", { minSeason: 2012 }],
-  ["AFLW", { minSeason: 2017 }],
+  ["AFLM", { minSeason: 2012, maxSeason: FRYZIGG_LATEST_SNAPSHOT }],
+  ["AFLW", { minSeason: 2017, maxSeason: FRYZIGG_LATEST_SNAPSHOT }],
 ]);
 
 /** Fryzigg as a PlayerStatsSource (AFLM and AFLW only). */

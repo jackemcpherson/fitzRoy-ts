@@ -8,19 +8,57 @@ import { dispatch, squadRegistry } from "../sources/adapters/index";
 import { AflApiClient } from "../sources/afl-api";
 import type { CompetitionCode, Squad, SquadQuery, Team, TeamQuery } from "../types";
 
-/** Map raw API team objects to domain Team objects, filtering to senior teams only. */
+/**
+ * AFLW clubs the upstream `/teams?teamType=WOMEN` endpoint omits even though
+ * AFLW match data references them — they entered AFLW in 2022 but don't have
+ * separate WOMEN team records yet, so AFLW match data uses their MEN team
+ * IDs (#83). Static backfill keyed by canonical name → MEN team id.
+ */
+const AFLW_TEAM_BACKFILL: ReadonlyArray<{
+  readonly id: string;
+  readonly name: string;
+  readonly abbreviation: string;
+}> = [
+  { id: "12", name: "Essendon", abbreviation: "ESS" },
+  { id: "9", name: "Hawthorn", abbreviation: "HAW" },
+  { id: "13", name: "Sydney Swans", abbreviation: "SYD" },
+  { id: "7", name: "Port Adelaide", abbreviation: "PORT" },
+];
+
+/**
+ * Map raw API team objects to domain Team objects.
+ *
+ * For AFLM, applies the {@link AFL_SENIOR_TEAMS} allow-list to strip
+ * representative teams (Victoria, All Stars). For other competitions
+ * (AFLW, VFL, VFLW), passes the full list through — the AFLM-only filter
+ * was previously stripping legitimate standalone VFL/VFLW clubs (#80).
+ *
+ * For AFLW, also augments with the four senior clubs missing from the
+ * upstream `/teams` endpoint (#83).
+ */
 function toTeams(
   data: ReadonlyArray<{ id: number; name: string; abbreviation?: string | undefined }>,
   competition: CompetitionCode,
 ): Team[] {
-  return data
-    .map((t) => ({
-      teamId: String(t.id),
-      name: normaliseTeamName(t.name),
-      abbreviation: t.abbreviation ?? "",
-      competition,
-    }))
-    .filter((t) => AFL_SENIOR_TEAMS.has(t.name));
+  const mapped = data.map((t) => ({
+    teamId: String(t.id),
+    name: normaliseTeamName(t.name),
+    abbreviation: t.abbreviation ?? "",
+    competition,
+  }));
+
+  let result = competition === "AFLM" ? mapped.filter((t) => AFL_SENIOR_TEAMS.has(t.name)) : mapped;
+
+  if (competition === "AFLW") {
+    const present = new Set(result.map((t) => t.name));
+    for (const backfill of AFLW_TEAM_BACKFILL) {
+      if (!present.has(backfill.name)) {
+        result = [...result, { ...backfill, teamId: backfill.id, competition }];
+      }
+    }
+  }
+
+  return result;
 }
 
 /**

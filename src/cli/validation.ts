@@ -72,6 +72,16 @@ export function validateRound(raw: string): number {
   return round;
 }
 
+/** Validate and parse a positive integer limit string. */
+export function validateLimit(raw: string | undefined): number | undefined {
+  if (raw == null) return undefined;
+  const limit = Number(raw);
+  if (Number.isNaN(limit) || !Number.isInteger(limit) || limit <= 0) {
+    throw new Error(`Invalid limit: "${raw}" — must be a positive integer`);
+  }
+  return limit;
+}
+
 /** Validate an output format string. */
 export function validateFormat(raw: string | undefined): OutputFormat | undefined {
   if (raw == null) return undefined;

@@ -288,7 +288,7 @@ const CfsPlayerInnerSchema = z
       })
       .passthrough(),
     captain: z.boolean().optional(),
-    playerJumperNumber: z.number().optional(),
+    playerJumperNumber: z.number().nullable().optional(),
   })
   .passthrough();
 
@@ -399,7 +399,7 @@ export const PlayerStatsItemSchema = z
             player: CfsPlayerInnerSchema,
           })
           .passthrough(),
-        jumperNumber: z.number().optional(),
+        jumperNumber: z.number().nullable().optional(),
       })
       .passthrough(),
     teamId: z.string(),
@@ -444,7 +444,7 @@ export const RosterPlayerSchema = z
         player: CfsPlayerInnerSchema,
       })
       .passthrough(),
-    jumperNumber: z.number().optional(),
+    jumperNumber: z.number().nullable().optional(),
   })
   .passthrough();
 
@@ -526,7 +526,7 @@ export const SquadPlayerInnerSchema = z
 export const SquadPlayerItemSchema = z
   .object({
     player: SquadPlayerInnerSchema,
-    jumperNumber: z.number().optional(),
+    jumperNumber: z.number().nullable().optional(),
     position: z.string().optional(),
   })
   .passthrough();

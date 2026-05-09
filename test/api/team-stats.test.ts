@@ -14,8 +14,8 @@ const fwOppHtml = readFileSync(FW_OPP_FIXTURE, "utf-8");
 const atHtml = readFileSync(AT_FIXTURE, "utf-8");
 
 describe("parseFootyWireTeamStats", () => {
-  it("parses complete team stats from fixture", () => {
-    const entries = parseFootyWireTeamStats(fwHtml, 2024, "for");
+  it("returns intermediate per-direction entries with canonical metrics", () => {
+    const entries = parseFootyWireTeamStats(fwHtml, 2024);
 
     expect(entries).toHaveLength(3);
     const teams = entries.map((e) => e.team);
@@ -28,27 +28,24 @@ describe("parseFootyWireTeamStats", () => {
     if (!carlton) return;
 
     expect(carlton.gamesPlayed).toBe(22);
-    expect(carlton.stats.K).toBe(3200);
-    expect(carlton.stats.HB).toBe(2100);
-    expect(carlton.stats.D).toBe(5300);
-    expect(carlton.season).toBe(2024);
-    expect(carlton.source).toBe("footywire");
-  });
-
-  it("applies against suffix for opposition stats", () => {
-    const entries = parseFootyWireTeamStats(fwOppHtml, 2024, "against");
-    const carlton = entries.find((e) => e.team === "Carlton");
-    expect(carlton?.stats.K_against).toBe(3000);
-    expect(carlton?.stats.HB_against).toBe(2000);
+    expect(carlton.metrics.kicks).toBe(3200);
+    expect(carlton.metrics.handballs).toBe(2100);
+    expect(carlton.metrics.disposals).toBe(5300);
+    // Behinds canonicalisation also fixes the latent CLI bug where the
+    // `B` table column rendered empty because FootyWire emitted `BH`. (#98)
+    expect(carlton.metrics.behinds).not.toBeNull();
+    expect(typeof carlton.metrics.behinds).toBe("number");
+    // FootyWire-only metrics populated; AFL Tables-only stay null
+    expect(carlton.metrics.brownlowVotes).toBeNull();
   });
 
   it("returns empty array for empty HTML", () => {
-    expect(parseFootyWireTeamStats("<html></html>", 2024, "for")).toEqual([]);
+    expect(parseFootyWireTeamStats("<html></html>", 2024)).toEqual([]);
   });
 });
 
 describe("parseAflTablesTeamStats", () => {
-  it("parses complete team stats from fixture", () => {
+  it("parses canonical for/against TeamMetricSet from fixture", () => {
     const entries = parseAflTablesTeamStats(atHtml, 2024);
 
     expect(entries).toHaveLength(2);
@@ -60,9 +57,12 @@ describe("parseAflTablesTeamStats", () => {
     expect(carlton).toBeDefined();
     if (!carlton) return;
 
-    expect(carlton.stats.KI_for).toBe(3200);
-    expect(carlton.stats.KI_against).toBe(3000);
+    expect(carlton.competition).toBe("AFLM");
+    expect(carlton.for.kicks).toBe(3200);
+    expect(carlton.against.kicks).toBe(3000);
     expect(carlton.source).toBe("afl-tables");
+    // AFL Tables-only metric populated; FootyWire-only stay null
+    expect(carlton.for.fantasyPoints).toBeNull();
   });
 
   it("returns empty array for empty HTML", () => {
@@ -71,7 +71,7 @@ describe("parseAflTablesTeamStats", () => {
 });
 
 describe("FootyWireClient.fetchTeamStats", () => {
-  it("fetches and merges team and opposition stats", async () => {
+  it("fetches and merges team and opposition stats into canonical for/against", async () => {
     let callCount = 0;
     const fetchFn = vi.fn().mockImplementation(() => {
       callCount++;
@@ -86,8 +86,10 @@ describe("FootyWireClient.fetchTeamStats", () => {
     if (result.success) {
       expect(result.data).toHaveLength(3);
       const carlton = result.data.find((e) => e.team === "Carlton");
-      expect(carlton?.stats.K).toBe(3200);
-      expect(carlton?.stats.K_against).toBe(3000);
+      expect(carlton?.competition).toBe("AFLM");
+      expect(carlton?.for.kicks).toBe(3200);
+      expect(carlton?.against.kicks).toBe(3000);
+      expect(carlton?.against.handballs).toBe(2000);
     }
   });
 
