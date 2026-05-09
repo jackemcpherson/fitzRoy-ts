@@ -64,6 +64,13 @@ own grilling pass.
   (`{ season, roundNumber, competition, entries }`) instead of a flat
   `LadderEntry[]`. Pipe consumers must read `.entries` for row data.
   Table and CSV output unchanged. (#101)
+- **`fitzroy team --json` now emits a discriminated union `TeamResponse`**
+  with `mode: "list" | "squad" | "lineup"` rather than mode-specific raw
+  arrays. Each variant wraps the existing typed shape — list mode →
+  `{ mode: "list", teams }`; squad mode → `{ mode: "squad", squad }`
+  (now preserves `teamId`/`teamName`/`season`/`competition`); lineup
+  mode → `{ mode: "lineup", lineups }`. Table and CSV output unchanged.
+  (#99)
 
 ### Added
 

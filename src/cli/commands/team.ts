@@ -17,6 +17,7 @@ import { withErrorBoundary } from "../error-boundary";
 import { COMPETITION_FLAG, OUTPUT_FLAGS, ROUND_FLAG, SOURCE_FLAG, TEAM_FLAG } from "../flags";
 import {
   type FormatOptions,
+  formatJson,
   formatOutput,
   resolveFormat,
   type TableColumnConfig,
@@ -142,7 +143,7 @@ export const teamCommand = defineCommand({
       const resolvedFormat = resolveFormat(formatOptions);
       console.log(
         resolvedFormat === "json"
-          ? formatOutput(data, formatOptions)
+          ? formatJson({ mode: "lineup", lineups: data })
           : formatOutput(flattenLineups(data, teamName ?? undefined), formatOptions),
       );
       return;
@@ -174,7 +175,12 @@ export const teamCommand = defineCommand({
         full: args.full,
         columns: SQUAD_COLUMNS,
       };
-      console.log(formatOutput(result.data.players, formatOptions));
+      const resolvedFormat = resolveFormat(formatOptions);
+      console.log(
+        resolvedFormat === "json"
+          ? formatJson({ mode: "squad", squad: result.data })
+          : formatOutput(result.data.players, formatOptions),
+      );
       return;
     }
 
@@ -214,6 +220,11 @@ export const teamCommand = defineCommand({
       full: args.full,
       columns: TEAMS_COLUMNS,
     };
-    console.log(formatOutput(data, formatOptions));
+    const resolvedFormat = resolveFormat(formatOptions);
+    console.log(
+      resolvedFormat === "json"
+        ? formatJson({ mode: "list", teams: data })
+        : formatOutput(data, formatOptions),
+    );
   }),
 });

@@ -160,6 +160,7 @@ export type {
   SquadQuery,
   Team,
   TeamQuery,
+  TeamResponse,
   TeamStatsEntry,
   TeamStatsQuery,
   TeamStatsSummaryType,

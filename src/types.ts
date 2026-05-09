@@ -336,6 +336,20 @@ export interface Squad {
   readonly competition: CompetitionCode;
 }
 
+/**
+ * Discriminated union returned by the `team` CLI verb. Each variant
+ * wraps the existing typed shape for that mode so JSON consumers can
+ * deserialise into a known type via the `mode` discriminator. (#99)
+ *
+ * - `list`: bare `team` invocation — list of teams in a competition.
+ * - `squad`: `team --season Y --name X` — a team's roster for a season.
+ * - `lineup`: `team --season Y --round R [--name X]` — match-day lineups.
+ */
+export type TeamResponse =
+  | { readonly mode: "list"; readonly teams: readonly Team[] }
+  | { readonly mode: "squad"; readonly squad: Squad }
+  | { readonly mode: "lineup"; readonly lineups: readonly Lineup[] };
+
 // ---------------------------------------------------------------------------
 // Player details (biographical data)
 // ---------------------------------------------------------------------------
