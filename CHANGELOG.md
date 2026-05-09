@@ -60,6 +60,10 @@ own grilling pass.
   latest *completed* H&A round** instead of whatever the upstream
   API picks (which was an early-season snapshot). Finals don't alter
   the ladder. (#90)
+- **`fitzroy ladder --json` now emits the full `Ladder` envelope**
+  (`{ season, roundNumber, competition, entries }`) instead of a flat
+  `LadderEntry[]`. Pipe consumers must read `.entries` for row data.
+  Table and CSV output unchanged. (#101)
 
 ### Added
 
