@@ -9,8 +9,9 @@
  */
 
 import { batchedMap } from "../lib/concurrency";
-import { ok, type Result } from "../lib/result";
+import { err, ok, type Result } from "../lib/result";
 import { AFL_SENIOR_TEAMS } from "../lib/team-mapping";
+import { dispatch, squadRegistry } from "../sources/adapters/index";
 import { squadToPlayerDetails } from "../transforms/player-details";
 import type { PlayerDetails, PlayerDetailsQuery } from "../types";
 import { fetchSquad } from "./teams";
@@ -36,6 +37,17 @@ export async function fetchPlayerDetails(
   query: PlayerDetailsQuery,
 ): Promise<Result<PlayerDetails[], Error>> {
   const competition = query.competition ?? "AFLM";
+
+  // Verify the chosen source actually exposes squad data before iterating.
+  // Without this guard, sources like fryzigg (player-stats only) silently
+  // returned [] for every team and the all-teams loop produced an empty
+  // array with exit 0 — masking a configuration error. (#126)
+  const dispatchResult = dispatch(squadRegistry, "squad", {
+    source: query.source,
+    competition,
+    season: query.season ?? new Date().getFullYear(),
+  });
+  if (!dispatchResult.success) return err(dispatchResult.error);
 
   if (query.team) {
     const squadR = await fetchSquad({

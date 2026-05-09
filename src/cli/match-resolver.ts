@@ -15,6 +15,7 @@
  * `--match requires --round` check uniformly.
  */
 
+import { normaliseTeamName } from "../lib/team-mapping";
 import { AflApiClient } from "../sources/afl-api";
 import type { CompetitionCode } from "../types";
 import { resolveMatchOrPrompt } from "./resolvers";
@@ -31,18 +32,36 @@ export interface MatchResolverInput {
 }
 
 /**
- * Resolve a match ID from validated args.
+ * The match ID plus, when derivable, the participating team names.
+ *
+ * `participants` is populated only on the `--match <team>` path (where
+ * the matched item is fetched and we know home/away). The `--match-id`
+ * path returns just the opaque id — callers that need post-filtering
+ * for non-afl-api sources (#123) should branch on its presence.
+ */
+export interface MatchResolution {
+  readonly matchId: string;
+  readonly participants?: {
+    readonly homeTeam: string;
+    readonly awayTeam: string;
+  };
+}
+
+/**
+ * Resolve a match ID (and, when known, the participating teams).
  *
  * Returns:
- * - `matchIdArg` unchanged when present.
+ * - `{matchId: matchIdArg}` when `matchIdArg` is set.
  * - `undefined` when neither `matchIdArg` nor `matchArg` was given.
- * - The resolved match ID after fuzzy-matching `matchArg` against the
- *   round's matches when both `matchArg` and `round` are present.
+ * - `{matchId, participants}` after fuzzy-matching `matchArg` against the
+ *   round's matches.
  *
  * Throws when `matchArg` is given without `round` — the round is needed
  * to scope the match search.
  */
-export async function resolveMatchId(input: MatchResolverInput): Promise<string | undefined> {
+export async function resolveMatchId(
+  input: MatchResolverInput,
+): Promise<MatchResolution | undefined> {
   if (input.matchIdArg) {
     // Pre-validate the format so a malformed --match-id fails fast with a
     // clear message instead of an opaque 400 from the upstream API (#95).
@@ -51,7 +70,7 @@ export async function resolveMatchId(input: MatchResolverInput): Promise<string 
         `Invalid --match-id "${input.matchIdArg}" — expected format like "CD_M20240140101" (provider-assigned).`,
       );
     }
-    return input.matchIdArg;
+    return { matchId: input.matchIdArg };
   }
   if (!input.matchArg) return undefined;
 
@@ -66,5 +85,16 @@ export async function resolveMatchId(input: MatchResolverInput): Promise<string 
   const itemsResult = await client.fetchRoundMatchItemsByNumber(seasonResult.data, input.round);
   if (!itemsResult.success) throw itemsResult.error;
 
-  return resolveMatchOrPrompt(input.matchArg, itemsResult.data);
+  const matchId = await resolveMatchOrPrompt(input.matchArg, itemsResult.data);
+  const matched = itemsResult.data.find((item) => item.match.matchId === matchId);
+  if (!matched) {
+    return { matchId };
+  }
+  return {
+    matchId,
+    participants: {
+      homeTeam: normaliseTeamName(matched.match.homeTeam.name),
+      awayTeam: normaliseTeamName(matched.match.awayTeam.name),
+    },
+  };
 }

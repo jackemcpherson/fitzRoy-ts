@@ -39,7 +39,8 @@
     "check": "biome check .",
     "format": "biome format --write .",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "bun run build"
+    "prepublishOnly": "bun run build",
+    "prerelease": "npm run typecheck && npm run check && npm run test && bun run build"
   },
   "dependencies": {
     "@clack/prompts": "^1.1.0",

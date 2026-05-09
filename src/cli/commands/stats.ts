@@ -125,7 +125,7 @@ export const statsCommand = defineCommand({
       ? validateSource(args.source)
       : playerStatsRegistry.defaultSource;
 
-    const matchId = await resolveMatchId({
+    const matchResolution = await resolveMatchId({
       matchIdArg: args.id as string | undefined,
       matchArg: args.match,
       competition,
@@ -136,11 +136,24 @@ export const statsCommand = defineCommand({
     const teamFilter = args.team ? await resolveTeamNameOrPrompt(args.team) : undefined;
 
     const result = await withSpinner("Fetching player stats…", () =>
-      fetchPlayerStats({ source, season, round, matchId, competition }),
+      fetchPlayerStats({
+        source,
+        season,
+        round,
+        matchId: matchResolution?.matchId,
+        competition,
+      }),
     );
     if (!result.success) throw result.error;
 
     let data = result.data;
+    // Sources other than afl-api ignore matchId at the adapter layer (#123).
+    // When --match resolved to a known game, post-filter to its participants
+    // so cross-source behaviour matches afl-api's per-match scoping.
+    if (matchResolution?.participants) {
+      const { homeTeam, awayTeam } = matchResolution.participants;
+      data = data.filter((p) => p.team === homeTeam || p.team === awayTeam);
+    }
     if (teamFilter) {
       data = data.filter((p) => p.team === teamFilter);
     }

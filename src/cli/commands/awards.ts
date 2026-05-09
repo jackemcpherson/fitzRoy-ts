@@ -100,7 +100,12 @@ export const awardsCommand = defineCommand({
     const round = args.round ? validateRound(args.round as string) : undefined;
     const competition = validateCompetition(args.competition as string);
     const team = args.team ? await resolveTeamNameOrPrompt(args.team as string) : undefined;
-    const limit = validateLimit(args.limit as string | undefined);
+    // The Coleman leaderboard is by definition a top-N list — defaulting to
+    // every player who scored a goal (~500 rows for AFLM) is unfriendly at
+    // the CLI surface. Default to a leaderboard depth of 25 unless the user
+    // overrides with --limit. (#125)
+    const requestedLimit = validateLimit(args.limit as string | undefined);
+    const limit = requestedLimit ?? (award === "coleman" ? 25 : undefined);
     const format = validateFormat(args.format as string | undefined);
 
     if (round != null && award !== "coaches") {

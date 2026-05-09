@@ -28,7 +28,10 @@ function stripMedallistSuffix(raw: string): { player: string; isMedallist: boole
  * Parse Brownlow Medal player votes from FootyWire HTML.
  *
  * The page has a table with 9 columns:
- * Player, Team, 3V, 2V, 1V, Players_With_Votes, Games_Polled, Polled, V/G
+ * Player, Team, V, 3V, 2V, 1V, Played, Polled, V/G
+ *
+ * `V` is the canonical season vote total. `3V`/`2V`/`1V` are *counts* of
+ * vote-receiving performances at each weight (so V === 3*3V + 2*2V + 1V).
  */
 export function parseBrownlowVotes(
   html: string,
@@ -67,12 +70,16 @@ export function parseBrownlowVotes(
 
       const { player, isMedallist: suffixMedallist } = stripMedallistSuffix(rawPlayer);
 
-      const votes3 = safeInt($(tds[2]).text()) ?? 0;
-      const votes2 = safeInt($(tds[3]).text()) ?? 0;
-      const votes1 = safeInt($(tds[4]).text()) ?? 0;
+      // Read V directly from column 2 — it's the canonical weighted total.
+      // Counts of 3v/2v/1v performances follow in cols 3-5. Computing
+      // votes from those would also work but means an extra trust step
+      // when columns drift.
+      const votes = safeInt($(tds[2]).text()) ?? 0;
+      const votes3 = safeInt($(tds[3]).text()) ?? 0;
+      const votes2 = safeInt($(tds[4]).text()) ?? 0;
+      const votes1 = safeInt($(tds[5]).text()) ?? 0;
       const gamesPolled = safeInt($(tds[6]).text());
       const polledGames = safeInt($(tds[7]).text());
-      const votes = votes3 * 3 + votes2 * 2 + votes1;
 
       if (suffixMedallist) anyMarked = true;
       if (votes > maxVotes) maxVotes = votes;

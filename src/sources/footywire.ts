@@ -492,10 +492,30 @@ export function parseFixtureList(html: string, year: number): Match[] {
       new Date(Date.UTC(year, 0, 1));
     gameNumber++;
 
-    // Check if we have a score (match played) or not (upcoming)
+    // Check if we have a score (match played) or not (upcoming).
+    // When present, populate homePoints/awayPoints + estimated goals/behinds
+    // so completed matches don't return as score-less. (#122)
     const scoreCell = cells.length >= 5 ? $(cells[4]) : null;
     const scoreText = scoreCell?.text().trim() ?? "";
-    const hasScore = /\d+-\d+/.test(scoreText);
+    const scoreMatch = /(\d+)-(\d+)/.exec(scoreText);
+    const hasScore = scoreMatch !== null;
+
+    let homePoints: number | null = null;
+    let awayPoints: number | null = null;
+    let homeGoals: number | null = null;
+    let homeBehinds: number | null = null;
+    let awayGoals: number | null = null;
+    let awayBehinds: number | null = null;
+    let margin: number | null = null;
+    if (scoreMatch) {
+      homePoints = Number.parseInt(scoreMatch[1] ?? "0", 10);
+      awayPoints = Number.parseInt(scoreMatch[2] ?? "0", 10);
+      homeGoals = Math.floor(homePoints / 6);
+      homeBehinds = homePoints - homeGoals * 6;
+      awayGoals = Math.floor(awayPoints / 6);
+      awayBehinds = awayPoints - awayGoals * 6;
+      margin = homePoints - awayPoints;
+    }
 
     fixtures.push({
       matchId: `FW_${year}_R${currentRound}_G${gameNumber}`,
@@ -507,13 +527,13 @@ export function parseFixtureList(html: string, year: number): Match[] {
       venue: canonicalVenue,
       homeTeam,
       awayTeam,
-      homeGoals: null,
-      homeBehinds: null,
-      homePoints: null,
-      awayGoals: null,
-      awayBehinds: null,
-      awayPoints: null,
-      margin: null,
+      homeGoals,
+      homeBehinds,
+      homePoints,
+      awayGoals,
+      awayBehinds,
+      awayPoints,
+      margin,
       q1Home: null,
       q2Home: null,
       q3Home: null,

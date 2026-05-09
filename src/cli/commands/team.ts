@@ -123,7 +123,7 @@ export const teamCommand = defineCommand({
     // Dispatch by flag presence
     if (season != null && round != null) {
       // Lineup mode
-      const matchId = await resolveMatchId({
+      const matchResolution = await resolveMatchId({
         matchIdArg: args["match-id"],
         matchArg: args.match,
         competition,
@@ -132,7 +132,13 @@ export const teamCommand = defineCommand({
       });
 
       const result = await withSpinner("Fetching lineups…", () =>
-        fetchLineup({ source, season, round, matchId, competition }),
+        fetchLineup({
+          source,
+          season,
+          round,
+          matchId: matchResolution?.matchId,
+          competition,
+        }),
       );
       if (!result.success) throw result.error;
 

@@ -14,7 +14,8 @@ describe("resolveMatchId", () => {
       season: 2025,
       round: 1,
     });
-    expect(result).toBe("CD_M20250140101");
+    expect(result).toEqual({ matchId: "CD_M20250140101" });
+    expect(result?.participants).toBeUndefined();
   });
 
   it("returns matchIdArg even when matchArg is also given (matchIdArg wins)", async () => {
@@ -25,7 +26,7 @@ describe("resolveMatchId", () => {
       season: 2025,
       round: 1,
     });
-    expect(result).toBe("CD_M20250140102");
+    expect(result?.matchId).toBe("CD_M20250140102");
   });
 
   it("rejects malformed --match-id with a clear error (#95)", async () => {
