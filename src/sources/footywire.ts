@@ -11,6 +11,7 @@ import { ScrapeError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
 import { normaliseVenueName } from "../lib/venue-mapping";
+import { resolveVenueTimezone } from "../lib/venue-timezones";
 import {
   mergeFootyWireStats,
   parseAdvancedStats,
@@ -370,8 +371,12 @@ export function parseMatchList(html: string, year: number): Match[] {
     const midMatch = /mid=(\d+)/.exec(scoreLink);
     const matchId = midMatch?.[1] ? `FW_${midMatch[1]}` : `FW_${year}_R${currentRound}_${homeTeam}`;
 
-    // Parse date
-    const date = parseDate(dateText, year) ?? new Date(Date.UTC(year, 0, 1));
+    // Parse date with venue tz so non-Melbourne games (Brisbane, Perth, Adelaide)
+    // produce the correct UTC instant.
+    const canonicalVenue = normaliseVenueName(venue);
+    const date =
+      parseDate(dateText, { defaultYear: year, venue: canonicalVenue }) ??
+      new Date(Date.UTC(year, 0, 1));
 
     // Estimate goals/behinds (FootyWire only gives total score on this page)
     const homeGoals = Math.floor(homePoints / 6);
@@ -386,7 +391,7 @@ export function parseMatchList(html: string, year: number): Match[] {
       roundType: currentRoundType,
       roundName: currentRoundName || null,
       date,
-      venue: normaliseVenueName(venue),
+      venue: canonicalVenue,
       homeTeam,
       awayTeam,
       homeGoals,
@@ -410,7 +415,7 @@ export function parseMatchList(html: string, year: number): Match[] {
       weatherType: null,
       roundCode: toRoundCode(currentRoundName),
       venueState: null,
-      venueTimezone: null,
+      venueTimezone: resolveVenueTimezone(canonicalVenue),
       homeRushedBehinds: null,
       awayRushedBehinds: null,
       homeMinutesInFront: null,
@@ -468,7 +473,10 @@ export function parseFixtureList(html: string, year: number): Match[] {
     const homeTeam = normaliseTeamName($(teamLinks[0]).text().trim());
     const awayTeam = normaliseTeamName($(teamLinks[1]).text().trim());
 
-    const date = parseDate(dateText, year) ?? new Date(Date.UTC(year, 0, 1));
+    const canonicalVenue = normaliseVenueName(venue);
+    const date =
+      parseDate(dateText, { defaultYear: year, venue: canonicalVenue }) ??
+      new Date(Date.UTC(year, 0, 1));
     gameNumber++;
 
     // Check if we have a score (match played) or not (upcoming)
@@ -483,7 +491,7 @@ export function parseFixtureList(html: string, year: number): Match[] {
       roundType: currentRoundType,
       roundName: null,
       date,
-      venue: normaliseVenueName(venue),
+      venue: canonicalVenue,
       homeTeam,
       awayTeam,
       homeGoals: null,
@@ -507,7 +515,7 @@ export function parseFixtureList(html: string, year: number): Match[] {
       weatherType: null,
       roundCode: null,
       venueState: null,
-      venueTimezone: null,
+      venueTimezone: resolveVenueTimezone(canonicalVenue),
       homeRushedBehinds: null,
       awayRushedBehinds: null,
       homeMinutesInFront: null,

@@ -14,6 +14,8 @@ export { fetchPlayerStats } from "./api/player-stats";
 export { fetchTeamStats } from "./api/team-stats";
 export { fetchSquad, fetchTeams } from "./api/teams";
 export {
+  localToUtc,
+  type ParseDateOptions,
   parseAflApiDate,
   parseAflApiMatchTime,
   parseAflTablesDate,
@@ -24,6 +26,7 @@ export {
 } from "./lib/date-utils";
 export {
   AflApiError,
+  DstGapError,
   OutOfRangeError,
   ScrapeError,
   UnsupportedCompetitionError,
@@ -103,6 +106,7 @@ export {
   TeamScoreSchema,
 } from "./lib/validation";
 export { normaliseVenueName } from "./lib/venue-mapping";
+export { resolveVenueTimezone } from "./lib/venue-timezones";
 export { AflApiClient, type AflApiClientOptions } from "./sources/afl-api";
 export { AflCoachesClient, type AflCoachesClientOptions } from "./sources/afl-coaches";
 export { AflTablesClient, type AflTablesClientOptions } from "./sources/afl-tables";

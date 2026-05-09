@@ -105,3 +105,24 @@ export class ValidationError extends Error {
     super(message);
   }
 }
+
+/**
+ * Error returned by {@link localToUtc} when the supplied wall-clock time
+ * falls inside a DST spring-forward gap (the time doesn't exist in the
+ * given timezone). Callers can choose to skip, escalate, or roll forward.
+ */
+export class DstGapError extends Error {
+  override readonly name = "DstGapError";
+
+  constructor(
+    message: string,
+    readonly timezone: string,
+    readonly year: number,
+    readonly monthIndex: number,
+    readonly day: number,
+    readonly hours: number,
+    readonly minutes: number,
+  ) {
+    super(message);
+  }
+}

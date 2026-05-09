@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  localToUtc,
   parseAflApiDate,
   parseAflApiMatchTime,
   parseAflTablesDate,
@@ -7,6 +8,7 @@ import {
   parseFootyWireDate,
   toAestString,
 } from "../../src/lib/date-utils";
+import { DstGapError } from "../../src/lib/errors";
 
 describe("parseDate", () => {
   // AFL API — ISO without Z (utcStartTime)
@@ -161,6 +163,85 @@ describe("parseAflTablesDate", () => {
 
   it.each(["", "2024", "16-Xyz-2024"])("returns null for %j", (input) => {
     expect(parseAflTablesDate(input)).toBeNull();
+  });
+});
+
+describe("parseDate — venue-aware time parsing (#105)", () => {
+  it("parses Brisbane local time (no DST) correctly during AEDT period", () => {
+    // 6:40pm in Brisbane on 2024-03-08 = 08:40 UTC (Brisbane is +10 year-round).
+    expect(
+      parseDate("Fri 8 Mar 6:40pm", { defaultYear: 2024, venue: "Gabba" })?.toISOString(),
+    ).toBe("2024-03-08T08:40:00.000Z");
+  });
+
+  it("parses Perth local time (AWST) correctly", () => {
+    // 3:50pm in Perth on 2024-03-17 = 07:50 UTC (Perth is +8 year-round).
+    expect(
+      parseDate("Sun 17 Mar 3:50pm", { defaultYear: 2024, venue: "Optus Stadium" })?.toISOString(),
+    ).toBe("2024-03-17T07:50:00.000Z");
+  });
+
+  it("parses Adelaide local time (ACDT half-hour) correctly", () => {
+    // 4:10pm in Adelaide on 2024-03-15 (ACDT, +10:30) = 05:40 UTC.
+    expect(
+      parseDate("Fri 15 Mar 4:10pm", { defaultYear: 2024, venue: "Adelaide Oval" })?.toISOString(),
+    ).toBe("2024-03-15T05:40:00.000Z");
+  });
+
+  it("falls back to Melbourne when venue is unknown", () => {
+    expect(
+      parseDate("Thu 13 Mar 7:30pm", {
+        defaultYear: 2025,
+        venue: "Some Made-Up Oval",
+      })?.toISOString(),
+    ).toBe("2025-03-13T08:30:00.000Z");
+  });
+});
+
+describe("parseDate — ISO offsets honoured (#105 latent variant)", () => {
+  it("honours an explicit +10:00 offset instead of stripping it", () => {
+    expect(parseDate("2024-03-14T08:30:00+10:00")?.toISOString()).toBe("2024-03-13T22:30:00.000Z");
+  });
+
+  it("honours an explicit -05:00 offset", () => {
+    expect(parseDate("2024-03-14T08:30:00-05:00")?.toISOString()).toBe("2024-03-14T13:30:00.000Z");
+  });
+});
+
+describe("localToUtc (#110)", () => {
+  it("converts a regular Melbourne time during AEST", () => {
+    const r = localToUtc("Australia/Melbourne", 2024, 6, 13, 19, 30);
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.toISOString()).toBe("2024-07-13T09:30:00.000Z");
+  });
+
+  it("converts a regular Melbourne time during AEDT", () => {
+    const r = localToUtc("Australia/Melbourne", 2024, 2, 13, 19, 30);
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.toISOString()).toBe("2024-03-13T08:30:00.000Z");
+  });
+
+  it("returns DstGapError for a non-existent local time during spring-forward", () => {
+    // 2024-10-06 02:30 in Australia/Melbourne — DST started at 02:00,
+    // jumping to 03:00, so 02:30 doesn't exist.
+    const r = localToUtc("Australia/Melbourne", 2024, 9, 6, 2, 30);
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      expect(r.error).toBeInstanceOf(DstGapError);
+      expect(r.error.timezone).toBe("Australia/Melbourne");
+    }
+  });
+
+  it("converts Perth (AWST, no DST) correctly", () => {
+    const r = localToUtc("Australia/Perth", 2024, 6, 13, 19, 30);
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.toISOString()).toBe("2024-07-13T11:30:00.000Z");
+  });
+
+  it("converts Adelaide (ACDT half-hour) correctly", () => {
+    const r = localToUtc("Australia/Adelaide", 2024, 2, 15, 16, 10);
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.toISOString()).toBe("2024-03-15T05:40:00.000Z");
   });
 });
 
