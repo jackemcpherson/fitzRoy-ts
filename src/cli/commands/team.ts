@@ -150,8 +150,14 @@ export const teamCommand = defineCommand({
 
     const teamName = args.name || args.team;
     if (season != null && teamName) {
-      // Squad mode
-      const team = await resolveTeamNameOrPrompt(teamName);
+      // Squad mode. For VFL/VFLW, skip the AFLM-senior allow-list — those
+      // competitions include standalone clubs (Box Hill, Sandringham, …)
+      // that the adapter resolves against the per-competition team list
+      // (#81).
+      const isAfl = competition === "AFLM" || competition === "AFLW";
+      const team = isAfl
+        ? await resolveTeamNameOrPrompt(teamName)
+        : await resolveTeamNameOrPrompt(teamName, []);
 
       const result = await withSpinner("Fetching squad…", () =>
         fetchSquad({ source, team, season, competition }),
