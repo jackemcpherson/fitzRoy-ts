@@ -9,12 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.1.0] - 2026-05-09
 
-This release closes 33 issues from an adversarial review of v2.0
-(8 issues across CLI plumbing and 25 across data correctness, library
-exports, scraper quality, and polish). Phase 8 of the review (canonical
-type contracts: Match/Player/Award/Ladder convergence) is deferred to
-a future v3.0 — those are larger schema-design changes that need their
-own grilling pass.
+This release closes 38 issues from an adversarial review of v2.0
+(8 issues across CLI plumbing, 25 across data correctness, library
+exports, scraper quality, and polish, plus the 5 Phase 8 canonical type
+contracts: `Ladder` envelope, `team` verb discriminated union,
+`TeamMetricSet`, `Award` variant alignment + Brownlow enhancements,
+canonical `Player`). Plus per-match Brownlow attribution from AFL
+Tables (#117).
 
 ### Breaking changes
 
