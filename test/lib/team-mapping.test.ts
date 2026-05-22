@@ -145,4 +145,19 @@ describe("normaliseTeamName", () => {
     expect(normaliseTeamName("Port")).toBe("Port Adelaide");
     expect(normaliseTeamName("PAFC")).toBe("Port Adelaide");
   });
+
+  it("resolves Sir Doug Nicholls Round indigenous names to canonical clubs", () => {
+    expect(normaliseTeamName("Kuwarna")).toBe("Adelaide Crows");
+    expect(normaliseTeamName("Walyalup")).toBe("Fremantle");
+    expect(normaliseTeamName("Narrm")).toBe("Melbourne");
+    expect(normaliseTeamName("Yartapuulti")).toBe("Port Adelaide");
+    expect(normaliseTeamName("Euro-Yroke")).toBe("St Kilda");
+    expect(normaliseTeamName("Waalitj Marawar")).toBe("West Coast Eagles");
+  });
+
+  it("resolves indigenous names case-insensitively", () => {
+    expect(normaliseTeamName("walyalup")).toBe("Fremantle");
+    expect(normaliseTeamName("WAALITJ MARAWAR")).toBe("West Coast Eagles");
+    expect(normaliseTeamName("euro-yroke")).toBe("St Kilda");
+  });
 });

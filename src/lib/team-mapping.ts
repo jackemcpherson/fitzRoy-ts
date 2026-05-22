@@ -4,12 +4,18 @@
  * Maps abbreviations, short names, and historical names to the canonical
  * AFL API team names. Lookups are case-insensitive.
  *
+ * Indigenous names used by participating clubs during the AFL's Sir Doug
+ * Nicholls Round (e.g. `"Walyalup"` for Fremantle) are also registered as
+ * aliases, so they canonicalise to the standard club name in both directions
+ * — accepted on input filters and resolved in upstream payloads.
+ *
  * @example
  * ```ts
  * normaliseTeamName("GWS");           // "GWS Giants"
  * normaliseTeamName("footscray");     // "Western Bulldogs"
  * normaliseTeamName("KANGAROOS");     // "North Melbourne"
  * normaliseTeamName("Sydney");        // "Sydney Swans"
+ * normaliseTeamName("Walyalup");      // "Fremantle"
  * ```
  */
 
@@ -18,12 +24,12 @@
  * The first element of each tuple is the canonical name.
  */
 const TEAM_ALIASES: ReadonlyArray<readonly [canonical: string, ...aliases: string[]]> = [
-  ["Adelaide Crows", "Adelaide", "Crows", "ADEL", "AD"],
+  ["Adelaide Crows", "Adelaide", "Crows", "Kuwarna", "ADEL", "AD"],
   ["Brisbane Lions", "Brisbane", "Brisbane Bears", "Bears", "Lions", "Fitzroy Lions", "BL", "BRIS"],
   ["Carlton", "Carlton Blues", "Blues", "CARL", "CA"],
   ["Collingwood", "Collingwood Magpies", "Magpies", "COLL", "CW"],
   ["Essendon", "Essendon Bombers", "Bombers", "ESS", "ES"],
-  ["Fremantle", "Fremantle Dockers", "Dockers", "FRE", "FR"],
+  ["Fremantle", "Fremantle Dockers", "Dockers", "Walyalup", "FRE", "FR"],
   ["Geelong Cats", "Geelong", "Cats", "GEEL", "GE"],
   [
     "Gold Coast Suns",
@@ -44,13 +50,13 @@ const TEAM_ALIASES: ReadonlyArray<readonly [canonical: string, ...aliases: strin
     "GW",
   ],
   ["Hawthorn", "Hawthorn Hawks", "Hawks", "HAW", "HW"],
-  ["Melbourne", "Melbourne Demons", "Demons", "MELB", "ME"],
+  ["Melbourne", "Melbourne Demons", "Demons", "Narrm", "MELB", "ME"],
   ["North Melbourne", "North Melbourne Kangaroos", "Kangaroos", "Kangas", "North", "NMFC", "NM"],
-  ["Port Adelaide", "Port Adelaide Power", "Power", "Port", "PA", "PAFC"],
+  ["Port Adelaide", "Port Adelaide Power", "Power", "Port", "Yartapuulti", "PA", "PAFC"],
   ["Richmond", "Richmond Tigers", "Tigers", "RICH", "RI"],
-  ["St Kilda", "St Kilda Saints", "Saints", "Saint Kilda", "STK", "SK"],
+  ["St Kilda", "St Kilda Saints", "Saints", "Saint Kilda", "Euro-Yroke", "STK", "SK"],
   ["Sydney Swans", "Sydney", "Swans", "South Melbourne", "South Melbourne Swans", "SYD", "SY"],
-  ["West Coast Eagles", "West Coast", "Eagles", "WCE", "WC"],
+  ["West Coast Eagles", "West Coast", "Eagles", "Waalitj Marawar", "WCE", "WC"],
   ["Western Bulldogs", "Bulldogs", "Footscray", "Footscray Bulldogs", "WB", "WBD"],
 
   // Historical / defunct VFL teams

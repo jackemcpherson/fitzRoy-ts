@@ -1,5 +1,8 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { MatchItem } from "../../src/lib/validation";
+import { AFL_SENIOR_TEAMS } from "../../src/lib/team-mapping";
+import { type MatchItem, MatchItemListSchema } from "../../src/lib/validation";
 import { transformMatchItems } from "../../src/transforms/match-results";
 
 /** Minimal match item for testing. */
@@ -167,5 +170,33 @@ describe("transformMatchItems", () => {
 
   it("returns empty array for empty input", () => {
     expect(transformMatchItems([], 2025, "AFLM")).toEqual([]);
+  });
+});
+
+describe("transformMatchItems — Sir Doug Nicholls Round canonicalisation", () => {
+  const fixturePath = join(__dirname, "../fixtures/afl-api-round-10-2026.json");
+  const raw = JSON.parse(readFileSync(fixturePath, "utf-8"));
+  const response = MatchItemListSchema.parse(raw);
+
+  it("canonicalises indigenous team names returned by the AFL API during SDNR", () => {
+    const results = transformMatchItems(response.items, 2026, "AFLM");
+    expect(results).toHaveLength(9);
+
+    const teams = new Set<string>();
+    for (const m of results) {
+      teams.add(m.homeTeam);
+      teams.add(m.awayTeam);
+    }
+
+    for (const team of teams) {
+      expect(AFL_SENIOR_TEAMS.has(team), `unexpected non-canonical team: ${team}`).toBe(true);
+    }
+
+    expect(teams).toContain("Fremantle");
+    expect(teams).toContain("Adelaide Crows");
+    expect(teams).toContain("Melbourne");
+    expect(teams).toContain("Port Adelaide");
+    expect(teams).toContain("St Kilda");
+    expect(teams).toContain("West Coast Eagles");
   });
 });
