@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Sir Doug Nicholls Round (SDNR) indigenous team names returned by the AFL
+  API are now resolved to their canonical club names. `Kuwarna`, `Walyalup`,
+  `Narrm`, `Yartapuulti`, `Euro-Yroke`, and `Waalitj Marawar` are registered
+  as aliases alongside existing nicknames and abbreviations, so they are
+  accepted as `--team` input on the CLI and as `MatchQuery.team` in the
+  library, and they canonicalise automatically in `homeTeam`/`awayTeam`
+  fields across all sources. Output is always the canonical club name.
+
 ## [2.1.0] - 2026-05-09
 
 This release closes 43 issues from an adversarial review of v2.0
