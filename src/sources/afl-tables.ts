@@ -5,9 +5,9 @@
  * back to 1897 for historical AFL/VFL results.
  */
 
-import * as cheerio from "cheerio";
 import { localToUtc, parseDate } from "../lib/date-utils";
 import { ScrapeError } from "../lib/errors";
+import { parseHtml } from "../lib/parse-html";
 import { err, ok, type Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
 import { emptyMetricSet } from "../lib/team-metrics";
@@ -244,7 +244,7 @@ export class AflTablesClient {
  * @returns Array of match results extracted from the page.
  */
 export function parseSeasonPage(html: string, year: number): Match[] {
-  const $ = cheerio.load(html);
+  const $ = parseHtml(html);
   const results: Match[] = [];
   let currentRound = 0;
   let currentRoundType: RoundType = "HomeAndAway";
@@ -353,6 +353,7 @@ export function parseSeasonPage(html: string, year: number): Match[] {
       q3Away: awayPerQuarter[2] ?? null,
       q4Away: awayPerQuarter[3] ?? null,
       status: "Complete",
+      livePeriodStatus: null,
       attendance,
       weatherTempCelsius: null,
       weatherType: null,
@@ -515,7 +516,7 @@ function parseDateFromInfo(text: string, year: number, venueTimezone: string | n
 
 /** Parse venue from the info cell HTML. */
 function parseVenueFromInfo(html: string): string {
-  const $ = cheerio.load(html);
+  const $ = parseHtml(html);
   const venueLink = $("a[href*='venues']");
   if (venueLink.length > 0) {
     return venueLink.text().trim();
@@ -582,7 +583,7 @@ interface AflTablesTeamData {
 }
 
 export function parseAflTablesTeamStats(html: string, year: number): TeamStatsEntry[] {
-  const $ = cheerio.load(html);
+  const $ = parseHtml(html);
   const teamMap = new Map<string, AflTablesTeamData>();
 
   const tables = $("table");
@@ -718,7 +719,7 @@ function parseAflTablesPlayerList(
   html: string,
   teamName: string,
 ): Omit<PlayerDetails, "source" | "competition">[] {
-  const $ = cheerio.load(html);
+  const $ = parseHtml(html);
   const players: Omit<PlayerDetails, "source" | "competition">[] = [];
 
   // Use the first sortable table (matches R package's pluck(1))

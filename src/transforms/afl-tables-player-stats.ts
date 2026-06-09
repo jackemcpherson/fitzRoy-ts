@@ -5,7 +5,7 @@
  * #, Player, KI, MK, HB, DI, GL, BH, HO, TK, RB, IF, CL, CG, FF, FA, BR, CP, UP, CM, MI, 1%, BO, GA, %P
  */
 
-import * as cheerio from "cheerio";
+import { parseHtml } from "../lib/parse-html";
 import { safeInt, safeIntOrZero } from "../lib/parse-utils";
 import { normaliseTeamName } from "../lib/team-mapping";
 import type { PlayerStats } from "../types";
@@ -37,7 +37,7 @@ export function parseAflTablesGameStats(
   season: number,
   roundNumber: number,
 ): PlayerStats[] {
-  const $ = cheerio.load(html);
+  const $ = parseHtml(html);
   const stats: PlayerStats[] = [];
 
   $("table.sortable").each((_tableIdx, table) => {
@@ -164,7 +164,7 @@ export function parseAflTablesGameStats(
  * @returns Array of relative game URLs like "../stats/games/2024/111620240307.html".
  */
 export function extractGameUrls(seasonHtml: string): string[] {
-  const $ = cheerio.load(seasonHtml);
+  const $ = parseHtml(seasonHtml);
   const urls: string[] = [];
 
   $("tr:nth-child(2) td:nth-child(4) a").each((_i, el) => {

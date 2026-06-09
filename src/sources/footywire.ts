@@ -5,9 +5,9 @@
  * when AFL API data is delayed or unavailable.
  */
 
-import * as cheerio from "cheerio";
 import { parseDate } from "../lib/date-utils";
 import { ScrapeError } from "../lib/errors";
+import { parseHtml } from "../lib/parse-html";
 import { err, ok, type Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
 import { emptyMetricSet } from "../lib/team-metrics";
@@ -167,7 +167,7 @@ export class FootyWireClient {
     if (!htmlResult.success) return htmlResult;
 
     try {
-      const $ = cheerio.load(htmlResult.data);
+      const $ = parseHtml(htmlResult.data);
       const entries: Array<{ matchId: string; roundNumber: number }> = [];
       let currentRound = 0;
       let lastHARound = 0;
@@ -321,7 +321,7 @@ export class FootyWireClient {
  * @returns Array of match results extracted from the page.
  */
 export function parseMatchList(html: string, year: number): Match[] {
-  const $ = cheerio.load(html);
+  const $ = parseHtml(html);
   const results: Match[] = [];
   let currentRound = 0;
   let lastHARound = 0;
@@ -418,6 +418,7 @@ export function parseMatchList(html: string, year: number): Match[] {
       q3Away: null,
       q4Away: null,
       status: "Complete",
+      livePeriodStatus: null,
       attendance: attendance ? Number.parseInt(attendance, 10) || null : null,
       weatherTempCelsius: null,
       weatherType: null,
@@ -448,7 +449,7 @@ export function parseFixtureList(html: string, year: number): Match[] {
   // month is earlier than the AFLW opener (currently August). AFLM
   // seasons are calendar-year-aligned so the current logic is correct;
   // the AFLW path is latent until coverage opens up.
-  const $ = cheerio.load(html);
+  const $ = parseHtml(html);
   const fixtures: Match[] = [];
   let currentRound = 0;
   let lastHARound = 0;
@@ -543,6 +544,7 @@ export function parseFixtureList(html: string, year: number): Match[] {
       q3Away: null,
       q4Away: null,
       status: hasScore ? "Complete" : "Upcoming",
+      livePeriodStatus: null,
       attendance: null,
       weatherTempCelsius: null,
       weatherType: null,
@@ -609,7 +611,7 @@ const FOOTYWIRE_STAT_KEYS = Object.keys(FOOTYWIRE_METRIC_MAP);
 // year retained for API symmetry (callers may want to pass it for future
 // per-year branching) even though the canonical entry is built later.
 export function parseFootyWireTeamStats(html: string, _year: number): FootyWireDirectionEntry[] {
-  const $ = cheerio.load(html);
+  const $ = parseHtml(html);
   const entries: FootyWireDirectionEntry[] = [];
 
   const tables = $("table");
@@ -741,7 +743,7 @@ function parseFootyWirePlayerList(
   html: string,
   teamName: string,
 ): Omit<PlayerDetails, "source" | "competition">[] {
-  const $ = cheerio.load(html);
+  const $ = parseHtml(html);
   const players: Omit<PlayerDetails, "source" | "competition">[] = [];
 
   // The R package finds the table whose first row contains "Age".

@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-06-09
+
+### Added
+
+- `Match.livePeriodStatus: string | null` surfaces the AFL API's
+  score-level `status` field for live-match consumers (e.g. quarter-time
+  / half-time / full-time siren detection). Populated only on `afl-api`
+  matches when the score wrapper is present; null elsewhere. Values are
+  upstream-defined raw strings (treat as opaque until a stable union is
+  documented).
+
+### Changed
+
+- HTML parsing now uses `parse5` + `cheerio/slim` instead of the full
+  `cheerio` entry, removing the transitive `node:stream` import from the
+  library bundle. The library entry can now be imported into a
+  Cloudflare Worker without the `nodejs_compat` flag. Parser fidelity is
+  unchanged — parse5 still performs HTML5-conformant tag-soup recovery,
+  which is required for FootyWire and AFL Tables scraping. The CLI
+  bundle is unaffected.
+
 ## [2.2.0] - 2026-05-22
 
 ### Added

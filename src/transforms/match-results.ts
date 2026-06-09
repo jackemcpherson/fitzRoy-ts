@@ -155,6 +155,7 @@ export function transformMatchItems(
       q4Away: findPeriod(awayScore?.periodScore, 4),
 
       status: toMatchStatus(item.match.status),
+      livePeriodStatus: item.score?.status ?? null,
       attendance: item.attendance ?? null,
       weatherTempCelsius: item.weather?.tempInCelsius ?? null,
       weatherType: item.weather?.weatherType ?? null,

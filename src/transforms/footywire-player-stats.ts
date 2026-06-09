@@ -6,7 +6,7 @@
  * - Advanced: CP, UP, ED, DE%, CM, GA, MI5, 1%, BO, CCL, SCL, SI, MG, TO, ITC, T5, TOG%
  */
 
-import * as cheerio from "cheerio";
+import { parseHtml } from "../lib/parse-html";
 import { parseFloatOr0, parseIntOr0 } from "../lib/parse-utils";
 import { normaliseTeamName } from "../lib/team-mapping";
 import { normaliseVenueName } from "../lib/venue-mapping";
@@ -125,7 +125,7 @@ function parseStatsTable<T>(
   expectedCols: readonly string[],
   rowParser: (cells: string[]) => T | null,
 ): [string, T[]][] {
-  const $ = cheerio.load(html);
+  const $ = parseHtml(html);
   const results: [string, T[]][] = [];
 
   $("table").each((_i, table) => {
@@ -231,7 +231,7 @@ function parseAdvancedRow(cells: string[]): RawAdvancedRow | null {
 
 /** Extract match details from the page. */
 export function extractMatchDetails(html: string): MatchDetails {
-  const $ = cheerio.load(html);
+  const $ = parseHtml(html);
 
   const lnorms = $(".lnorm")
     .map((_, el) => $(el).text().trim())

@@ -2,7 +2,7 @@
  * Pure transforms for FootyWire awards pages → Award types.
  */
 
-import * as cheerio from "cheerio";
+import { parseHtml } from "../lib/parse-html";
 import { safeInt } from "../lib/parse-utils";
 import { normaliseTeamName } from "../lib/team-mapping";
 import type {
@@ -38,7 +38,7 @@ export function parseBrownlowVotes(
   season: number,
   competition: CompetitionCode = "AFLM",
 ): BrownlowVote[] {
-  const $ = cheerio.load(html);
+  const $ = parseHtml(html);
   const results: BrownlowVote[] = [];
   let anyMarked = false;
   let maxVotes = 0;
@@ -121,7 +121,7 @@ export function parseAllAustralian(
   season: number,
   competition: CompetitionCode = "AFLM",
 ): AllAustralianSelection[] {
-  const $ = cheerio.load(html);
+  const $ = parseHtml(html);
   const results: AllAustralianSelection[] = [];
 
   const rows = $("tr");
@@ -173,7 +173,7 @@ export function parseRisingStarNominations(
   season: number,
   competition: CompetitionCode = "AFLM",
 ): RisingStarNomination[] {
-  const $ = cheerio.load(html);
+  const $ = parseHtml(html);
   const results: RisingStarNomination[] = [];
 
   const tables = $("table");

@@ -86,6 +86,21 @@ export interface Match {
   readonly q4Away: QuarterScore | null;
 
   readonly status: MatchStatus;
+
+  /**
+   * Raw period-level status from the AFL API's score wrapper (`CfsScore.status`),
+   * surfaced for live-match consumers that need to detect siren transitions
+   * (e.g. quarter time, half time, full time). Null for any source that doesn't
+   * expose a per-period state — currently every source except `afl-api` — and
+   * null on `afl-api` rows when the score wrapper itself is absent (pre-match).
+   *
+   * The string values are upstream-defined and not yet enumerated; observed
+   * values to date come straight from the AFL API and may include codes such
+   * as `LIVE`, `QTR_TIME`, `HALF_TIME`, `3QTR_TIME`, `FULL_TIME`. Treat as an
+   * opaque string until a stable union is documented.
+   */
+  readonly livePeriodStatus: string | null;
+
   readonly attendance: number | null;
 
   /** Weather conditions at the venue (null when unavailable). */

@@ -98,6 +98,17 @@ describe("transformMatchItems", () => {
     expect(r.homeGoals).toBeNull();
     expect(r.awayGoals).toBeNull();
     expect(r.q1Home).toBeNull();
+    expect(r.livePeriodStatus).toBeNull();
+  });
+
+  it("surfaces score.status as livePeriodStatus", () => {
+    const concluded = first(transformMatchItems([makeMatchItem()], 2025, "AFLM"));
+    expect(concluded.livePeriodStatus).toBe("CONCLUDED");
+
+    const liveItem = makeMatchItem();
+    if (liveItem.score) liveItem.score.status = "QTR_TIME";
+    const live = first(transformMatchItems([liveItem], 2025, "AFLM"));
+    expect(live.livePeriodStatus).toBe("QTR_TIME");
   });
 
   it("handles missing periodScore gracefully", () => {

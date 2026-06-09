@@ -5,8 +5,8 @@
  * approach as the R package's `scrape_coaches_votes` helper.
  */
 
-import * as cheerio from "cheerio";
 import { ScrapeError } from "../lib/errors";
+import { parseHtml } from "../lib/parse-html";
 import { err, ok, type Result } from "../lib/result";
 import type { CoachesVote, CompetitionCode } from "../types";
 
@@ -182,7 +182,7 @@ export function parseCoachesVotesHtml(
   roundNumber: number,
   competition: CompetitionCode,
 ): CoachesVote[] {
-  const $ = cheerio.load(html);
+  const $ = parseHtml(html);
 
   // Extract team logos (home teams are odd-indexed, away teams are even-indexed)
   const clubLogos = $(".pr-md-3.votes-by-match .club_logo");
