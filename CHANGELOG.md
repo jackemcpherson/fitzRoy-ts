@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   outbound request, and accept `signal` (combined with the timeout via
   `AbortSignal.any`) and `timeoutMs` options. Previously a hung upstream
   could block callers indefinitely.
+- Opt-in `retry5xx` client option: retries a request once (with jitter)
+  on a 5xx response, so a single transient 503 no longer aborts a
+  whole-season fetch.
 
 ### Fixed
 

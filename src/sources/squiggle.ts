@@ -8,8 +8,8 @@
  */
 
 import { ScrapeError } from "../lib/errors";
-import { type FetchTimeoutOptions, withFetchTimeout } from "../lib/fetch-timeout";
 import { err, ok, type Result } from "../lib/result";
+import { createSourceFetch, type SourceFetchOptions } from "../lib/source-fetch";
 import {
   type SquiggleGamesResponse,
   SquiggleGamesResponseSchema,
@@ -21,7 +21,7 @@ const SQUIGGLE_BASE = "https://api.squiggle.com.au/";
 const USER_AGENT = "fitzRoy-ts/1.0 (https://github.com/jackemcpherson/fitzRoy-ts)";
 
 /** Options for constructing a Squiggle client. */
-export interface SquiggleClientOptions extends FetchTimeoutOptions {
+export interface SquiggleClientOptions extends SourceFetchOptions {
   readonly fetchFn?: typeof fetch | undefined;
 }
 
@@ -34,7 +34,7 @@ export class SquiggleClient {
   private readonly fetchFn: typeof fetch;
 
   constructor(options?: SquiggleClientOptions) {
-    this.fetchFn = withFetchTimeout(options?.fetchFn ?? globalThis.fetch.bind(globalThis), options);
+    this.fetchFn = createSourceFetch(options);
   }
 
   /**

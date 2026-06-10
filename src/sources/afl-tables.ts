@@ -5,11 +5,12 @@
  * back to 1897 for historical AFL/VFL results.
  */
 
+import { batchedMap } from "../lib/concurrency";
 import { localToUtc, parseDate } from "../lib/date-utils";
 import { ScrapeError } from "../lib/errors";
-import { type FetchTimeoutOptions, withFetchTimeout } from "../lib/fetch-timeout";
 import { parseHtml } from "../lib/parse-html";
 import { err, ok, type Result } from "../lib/result";
+import { createSourceFetch, type SourceFetchOptions } from "../lib/source-fetch";
 import { normaliseTeamName } from "../lib/team-mapping";
 import { emptyMetricSet } from "../lib/team-metrics";
 import { normaliseVenueName } from "../lib/venue-mapping";
@@ -29,7 +30,7 @@ import type {
 const AFL_TABLES_BASE = "https://afltables.com/afl/seas";
 
 /** Options for constructing an AFL Tables client. */
-export interface AflTablesClientOptions extends FetchTimeoutOptions {
+export interface AflTablesClientOptions extends SourceFetchOptions {
   readonly fetchFn?: typeof fetch | undefined;
 }
 
@@ -40,7 +41,7 @@ export class AflTablesClient {
   private readonly fetchFn: typeof fetch;
 
   constructor(options?: AflTablesClientOptions) {
-    this.fetchFn = withFetchTimeout(options?.fetchFn ?? globalThis.fetch.bind(globalThis), options);
+    this.fetchFn = createSourceFetch(options);
   }
 
   /**
@@ -107,43 +108,30 @@ export class AflTablesClient {
 
       const results = parseSeasonPage(seasonHtml, year);
 
-      const allStats: PlayerStats[] = [];
-      const batchSize = 5;
+      const indexedUrls = gameUrls.map((gameUrl, idx) => ({ gameUrl, idx }));
+      const perGameStats = await batchedMap(
+        indexedUrls,
+        async ({ gameUrl, idx }) => {
+          try {
+            const resp = await this.fetchFn(gameUrl, {
+              headers: { "User-Agent": "Mozilla/5.0" },
+            });
+            if (!resp.ok) return [];
 
-      for (let i = 0; i < gameUrls.length; i += batchSize) {
-        const batch = gameUrls.slice(i, i + batchSize);
-        const batchResults = await Promise.all(
-          batch.map(async (gameUrl, batchIdx) => {
-            try {
-              const resp = await this.fetchFn(gameUrl, {
-                headers: { "User-Agent": "Mozilla/5.0" },
-              });
-              if (!resp.ok) return [];
+            const html = await resp.text();
+            const urlMatch = /\/(\d+)\.html$/.exec(gameUrl);
+            const matchId = urlMatch?.[1] ?? `${year}_${idx}`;
+            const roundNumber = results[idx]?.roundNumber ?? 0;
 
-              const html = await resp.text();
-              const urlMatch = /\/(\d+)\.html$/.exec(gameUrl);
-              const matchId = urlMatch?.[1] ?? `${year}_${i + batchIdx}`;
-              const globalIdx = i + batchIdx;
-              const roundNumber = results[globalIdx]?.roundNumber ?? 0;
+            return parseAflTablesGameStats(html, matchId, year, roundNumber);
+          } catch {
+            return [];
+          }
+        },
+        { batchSize: 5, delayMs: 300 },
+      );
 
-              return parseAflTablesGameStats(html, matchId, year, roundNumber);
-            } catch {
-              return [];
-            }
-          }),
-        );
-
-        for (const stats of batchResults) {
-          allStats.push(...stats);
-        }
-
-        // Small delay between batches
-        if (i + batchSize < gameUrls.length) {
-          await new Promise((resolve) => setTimeout(resolve, 300));
-        }
-      }
-
-      return ok(allStats);
+      return ok(perGameStats.flat());
     } catch (cause) {
       return err(
         new ScrapeError(
