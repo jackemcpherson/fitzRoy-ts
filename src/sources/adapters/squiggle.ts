@@ -26,7 +26,12 @@ export class SquiggleMatchSource implements MatchSource {
   constructor(private readonly client: SquiggleClient = new SquiggleClient()) {}
 
   async fetchMatches(query: MatchQuery): Promise<Result<Match[], Error>> {
-    const result = await this.client.fetchGames(query.season, query.round ?? undefined, 100);
+    // Only constrain the API when the caller wants completed games:
+    // hardcoding complete=100 made Upcoming/Live queries silently return
+    // []. For other statuses fetch everything and let the API layer's
+    // filterMatches do the filtering.
+    const complete = query.status === "Complete" ? 100 : undefined;
+    const result = await this.client.fetchGames(query.season, query.round ?? undefined, complete);
     if (!result.success) return result;
     return ok(transformSquiggleGamesToFixture(result.data.games, query.season));
   }

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- All source clients now apply a default 30-second timeout to every
+  outbound request, and accept `signal` (combined with the timeout via
+  `AbortSignal.any`) and `timeoutMs` options. Previously a hung upstream
+  could block callers indefinitely.
+
+### Fixed
+
+- Squiggle: `fetchMatches({ source: "squiggle", status: "Upcoming" })`
+  (or `"Live"`) no longer silently returns `[]`. The adapter hardcoded
+  `complete=100`; it now applies the completion filter only for
+  `status: "Complete"` queries.
+
 ## [2.3.0] - 2026-06-09
 
 ### Added
