@@ -22,6 +22,13 @@ import type { CompetitionCode } from "../types";
  * Fryzigg only publishes AFLM and AFLW datasets. VFL/VFLW are not available
  * from this source — the public API will return an UnsupportedSourceError
  * for those competitions in the source-adapter refactor (Phase B).
+ *
+ * Security note (SEC-10): fryziggafl.net does not serve HTTPS (verified
+ * 2026-06-10 — TLS connections are refused), so these downloads are
+ * plain HTTP and an on-path attacker could substitute content fed into
+ * the RDS parser. Mitigations: rds-js validates input defensively, and
+ * callers who mirror a known-good dataset can pin it via the
+ * `sha256` client option below.
  */
 const FRYZIGG_URLS: Partial<Record<CompetitionCode, string>> = {
   AFLM: "http://www.fryziggafl.net/static/fryziggafl.rds",
@@ -33,6 +40,12 @@ const USER_AGENT = "fitzRoy-ts/1.0 (https://github.com/jackemcpherson/fitzRoy-ts
 /** Options for constructing a Fryzigg client. */
 export interface FryziggClientOptions extends SourceFetchOptions {
   readonly fetchFn?: typeof fetch | undefined;
+  /**
+   * Optional hex-encoded SHA-256 checksum of the expected RDS payload.
+   * When set, a downloaded file that doesn't match is rejected — the
+   * only integrity control available while the host is HTTP-only.
+   */
+  readonly sha256?: string | undefined;
 }
 
 /**
@@ -45,9 +58,11 @@ export interface FryziggClientOptions extends SourceFetchOptions {
  */
 export class FryziggClient {
   private readonly fetchFn: typeof fetch;
+  private readonly sha256: string | undefined;
 
   constructor(options?: FryziggClientOptions) {
     this.fetchFn = createSourceFetch(options);
+    this.sha256 = options?.sha256;
   }
 
   /**
@@ -77,6 +92,22 @@ export class FryziggClient {
       }
 
       const buffer = new Uint8Array(await response.arrayBuffer());
+
+      if (this.sha256 !== undefined) {
+        const digest = await crypto.subtle.digest("SHA-256", buffer);
+        const actual = Array.from(new Uint8Array(digest))
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+        if (actual !== this.sha256.toLowerCase()) {
+          return err(
+            new ScrapeError(
+              `Fryzigg checksum mismatch: expected ${this.sha256}, got ${actual}`,
+              "fryzigg",
+            ),
+          );
+        }
+      }
+
       const result = await parseRds(buffer);
 
       if (!isDataFrame(result)) {
