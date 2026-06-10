@@ -10,6 +10,7 @@
 import type { z } from "zod/v4";
 import { batchedMap } from "../lib/concurrency";
 import { AflApiError, ValidationError } from "../lib/errors";
+import { type FetchTimeoutOptions, withFetchTimeout } from "../lib/fetch-timeout";
 import { err, ok, type Result } from "../lib/result";
 import {
   AflApiTokenSchema,
@@ -76,7 +77,7 @@ interface CachedToken {
 }
 
 /** Options for constructing an {@link AflApiClient}. */
-export interface AflApiClientOptions {
+export interface AflApiClientOptions extends FetchTimeoutOptions {
   /** Custom fetch implementation (defaults to global `fetch`). */
   readonly fetchFn?: typeof fetch | undefined;
   /** Token endpoint override (useful for testing). */
@@ -100,7 +101,10 @@ export class AflApiClient {
   private pendingAuth: Promise<Result<string, AflApiError>> | null = null;
 
   constructor(options?: AflApiClientOptions) {
-    const baseFetch = options?.fetchFn ?? globalThis.fetch.bind(globalThis);
+    const baseFetch = withFetchTimeout(
+      options?.fetchFn ?? globalThis.fetch.bind(globalThis),
+      options,
+    );
     this.fetchFn = (input, init?) => {
       const headers = new Headers(init?.headers);
       if (!headers.has("User-Agent")) {

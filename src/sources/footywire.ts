@@ -7,6 +7,7 @@
 
 import { parseDate } from "../lib/date-utils";
 import { ScrapeError } from "../lib/errors";
+import { type FetchTimeoutOptions, withFetchTimeout } from "../lib/fetch-timeout";
 import { parseHtml } from "../lib/parse-html";
 import { err, ok, type Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
@@ -31,7 +32,7 @@ import type {
 const FOOTYWIRE_BASE = "https://www.footywire.com/afl/footy";
 
 /** Options for constructing a FootyWire client. */
-export interface FootyWireClientOptions {
+export interface FootyWireClientOptions extends FetchTimeoutOptions {
   readonly fetchFn?: typeof fetch | undefined;
 }
 
@@ -42,7 +43,7 @@ export class FootyWireClient {
   private readonly fetchFn: typeof fetch;
 
   constructor(options?: FootyWireClientOptions) {
-    this.fetchFn = options?.fetchFn ?? globalThis.fetch.bind(globalThis);
+    this.fetchFn = withFetchTimeout(options?.fetchFn ?? globalThis.fetch.bind(globalThis), options);
   }
 
   /**

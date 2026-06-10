@@ -14,6 +14,7 @@
 import { type DataFrame, isDataFrame, parseRds, RdsError } from "@jackemcpherson/rds-js";
 
 import { ScrapeError } from "../lib/errors";
+import { type FetchTimeoutOptions, withFetchTimeout } from "../lib/fetch-timeout";
 import { err, ok, type Result } from "../lib/result";
 import type { CompetitionCode } from "../types";
 
@@ -30,7 +31,7 @@ const FRYZIGG_URLS: Partial<Record<CompetitionCode, string>> = {
 const USER_AGENT = "fitzRoy-ts/1.0 (https://github.com/jackemcpherson/fitzRoy-ts)";
 
 /** Options for constructing a Fryzigg client. */
-export interface FryziggClientOptions {
+export interface FryziggClientOptions extends FetchTimeoutOptions {
   readonly fetchFn?: typeof fetch | undefined;
 }
 
@@ -46,7 +47,7 @@ export class FryziggClient {
   private readonly fetchFn: typeof fetch;
 
   constructor(options?: FryziggClientOptions) {
-    this.fetchFn = options?.fetchFn ?? globalThis.fetch.bind(globalThis);
+    this.fetchFn = withFetchTimeout(options?.fetchFn ?? globalThis.fetch.bind(globalThis), options);
   }
 
   /**

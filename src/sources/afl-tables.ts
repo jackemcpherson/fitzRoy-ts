@@ -7,6 +7,7 @@
 
 import { localToUtc, parseDate } from "../lib/date-utils";
 import { ScrapeError } from "../lib/errors";
+import { type FetchTimeoutOptions, withFetchTimeout } from "../lib/fetch-timeout";
 import { parseHtml } from "../lib/parse-html";
 import { err, ok, type Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
@@ -28,7 +29,7 @@ import type {
 const AFL_TABLES_BASE = "https://afltables.com/afl/seas";
 
 /** Options for constructing an AFL Tables client. */
-export interface AflTablesClientOptions {
+export interface AflTablesClientOptions extends FetchTimeoutOptions {
   readonly fetchFn?: typeof fetch | undefined;
 }
 
@@ -39,7 +40,7 @@ export class AflTablesClient {
   private readonly fetchFn: typeof fetch;
 
   constructor(options?: AflTablesClientOptions) {
-    this.fetchFn = options?.fetchFn ?? globalThis.fetch.bind(globalThis);
+    this.fetchFn = withFetchTimeout(options?.fetchFn ?? globalThis.fetch.bind(globalThis), options);
   }
 
   /**
