@@ -9,6 +9,7 @@
 
 import { ScrapeError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
+import { createSourceFetch, type SourceFetchOptions } from "../lib/source-fetch";
 import {
   type SquiggleGamesResponse,
   SquiggleGamesResponseSchema,
@@ -20,7 +21,7 @@ const SQUIGGLE_BASE = "https://api.squiggle.com.au/";
 const USER_AGENT = "fitzRoy-ts/1.0 (https://github.com/jackemcpherson/fitzRoy-ts)";
 
 /** Options for constructing a Squiggle client. */
-export interface SquiggleClientOptions {
+export interface SquiggleClientOptions extends SourceFetchOptions {
   readonly fetchFn?: typeof fetch | undefined;
 }
 
@@ -33,7 +34,7 @@ export class SquiggleClient {
   private readonly fetchFn: typeof fetch;
 
   constructor(options?: SquiggleClientOptions) {
-    this.fetchFn = options?.fetchFn ?? globalThis.fetch.bind(globalThis);
+    this.fetchFn = createSourceFetch(options);
   }
 
   /**
