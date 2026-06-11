@@ -387,12 +387,10 @@ export function parseMatchList(html: string, year: number): Match[] {
       parseDate(dateText, { defaultYear: year, venue: canonicalVenue }) ??
       new Date(Date.UTC(year, 0, 1));
 
-    // Estimate goals/behinds (FootyWire only gives total score on this page)
-    const homeGoals = Math.floor(homePoints / 6);
-    const homeBehinds = homePoints - homeGoals * 6;
-    const awayGoals = Math.floor(awayPoints / 6);
-    const awayBehinds = awayPoints - awayGoals * 6;
-
+    // FootyWire's match-list page only carries total points — goals/behinds
+    // are NOT published there. They used to be fabricated from the total
+    // (floor(points / 6)), producing plausible-but-wrong data; emit null
+    // instead so the gap is honest (COR-04).
     results.push({
       matchId,
       season: year,
@@ -403,11 +401,11 @@ export function parseMatchList(html: string, year: number): Match[] {
       venue: canonicalVenue,
       homeTeam,
       awayTeam,
-      homeGoals,
-      homeBehinds,
+      homeGoals: null,
+      homeBehinds: null,
       homePoints,
-      awayGoals,
-      awayBehinds,
+      awayGoals: null,
+      awayBehinds: null,
       awayPoints,
       margin: homePoints - awayPoints,
       q1Home: null,
@@ -495,8 +493,11 @@ export function parseFixtureList(html: string, year: number): Match[] {
     gameNumber++;
 
     // Check if we have a score (match played) or not (upcoming).
-    // When present, populate homePoints/awayPoints + estimated goals/behinds
-    // so completed matches don't return as score-less. (#122)
+    // When present, populate homePoints/awayPoints so completed matches
+    // don't return as score-less (#122). Goals/behinds stay null: the
+    // match-list page only publishes total points, and the old
+    // floor(points / 6) estimate fabricated plausible-but-wrong values
+    // (COR-04).
     const scoreCell = cells.length >= 5 ? $(cells[4]) : null;
     const scoreText = scoreCell?.text().trim() ?? "";
     const scoreMatch = /(\d+)-(\d+)/.exec(scoreText);
@@ -504,18 +505,10 @@ export function parseFixtureList(html: string, year: number): Match[] {
 
     let homePoints: number | null = null;
     let awayPoints: number | null = null;
-    let homeGoals: number | null = null;
-    let homeBehinds: number | null = null;
-    let awayGoals: number | null = null;
-    let awayBehinds: number | null = null;
     let margin: number | null = null;
     if (scoreMatch) {
       homePoints = Number.parseInt(scoreMatch[1] ?? "0", 10);
       awayPoints = Number.parseInt(scoreMatch[2] ?? "0", 10);
-      homeGoals = Math.floor(homePoints / 6);
-      homeBehinds = homePoints - homeGoals * 6;
-      awayGoals = Math.floor(awayPoints / 6);
-      awayBehinds = awayPoints - awayGoals * 6;
       margin = homePoints - awayPoints;
     }
 
@@ -529,11 +522,11 @@ export function parseFixtureList(html: string, year: number): Match[] {
       venue: canonicalVenue,
       homeTeam,
       awayTeam,
-      homeGoals,
-      homeBehinds,
+      homeGoals: null,
+      homeBehinds: null,
       homePoints,
-      awayGoals,
-      awayBehinds,
+      awayGoals: null,
+      awayBehinds: null,
       awayPoints,
       margin,
       q1Home: null,

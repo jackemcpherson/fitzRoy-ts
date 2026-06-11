@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   page itself is still an `err` Result, and the CLI `stats` command prints
   a stderr warning when games are missing. Migrate by reading
   `result.data.stats` where you previously read `result.data`.
+- **BREAKING**: FootyWire match-list rows no longer fabricate
+  goals/behinds from total points (`floor(points / 6)` produced
+  plausible-but-wrong data indistinguishable from real values
+  downstream). `homeGoals`/`homeBehinds`/`awayGoals`/`awayBehinds` are
+  now `null` for `source: "footywire"` matches — only
+  `homePoints`/`awayPoints` are real on that page.
 
 ### Added
 

@@ -37,6 +37,19 @@ describe("parseMatchList", () => {
     expect(first.q4Away).toBeNull();
   });
 
+  it("emits null goals/behinds — the match-list page only publishes total points (COR-04)", () => {
+    const results = parseMatchList(fixtureHtml, 2025);
+    const first = results[0];
+    expect(first).toBeDefined();
+    if (!first) return;
+
+    expect(first.homePoints).toBe(82);
+    expect(first.homeGoals).toBeNull();
+    expect(first.homeBehinds).toBeNull();
+    expect(first.awayGoals).toBeNull();
+    expect(first.awayBehinds).toBeNull();
+  });
+
   it("extracts round numbers from headers", () => {
     const results = parseMatchList(fixtureHtml, 2025);
 
@@ -55,7 +68,7 @@ describe("parseMatchList", () => {
 });
 
 describe("parseFixtureList (#122)", () => {
-  it("populates homePoints/awayPoints/margin/goals/behinds when score is present", () => {
+  it("populates homePoints/awayPoints/margin when score is present, leaving goals/behinds null", () => {
     const fixtures = parseFixtureList(fixtureHtml, 2025);
     const completed = fixtures.filter((f) => f.status === "Complete");
     expect(completed.length).toBeGreaterThan(0);
@@ -70,12 +83,13 @@ describe("parseFixtureList (#122)", () => {
     expect(first.homePoints).toBe(82);
     expect(first.awayPoints).toBe(69);
     expect(first.margin).toBe(13);
-    // Goals/behinds estimated from the total (FootyWire match list only
-    // exposes total points): 82 = 13.4, 69 = 11.3
-    expect(first.homeGoals).toBe(13);
-    expect(first.homeBehinds).toBe(4);
-    expect(first.awayGoals).toBe(11);
-    expect(first.awayBehinds).toBe(3);
+    // Goals/behinds are null — the match-list page only publishes total
+    // points, and fabricating them from the total produced wrong data
+    // (COR-04).
+    expect(first.homeGoals).toBeNull();
+    expect(first.homeBehinds).toBeNull();
+    expect(first.awayGoals).toBeNull();
+    expect(first.awayBehinds).toBeNull();
   });
 
   it("leaves scores null for upcoming matches", () => {

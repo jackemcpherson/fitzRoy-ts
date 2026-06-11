@@ -64,6 +64,12 @@ export interface Match {
   /**
    * Total goals-behinds-points for each team. Null when the match has not
    * yet been played (status="Upcoming").
+   *
+   * FootyWire match-list rows (`source: "footywire"`) always carry null
+   * goals/behinds — the match-list page only publishes total points, so
+   * only `homePoints`/`awayPoints` are populated for that source. Use the
+   * per-match stats pages (or another source) when you need the
+   * goals-behinds breakdown.
    */
   readonly homeGoals: number | null;
   readonly homeBehinds: number | null;
