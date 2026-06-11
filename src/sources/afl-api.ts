@@ -327,8 +327,10 @@ export class AflApiClient {
       return result;
     }
 
-    const yearStr = String(year);
-    const season = result.data.compSeasons.find((cs) => cs.name.includes(yearStr));
+    // Anchor the year with word boundaries — a bare substring match would
+    // also hit a year embedded in a longer number (COR-10).
+    const yearPattern = new RegExp(`\\b${String(year)}\\b`);
+    const season = result.data.compSeasons.find((cs) => yearPattern.test(cs.name));
 
     if (!season) {
       return err(new AflApiError(`Season not found for year: ${year}`));

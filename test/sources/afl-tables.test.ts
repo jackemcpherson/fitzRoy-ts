@@ -176,5 +176,41 @@ describe("AflTablesClient", () => {
 
       expect(result.success).toBe(false);
     });
+
+    it("keys round numbers by game id, so a skipped season-page row does not shift later rounds (COR-10)", async () => {
+      // Round 1's match table is malformed (no team links) so parseSeasonPage
+      // skips it, but its "Match stats" link is still picked up by the game-URL
+      // extractor. With index-based alignment the Round 2 game would read the
+      // round from results[1] (which doesn't exist) and fall back to 0.
+      const seasonWithSkippedRowHtml = `<html><body>
+<table><tr><td>Round 1</td><td></td></tr></table>
+<table border=1>
+<tr><td>Sydney</td><td><tt>3.3 4.3 7.10 12.14</tt></td><td> 86</td><td>Thu 07-Mar-2023 7:30 PM <b>Venue:</b> <a href="../venues/scg.html">S.C.G.</a></td></tr>
+<tr><td>Melbourne</td><td><tt>1.6 2.8 7.8 9.10</tt></td><td> 64</td><td><b>Sydney</b> won by <b>22 pts </b>[<a href="../stats/games/2023/111620230307.html">Match stats</a>]</td></tr>
+</table>
+<table><tr><td>Round 2</td><td></td></tr></table>
+<table border=1>
+<tr><td><a href="../teams/geelong_idx.html">Geelong</a></td><td><tt>5.1 9.4 12.10 16.12</tt></td><td>108</td><td>Sat 16-Mar-2023 1:45 PM <b>Venue:</b> <a href="../venues/geel.html">K.S.</a></td></tr>
+<tr><td><a href="../teams/adelaide_idx.html">Adelaide</a></td><td><tt>2.3 5.5 8.8 10.11</tt></td><td> 71</td><td><b>Geelong</b> won by <b>37 pts </b>[<a href="../stats/games/2023/031820230316.html">Match stats</a>]</td></tr>
+</table>
+</body></html>`;
+
+      const fetchFn = vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/seas/2023.html")) {
+          return Promise.resolve(new Response(seasonWithSkippedRowHtml, { status: 200 }));
+        }
+        return Promise.resolve(new Response(gameStatsHtml, { status: 200 }));
+      });
+      const client = new AflTablesClient({ fetchFn });
+
+      const result = await client.fetchSeasonPlayerStats(2023);
+
+      expect(result.success).toBe(true);
+      if (!result.success) return;
+      const round2Stats = result.data.stats.filter((s) => s.matchId === "AT_031820230316");
+      expect(round2Stats.length).toBeGreaterThan(0);
+      expect(round2Stats[0]?.roundNumber).toBe(2);
+    });
   });
 });

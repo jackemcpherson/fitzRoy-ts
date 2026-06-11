@@ -112,7 +112,15 @@ export class AflTablesClient {
         return ok({ stats: [], failedMatchIds: [] });
       }
 
-      const results = parseSeasonPage(seasonHtml, year);
+      // Key the round lookup by AFL Tables game id, NOT by array index —
+      // the season parse may skip a malformed row, and an index-based
+      // alignment would then shift every later game's round (COR-10).
+      const roundByGameId = new Map<string, number>();
+      for (const game of parseSeasonPageGames(seasonHtml, year)) {
+        if (game.gameId != null) {
+          roundByGameId.set(game.gameId, game.match.roundNumber);
+        }
+      }
 
       const indexedUrls = gameUrls.map((gameUrl, idx) => ({ gameUrl, idx }));
       const perGame = await batchedMap(
@@ -122,7 +130,8 @@ export class AflTablesClient {
           idx,
         }): Promise<{ stats: PlayerStats[]; failedMatchId: string | null }> => {
           const urlMatch = /\/(\d+)\.html$/.exec(gameUrl);
-          const matchId = urlMatch?.[1] ?? `${year}_${idx}`;
+          const gameId = urlMatch?.[1];
+          const matchId = gameId ?? `${year}_${idx}`;
           try {
             const resp = await this.fetchFn(gameUrl, {
               headers: { "User-Agent": "Mozilla/5.0" },
@@ -130,7 +139,7 @@ export class AflTablesClient {
             if (!resp.ok) return { stats: [], failedMatchId: `AT_${matchId}` };
 
             const html = await resp.text();
-            const roundNumber = results[idx]?.roundNumber ?? 0;
+            const roundNumber = (gameId != null ? roundByGameId.get(gameId) : undefined) ?? 0;
 
             return {
               stats: parseAflTablesGameStats(html, matchId, year, roundNumber),
@@ -248,8 +257,29 @@ export class AflTablesClient {
  * @returns Array of match results extracted from the page.
  */
 export function parseSeasonPage(html: string, year: number): Match[] {
+  return parseSeasonPageGames(html, year).map((g) => g.match);
+}
+
+/** A season-page match plus the AFL Tables game id from its "Match stats" link. */
+interface SeasonPageGame {
+  readonly match: Match;
+  /**
+   * Numeric game id extracted from the away row's `stats/games/YYYY/<id>.html`
+   * link, or null when the row carries no stats link. Used to key the
+   * per-game round lookup in {@link AflTablesClient.fetchSeasonPlayerStats} —
+   * keying by array index breaks as soon as one season-page row is skipped.
+   */
+  readonly gameId: string | null;
+}
+
+/**
+ * Parse the season page into matches paired with their AFL Tables game ids.
+ * Internal companion to {@link parseSeasonPage}.
+ */
+function parseSeasonPageGames(html: string, year: number): SeasonPageGame[] {
   const $ = parseHtml(html);
   const results: Match[] = [];
+  const gameIds: (string | null)[] = [];
   let currentRound = 0;
   let currentRoundType: RoundType = "HomeAndAway";
   let currentRoundName = "";
@@ -331,6 +361,12 @@ export function parseSeasonPage(html: string, year: number): Match[] {
 
     matchCounter++;
 
+    // Game id from the away row's "Match stats" link (when present) — keys
+    // the round lookup for the per-game player-stats scrape.
+    const statsCellHtml = $(awayCells[3]).html() ?? "";
+    const gameIdMatch = /\/games\/\d{4}\/(\d+)\.html/.exec(statsCellHtml);
+    gameIds.push(gameIdMatch?.[1] ?? null);
+
     results.push({
       matchId: `AT_${year}_${matchCounter}`,
       season: year,
@@ -373,7 +409,11 @@ export function parseSeasonPage(html: string, year: number): Match[] {
     });
   });
 
-  return remapOpeningRound(results, year);
+  // remapOpeningRound preserves order and length, so re-zip by index.
+  return remapOpeningRound(results, year).map((match, i) => ({
+    match,
+    gameId: gameIds[i] ?? null,
+  }));
 }
 
 /**
@@ -480,7 +520,9 @@ function parseQuarterScores(text: string): (QuarterScore | undefined)[] {
  */
 function parseDateFromInfo(text: string, year: number, venueTimezone: string | null): Date {
   const m = /(\d{1,2})-([A-Z][a-z]{2})-(\d{4})(?:\s+(\d{1,2}):(\d{2})\s*([AaPp][Mm]))?/.exec(text);
-  if (!m) return parseDate(text) ?? new Date(year, 0, 1);
+  // Fallbacks use Date.UTC — `new Date(year, 0, 1)` would depend on the
+  // host machine's local timezone (COR-10).
+  if (!m) return parseDate(text) ?? new Date(Date.UTC(year, 0, 1));
 
   const day = Number.parseInt(m[1] ?? "0", 10);
   const monthStr = (m[2] ?? "").toLowerCase();
@@ -500,7 +542,7 @@ function parseDateFromInfo(text: string, year: number, venueTimezone: string | n
     dec: 11,
   };
   const monthIndex = months[monthStr];
-  if (monthIndex == null) return parseDate(text) ?? new Date(year, 0, 1);
+  if (monthIndex == null) return parseDate(text) ?? new Date(Date.UTC(year, 0, 1));
 
   // No time → midnight UTC (matches AFL Tables' historical convention pre-2010s).
   if (!m[4] || !m[5] || !m[6]) {

@@ -298,6 +298,24 @@ describe("AflApiClient", () => {
       }
     });
 
+    it("anchors the year — does not match a year embedded in a longer number (COR-10)", async () => {
+      const compseasons = {
+        compSeasons: [
+          { id: 52, name: "Festival Cup 12024" },
+          { id: 62, name: "2024 Toyota AFL Premiership" },
+        ],
+      };
+      const fetchFn = vi.fn().mockResolvedValueOnce(mockResponse(compseasons));
+      const client = new AflApiClient({ fetchFn });
+
+      const result = await client.resolveSeasonId(1, 2024);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data).toBe(62);
+      }
+    });
+
     it("returns error when season year is not found", async () => {
       const compseasons = {
         compSeasons: [{ id: 52, name: "2023 Toyota AFL Premiership" }],

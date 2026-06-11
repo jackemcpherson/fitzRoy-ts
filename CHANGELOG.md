@@ -38,6 +38,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- AFL Tables: season player-stats round numbers are now looked up by the
+  game's AFL Tables id instead of array index, so one skipped season-page
+  row no longer shifts every later game's round number.
+- AFL Tables: the fallback date for unparseable date text is now midnight
+  UTC on 1 January instead of local-machine-timezone midnight.
+- AFL API: season resolution anchors the year with word boundaries, so a
+  year embedded in a longer number in a compseason name can no longer be
+  matched by mistake.
 - Squiggle: `fetchMatches({ source: "squiggle", status: "Upcoming" })`
   (or `"Live"`) no longer silently returns `[]`. The adapter hardcoded
   `complete=100`; it now applies the completion filter only for
