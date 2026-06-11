@@ -52,4 +52,4 @@ jobs:
         run: npm pack --dry-run
 
       - name: Check type exports
-        run: bunx attw --pack . --ignore-rules cjs-resolves-to-esm
+        run: bunx attw --pack . --profile esm-only
