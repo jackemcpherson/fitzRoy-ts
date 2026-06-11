@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-06-11
+
+### Changed
+
+- **BREAKING**: the package root now exports only the supported surface
+  (fetch functions, domain types, errors, `Result`, source clients, and
+  date/name utilities). Raw AFL API and Squiggle wire schemas moved to
+  the new `fitzroy/schemas` subpath export so upstream drift no longer
+  forces a major release; internal transform functions are no longer
+  exported.
+
+- **BREAKING for CLI-from-source users only**: `citty`, `@clack/prompts`
+  and `picocolors` are now devDependencies bundled into the published
+  `dist/cli.js`, so library consumers no longer install interactive CLI
+  dependencies. `npx fitzroy` / the binary releases are unaffected.
+- `@jackemcpherson/rds-js` bumped to ^0.3.0 (hardened parser).
+
+### Removed
+
+- **BREAKING**: deprecated date-parsing aliases (`parseAflApiDate`,
+  `parseAflApiMatchTime`, `parseAflTablesDate`, `parseFootyWireDate`) —
+  use `parseDate`. The deprecated `SquadPlayer` type alias — use
+  `Player`.
+
+### Changed
+
+- **BREAKING**: `fetchPlayerStats` now returns a `SeasonPlayerStats`
+  partial-result envelope (`{ stats, failedMatchIds }`) instead of a bare
+  `PlayerStats[]`. Season scrapes (afl-tables, footywire) used to silently
+  drop games whose page fetch failed — a season missing 30 games still
+  looked like a complete success. Failed games are now listed in
+  `failedMatchIds` (same namespace as `PlayerStats.matchId`) while the
+  rest of the season is returned in `stats`. Total failure of the season
+  page itself is still an `err` Result, and the CLI `stats` command prints
+  a stderr warning when games are missing. Migrate by reading
+  `result.data.stats` where you previously read `result.data`.
+- **BREAKING**: FootyWire match-list rows no longer fabricate
+  goals/behinds from total points (`floor(points / 6)` produced
+  plausible-but-wrong data indistinguishable from real values
+  downstream). `homeGoals`/`homeBehinds`/`awayGoals`/`awayBehinds` are
+  now `null` for `source: "footywire"` matches — only
+  `homePoints`/`awayPoints` are real on that page.
+
 ### Added
 
 - All source clients now apply a default 30-second timeout to every
@@ -19,6 +62,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- AFL Tables: season player-stats round numbers are now looked up by the
+  game's AFL Tables id instead of array index, so one skipped season-page
+  row no longer shifts every later game's round number.
+- AFL Tables: the fallback date for unparseable date text is now midnight
+  UTC on 1 January instead of local-machine-timezone midnight.
+- AFL API: season resolution anchors the year with word boundaries, so a
+  year embedded in a longer number in a compseason name can no longer be
+  matched by mistake.
 - Squiggle: `fetchMatches({ source: "squiggle", status: "Upcoming" })`
   (or `"Live"`) no longer silently returns `[]`. The adapter hardcoded
   `complete=100`; it now applies the completion filter only for

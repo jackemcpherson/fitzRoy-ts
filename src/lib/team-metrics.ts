@@ -4,8 +4,17 @@
 
 import type { TeamMetricSet } from "../types";
 
+/**
+ * Mutable companion to {@link TeamMetricSet} for incremental construction.
+ * Parsers fill fields in as they walk a stats table, then hand the finished
+ * set off as a (readonly) `TeamMetricSet` — no casts required.
+ */
+export type MutableTeamMetricSet = {
+  -readonly [K in keyof TeamMetricSet]: TeamMetricSet[K];
+};
+
 /** Build a fully-nullable TeamMetricSet — caller fills in the fields a source supplies. */
-export function emptyMetricSet(): TeamMetricSet {
+export function emptyMetricSet(): MutableTeamMetricSet {
   return {
     kicks: null,
     handballs: null,

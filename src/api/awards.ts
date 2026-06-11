@@ -217,8 +217,8 @@ async function fetchColemanLeaderboard(query: AwardQuery): Promise<Result<Award[
     season: query.season,
     competition,
   });
-  return Result.map(statsR, (stats) =>
-    rankColemanFromStats(stats, query.season, competition, query.limit),
+  return Result.map(statsR, (seasonStats) =>
+    rankColemanFromStats(seasonStats.stats, query.season, competition, query.limit),
   );
 }
 

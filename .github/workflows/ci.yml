@@ -31,11 +31,19 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Typecheck (portable core, no Node types)
+        run: npm run typecheck:portable
+
       - name: Lint and format
         run: npm run check
 
       - name: Test
         run: npm run test
+
+      # Informational only — no thresholds are configured, so coverage
+      # never fails the build (TST-06).
+      - name: Coverage summary
+        run: npm run test:coverage
 
       - name: Build
         run: bun run build
@@ -44,4 +52,4 @@ jobs:
         run: npm pack --dry-run
 
       - name: Check type exports
-        run: bunx attw --pack . --ignore-rules cjs-resolves-to-esm
+        run: bunx attw --pack . --profile esm-only

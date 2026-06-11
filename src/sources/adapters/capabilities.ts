@@ -22,8 +22,8 @@ import type {
   LineupQuery,
   Match,
   MatchQuery,
-  PlayerStats,
   PlayerStatsQuery,
+  SeasonPlayerStats,
   Squad,
   SquadQuery,
   TeamStatsEntry,
@@ -48,9 +48,16 @@ export interface MatchSource extends CapabilityAdapter {
   fetchMatches(query: MatchQuery): Promise<Result<Match[], Error>>;
 }
 
-/** A source that can fetch per-player per-match performance stats. */
+/**
+ * A source that can fetch per-player per-match performance stats.
+ *
+ * Returns a {@link SeasonPlayerStats} partial-result envelope: season-level
+ * scrapes that lose individual games still succeed, with the lost games
+ * listed in `failedMatchIds`. Sources without per-game fetches (or
+ * single-match queries) return an empty `failedMatchIds`.
+ */
 export interface PlayerStatsSource extends CapabilityAdapter {
-  fetchPlayerStats(query: PlayerStatsQuery): Promise<Result<PlayerStats[], Error>>;
+  fetchPlayerStats(query: PlayerStatsQuery): Promise<Result<SeasonPlayerStats, Error>>;
 }
 
 /** A source that can fetch season-aggregated team performance. */

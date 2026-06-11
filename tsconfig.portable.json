@@ -1,0 +1,12 @@
+// Portability gate (MNT-06): proves the library core (src/ minus the CLI)
+// compiles against Web Standard APIs only — no Node.js type definitions.
+// Run via `npm run typecheck:portable`.
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": [],
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "src/cli.ts", "src/cli/**"]
+}

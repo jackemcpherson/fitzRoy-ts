@@ -64,6 +64,12 @@ export interface Match {
   /**
    * Total goals-behinds-points for each team. Null when the match has not
    * yet been played (status="Upcoming").
+   *
+   * FootyWire match-list rows (`source: "footywire"`) always carry null
+   * goals/behinds — the match-list page only publishes total points, so
+   * only `homePoints`/`awayPoints` are populated for that source. Use the
+   * per-match stats pages (or another source) when you need the
+   * goals-behinds breakdown.
    */
   readonly homeGoals: number | null;
   readonly homeBehinds: number | null;
@@ -249,6 +255,26 @@ export interface PlayerStats {
   readonly source: DataSource;
 }
 
+/**
+ * Partial-result envelope returned by season-level player-stats fetches.
+ *
+ * Season scrapes hit one page per game, so a single failed game should not
+ * discard the rest of the season — but it must not be silent either. The
+ * envelope carries both the stat lines that were scraped and the IDs of
+ * matches whose per-game scrape failed. IDs share the namespace of
+ * {@link PlayerStats.matchId} (e.g. `AT_…` for AFL Tables, `FW_…` for
+ * FootyWire) so failures can be cross-referenced against returned rows.
+ *
+ * Total failure of the season-level request itself (e.g. the season page
+ * is unreachable) is still reported as an `err` Result, not an envelope.
+ */
+export interface SeasonPlayerStats {
+  /** Per-player stat lines for every game that was fetched successfully. */
+  readonly stats: readonly PlayerStats[];
+  /** Match IDs whose per-game fetch or parse failed (empty when complete). */
+  readonly failedMatchIds: readonly string[];
+}
+
 // ---------------------------------------------------------------------------
 // Lineup / roster
 // ---------------------------------------------------------------------------
@@ -360,13 +386,6 @@ export interface Player {
   readonly source: DataSource;
   readonly competition: CompetitionCode;
 }
-
-/**
- * @deprecated Use {@link Player}. Removed in 2.1.0; alias retained
- * temporarily for downstream type-only references. Will be deleted in
- * 3.0.
- */
-export type SquadPlayer = Player;
 
 /** A team's squad for a given season. */
 export interface Squad {

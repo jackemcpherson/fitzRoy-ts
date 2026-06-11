@@ -5,9 +5,9 @@
  * no match results, ladders, or squads. Coverage: AFLM and AFLW.
  */
 
-import type { Result } from "../../lib/result";
+import { Result } from "../../lib/result";
 import { transformFryziggPlayerStats } from "../../transforms/fryzigg-player-stats";
-import type { PlayerStats, PlayerStatsQuery } from "../../types";
+import type { PlayerStatsQuery, SeasonPlayerStats } from "../../types";
 import { FryziggClient } from "../fryzigg";
 import type { PlayerStatsSource } from "./capabilities";
 import type { CoverageMap } from "./coverage";
@@ -29,14 +29,17 @@ export class FryziggPlayerStatsSource implements PlayerStatsSource {
 
   constructor(private readonly client: FryziggClient = new FryziggClient()) {}
 
-  async fetchPlayerStats(query: PlayerStatsQuery): Promise<Result<PlayerStats[], Error>> {
+  async fetchPlayerStats(query: PlayerStatsQuery): Promise<Result<SeasonPlayerStats, Error>> {
     const competition = query.competition ?? "AFLM";
     const result = await this.client.fetchPlayerStats(competition);
     if (!result.success) return result;
-    return transformFryziggPlayerStats(result.data, {
+    const transformed = transformFryziggPlayerStats(result.data, {
       competition,
       season: query.season,
       round: query.round,
     });
+    // Fryzigg is a single bulk download — there are no per-game fetches
+    // that can partially fail, so failedMatchIds is always empty.
+    return Result.map(transformed, (stats) => ({ stats, failedMatchIds: [] }));
   }
 }
