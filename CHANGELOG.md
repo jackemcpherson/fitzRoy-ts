@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-06-11
+
 ### Changed
 
 - **BREAKING**: the package root now exports only the supported surface
