@@ -40,6 +40,11 @@ jobs:
       - name: Test
         run: npm run test
 
+      # Informational only — no thresholds are configured, so coverage
+      # never fails the build (TST-06).
+      - name: Coverage summary
+        run: npm run test:coverage
+
       - name: Build
         run: bun run build
 
