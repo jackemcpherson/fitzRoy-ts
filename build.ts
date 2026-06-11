@@ -11,6 +11,16 @@ await build({
   platform: "neutral",
 });
 
+// Schemas subpath bundle — raw upstream wire schemas (fitzroy/schemas)
+await build({
+  entryPoints: ["src/schemas.ts"],
+  bundle: true,
+  format: "esm",
+  outfile: "dist/schemas.js",
+  packages: "external",
+  platform: "neutral",
+});
+
 // CLI bundle — external deps, node platform for process/fs access
 await build({
   entryPoints: ["src/cli.ts"],

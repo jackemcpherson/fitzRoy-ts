@@ -2,6 +2,12 @@
  * fitzRoy-ts — TypeScript port of the {@link https://github.com/jimmyday12/fitzRoy | fitzRoy R package}
  * for programmatic access to AFL (Australian Football League) data.
  *
+ * v3 trimmed this entry point to the supported surface: the `fetch*`
+ * functions, the domain model, errors, the Result type, source clients
+ * (for fetch/timeout injection), and a handful of date/name utilities.
+ * Raw upstream wire schemas live in the `fitzroy/schemas` subpath;
+ * internal transforms are no longer exported.
+ *
  * @packageDocumentation
  */
 
@@ -16,11 +22,7 @@ export { fetchSquad, fetchTeams } from "./api/teams";
 export {
   localToUtc,
   type ParseDateOptions,
-  parseAflApiDate,
-  parseAflApiMatchTime,
-  parseAflTablesDate,
   parseDate,
-  parseFootyWireDate,
   resolveDefaultSeason,
   toAestString,
 } from "./lib/date-utils";
@@ -33,78 +35,11 @@ export {
   UnsupportedSourceError,
   ValidationError,
 } from "./lib/errors";
+export type { FetchRetryOptions } from "./lib/fetch-retry";
+export type { FetchTimeoutOptions } from "./lib/fetch-timeout";
 export { type Err, err, type Ok, ok, Result } from "./lib/result";
-export {
-  type SquiggleGame,
-  SquiggleGameSchema,
-  type SquiggleGamesResponse,
-  SquiggleGamesResponseSchema,
-  type SquiggleStanding,
-  SquiggleStandingSchema,
-  type SquiggleStandingsResponse,
-  SquiggleStandingsResponseSchema,
-} from "./lib/squiggle-validation";
+export type { SourceFetchOptions } from "./lib/source-fetch";
 export { normaliseTeamName } from "./lib/team-mapping";
-export {
-  type AflApiToken,
-  AflApiTokenSchema,
-  type CfsMatch,
-  CfsMatchSchema,
-  type CfsMatchTeam,
-  CfsMatchTeamSchema,
-  type CfsScore,
-  CfsScoreSchema,
-  type CfsVenue,
-  CfsVenueSchema,
-  type Competition,
-  type CompetitionList,
-  CompetitionListSchema,
-  CompetitionSchema,
-  type Compseason,
-  type CompseasonList,
-  CompseasonListSchema,
-  CompseasonSchema,
-  type LadderEntryRaw,
-  LadderEntryRawSchema,
-  type LadderResponse,
-  LadderResponseSchema,
-  type MatchItem,
-  type MatchItemList,
-  MatchItemListSchema,
-  MatchItemSchema,
-  type MatchRoster,
-  MatchRosterSchema,
-  type PeriodScore,
-  PeriodScoreSchema,
-  type PlayerGameStats,
-  PlayerGameStatsSchema,
-  type PlayerStatsItem,
-  PlayerStatsItemSchema,
-  type PlayerStatsList,
-  PlayerStatsListSchema,
-  type RosterPlayer,
-  RosterPlayerSchema,
-  type Round,
-  type RoundList,
-  RoundListSchema,
-  RoundSchema,
-  type Score,
-  ScoreSchema,
-  type SquadList,
-  SquadListSchema,
-  SquadPlayerInnerSchema,
-  type SquadPlayerItem,
-  SquadPlayerItemSchema,
-  SquadSchema,
-  type TeamItem,
-  TeamItemSchema,
-  type TeamList,
-  TeamListSchema,
-  type TeamPlayers,
-  TeamPlayersSchema,
-  type TeamScore,
-  TeamScoreSchema,
-} from "./lib/validation";
 export { normaliseVenueName } from "./lib/venue-mapping";
 export { resolveVenueTimezone } from "./lib/venue-timezones";
 export { AflApiClient, type AflApiClientOptions } from "./sources/afl-api";
@@ -113,20 +48,6 @@ export { AflTablesClient, type AflTablesClientOptions } from "./sources/afl-tabl
 export { FootyWireClient, type FootyWireClientOptions } from "./sources/footywire";
 export { FryziggClient, type FryziggClientOptions } from "./sources/fryzigg";
 export { SquiggleClient, type SquiggleClientOptions } from "./sources/squiggle";
-export { computeLadder } from "./transforms/computed-ladder";
-export {
-  type FryziggTransformOptions,
-  transformFryziggPlayerStats,
-} from "./transforms/fryzigg-player-stats";
-export { transformLadderEntries } from "./transforms/ladder";
-export { transformMatchRoster } from "./transforms/lineup";
-export { inferRoundType, transformMatchItems } from "./transforms/match-results";
-export { type TransformContext, transformPlayerStats } from "./transforms/player-stats";
-export {
-  transformSquiggleGamesToFixture,
-  transformSquiggleGamesToResults,
-  transformSquiggleStandings,
-} from "./transforms/squiggle";
 export type {
   AllAustralianSelection,
   Award,
@@ -158,7 +79,6 @@ export type {
   SeasonPlayerStats,
   SeasonRoundQuery,
   Squad,
-  SquadPlayer,
   SquadQuery,
   Team,
   TeamMetricSet,

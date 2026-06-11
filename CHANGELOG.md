@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING**: the package root now exports only the supported surface
+  (fetch functions, domain types, errors, `Result`, source clients, and
+  date/name utilities). Raw AFL API and Squiggle wire schemas moved to
+  the new `fitzroy/schemas` subpath export so upstream drift no longer
+  forces a major release; internal transform functions are no longer
+  exported.
+
+### Removed
+
+- **BREAKING**: deprecated date-parsing aliases (`parseAflApiDate`,
+  `parseAflApiMatchTime`, `parseAflTablesDate`, `parseFootyWireDate`) —
+  use `parseDate`. The deprecated `SquadPlayer` type alias — use
+  `Player`.
+
+### Changed
+
 - **BREAKING**: `fetchPlayerStats` now returns a `SeasonPlayerStats`
   partial-result envelope (`{ stats, failedMatchIds }`) instead of a bare
   `PlayerStats[]`. Season scrapes (afl-tables, footywire) used to silently

@@ -142,24 +142,6 @@ function resolveTimezone(opts: ParseDateOptions): string {
   return DEFAULT_TIMEZONE;
 }
 
-// Legacy aliases — delegate to parseDate
-/** @deprecated Use {@link parseDate} instead. */
-export function parseAflApiDate(iso: string): Date | null {
-  return parseDate(iso);
-}
-/** @deprecated Use {@link parseDate} instead. */
-export function parseAflApiMatchTime(iso: string): Date | null {
-  return parseDate(iso);
-}
-/** @deprecated Use {@link parseDate} instead. */
-export function parseFootyWireDate(dateStr: string, defaultYear?: number): Date | null {
-  return parseDate(dateStr, defaultYear);
-}
-/** @deprecated Use {@link parseDate} instead. */
-export function parseAflTablesDate(dateStr: string): Date | null {
-  return parseDate(dateStr);
-}
-
 /**
  * Format a Date as an AEST/AEDT-aware display string.
  *

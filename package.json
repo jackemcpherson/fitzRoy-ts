@@ -1,7 +1,7 @@
 {
   "name": "fitzroy",
   "version": "2.3.0",
-  "description": "TypeScript port of the fitzRoy R package — programmatic access to AFL data including match results, player stats, fixtures, ladders, and more",
+  "description": "TypeScript port of the fitzRoy R package \u2014 programmatic access to AFL data including match results, player stats, fixtures, ladders, and more",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./schemas": {
+      "types": "./dist/schemas.d.ts",
+      "import": "./dist/schemas.js"
     }
   },
   "bin": {

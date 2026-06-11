@@ -387,13 +387,6 @@ export interface Player {
   readonly competition: CompetitionCode;
 }
 
-/**
- * @deprecated Use {@link Player}. Removed in 2.1.0; alias retained
- * temporarily for downstream type-only references. Will be deleted in
- * 3.0.
- */
-export type SquadPlayer = Player;
-
 /** A team's squad for a given season. */
 export interface Squad {
   readonly teamId: string;
