@@ -15,8 +15,8 @@ import type {
   Match,
   MatchQuery,
   Player,
-  PlayerStats,
   PlayerStatsQuery,
+  SeasonPlayerStats,
   Squad,
   SquadQuery,
   TeamStatsEntry,
@@ -61,11 +61,17 @@ export class AflTablesPlayerStatsSource implements PlayerStatsSource {
 
   constructor(private readonly client: AflTablesClient = new AflTablesClient()) {}
 
-  async fetchPlayerStats(query: PlayerStatsQuery): Promise<Result<PlayerStats[], Error>> {
+  async fetchPlayerStats(query: PlayerStatsQuery): Promise<Result<SeasonPlayerStats, Error>> {
     const result = await this.client.fetchSeasonPlayerStats(query.season);
     if (!result.success) return result;
     if (query.round != null) {
-      return ok(result.data.filter((s) => s.roundNumber === query.round));
+      // failedMatchIds pass through unfiltered — a failed game's round is
+      // unknown, so callers see every season-scrape failure regardless of
+      // the round filter.
+      return ok({
+        stats: result.data.stats.filter((s) => s.roundNumber === query.round),
+        failedMatchIds: result.data.failedMatchIds,
+      });
     }
     return result;
   }

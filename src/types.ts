@@ -249,6 +249,26 @@ export interface PlayerStats {
   readonly source: DataSource;
 }
 
+/**
+ * Partial-result envelope returned by season-level player-stats fetches.
+ *
+ * Season scrapes hit one page per game, so a single failed game should not
+ * discard the rest of the season — but it must not be silent either. The
+ * envelope carries both the stat lines that were scraped and the IDs of
+ * matches whose per-game scrape failed. IDs share the namespace of
+ * {@link PlayerStats.matchId} (e.g. `AT_…` for AFL Tables, `FW_…` for
+ * FootyWire) so failures can be cross-referenced against returned rows.
+ *
+ * Total failure of the season-level request itself (e.g. the season page
+ * is unreachable) is still reported as an `err` Result, not an envelope.
+ */
+export interface SeasonPlayerStats {
+  /** Per-player stat lines for every game that was fetched successfully. */
+  readonly stats: readonly PlayerStats[];
+  /** Match IDs whose per-game fetch or parse failed (empty when complete). */
+  readonly failedMatchIds: readonly string[];
+}
+
 // ---------------------------------------------------------------------------
 // Lineup / roster
 // ---------------------------------------------------------------------------

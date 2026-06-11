@@ -27,6 +27,7 @@ import type {
   Player,
   PlayerStats,
   PlayerStatsQuery,
+  SeasonPlayerStats,
   Squad,
   SquadQuery,
 } from "../../types";
@@ -77,7 +78,7 @@ export class AflApiPlayerStatsSource implements PlayerStatsSource {
 
   constructor(private readonly client: AflApiClient = new AflApiClient()) {}
 
-  async fetchPlayerStats(query: PlayerStatsQuery): Promise<Result<PlayerStats[], Error>> {
+  async fetchPlayerStats(query: PlayerStatsQuery): Promise<Result<SeasonPlayerStats, Error>> {
     const competition = query.competition ?? "AFLM";
 
     if (query.matchId) {
@@ -94,8 +95,8 @@ export class AflApiPlayerStatsSource implements PlayerStatsSource {
         teamIdMap.set(match.awayTeamId, normaliseTeamName(match.awayTeam.name));
       }
 
-      return ok(
-        transformPlayerStats(statsResult.data, {
+      return ok({
+        stats: transformPlayerStats(statsResult.data, {
           matchId: query.matchId,
           season: query.season,
           roundNumber: query.round ?? 0,
@@ -103,7 +104,8 @@ export class AflApiPlayerStatsSource implements PlayerStatsSource {
           source: "afl-api",
           teamIdMap,
         }),
-      );
+        failedMatchIds: [],
+      });
     }
 
     const seasonResult = await this.client.resolveCompSeason(competition, query.season);
@@ -125,6 +127,10 @@ export class AflApiPlayerStatsSource implements PlayerStatsSource {
       this.client.fetchPlayerStats(item.match.matchId),
     );
 
+    // Unlike the scraper sources, a single failed match here fails the whole
+    // season — the AFL API is a structured endpoint where per-match failures
+    // indicate a real problem rather than routine scrape flakiness, so the
+    // envelope's failedMatchIds stays empty for this source.
     const allStats: PlayerStats[] = [];
     for (let i = 0; i < statsResults.length; i++) {
       const statsResult = statsResults[i];
@@ -148,7 +154,7 @@ export class AflApiPlayerStatsSource implements PlayerStatsSource {
       );
     }
 
-    return ok(allStats);
+    return ok({ stats: allStats, failedMatchIds: [] });
   }
 }
 

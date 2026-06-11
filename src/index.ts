@@ -155,6 +155,7 @@ export type {
   QuarterScore,
   RisingStarNomination,
   RoundType,
+  SeasonPlayerStats,
   SeasonRoundQuery,
   Squad,
   SquadPlayer,

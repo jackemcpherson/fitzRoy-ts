@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING**: `fetchPlayerStats` now returns a `SeasonPlayerStats`
+  partial-result envelope (`{ stats, failedMatchIds }`) instead of a bare
+  `PlayerStats[]`. Season scrapes (afl-tables, footywire) used to silently
+  drop games whose page fetch failed — a season missing 30 games still
+  looked like a complete success. Failed games are now listed in
+  `failedMatchIds` (same namespace as `PlayerStats.matchId`) while the
+  rest of the season is returned in `stats`. Total failure of the season
+  page itself is still an `err` Result, and the CLI `stats` command prints
+  a stderr warning when games are missing. Migrate by reading
+  `result.data.stats` where you previously read `result.data`.
+
 ### Added
 
 - All source clients now apply a default 30-second timeout to every

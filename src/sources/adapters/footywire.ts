@@ -14,6 +14,7 @@ import type {
   Player,
   PlayerStats,
   PlayerStatsQuery,
+  SeasonPlayerStats,
   Squad,
   SquadQuery,
   TeamStatsEntry,
@@ -51,7 +52,9 @@ export class FootyWireMatchSource implements MatchSource {
  * FootyWire as a PlayerStatsSource (AFLM only, ~2010+).
  *
  * Scrapes per-match stats sequentially in batches of 5 with a delay
- * between batches to be respectful to the FootyWire site.
+ * between batches to be respectful to the FootyWire site. Individual
+ * match failures don't abort the scrape — they are surfaced in the
+ * envelope's `failedMatchIds` (same `FW_…` namespace as the stat rows).
  */
 export class FootyWirePlayerStatsSource implements PlayerStatsSource {
   readonly id = "footywire" as const;
@@ -59,7 +62,7 @@ export class FootyWirePlayerStatsSource implements PlayerStatsSource {
 
   constructor(private readonly client: FootyWireClient = new FootyWireClient()) {}
 
-  async fetchPlayerStats(query: PlayerStatsQuery): Promise<Result<PlayerStats[], Error>> {
+  async fetchPlayerStats(query: PlayerStatsQuery): Promise<Result<SeasonPlayerStats, Error>> {
     const idsResult = await this.client.fetchSeasonMatchIds(query.season);
     if (!idsResult.success) return idsResult;
 
@@ -68,7 +71,7 @@ export class FootyWirePlayerStatsSource implements PlayerStatsSource {
         ? idsResult.data.filter((e) => e.roundNumber === query.round)
         : idsResult.data;
 
-    if (entries.length === 0) return ok([]);
+    if (entries.length === 0) return ok({ stats: [], failedMatchIds: [] });
 
     const results = await batchedMap(
       entries,
@@ -77,12 +80,17 @@ export class FootyWirePlayerStatsSource implements PlayerStatsSource {
     );
 
     const allStats: PlayerStats[] = [];
-    for (const result of results) {
-      if (result.success) {
+    const failedMatchIds: string[] = [];
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
+      const entry = entries[i];
+      if (result?.success) {
         allStats.push(...result.data);
+      } else if (entry) {
+        failedMatchIds.push(`FW_${entry.matchId}`);
       }
     }
-    return ok(allStats);
+    return ok({ stats: allStats, failedMatchIds });
   }
 }
 

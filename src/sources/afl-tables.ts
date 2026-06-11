@@ -23,6 +23,7 @@ import type {
   PlayerStats,
   QuarterScore,
   RoundType,
+  SeasonPlayerStats,
   TeamMetricSet,
   TeamStatsEntry,
 } from "../types";
@@ -79,11 +80,16 @@ export class AflTablesClient {
   /**
    * Fetch player statistics for an entire season from AFL Tables.
    *
-   * Scrapes individual game pages linked from the season page.
+   * Scrapes individual game pages linked from the season page. Individual
+   * game failures do not abort the season scrape — they are surfaced in
+   * the returned envelope's `failedMatchIds` instead, so callers can tell
+   * a complete season apart from a partial one. Failure to fetch the
+   * season page itself is still a total `err`.
    *
    * @param year - The season year.
+   * @returns Envelope of scraped stats plus the match IDs that failed.
    */
-  async fetchSeasonPlayerStats(year: number): Promise<Result<PlayerStats[], ScrapeError>> {
+  async fetchSeasonPlayerStats(year: number): Promise<Result<SeasonPlayerStats, ScrapeError>> {
     const seasonUrl = `${AFL_TABLES_BASE}/${year}.html`;
     try {
       const seasonResponse = await this.fetchFn(seasonUrl, {
@@ -103,35 +109,44 @@ export class AflTablesClient {
       const gameUrls = extractGameUrls(seasonHtml);
 
       if (gameUrls.length === 0) {
-        return ok([]);
+        return ok({ stats: [], failedMatchIds: [] });
       }
 
       const results = parseSeasonPage(seasonHtml, year);
 
       const indexedUrls = gameUrls.map((gameUrl, idx) => ({ gameUrl, idx }));
-      const perGameStats = await batchedMap(
+      const perGame = await batchedMap(
         indexedUrls,
-        async ({ gameUrl, idx }) => {
+        async ({
+          gameUrl,
+          idx,
+        }): Promise<{ stats: PlayerStats[]; failedMatchId: string | null }> => {
+          const urlMatch = /\/(\d+)\.html$/.exec(gameUrl);
+          const matchId = urlMatch?.[1] ?? `${year}_${idx}`;
           try {
             const resp = await this.fetchFn(gameUrl, {
               headers: { "User-Agent": "Mozilla/5.0" },
             });
-            if (!resp.ok) return [];
+            if (!resp.ok) return { stats: [], failedMatchId: `AT_${matchId}` };
 
             const html = await resp.text();
-            const urlMatch = /\/(\d+)\.html$/.exec(gameUrl);
-            const matchId = urlMatch?.[1] ?? `${year}_${idx}`;
             const roundNumber = results[idx]?.roundNumber ?? 0;
 
-            return parseAflTablesGameStats(html, matchId, year, roundNumber);
+            return {
+              stats: parseAflTablesGameStats(html, matchId, year, roundNumber),
+              failedMatchId: null,
+            };
           } catch {
-            return [];
+            return { stats: [], failedMatchId: `AT_${matchId}` };
           }
         },
         { batchSize: 5, delayMs: 300 },
       );
 
-      return ok(perGameStats.flat());
+      return ok({
+        stats: perGame.flatMap((g) => g.stats),
+        failedMatchIds: perGame.flatMap((g) => (g.failedMatchId ? [g.failedMatchId] : [])),
+      });
     } catch (cause) {
       return err(
         new ScrapeError(

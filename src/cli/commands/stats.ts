@@ -7,6 +7,7 @@
  */
 
 import { defineCommand } from "citty";
+import pc from "picocolors";
 import { fetchPlayerStats, fetchTeamStats } from "../../index";
 import { fuzzySearch } from "../../lib/fuzzy";
 import { playerStatsRegistry, teamStatsRegistry } from "../../sources/adapters/registry";
@@ -146,7 +147,19 @@ export const statsCommand = defineCommand({
     );
     if (!result.success) throw result.error;
 
-    let data = result.data;
+    // Season scrapes can lose individual games — warn (on stderr, so JSON/CSV
+    // stdout output stays clean) rather than silently presenting a partial
+    // season as complete.
+    const { failedMatchIds } = result.data;
+    if (failedMatchIds.length > 0) {
+      console.error(
+        pc.yellow(
+          `Warning: ${failedMatchIds.length} game(s) failed to fetch and are missing from the results: ${failedMatchIds.join(", ")}`,
+        ),
+      );
+    }
+
+    let data = result.data.stats;
     // Sources other than afl-api ignore matchId at the adapter layer (#123).
     // When --match resolved to a known game, post-filter to its participants
     // so cross-source behaviour matches afl-api's per-match scoping.
