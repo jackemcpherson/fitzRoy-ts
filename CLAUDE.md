@@ -99,7 +99,7 @@ Full style guide at `docs/TYPESCRIPT_STYLE_GUIDE.md`. Key conventions:
 | Tool | Purpose |
 |------|---------|
 | Zod | Runtime validation of API/scraped data |
-| Cheerio | HTML parsing for scraper sources |
+| parse5 + cheerio/slim | HTML parsing for scraper sources (parse5 tree + cheerio selectors via `src/lib/parse-html.ts`; cheerio's full entry imports `node:stream` and breaks Workers) |
 | Biome | Lint + format (replaces ESLint + Prettier) |
 | Vitest | Test runner (globals enabled) |
 | Citty | CLI command framework (defineCommand, runMain) |
