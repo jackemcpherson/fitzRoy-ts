@@ -75,13 +75,19 @@ export function toMatchStatus(raw: string): MatchStatus {
       return "Live";
     case "UPCOMING":
     case "SCHEDULED":
+    case "UNCONFIRMED_TEAMS":
+    case "CONFIRMED_TEAMS":
+    case "PLACEHOLDER":
       return "Upcoming";
     case "POSTPONED":
       return "Postponed";
     case "CANCELLED":
       return "Cancelled";
     default:
-      return "Complete";
+      // Unknown statuses are far more likely to be new pre-game states
+      // (the API has grown UNCONFIRMED_TEAMS/PLACEHOLDER before) than new
+      // terminal ones; defaulting to Complete silently hid upcoming games.
+      return "Upcoming";
   }
 }
 

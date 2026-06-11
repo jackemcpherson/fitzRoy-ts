@@ -152,6 +152,28 @@ describe("transformMatchItems", () => {
     expect(results[1]?.status).toBe("Live");
   });
 
+  it("maps pre-game team-announcement statuses to Upcoming", () => {
+    // The AFL API reports near-future matches as UNCONFIRMED_TEAMS /
+    // CONFIRMED_TEAMS and far-future finals as PLACEHOLDER. These were
+    // previously swallowed by a default→Complete branch, which made
+    // upcoming games invisible to status-filtered consumers (footyBot
+    // missed live coverage on 2026-06-11).
+    const statuses = ["UNCONFIRMED_TEAMS", "CONFIRMED_TEAMS", "PLACEHOLDER"];
+    for (const status of statuses) {
+      const item = makeMatchItem();
+      item.match.status = status;
+      const results = transformMatchItems([item], 2026, "AFLM");
+      expect(results[0]?.status).toBe("Upcoming");
+    }
+  });
+
+  it("maps unknown statuses to Upcoming, not Complete", () => {
+    const item = makeMatchItem();
+    item.match.status = "SOME_FUTURE_STATUS";
+    const results = transformMatchItems([item], 2026, "AFLM");
+    expect(results[0]?.status).toBe("Upcoming");
+  });
+
   it("handles missing venue", () => {
     const item = makeMatchItem({ venue: undefined });
     const results = transformMatchItems([item], 2025, "AFLM");

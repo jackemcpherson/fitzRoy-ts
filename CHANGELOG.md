@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.1] - 2026-06-12
+
+### Fixed
+
+- AFL API matches with pre-game statuses `UNCONFIRMED_TEAMS`,
+  `CONFIRMED_TEAMS` or `PLACEHOLDER` were mapped to `Complete`; they now
+  map to `Upcoming`. Unknown raw statuses also default to `Upcoming`
+  instead of `Complete`, so a new pre-game status can no longer silently
+  hide upcoming fixtures from status-filtered queries.
+
 ## [3.0.0] - 2026-06-11
 
 ### Changed
