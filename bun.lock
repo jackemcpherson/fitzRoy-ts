@@ -5,22 +5,22 @@
     "": {
       "name": "fitzroy-ts",
       "dependencies": {
-        "@clack/prompts": "^1.1.0",
-        "@jackemcpherson/rds-js": "0.2.0",
+        "@jackemcpherson/rds-js": "^0.3.0",
         "cheerio": "^1.0.0",
-        "citty": "^0.2.1",
         "parse5": "^7.3.0",
         "parse5-htmlparser2-tree-adapter": "^7.1.0",
-        "picocolors": "^1.1.1",
         "zod": "^4.3.6",
       },
       "devDependencies": {
         "@arethetypeswrong/cli": "^0.18.2",
         "@biomejs/biome": "^2.4.9",
+        "@clack/prompts": "^1.1.0",
         "@types/node": "^25.5.0",
         "@vitest/coverage-v8": "^4.1.1",
         "bunup": "^0.16.31",
+        "citty": "^0.2.1",
         "esbuild": "^0.27.4",
+        "picocolors": "^1.1.1",
         "typescript": "^6.0.2",
         "vitest": "^4.1.1",
       },
@@ -134,7 +134,7 @@
 
     "@esbuild/win32-x64": ["@esbuild/win32-x64@0.27.4", "", { "os": "win32", "cpu": "x64" }, "sha512-+knoa0BDoeXgkNvvV1vvbZX4+hizelrkwmGJBdT17t8FNPwG2lKemmuMZlmaNQ3ws3DKKCxpb4zRZEIp3UxFCg=="],
 
-    "@jackemcpherson/rds-js": ["@jackemcpherson/rds-js@0.2.0", "", {}, "sha512-YMaai5MFEM+KwfkhetiQR5Q/mJUzJu7HntjSj++3hG8hVcpSUgsAcd0Q3TVSvCiT2lOM3Qf6MmYarfmiWDoMgQ=="],
+    "@jackemcpherson/rds-js": ["@jackemcpherson/rds-js@0.3.0", "", {}, "sha512-d9ThVCDgvPMP6n9JC+UI7g2NtnhM/kQS/N61XCJeOyeLpllFjR6jBgdgq36S5n3NEjP4q3p26+UrAfroOhRxwQ=="],
 
     "@jridgewell/resolve-uri": ["@jridgewell/resolve-uri@3.1.2", "", {}, "sha512-bRISgCIjP20/tbWSPWMEi54QVPRZExkuD9lJL+UIxUKtwVJA8wW1Trb1jMs1RFXo1CBTNZ/5hpC9QvmKWdopKw=="],
 

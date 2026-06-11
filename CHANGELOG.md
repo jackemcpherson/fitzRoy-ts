@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   forces a major release; internal transform functions are no longer
   exported.
 
+- **BREAKING for CLI-from-source users only**: `citty`, `@clack/prompts`
+  and `picocolors` are now devDependencies bundled into the published
+  `dist/cli.js`, so library consumers no longer install interactive CLI
+  dependencies. `npx fitzroy` / the binary releases are unaffected.
+- `@jackemcpherson/rds-js` bumped to ^0.3.0 (hardened parser).
+
 ### Removed
 
 - **BREAKING**: deprecated date-parsing aliases (`parseAflApiDate`,

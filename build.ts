@@ -21,13 +21,16 @@ await build({
   platform: "neutral",
 });
 
-// CLI bundle — external deps, node platform for process/fs access
+// CLI bundle — node platform for process/fs access. The interactive
+// CLI-only deps (citty, @clack/prompts, picocolors) are devDependencies
+// bundled INTO dist/cli.js so library consumers never install them;
+// the library's runtime deps stay external and resolve from node_modules.
 await build({
   entryPoints: ["src/cli.ts"],
   bundle: true,
   format: "esm",
   outfile: "dist/cli.js",
-  packages: "external",
+  external: Object.keys(pkg.dependencies),
   platform: "node",
   define: {
     PACKAGE_VERSION: JSON.stringify(pkg.version),
