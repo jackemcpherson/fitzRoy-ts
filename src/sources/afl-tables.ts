@@ -12,7 +12,7 @@ import { parseHtml } from "../lib/parse-html";
 import { err, ok, type Result } from "../lib/result";
 import { createSourceFetch, type SourceFetchOptions } from "../lib/source-fetch";
 import { normaliseTeamName } from "../lib/team-mapping";
-import { emptyMetricSet } from "../lib/team-metrics";
+import { emptyMetricSet, type MutableTeamMetricSet } from "../lib/team-metrics";
 import { normaliseVenueName } from "../lib/venue-mapping";
 import { resolveVenueTimezone } from "../lib/venue-timezones";
 import { extractGameUrls, parseAflTablesGameStats } from "../transforms/afl-tables-player-stats";
@@ -624,8 +624,8 @@ const AFL_TABLES_TEAM_METRIC_MAP: Readonly<Record<string, keyof TeamMetricSet>> 
 
 interface AflTablesTeamData {
   gamesPlayed: number;
-  forMetrics: Record<string, number | null>;
-  againstMetrics: Record<string, number | null>;
+  forMetrics: MutableTeamMetricSet;
+  againstMetrics: MutableTeamMetricSet;
 }
 
 export function parseAflTablesTeamStats(html: string, year: number): TeamStatsEntry[] {
@@ -665,8 +665,8 @@ export function parseAflTablesTeamStats(html: string, year: number): TeamStatsEn
       if (!teamMap.has(teamName)) {
         teamMap.set(teamName, {
           gamesPlayed: 0,
-          forMetrics: { ...emptyMetricSet() },
-          againstMetrics: { ...emptyMetricSet() },
+          forMetrics: emptyMetricSet(),
+          againstMetrics: emptyMetricSet(),
         });
       }
       const entry = teamMap.get(teamName);
@@ -702,8 +702,8 @@ export function parseAflTablesTeamStats(html: string, year: number): TeamStatsEn
       competition: "AFLM",
       team,
       gamesPlayed: data.gamesPlayed,
-      for: data.forMetrics as unknown as TeamMetricSet,
-      against: data.againstMetrics as unknown as TeamMetricSet,
+      for: data.forMetrics,
+      against: data.againstMetrics,
       source: "afl-tables",
     });
   }

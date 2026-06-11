@@ -31,6 +31,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Typecheck (portable core, no Node types)
+        run: npm run typecheck:portable
+
       - name: Lint and format
         run: npm run check
 

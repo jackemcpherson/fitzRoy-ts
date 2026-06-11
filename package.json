@@ -39,6 +39,7 @@
     "check": "biome check .",
     "format": "biome format --write .",
     "typecheck": "tsc --noEmit",
+    "typecheck:portable": "tsc --noEmit -p tsconfig.portable.json",
     "prepublishOnly": "bun run build",
     "prerelease": "npm run typecheck && npm run check && npm run test && bun run build"
   },

@@ -38,9 +38,7 @@ coverage/
 # development artifacts
 plans/
 AGENTS.md
-CONTEXT.md
 HANDOFF.md
-docs/adr/
 
 # comparison test outputs (keep scripts, ignore generated data)
 comparison/*.db

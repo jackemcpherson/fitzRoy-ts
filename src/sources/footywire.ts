@@ -630,7 +630,7 @@ export function parseFootyWireTeamStats(html: string, _year: number): FootyWireD
     const parseNum = (cell: ReturnType<typeof $>) => Number.parseFloat(cell.text().trim()) || 0;
 
     const gamesPlayed = parseNum($(cells[2]));
-    const metrics: Record<string, number | null> = { ...emptyMetricSet() };
+    const metrics = emptyMetricSet();
 
     // Columns 3-19 (0-indexed) map to FOOTYWIRE_STAT_KEYS
     for (let i = 0; i < FOOTYWIRE_STAT_KEYS.length; i++) {
@@ -644,7 +644,7 @@ export function parseFootyWireTeamStats(html: string, _year: number): FootyWireD
     entries.push({
       team: teamName,
       gamesPlayed,
-      metrics: metrics as unknown as TeamMetricSet,
+      metrics,
     });
   });
 
