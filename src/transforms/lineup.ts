@@ -57,5 +57,6 @@ export function transformMatchRoster(
     homePlayers: homeTeamPlayers ? mapPlayers(homeTeamPlayers.players) : [],
     awayPlayers: awayTeamPlayers ? mapPlayers(awayTeamPlayers.players) : [],
     competition,
+    source: "afl-api",
   };
 }

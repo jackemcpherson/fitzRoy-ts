@@ -65,6 +65,8 @@ describe("AflTablesLadderSource.asOfMatch (#119)", () => {
     expect(result.success).toBe(true);
     if (!result.success) return;
     expect(result.data.asOfMatch).toBe("AT_3");
+    // Envelope stamps source consistently (#120).
+    expect(result.data.source).toBe("afl-tables");
   });
 
   it("when --round is passed, asOfMatch reflects the latest match at-or-before that round", async () => {

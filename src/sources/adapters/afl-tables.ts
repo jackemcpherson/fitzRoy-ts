@@ -183,6 +183,7 @@ export class AflTablesSquadSource implements SquadSource {
       season: query.season,
       players,
       competition,
+      source: "afl-tables" as const,
     });
   }
 }
@@ -222,6 +223,7 @@ export class AflTablesLadderSource implements LadderSource {
       roundNumber: query.round ?? null,
       entries,
       competition,
+      source: "afl-tables" as const,
       asOfMatch,
     });
   }

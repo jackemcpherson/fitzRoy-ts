@@ -16,7 +16,13 @@ export type CompetitionCode = "AFLM" | "AFLW" | "VFL" | "VFLW";
 export type RoundType = "HomeAndAway" | "Finals";
 
 /** Supported data sources mirroring the R package's `source` parameter. */
-export type DataSource = "afl-api" | "footywire" | "afl-tables" | "squiggle" | "fryzigg";
+export type DataSource =
+  | "afl-api"
+  | "footywire"
+  | "afl-tables"
+  | "squiggle"
+  | "fryzigg"
+  | "afl-coaches";
 
 /** Match status as reported by the AFL API. */
 export type MatchStatus = "Upcoming" | "Live" | "Complete" | "Postponed" | "Cancelled";
@@ -350,6 +356,8 @@ export interface Lineup {
   readonly homePlayers: readonly LineupPlayer[];
   readonly awayPlayers: readonly LineupPlayer[];
   readonly competition: CompetitionCode;
+  /** Adapter that produced this lineup (#120). */
+  readonly source: DataSource;
 }
 
 // ---------------------------------------------------------------------------
@@ -377,6 +385,8 @@ export interface Ladder {
   readonly roundNumber: number | null;
   readonly entries: readonly LadderEntry[];
   readonly competition: CompetitionCode;
+  /** Adapter that produced the snapshot (#120). */
+  readonly source: DataSource;
   /**
    * Match ID of the most recent completed match the snapshot reflects, when
    * known. Adapters that synthesise the ladder from match results populate
@@ -398,6 +408,8 @@ export interface Team {
   readonly name: string;
   readonly abbreviation: string;
   readonly competition: CompetitionCode;
+  /** Adapter that supplied this team row (#120). */
+  readonly source: DataSource;
 }
 
 /**
@@ -447,6 +459,8 @@ export interface Squad {
   readonly season: number;
   readonly players: readonly Player[];
   readonly competition: CompetitionCode;
+  /** Adapter that produced this squad (#120). */
+  readonly source: DataSource;
 }
 
 /**
@@ -495,6 +509,8 @@ export interface BrownlowVote {
   readonly type: "brownlow";
   readonly season: number;
   readonly competition: CompetitionCode;
+  /** Adapter that scraped this vote tally (#120). */
+  readonly source: DataSource;
   readonly player: string;
   readonly team: string;
   readonly votes: number;
@@ -520,6 +536,8 @@ export interface AllAustralianSelection {
   readonly type: "all-australian";
   readonly season: number;
   readonly competition: CompetitionCode;
+  /** Adapter that scraped this selection (#120). */
+  readonly source: DataSource;
   /** Footy position (e.g. `FB`, `HBF`, `C`). */
   readonly position: string;
   readonly player: string;
@@ -531,6 +549,8 @@ export interface RisingStarNomination {
   readonly type: "rising-star";
   readonly season: number;
   readonly competition: CompetitionCode;
+  /** Adapter that scraped this nomination (#120). */
+  readonly source: DataSource;
   readonly round: number;
   readonly player: string;
   readonly team: string;
@@ -549,6 +569,8 @@ export interface ColemanLeader {
   readonly type: "coleman";
   readonly season: number;
   readonly competition: CompetitionCode;
+  /** Adapter that produced this leaderboard entry (#120). */
+  readonly source: DataSource;
   /** 1 = season leader, 2 = runner-up, etc. */
   readonly rank: number;
   readonly player: string;
@@ -588,6 +610,8 @@ export interface CoachesVote {
   readonly type: "coaches";
   readonly season: number;
   readonly competition: CompetitionCode;
+  /** Adapter that scraped this vote line (#120). */
+  readonly source: DataSource;
   readonly round: number;
   readonly homeTeam: string;
   readonly awayTeam: string;

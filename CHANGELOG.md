@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Cross-cutting source provenance (#120). `Ladder`, `Lineup`, `Squad`,
+  `Team`, and every `Award` variant (`BrownlowVote`, `AllAustralianSelection`,
+  `RisingStarNomination`, `ColemanLeader`, `CoachesVote`) now carry a
+  `source: DataSource` field — at the envelope level where there is one,
+  per-row where there isn't. Previously only `Player`, `Match`, `PlayerStats`,
+  and `TeamStatsEntry` were stamped. JSON consumers can now key-join on
+  `source` across cross-source comparisons and caches.
+- New `DataSource` variant: `"afl-coaches"` — used by `CoachesVote.source`
+  to identify the afl-coaches.com.au scraper as distinct from FootyWire.
 - `Match.matchClockPeriods: ReadonlyArray<MatchClockPeriod> | null` and the
   derived `Match.completedQuarter: 0 | 1 | 2 | 3 | 4 | null` surface the
   AFL API's authoritative break-detection signal. Through R14 2026 the

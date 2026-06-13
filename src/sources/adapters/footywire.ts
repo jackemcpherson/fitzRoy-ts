@@ -135,6 +135,7 @@ export class FootyWireSquadSource implements SquadSource {
       season: query.season,
       players,
       competition,
+      source: "footywire" as const,
     });
   }
 }
