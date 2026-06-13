@@ -7,7 +7,7 @@
 
 import { batchedMap } from "../lib/concurrency";
 import { localToUtc, parseDate } from "../lib/date-utils";
-import { ScrapeError } from "../lib/errors";
+import { DstGapError, ScrapeError } from "../lib/errors";
 import { parseHtml } from "../lib/parse-html";
 import { err, ok, type Result } from "../lib/result";
 import { createSourceFetch, type SourceFetchOptions } from "../lib/source-fetch";
@@ -560,7 +560,15 @@ function parseDateFromInfo(text: string, year: number, venueTimezone: string | n
 
   const tz = venueTimezone ?? "Australia/Melbourne";
   const result = localToUtc(tz, yearN, monthIndex, day, hours, minutes);
-  return result.success ? result.data : new Date(Date.UTC(yearN, monthIndex, day));
+  if (result.success) return result.data;
+  // DST spring-forward gap: the wall-clock time literally doesn't exist
+  // in this tz. Roll forward by one hour (the "spring forward" direction
+  // venues actually move through). See DstGapError in src/lib/errors.ts.
+  if (result.error instanceof DstGapError && hours < 23) {
+    const retry = localToUtc(tz, yearN, monthIndex, day, hours + 1, minutes);
+    if (retry.success) return retry.data;
+  }
+  return new Date(Date.UTC(yearN, monthIndex, day));
 }
 
 /** Parse venue from the info cell HTML. */
