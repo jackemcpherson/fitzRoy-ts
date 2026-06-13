@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.1] - 2026-06-13
+
+### Fixed
+
+- AFL Tables date parsing now rolls forward by one hour when a wall-clock
+  time falls inside a DST spring-forward gap (e.g. 02:30 on the first
+  Sunday of October in `Australia/Melbourne`). Previously the err branch
+  silently mapped to midnight UTC on the same date, corrupting the
+  recorded match start. The roll-forward direction matches the convention
+  AFL broadcasts use when DST rolls the schedule.
+
+### Security
+
+- CLI CSV exporter now neutralises formula-prefix cells (CSV injection
+  defence — OWASP "Formula Injection"). Values whose first character is
+  `=`, `+`, `-`, `@`, or a tab are prefixed with a single apostrophe so
+  spreadsheet apps (Excel, Sheets, LibreOffice Calc) treat them as
+  literal text rather than evaluating them as a formula. Numeric and
+  alphanumeric data is unchanged.
+
+### Changed
+
+- `docs/R_PARITY.md` — removed the three false "Not implemented" rows for
+  Squiggle, FootyWire player stats, and AFL Tables player stats (all
+  three have shipped); refined the Fryzigg row to reflect its stub status
+  (`UnsupportedSourceError` for queries outside 2024). Section header
+  renamed to "Data Sources With Limited Coverage".
+- `SeasonPlayerStats.failedMatchIds` TSDoc now documents the per-source
+  semantics: scraper sources (`afl-tables`, `footywire`) return partial
+  results, while `afl-api` is fail-fast (any per-match failure aborts
+  and is returned as an `err` Result). The asymmetry is intentional —
+  see ADR-0003.
+
 ## [3.1.0] - 2026-06-13
 
 ### Added
