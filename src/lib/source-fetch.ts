@@ -17,6 +17,9 @@ export interface SourceFetchOptions extends FetchTimeoutOptions, FetchRetryOptio
  * single jittered 5xx retry outermost.
  */
 export function createSourceFetch(options?: SourceFetchOptions): typeof fetch {
-  const base = options?.fetchFn ?? globalThis.fetch.bind(globalThis);
+  // Defer the globalThis.fetch lookup to call-time so tests that stub the
+  // global after module load (e.g. via vi.stubGlobal) still take effect for
+  // clients constructed at import time (the shared AflApiClient).
+  const base: typeof fetch = options?.fetchFn ?? ((input, init) => globalThis.fetch(input, init));
   return withRetry5xx(withFetchTimeout(base, options), options);
 }
