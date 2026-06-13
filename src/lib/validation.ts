@@ -179,6 +179,8 @@ export const CfsMatchSchema = z
     name: z.string().optional(),
     status: z.string(),
     utcStartTime: z.string(),
+    /** Wall-clock start at the venue (no offset) — captured for #109. */
+    venueLocalStartTime: z.string().nullish(),
     homeTeamId: z.string(),
     awayTeamId: z.string(),
     homeTeam: CfsMatchTeamSchema,

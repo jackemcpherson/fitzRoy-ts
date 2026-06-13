@@ -402,6 +402,7 @@ function parseSeasonPageGames(html: string, year: number): SeasonPageGame[] {
       roundCode: toRoundCode(cleanRoundName),
       venueState: null,
       venueTimezone,
+      venueLocalDate: null,
       homeRushedBehinds: null,
       awayRushedBehinds: null,
       homeMinutesInFront: null,

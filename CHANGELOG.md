@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Venue timezone end-to-end (#109):
+  - `Match.venueLocalDate: string | null` captures the AFL API's
+    timezone-less wall-clock start (`"2025-03-13T19:30:00"`) so callers
+    can show "7:30pm at the venue" without doing the UTC→tz conversion
+    themselves. Null on sources that don't publish it.
+  - `Match.venueTimezone` is now consistently IANA across sources. AFL
+    API still publishes IANA directly; Squiggle / FootyWire / AFL Tables
+    resolve via the canonical venue→IANA map. Only `null` when the
+    venue isn't in the map.
+  - CLI table/CSV/JSON formatters use the row's `venueTimezone` for any
+    `Date` field when present — so a 7:30pm Perth match displays in AWST
+    rather than 9:30pm in AEST. Defaults to Australia/Melbourne when
+    the row has no IANA tz, preserving existing behaviour for non-Match
+    data.
+
 - Cross-cutting source provenance (#120). `Ladder`, `Lineup`, `Squad`,
   `Team`, and every `Award` variant (`BrownlowVote`, `AllAustralianSelection`,
   `RisingStarNomination`, `ColemanLeader`, `CoachesVote`) now carry a

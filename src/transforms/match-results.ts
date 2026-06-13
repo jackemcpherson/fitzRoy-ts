@@ -6,6 +6,7 @@ import { parseDate } from "../lib/date-utils";
 import { normaliseTeamName } from "../lib/team-mapping";
 import type { CfsMatchClockPeriod, MatchItem, PeriodScore } from "../lib/validation";
 import { normaliseVenueName } from "../lib/venue-mapping";
+import { resolveVenueTimezone } from "../lib/venue-timezones";
 import type {
   CompetitionCode,
   DataSource,
@@ -199,7 +200,12 @@ export function transformMatchItems(
       weatherType: item.weather?.weatherType ?? null,
       roundCode: toRoundCode(item.round?.name),
       venueState: item.venue?.state ?? null,
-      venueTimezone: item.venue?.timeZone ?? null,
+      // AFL API publishes IANA tz directly; fall back to the canonical
+      // venue → IANA map when missing (e.g. unknown new venue). (#109)
+      venueTimezone:
+        item.venue?.timeZone ??
+        (item.venue?.name ? resolveVenueTimezone(normaliseVenueName(item.venue.name)) : null),
+      venueLocalDate: item.match.venueLocalStartTime ?? null,
       homeRushedBehinds: homeScore?.rushedBehinds ?? null,
       awayRushedBehinds: awayScore?.rushedBehinds ?? null,
       homeMinutesInFront: homeScore?.minutesInFront ?? null,

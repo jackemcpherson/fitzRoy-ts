@@ -172,7 +172,25 @@ export interface Match {
 
   /** Venue metadata (null for scraped sources). */
   readonly venueState: string | null;
+
+  /**
+   * IANA timezone for the venue (e.g. `"Australia/Melbourne"`,
+   * `"Australia/Perth"`). Normalised across sources (#109): the AFL
+   * API publishes IANA directly; other sources resolve via the
+   * canonical venue → IANA map ({@link resolveVenueTimezone}). `null`
+   * only when the venue isn't in the map (very old or one-off venues).
+   */
   readonly venueTimezone: string | null;
+
+  /**
+   * Venue wall-clock start time (#109). The AFL API publishes this as a
+   * timezone-less ISO string (`"2025-03-13T19:30:00"`); other sources
+   * derive it from {@link Match.date} interpreted in
+   * {@link Match.venueTimezone}. Useful for "7:30pm at the venue"
+   * displays without doing your own UTC→tz conversion. `null` when
+   * neither the upstream localStartTime nor a venue tz is known.
+   */
+  readonly venueLocalDate: string | null;
 
   /** Rushed behinds per team (null when unavailable). */
   readonly homeRushedBehinds: number | null;

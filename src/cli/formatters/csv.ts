@@ -4,7 +4,7 @@
  * Properly escapes fields containing commas, quotes, or newlines.
  */
 
-import { toAestIso } from "./date-format";
+import { toVenueIso } from "./date-format";
 
 function escapeField(value: string): string {
   if (value.includes(",") || value.includes('"') || value.includes("\n") || value.includes("\r")) {
@@ -13,9 +13,17 @@ function escapeField(value: string): string {
   return value;
 }
 
-function toStringValue(value: unknown): string {
+function toStringValue(value: unknown, row?: Record<string, unknown>): string {
   if (value === null || value === undefined) return "";
-  if (value instanceof Date) return toAestIso(value);
+  if (value instanceof Date) {
+    // Per-row venue tz so a Perth match's date column is rendered in
+    // AWST rather than AEST/AEDT (#109).
+    const tz =
+      typeof row?.venueTimezone === "string" && row.venueTimezone.length > 0
+        ? row.venueTimezone
+        : undefined;
+    return toVenueIso(value, tz);
+  }
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);
 }
@@ -61,7 +69,7 @@ export function formatCsv(data: Record<string, unknown>[]): string {
   const lines: string[] = [headers.map(escapeField).join(",")];
 
   for (const row of flattened) {
-    const values = headers.map((h) => escapeField(toStringValue(row[h])));
+    const values = headers.map((h) => escapeField(toStringValue(row[h], row)));
     lines.push(values.join(","));
   }
 
