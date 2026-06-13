@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (2012+) for a season-specific squad. The TSDoc on
   `AflTablesSquadSource` already noted this; the warning surfaces the
   caveat at the call site so it doesn't go unnoticed (#88).
+- `FootyWireClient.fetchSeasonFixture` and `parseFixtureList` now accept a
+  `CompetitionCode`. When the parsed fixture row's month is earlier than
+  the competition's season opener (AFLW: August), the date is rolled to
+  the following calendar year. AFLM stays calendar-year-aligned so the
+  rollover never triggers there. Defensive forward-compat for the day
+  AFLW is wired to FootyWire (#111).
 
 ### Fixed
 

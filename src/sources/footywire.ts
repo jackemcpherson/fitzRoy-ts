@@ -21,6 +21,7 @@ import {
 } from "../transforms/footywire-player-stats";
 import { finalsRoundNumber, inferRoundType, toRoundCode } from "../transforms/match-results";
 import type {
+  CompetitionCode,
   Match,
   PlayerDetails,
   PlayerStats,
@@ -250,15 +251,21 @@ export class FootyWireClient {
    * Parses the match list page to extract scheduled matches with dates and venues.
    *
    * @param year - The season year.
+   * @param competition - Used to roll cross-calendar dates to year + 1 when
+   *   the parsed month precedes the season opener. Defaults to AFLM (no
+   *   rollover triggers for calendar-year-aligned seasons).
    * @returns Array of fixture entries.
    */
-  async fetchSeasonFixture(year: number): Promise<Result<Match[], ScrapeError>> {
+  async fetchSeasonFixture(
+    year: number,
+    competition: CompetitionCode = "AFLM",
+  ): Promise<Result<Match[], ScrapeError>> {
     const url = `${FOOTYWIRE_BASE}/ft_match_list?year=${year}`;
     const htmlResult = await this.fetchHtml(url);
     if (!htmlResult.success) return htmlResult;
 
     try {
-      const fixtures = parseFixtureList(htmlResult.data, year);
+      const fixtures = parseFixtureList(htmlResult.data, year, competition);
       return ok(fixtures);
     } catch (cause) {
       return err(
@@ -437,17 +444,41 @@ export function parseMatchList(html: string, year: number): Match[] {
 }
 
 /**
+ * 1-indexed calendar month each competition's season opens in. Used to
+ * detect cross-calendar-year fixture rows: any row whose parsed month is
+ * earlier than the opener belongs to the *following* calendar year, not
+ * the season label (#111).
+ *
+ * AFLM is March–September within one calendar year (no rollover ever
+ * triggers). AFLW historically ran Jan–Mar across calendar years and
+ * currently opens in August; either layout is handled by the same rule.
+ */
+const SEASON_OPENER_MONTH: Record<CompetitionCode, number> = {
+  AFLM: 3,
+  AFLW: 8,
+  VFL: 3,
+  VFLW: 3,
+};
+
+/**
  * Parse FootyWire match list HTML into Match objects.
  *
  * Similar to parseMatchList but returns Match type (no scores required).
  * Includes both played and upcoming matches.
+ *
+ * @param html - Raw HTML from the FootyWire fixture page.
+ * @param year - Season label (e.g. 2025). For AFLM this is the calendar
+ *   year; for cross-calendar seasons (AFLW historically), rows whose
+ *   parsed month is before the season opener are rolled to `year + 1`.
+ * @param competition - Used to look up the season opener month. Defaults
+ *   to AFLM since FootyWire AFLW coverage is not yet wired up.
  */
-export function parseFixtureList(html: string, year: number): Match[] {
-  // TODO(#111): when AFLW is wired up to FootyWire, accept a `competition`
-  // parameter and roll dates over to the next calendar year for rows whose
-  // month is earlier than the AFLW opener (currently August). AFLM
-  // seasons are calendar-year-aligned so the current logic is correct;
-  // the AFLW path is latent until coverage opens up.
+export function parseFixtureList(
+  html: string,
+  year: number,
+  competition: CompetitionCode = "AFLM",
+): Match[] {
+  const openerMonth = SEASON_OPENER_MONTH[competition];
   const $ = parseHtml(html);
   const fixtures: Match[] = [];
   let currentRound = 0;
@@ -487,9 +518,17 @@ export function parseFixtureList(html: string, year: number): Match[] {
     const awayTeam = normaliseTeamName($(teamLinks[1]).text().trim());
 
     const canonicalVenue = normaliseVenueName(venue);
-    const date =
+    const initialDate =
       parseDate(dateText, { defaultYear: year, venue: canonicalVenue }) ??
       new Date(Date.UTC(year, 0, 1));
+    // Cross-calendar rollover: parseDate used `year` as the default. If the
+    // resulting month is earlier than the season opener, the row actually
+    // belongs to year + 1 (#111). For AFLM (opener month 3) this never
+    // triggers because the season is calendar-year-aligned.
+    const date =
+      initialDate.getUTCMonth() + 1 < openerMonth
+        ? (parseDate(dateText, { defaultYear: year + 1, venue: canonicalVenue }) ?? initialDate)
+        : initialDate;
     gameNumber++;
 
     // Check if we have a score (match played) or not (upcoming).
@@ -550,7 +589,7 @@ export function parseFixtureList(html: string, year: number): Match[] {
       homeMinutesInFront: null,
       awayMinutesInFront: null,
       source: "footywire",
-      competition: "AFLM",
+      competition,
     });
   });
 
