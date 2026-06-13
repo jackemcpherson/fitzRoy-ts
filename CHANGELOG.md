@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `team --name X --season Y --source afl-tables` now prints a stderr
+  warning that AFL Tables returns the all-time team roster and the
+  `--season` filter is ignored — pointing users at `--source afl-api`
+  (2012+) for a season-specific squad. The TSDoc on
+  `AflTablesSquadSource` already noted this; the warning surfaces the
+  caveat at the call site so it doesn't go unnoticed (#88).
+
 ### Fixed
 
 - `fetchLineup` no longer fails with `Response validation failed` for
