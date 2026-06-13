@@ -53,6 +53,9 @@ export class SquiggleLadderSource implements LadderSource {
       roundNumber: query.round ?? null,
       entries: transformSquiggleStandings(result.data.standings),
       competition,
+      // Squiggle's standings endpoint doesn't expose the most recent
+      // completed match's id (#119); leave null.
+      asOfMatch: null,
     });
   }
 }

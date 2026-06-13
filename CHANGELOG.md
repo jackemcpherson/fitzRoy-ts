@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `Ladder.asOfMatch: string | null` pins mid-round ladder snapshots to
+  the specific match that defines the cutoff. The AFL Tables ladder
+  source (which synthesises the ladder from match results) populates it
+  with the latest completed `matchId` at-or-before the requested round;
+  Squiggle and the AFL API leave it `null` because neither exposes the
+  bookmark in their ladder responses (#119).
+
 - `team --name X --season Y --source afl-tables` now prints a stderr
   warning that AFL Tables returns the all-time team roster and the
   `--season` filter is ignored — pointing users at `--source afl-api`

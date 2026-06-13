@@ -206,11 +206,23 @@ export class AflTablesLadderSource implements LadderSource {
     if (!resultsResult.success) return resultsResult;
 
     const entries = computeLadder(resultsResult.data, query.round ?? undefined);
+    // Surface the most-recent completed match feeding the synthesised
+    // ladder so mid-round snapshots are pinned to a specific cutoff (#119).
+    const roundCutoff = query.round;
+    const inScope =
+      roundCutoff != null
+        ? resultsResult.data.filter((m) => m.roundNumber <= roundCutoff)
+        : resultsResult.data;
+    const completed = inScope.filter((m) => m.status === "Complete");
+    completed.sort((a, b) => b.date.getTime() - a.date.getTime());
+    const asOfMatch = completed[0]?.matchId ?? null;
+
     return ok({
       season: query.season,
       roundNumber: query.round ?? null,
       entries,
       competition,
+      asOfMatch,
     });
   }
 }

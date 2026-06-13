@@ -6,6 +6,7 @@ const sampleLadder: Ladder = {
   season: 2024,
   roundNumber: 24,
   competition: "AFLM",
+  asOfMatch: null,
   entries: [
     {
       position: 1,

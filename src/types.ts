@@ -333,6 +333,15 @@ export interface Ladder {
   readonly roundNumber: number | null;
   readonly entries: readonly LadderEntry[];
   readonly competition: CompetitionCode;
+  /**
+   * Match ID of the most recent completed match the snapshot reflects, when
+   * known. Adapters that synthesise the ladder from match results populate
+   * this with the latest input `matchId`; the AFL API source populates it
+   * from the upstream snapshot metadata when available. `null` when the
+   * snapshot is round-aligned (no sub-round granularity needed) or when
+   * the source doesn't expose it.
+   */
+  readonly asOfMatch: string | null;
 }
 
 // ---------------------------------------------------------------------------
