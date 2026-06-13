@@ -52,6 +52,69 @@ describe("formatCsv", () => {
     expect(output).toContain('"line1\nline2"');
   });
 
+  it("neutralises cells starting with = (formula injection defence)", () => {
+    const data = [{ formula: "=SUM(A1:A2)" }];
+    const output = formatCsv(data);
+    const lines = output.split("\n");
+    expect(lines[1]).toBe("'=SUM(A1:A2)");
+  });
+
+  it("neutralises cells starting with + (formula injection defence)", () => {
+    const data = [{ value: "+1234" }];
+    const output = formatCsv(data);
+    const lines = output.split("\n");
+    expect(lines[1]).toBe("'+1234");
+  });
+
+  it("neutralises cells starting with - (formula injection defence)", () => {
+    const data = [{ team: "-Carlton" }];
+    const output = formatCsv(data);
+    const lines = output.split("\n");
+    expect(lines[1]).toBe("'-Carlton");
+  });
+
+  it("neutralises cells starting with @ (formula injection defence)", () => {
+    const data = [{ handle: "@user" }];
+    const output = formatCsv(data);
+    const lines = output.split("\n");
+    expect(lines[1]).toBe("'@user");
+  });
+
+  it("neutralises cells starting with a tab character (formula injection defence)", () => {
+    const data = [{ team: "\tBrisbane Lions" }];
+    const output = formatCsv(data);
+    const lines = output.split("\n");
+    expect(lines[1]).toBe("'\tBrisbane Lions");
+  });
+
+  it("does not prefix benign string values", () => {
+    const data = [{ team: "Carlton" }];
+    const output = formatCsv(data);
+    const lines = output.split("\n");
+    expect(lines[1]).toBe("Carlton");
+  });
+
+  it("does not prefix numeric strings starting with a digit", () => {
+    const data = [{ score: "123" }];
+    const output = formatCsv(data);
+    const lines = output.split("\n");
+    expect(lines[1]).toBe("123");
+  });
+
+  it("does not prefix decimal strings", () => {
+    const data = [{ percentage: "12.5" }];
+    const output = formatCsv(data);
+    const lines = output.split("\n");
+    expect(lines[1]).toBe("12.5");
+  });
+
+  it("round-trips formula prefix and comma quoting together", () => {
+    const data = [{ formula: "=A1,B1" }];
+    const output = formatCsv(data);
+    const lines = output.split("\n");
+    expect(lines[1]).toBe('"\'=A1,B1"');
+  });
+
   it("handles null and undefined values as empty strings", () => {
     const data = [{ a: null, b: undefined, c: "ok" }];
     const output = formatCsv(data);
