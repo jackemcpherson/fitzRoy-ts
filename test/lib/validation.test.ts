@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   AflApiTokenSchema,
   CfsMatchSchema,
+  CfsVenueSchema,
   CompetitionListSchema,
   MatchRosterSchema,
   PlayerGameStatsSchema,
@@ -63,5 +64,22 @@ describe("Schema rejection tests", () => {
 describe("PlayerGameStatsSchema", () => {
   it("parses with all optional fields missing", () => {
     expect(PlayerGameStatsSchema.parse({})).toEqual({});
+  });
+});
+
+describe("CfsVenueSchema", () => {
+  it("accepts null state, venueId, and timeZone (#127)", () => {
+    expect(() =>
+      CfsVenueSchema.parse({
+        name: "Stadium",
+        venueId: null,
+        state: null,
+        timeZone: null,
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects missing name", () => {
+    expect(() => CfsVenueSchema.parse({ state: "VIC" })).toThrow();
   });
 });

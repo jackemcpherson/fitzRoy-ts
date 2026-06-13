@@ -216,9 +216,9 @@ export type CfsScore = z.infer<typeof CfsScoreSchema>;
 export const CfsVenueSchema = z
   .object({
     name: z.string(),
-    venueId: z.string().optional(),
-    state: z.string().optional(),
-    timeZone: z.string().optional(),
+    venueId: z.string().nullish(),
+    state: z.string().nullish(),
+    timeZone: z.string().nullish(),
   })
   .passthrough();
 

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `fetchLineup` no longer fails with `Response validation failed` for
+  historical rounds where the AFL API returns `null` for venue `state`,
+  `venueId` or `timeZone`. `CfsVenueSchema` now accepts both `null` and
+  `undefined` on those optional fields, unblocking ingestion of ~36
+  historical matches across 2015-2019 (#127).
+
 ## [3.0.1] - 2026-06-12
 
 ### Fixed
