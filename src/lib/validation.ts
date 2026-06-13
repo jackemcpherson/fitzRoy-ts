@@ -195,6 +195,17 @@ export type CfsMatch = z.infer<typeof CfsMatchSchema>;
 // /cfs/ score wrapper (nested within match items)
 // ---------------------------------------------------------------------------
 
+/** Schema for a single quarter in the /cfs/ match-clock period list (#145). */
+export const CfsMatchClockPeriodSchema = z
+  .object({
+    periodNumber: z.number(),
+    periodSeconds: z.number().nullish(),
+    periodCompleted: z.boolean(),
+    periodStart: z.string().nullish(),
+    nextPeriodStart: z.string().nullish(),
+  })
+  .passthrough();
+
 /** Schema for the score wrapper within a /cfs/ match item. */
 export const CfsScoreSchema = z
   .object({
@@ -202,11 +213,20 @@ export const CfsScoreSchema = z
     matchId: z.string(),
     homeTeamScore: TeamScoreSchema,
     awayTeamScore: TeamScoreSchema,
+    matchClock: z
+      .object({
+        periods: z.array(CfsMatchClockPeriodSchema),
+      })
+      .passthrough()
+      .nullish(),
   })
   .passthrough();
 
 /** Inferred type for a /cfs/ score wrapper. */
 export type CfsScore = z.infer<typeof CfsScoreSchema>;
+
+/** Inferred type for a /cfs/ match-clock period. */
+export type CfsMatchClockPeriod = z.infer<typeof CfsMatchClockPeriodSchema>;
 
 // ---------------------------------------------------------------------------
 // /cfs/ venue schema

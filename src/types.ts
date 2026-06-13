@@ -32,6 +32,23 @@ export interface QuarterScore {
   readonly points: number;
 }
 
+/**
+ * One quarter's entry in the AFL API's `score.matchClock.periods[]` (#145).
+ *
+ * `periodCompleted` flips to `true` within seconds of the actual siren and
+ * is the authoritative signal for quarter boundaries — see
+ * {@link Match.matchClockPeriods}.
+ */
+export interface MatchClockPeriod {
+  readonly periodNumber: number;
+  readonly periodSeconds: number | null;
+  readonly periodCompleted: boolean;
+  /** ISO 8601 UTC start of the period, when known. */
+  readonly periodStart: string | null;
+  /** ISO 8601 UTC scheduled start of the next period, when known. */
+  readonly nextPeriodStart: string | null;
+}
+
 // ---------------------------------------------------------------------------
 // Match
 // ---------------------------------------------------------------------------
@@ -100,12 +117,39 @@ export interface Match {
    * expose a per-period state — currently every source except `afl-api` — and
    * null on `afl-api` rows when the score wrapper itself is absent (pre-match).
    *
+   * **Unreliable for break detection in 2026+ (#145).** Through R14 2026 the
+   * AFL API has stopped transitioning this string through `QTR_TIME` /
+   * `HALF_TIME` / `3QTR_TIME` — it stays on `LIVE` from bounce through the
+   * final siren, with only `FULL_TIME` / `CONCLUDED` flipping after. For
+   * authoritative break detection use {@link Match.matchClockPeriods} or
+   * {@link Match.completedQuarter} instead.
+   *
    * The string values are upstream-defined and not yet enumerated; observed
    * values to date come straight from the AFL API and may include codes such
    * as `LIVE`, `QTR_TIME`, `HALF_TIME`, `3QTR_TIME`, `FULL_TIME`. Treat as an
    * opaque string until a stable union is documented.
    */
   readonly livePeriodStatus: string | null;
+
+  /**
+   * AFL API match-clock periods (#145). Each entry corresponds to one
+   * quarter and carries a `periodCompleted` flag that flips within seconds
+   * of each siren — making this the authoritative break-detection signal,
+   * unlike {@link Match.livePeriodStatus} which 2026 upstream changes left
+   * stuck on `LIVE` through breaks.
+   *
+   * Null for any source other than `afl-api`, and null on `afl-api` rows
+   * when the score wrapper is absent (pre-match).
+   */
+  readonly matchClockPeriods: ReadonlyArray<MatchClockPeriod> | null;
+
+  /**
+   * Highest fully-completed quarter according to the AFL match clock (#145).
+   * `0` means no quarter has finished (live first quarter or pre-match);
+   * `4` means full time. Derived from {@link Match.matchClockPeriods}.
+   * Null when the underlying matchClock is unavailable.
+   */
+  readonly completedQuarter: 0 | 1 | 2 | 3 | 4 | null;
 
   readonly attendance: number | null;
 

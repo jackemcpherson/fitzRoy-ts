@@ -4,12 +4,13 @@
 
 import { parseDate } from "../lib/date-utils";
 import { normaliseTeamName } from "../lib/team-mapping";
-import type { MatchItem, PeriodScore } from "../lib/validation";
+import type { CfsMatchClockPeriod, MatchItem, PeriodScore } from "../lib/validation";
 import { normaliseVenueName } from "../lib/venue-mapping";
 import type {
   CompetitionCode,
   DataSource,
   Match,
+  MatchClockPeriod,
   MatchStatus,
   QuarterScore,
   RoundType,
@@ -110,6 +111,31 @@ function findPeriod(
   return period ? toQuarterScore(period) : null;
 }
 
+/** Normalise a raw matchClock period (handles `undefined` from passthrough). */
+function toMatchClockPeriod(raw: CfsMatchClockPeriod): MatchClockPeriod {
+  return {
+    periodNumber: raw.periodNumber,
+    periodSeconds: raw.periodSeconds ?? null,
+    periodCompleted: raw.periodCompleted,
+    periodStart: raw.periodStart ?? null,
+    nextPeriodStart: raw.nextPeriodStart ?? null,
+  };
+}
+
+/**
+ * Highest fully-completed quarter from a matchClock periods list (#145).
+ * Returns 0 when nothing has finished, capped at 4 (full time).
+ */
+function deriveCompletedQuarter(periods: ReadonlyArray<MatchClockPeriod>): 0 | 1 | 2 | 3 | 4 {
+  let highest = 0;
+  for (const p of periods) {
+    if (p.periodCompleted && p.periodNumber > highest) {
+      highest = p.periodNumber;
+    }
+  }
+  return Math.min(highest, 4) as 0 | 1 | 2 | 3 | 4;
+}
+
 /**
  * Transform raw AFL API match items into typed Match objects.
  *
@@ -131,6 +157,10 @@ export function transformMatchItems(
     const homePoints = homeScore ? homeScore.matchScore.totalScore : null;
     const awayPoints = awayScore ? awayScore.matchScore.totalScore : null;
     const margin = homePoints !== null && awayPoints !== null ? homePoints - awayPoints : null;
+
+    const rawPeriods = item.score?.matchClock?.periods;
+    const matchClockPeriods = rawPeriods ? rawPeriods.map(toMatchClockPeriod) : null;
+    const completedQuarter = matchClockPeriods ? deriveCompletedQuarter(matchClockPeriods) : null;
 
     return {
       matchId: item.match.matchId,
@@ -162,6 +192,8 @@ export function transformMatchItems(
 
       status: toMatchStatus(item.match.status),
       livePeriodStatus: item.score?.status ?? null,
+      matchClockPeriods,
+      completedQuarter,
       attendance: item.attendance ?? null,
       weatherTempCelsius: item.weather?.tempInCelsius ?? null,
       weatherType: item.weather?.weatherType ?? null,

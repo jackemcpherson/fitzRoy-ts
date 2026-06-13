@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `Match.matchClockPeriods: ReadonlyArray<MatchClockPeriod> | null` and the
+  derived `Match.completedQuarter: 0 | 1 | 2 | 3 | 4 | null` surface the
+  AFL API's authoritative break-detection signal. Through R14 2026 the
+  upstream `score.status` stopped transitioning through QTR_TIME/HALF_TIME/
+  3QTR_TIME — it stays on LIVE from bounce through full time — leaving
+  `Match.livePeriodStatus` unreliable for siren detection. The
+  `score.matchClock.periods[]` payload (always present, never typed
+  through Zod) carries `periodCompleted` flags that flip within seconds of
+  each real-world siren. Now captured by `MatchClockPeriodSchema`,
+  surfaced as `matchClockPeriods`, and reduced to `completedQuarter` for
+  the common "what break are we in?" query. Populated only on
+  `source: "afl-api"` rows where the score wrapper is present; null
+  elsewhere. The TSDoc on `livePeriodStatus` now warns about the 2026
+  regression and points consumers at the new fields (#145).
 - `Ladder.asOfMatch: string | null` pins mid-round ladder snapshots to
   the specific match that defines the cutoff. The AFL Tables ladder
   source (which synthesises the ladder from match results) populates it

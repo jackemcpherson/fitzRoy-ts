@@ -394,6 +394,8 @@ function parseSeasonPageGames(html: string, year: number): SeasonPageGame[] {
       q4Away: awayPerQuarter[3] ?? null,
       status: "Complete",
       livePeriodStatus: null,
+      matchClockPeriods: null,
+      completedQuarter: null,
       attendance,
       weatherTempCelsius: null,
       weatherType: null,
