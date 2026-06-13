@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod/v4";
 import { AflApiError, ValidationError } from "../../src/lib/errors";
+import { AflApiLineupSource, AflApiPlayerStatsSource } from "../../src/sources/adapters/afl-api";
 import { AflApiClient } from "../../src/sources/afl-api";
 
 /** Helper to create a mock Response. */
@@ -722,6 +723,72 @@ describe("AflApiClient", () => {
       if (result.success) {
         expect(result.data.squad.players).toHaveLength(1);
       }
+    });
+  });
+
+  describe("shared client across adapters", () => {
+    it("shares one token across adapter registrations", async () => {
+      // Minimal valid fixtures for the schemas the adapters parse.
+      const playerStatsResponse = {
+        homeTeamPlayerStats: [],
+        awayTeamPlayerStats: [],
+      };
+      const rosterResponse = {
+        match: {
+          matchId: "CD_M1",
+          status: "CONCLUDED",
+          utcStartTime: "2025-03-13",
+          homeTeamId: "CD_T120",
+          awayTeamId: "CD_T30",
+          homeTeam: { name: "Richmond", teamId: "CD_T120" },
+          awayTeam: { name: "Carlton", teamId: "CD_T30" },
+        },
+        teamPlayers: [
+          { teamId: "CD_T120", players: [] },
+          { teamId: "CD_T30", players: [] },
+        ],
+      };
+
+      // Count token POSTs by URL. The adapters call multiple authed endpoints,
+      // each of which will trigger authentication on the *first* call only —
+      // shared cachedToken means subsequent calls re-use the token without
+      // POSTing again.
+      let tokenPosts = 0;
+      const fetchFn = vi.fn().mockImplementation((url: string) => {
+        if (typeof url === "string" && url.includes("WMCTok")) {
+          tokenPosts += 1;
+          return Promise.resolve(mockResponse(VALID_TOKEN));
+        }
+        if (typeof url === "string" && url.includes("matchRoster")) {
+          return Promise.resolve(mockResponse(rosterResponse));
+        }
+        if (typeof url === "string" && url.includes("playerStats")) {
+          return Promise.resolve(mockResponse(playerStatsResponse));
+        }
+        return Promise.resolve(mockResponse({}, { status: 404 }));
+      });
+
+      const sharedClient = new AflApiClient({ fetchFn });
+      const playerStatsAdapter = new AflApiPlayerStatsSource(sharedClient);
+      const lineupAdapter = new AflApiLineupSource(sharedClient);
+
+      const playerStatsResult = await playerStatsAdapter.fetchPlayerStats({
+        source: "afl-api",
+        season: 2025,
+        matchId: "CD_M1",
+      });
+      const lineupResult = await lineupAdapter.fetchLineup({
+        source: "afl-api",
+        season: 2025,
+        round: 1,
+        matchId: "CD_M1",
+      });
+
+      expect(playerStatsResult.success).toBe(true);
+      expect(lineupResult.success).toBe(true);
+      // Exactly one token POST across both adapters, proving the cached token
+      // on the shared client is reused.
+      expect(tokenPosts).toBe(1);
     });
   });
 });
