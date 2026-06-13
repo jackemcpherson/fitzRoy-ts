@@ -64,6 +64,47 @@ describe("parseSeasonPage", () => {
   it("returns empty array for empty HTML", () => {
     expect(parseSeasonPage("<html></html>", 2024)).toEqual([]);
   });
+
+  // 2025-10-05 02:00 → 03:00 AEDT in Australia/Melbourne, so 02:30 doesn't
+  // exist. Previously the err branch silently mapped to midnight UTC; the
+  // fix rolls forward one hour so 02:30 becomes 03:30 AEDT (16:30 UTC the
+  // previous calendar day).
+  it("DST spring-forward gap rolls forward one hour (Australia/Melbourne 2025-10-05)", () => {
+    const dstGapHtml = `<html><body>
+<table><tr><td>Round 1</td><td></td></tr></table>
+<table border=1>
+<tr><td><a href="../teams/melbourne_idx.html">Melbourne</a></td><td><tt>3.3 4.3 7.10 12.14</tt></td><td> 86</td><td>Sun 05-Oct-2025 2:30 AM <b>Venue:</b> <a href="../venues/mcg.html">M.C.G.</a></td></tr>
+<tr><td><a href="../teams/carlton_idx.html">Carlton</a></td><td><tt>1.6 2.8 7.8 9.10</tt></td><td> 64</td><td><b>Melbourne</b> won by <b>22 pts </b></td></tr>
+</table>
+</body></html>`;
+
+    const results = parseSeasonPage(dstGapHtml, 2025);
+    expect(results).toHaveLength(1);
+    const date = results[0]?.date;
+    expect(date).toBeDefined();
+    // 03:30 AEDT on Oct 5 == 16:30 UTC on Oct 4.
+    expect(date?.getTime()).toBe(Date.UTC(2025, 9, 4, 16, 30));
+  });
+
+  it("does not roll forward on a non-gap Sunday at the same wall-clock (Australia/Melbourne 2025-10-12)", () => {
+    const nonGapHtml = `<html><body>
+<table><tr><td>Round 1</td><td></td></tr></table>
+<table border=1>
+<tr><td><a href="../teams/melbourne_idx.html">Melbourne</a></td><td><tt>3.3 4.3 7.10 12.14</tt></td><td> 86</td><td>Sun 12-Oct-2025 2:30 AM <b>Venue:</b> <a href="../venues/mcg.html">M.C.G.</a></td></tr>
+<tr><td><a href="../teams/carlton_idx.html">Carlton</a></td><td><tt>1.6 2.8 7.8 9.10</tt></td><td> 64</td><td><b>Melbourne</b> won by <b>22 pts </b></td></tr>
+</table>
+</body></html>`;
+
+    const results = parseSeasonPage(nonGapHtml, 2025);
+    expect(results).toHaveLength(1);
+    const date = results[0]?.date;
+    expect(date).toBeDefined();
+    // 02:30 AEDT on Oct 12 == 15:30 UTC on Oct 11. Critically, NOT
+    // midnight UTC (the silent-fallback failure mode this test guards
+    // against) and NOT the rolled-forward 03:30 AEDT.
+    expect(date?.getTime()).toBe(Date.UTC(2025, 9, 11, 15, 30));
+    expect(date?.getUTCHours()).not.toBe(0);
+  });
 });
 
 // Season page with two matches that BOTH carry "Match stats" game links, so
