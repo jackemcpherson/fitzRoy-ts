@@ -111,6 +111,62 @@ describe("parseFixtureList (#122)", () => {
     expect(fixtures[0]?.awayPoints).toBeNull();
     expect(fixtures[0]?.margin).toBeNull();
   });
+
+  it("rolls a January AFLW row to the next calendar year (#111)", () => {
+    // Synthesise an AFLW-style fixture row dated in January. With the
+    // season labelled 2025 and AFLW opening in August, a January row
+    // must belong to January 2026, not January 2025.
+    const html = `<html><body><table>
+      <tr><td colspan="7">Round 1</td></tr>
+      <tr>
+        <td class="data">Sat 10 Jan 7:30pm</td>
+        <td class="data"><a>Carlton</a><br><a>Collingwood</a></td>
+        <td class="data">IKON Park</td>
+        <td class="data">12345</td>
+        <td class="data"></td>
+      </tr>
+    </table></body></html>`;
+    const fixtures = parseFixtureList(html, 2025, "AFLW");
+    expect(fixtures).toHaveLength(1);
+    expect(fixtures[0]?.competition).toBe("AFLW");
+    expect(fixtures[0]?.date.getUTCFullYear()).toBe(2026);
+    expect(fixtures[0]?.date.getUTCMonth()).toBe(0); // January
+  });
+
+  it("does not roll an August row for AFLW season 2025 (#111)", () => {
+    // An August row is on/after the AFLW opener; it belongs to the
+    // season-labelled calendar year, not year + 1.
+    const html = `<html><body><table>
+      <tr><td colspan="7">Round 1</td></tr>
+      <tr>
+        <td class="data">Sat 9 Aug 7:30pm</td>
+        <td class="data"><a>Carlton</a><br><a>Collingwood</a></td>
+        <td class="data">IKON Park</td>
+        <td class="data">12345</td>
+        <td class="data"></td>
+      </tr>
+    </table></body></html>`;
+    const fixtures = parseFixtureList(html, 2025, "AFLW");
+    expect(fixtures).toHaveLength(1);
+    expect(fixtures[0]?.date.getUTCFullYear()).toBe(2025);
+  });
+
+  it("AFLM season is calendar-year-aligned — March row stays in season year", () => {
+    const html = `<html><body><table>
+      <tr><td colspan="7">Round 1</td></tr>
+      <tr>
+        <td class="data">Sat 15 Mar 7:30pm</td>
+        <td class="data"><a>Carlton</a><br><a>Richmond</a></td>
+        <td class="data">MCG</td>
+        <td class="data">12345</td>
+        <td class="data"></td>
+      </tr>
+    </table></body></html>`;
+    const fixtures = parseFixtureList(html, 2025);
+    expect(fixtures).toHaveLength(1);
+    expect(fixtures[0]?.competition).toBe("AFLM");
+    expect(fixtures[0]?.date.getUTCFullYear()).toBe(2025);
+  });
 });
 
 describe("FootyWireClient", () => {

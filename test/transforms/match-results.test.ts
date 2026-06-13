@@ -111,6 +111,68 @@ describe("transformMatchItems", () => {
     expect(live.livePeriodStatus).toBe("QTR_TIME");
   });
 
+  it("surfaces matchClock.periods and derives completedQuarter (#145)", () => {
+    const item = makeMatchItem();
+    if (item.score) {
+      item.score.matchClock = {
+        periods: [
+          {
+            periodNumber: 1,
+            periodSeconds: 1786,
+            periodCompleted: true,
+            periodStart: "2026-06-13T03:30:00.000+0000",
+            nextPeriodStart: "2026-06-13T03:51:15.000+0000",
+          },
+          {
+            periodNumber: 2,
+            periodSeconds: 1800,
+            periodCompleted: true,
+            periodStart: "2026-06-13T03:51:15.000+0000",
+            nextPeriodStart: null,
+          },
+          {
+            periodNumber: 3,
+            periodSeconds: null,
+            periodCompleted: false,
+            periodStart: null,
+            nextPeriodStart: null,
+          },
+        ],
+      };
+    }
+    const r = first(transformMatchItems([item], 2026, "AFLM"));
+    expect(r.matchClockPeriods).not.toBeNull();
+    expect(r.matchClockPeriods).toHaveLength(3);
+    expect(r.matchClockPeriods?.[0]?.periodCompleted).toBe(true);
+    expect(r.matchClockPeriods?.[2]?.periodSeconds).toBeNull();
+    expect(r.completedQuarter).toBe(2);
+  });
+
+  it("matchClockPeriods is null when score wrapper is absent", () => {
+    const r = first(transformMatchItems([makeMatchItem({ score: undefined })], 2025, "AFLM"));
+    expect(r.matchClockPeriods).toBeNull();
+    expect(r.completedQuarter).toBeNull();
+  });
+
+  it("completedQuarter is 0 when no period has completed yet", () => {
+    const item = makeMatchItem();
+    if (item.score) {
+      item.score.matchClock = {
+        periods: [
+          {
+            periodNumber: 1,
+            periodSeconds: 400,
+            periodCompleted: false,
+            periodStart: null,
+            nextPeriodStart: null,
+          },
+        ],
+      };
+    }
+    const r = first(transformMatchItems([item], 2026, "AFLM"));
+    expect(r.completedQuarter).toBe(0);
+  });
+
   it("handles missing periodScore gracefully", () => {
     const item = makeMatchItem({
       score: {

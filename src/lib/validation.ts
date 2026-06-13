@@ -179,6 +179,8 @@ export const CfsMatchSchema = z
     name: z.string().optional(),
     status: z.string(),
     utcStartTime: z.string(),
+    /** Wall-clock start at the venue (no offset) — captured for #109. */
+    venueLocalStartTime: z.string().nullish(),
     homeTeamId: z.string(),
     awayTeamId: z.string(),
     homeTeam: CfsMatchTeamSchema,
@@ -195,6 +197,17 @@ export type CfsMatch = z.infer<typeof CfsMatchSchema>;
 // /cfs/ score wrapper (nested within match items)
 // ---------------------------------------------------------------------------
 
+/** Schema for a single quarter in the /cfs/ match-clock period list (#145). */
+export const CfsMatchClockPeriodSchema = z
+  .object({
+    periodNumber: z.number(),
+    periodSeconds: z.number().nullish(),
+    periodCompleted: z.boolean(),
+    periodStart: z.string().nullish(),
+    nextPeriodStart: z.string().nullish(),
+  })
+  .passthrough();
+
 /** Schema for the score wrapper within a /cfs/ match item. */
 export const CfsScoreSchema = z
   .object({
@@ -202,11 +215,20 @@ export const CfsScoreSchema = z
     matchId: z.string(),
     homeTeamScore: TeamScoreSchema,
     awayTeamScore: TeamScoreSchema,
+    matchClock: z
+      .object({
+        periods: z.array(CfsMatchClockPeriodSchema),
+      })
+      .passthrough()
+      .nullish(),
   })
   .passthrough();
 
 /** Inferred type for a /cfs/ score wrapper. */
 export type CfsScore = z.infer<typeof CfsScoreSchema>;
+
+/** Inferred type for a /cfs/ match-clock period. */
+export type CfsMatchClockPeriod = z.infer<typeof CfsMatchClockPeriodSchema>;
 
 // ---------------------------------------------------------------------------
 // /cfs/ venue schema
@@ -216,9 +238,9 @@ export type CfsScore = z.infer<typeof CfsScoreSchema>;
 export const CfsVenueSchema = z
   .object({
     name: z.string(),
-    venueId: z.string().optional(),
-    state: z.string().optional(),
-    timeZone: z.string().optional(),
+    venueId: z.string().nullish(),
+    state: z.string().nullish(),
+    timeZone: z.string().nullish(),
   })
   .passthrough();
 

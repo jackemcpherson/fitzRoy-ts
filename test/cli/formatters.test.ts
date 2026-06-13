@@ -67,8 +67,33 @@ describe("formatCsv", () => {
     expect(lines[1]).toBe("2025-03-16T01:30:00+11:00");
   });
 
+  it("formats Date values in the row's venueTimezone when present (#109)", () => {
+    // 14:30 UTC == 22:30 in Perth (AWST, no DST), 01:30 next day in Melbourne.
+    const date = new Date("2025-03-15T14:30:00Z");
+    const data = [{ date, venueTimezone: "Australia/Perth" }];
+    const output = formatCsv(data);
+    const lines = output.split("\n");
+    expect(lines[1]).toContain("2025-03-15T22:30:00+08:00");
+  });
+
   it("returns empty string for empty array", () => {
     expect(formatCsv([])).toBe("");
+  });
+});
+
+describe("formatJson venueTimezone propagation (#109)", () => {
+  it("uses the row's venueTimezone for nested Date instances", () => {
+    const date = new Date("2025-03-15T14:30:00Z");
+    const data = [{ date, venueTimezone: "Australia/Perth" }];
+    const parsed = JSON.parse(formatJson(data));
+    expect(parsed[0].date).toBe("2025-03-15T22:30:00+08:00");
+  });
+
+  it("falls back to Melbourne when venueTimezone is null", () => {
+    const date = new Date("2025-03-15T14:30:00Z");
+    const data = [{ date, venueTimezone: null }];
+    const parsed = JSON.parse(formatJson(data));
+    expect(parsed[0].date).toBe("2025-03-16T01:30:00+11:00");
   });
 });
 

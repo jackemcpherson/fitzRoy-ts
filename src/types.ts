@@ -16,7 +16,13 @@ export type CompetitionCode = "AFLM" | "AFLW" | "VFL" | "VFLW";
 export type RoundType = "HomeAndAway" | "Finals";
 
 /** Supported data sources mirroring the R package's `source` parameter. */
-export type DataSource = "afl-api" | "footywire" | "afl-tables" | "squiggle" | "fryzigg";
+export type DataSource =
+  | "afl-api"
+  | "footywire"
+  | "afl-tables"
+  | "squiggle"
+  | "fryzigg"
+  | "afl-coaches";
 
 /** Match status as reported by the AFL API. */
 export type MatchStatus = "Upcoming" | "Live" | "Complete" | "Postponed" | "Cancelled";
@@ -30,6 +36,23 @@ export interface QuarterScore {
   readonly goals: number;
   readonly behinds: number;
   readonly points: number;
+}
+
+/**
+ * One quarter's entry in the AFL API's `score.matchClock.periods[]` (#145).
+ *
+ * `periodCompleted` flips to `true` within seconds of the actual siren and
+ * is the authoritative signal for quarter boundaries — see
+ * {@link Match.matchClockPeriods}.
+ */
+export interface MatchClockPeriod {
+  readonly periodNumber: number;
+  readonly periodSeconds: number | null;
+  readonly periodCompleted: boolean;
+  /** ISO 8601 UTC start of the period, when known. */
+  readonly periodStart: string | null;
+  /** ISO 8601 UTC scheduled start of the next period, when known. */
+  readonly nextPeriodStart: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -100,12 +123,39 @@ export interface Match {
    * expose a per-period state — currently every source except `afl-api` — and
    * null on `afl-api` rows when the score wrapper itself is absent (pre-match).
    *
+   * **Unreliable for break detection in 2026+ (#145).** Through R14 2026 the
+   * AFL API has stopped transitioning this string through `QTR_TIME` /
+   * `HALF_TIME` / `3QTR_TIME` — it stays on `LIVE` from bounce through the
+   * final siren, with only `FULL_TIME` / `CONCLUDED` flipping after. For
+   * authoritative break detection use {@link Match.matchClockPeriods} or
+   * {@link Match.completedQuarter} instead.
+   *
    * The string values are upstream-defined and not yet enumerated; observed
    * values to date come straight from the AFL API and may include codes such
    * as `LIVE`, `QTR_TIME`, `HALF_TIME`, `3QTR_TIME`, `FULL_TIME`. Treat as an
    * opaque string until a stable union is documented.
    */
   readonly livePeriodStatus: string | null;
+
+  /**
+   * AFL API match-clock periods (#145). Each entry corresponds to one
+   * quarter and carries a `periodCompleted` flag that flips within seconds
+   * of each siren — making this the authoritative break-detection signal,
+   * unlike {@link Match.livePeriodStatus} which 2026 upstream changes left
+   * stuck on `LIVE` through breaks.
+   *
+   * Null for any source other than `afl-api`, and null on `afl-api` rows
+   * when the score wrapper is absent (pre-match).
+   */
+  readonly matchClockPeriods: ReadonlyArray<MatchClockPeriod> | null;
+
+  /**
+   * Highest fully-completed quarter according to the AFL match clock (#145).
+   * `0` means no quarter has finished (live first quarter or pre-match);
+   * `4` means full time. Derived from {@link Match.matchClockPeriods}.
+   * Null when the underlying matchClock is unavailable.
+   */
+  readonly completedQuarter: 0 | 1 | 2 | 3 | 4 | null;
 
   readonly attendance: number | null;
 
@@ -122,7 +172,25 @@ export interface Match {
 
   /** Venue metadata (null for scraped sources). */
   readonly venueState: string | null;
+
+  /**
+   * IANA timezone for the venue (e.g. `"Australia/Melbourne"`,
+   * `"Australia/Perth"`). Normalised across sources (#109): the AFL
+   * API publishes IANA directly; other sources resolve via the
+   * canonical venue → IANA map ({@link resolveVenueTimezone}). `null`
+   * only when the venue isn't in the map (very old or one-off venues).
+   */
   readonly venueTimezone: string | null;
+
+  /**
+   * Venue wall-clock start time (#109). The AFL API publishes this as a
+   * timezone-less ISO string (`"2025-03-13T19:30:00"`); other sources
+   * derive it from {@link Match.date} interpreted in
+   * {@link Match.venueTimezone}. Useful for "7:30pm at the venue"
+   * displays without doing your own UTC→tz conversion. `null` when
+   * neither the upstream localStartTime nor a venue tz is known.
+   */
+  readonly venueLocalDate: string | null;
 
   /** Rushed behinds per team (null when unavailable). */
   readonly homeRushedBehinds: number | null;
@@ -306,6 +374,8 @@ export interface Lineup {
   readonly homePlayers: readonly LineupPlayer[];
   readonly awayPlayers: readonly LineupPlayer[];
   readonly competition: CompetitionCode;
+  /** Adapter that produced this lineup (#120). */
+  readonly source: DataSource;
 }
 
 // ---------------------------------------------------------------------------
@@ -333,6 +403,17 @@ export interface Ladder {
   readonly roundNumber: number | null;
   readonly entries: readonly LadderEntry[];
   readonly competition: CompetitionCode;
+  /** Adapter that produced the snapshot (#120). */
+  readonly source: DataSource;
+  /**
+   * Match ID of the most recent completed match the snapshot reflects, when
+   * known. Adapters that synthesise the ladder from match results populate
+   * this with the latest input `matchId`; the AFL API source populates it
+   * from the upstream snapshot metadata when available. `null` when the
+   * snapshot is round-aligned (no sub-round granularity needed) or when
+   * the source doesn't expose it.
+   */
+  readonly asOfMatch: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -345,6 +426,8 @@ export interface Team {
   readonly name: string;
   readonly abbreviation: string;
   readonly competition: CompetitionCode;
+  /** Adapter that supplied this team row (#120). */
+  readonly source: DataSource;
 }
 
 /**
@@ -394,6 +477,8 @@ export interface Squad {
   readonly season: number;
   readonly players: readonly Player[];
   readonly competition: CompetitionCode;
+  /** Adapter that produced this squad (#120). */
+  readonly source: DataSource;
 }
 
 /**
@@ -442,6 +527,8 @@ export interface BrownlowVote {
   readonly type: "brownlow";
   readonly season: number;
   readonly competition: CompetitionCode;
+  /** Adapter that scraped this vote tally (#120). */
+  readonly source: DataSource;
   readonly player: string;
   readonly team: string;
   readonly votes: number;
@@ -467,6 +554,8 @@ export interface AllAustralianSelection {
   readonly type: "all-australian";
   readonly season: number;
   readonly competition: CompetitionCode;
+  /** Adapter that scraped this selection (#120). */
+  readonly source: DataSource;
   /** Footy position (e.g. `FB`, `HBF`, `C`). */
   readonly position: string;
   readonly player: string;
@@ -478,6 +567,8 @@ export interface RisingStarNomination {
   readonly type: "rising-star";
   readonly season: number;
   readonly competition: CompetitionCode;
+  /** Adapter that scraped this nomination (#120). */
+  readonly source: DataSource;
   readonly round: number;
   readonly player: string;
   readonly team: string;
@@ -496,6 +587,8 @@ export interface ColemanLeader {
   readonly type: "coleman";
   readonly season: number;
   readonly competition: CompetitionCode;
+  /** Adapter that produced this leaderboard entry (#120). */
+  readonly source: DataSource;
   /** 1 = season leader, 2 = runner-up, etc. */
   readonly rank: number;
   readonly player: string;
@@ -535,6 +628,8 @@ export interface CoachesVote {
   readonly type: "coaches";
   readonly season: number;
   readonly competition: CompetitionCode;
+  /** Adapter that scraped this vote line (#120). */
+  readonly source: DataSource;
   readonly round: number;
   readonly homeTeam: string;
   readonly awayTeam: string;

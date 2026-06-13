@@ -41,3 +41,13 @@ export function showSummary(message: string): void {
   if (!isTTY) return;
   console.error(pc.dim(message));
 }
+
+/**
+ * Print a warning line to stderr — always shown (TTY or not), so JSON
+ * consumers can capture caveats without contaminating stdout.
+ *
+ * @param message - Warning message (e.g. data-quality or scope caveats).
+ */
+export function showWarning(message: string): void {
+  console.error(pc.yellow(`warning: ${message}`));
+}

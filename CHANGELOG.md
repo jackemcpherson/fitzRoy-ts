@@ -7,6 +7,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-06-13
+
+### Added
+
+- Venue timezone end-to-end (#109):
+  - `Match.venueLocalDate: string | null` captures the AFL API's
+    timezone-less wall-clock start (`"2025-03-13T19:30:00"`) so callers
+    can show "7:30pm at the venue" without doing the UTC→tz conversion
+    themselves. Null on sources that don't publish it.
+  - `Match.venueTimezone` is now consistently IANA across sources. AFL
+    API still publishes IANA directly; Squiggle / FootyWire / AFL Tables
+    resolve via the canonical venue→IANA map. Only `null` when the
+    venue isn't in the map.
+  - CLI table/CSV/JSON formatters use the row's `venueTimezone` for any
+    `Date` field when present — so a 7:30pm Perth match displays in AWST
+    rather than 9:30pm in AEST. Defaults to Australia/Melbourne when
+    the row has no IANA tz, preserving existing behaviour for non-Match
+    data.
+
+- Cross-cutting source provenance (#120). `Ladder`, `Lineup`, `Squad`,
+  `Team`, and every `Award` variant (`BrownlowVote`, `AllAustralianSelection`,
+  `RisingStarNomination`, `ColemanLeader`, `CoachesVote`) now carry a
+  `source: DataSource` field — at the envelope level where there is one,
+  per-row where there isn't. Previously only `Player`, `Match`, `PlayerStats`,
+  and `TeamStatsEntry` were stamped. JSON consumers can now key-join on
+  `source` across cross-source comparisons and caches.
+- New `DataSource` variant: `"afl-coaches"` — used by `CoachesVote.source`
+  to identify the afl-coaches.com.au scraper as distinct from FootyWire.
+- `Match.matchClockPeriods: ReadonlyArray<MatchClockPeriod> | null` and the
+  derived `Match.completedQuarter: 0 | 1 | 2 | 3 | 4 | null` surface the
+  AFL API's authoritative break-detection signal. Through R14 2026 the
+  upstream `score.status` stopped transitioning through QTR_TIME/HALF_TIME/
+  3QTR_TIME — it stays on LIVE from bounce through full time — leaving
+  `Match.livePeriodStatus` unreliable for siren detection. The
+  `score.matchClock.periods[]` payload (always present, never typed
+  through Zod) carries `periodCompleted` flags that flip within seconds of
+  each real-world siren. Now captured by `MatchClockPeriodSchema`,
+  surfaced as `matchClockPeriods`, and reduced to `completedQuarter` for
+  the common "what break are we in?" query. Populated only on
+  `source: "afl-api"` rows where the score wrapper is present; null
+  elsewhere. The TSDoc on `livePeriodStatus` now warns about the 2026
+  regression and points consumers at the new fields (#145).
+- `Ladder.asOfMatch: string | null` pins mid-round ladder snapshots to
+  the specific match that defines the cutoff. The AFL Tables ladder
+  source (which synthesises the ladder from match results) populates it
+  with the latest completed `matchId` at-or-before the requested round;
+  Squiggle and the AFL API leave it `null` because neither exposes the
+  bookmark in their ladder responses (#119).
+
+- `team --name X --season Y --source afl-tables` now prints a stderr
+  warning that AFL Tables returns the all-time team roster and the
+  `--season` filter is ignored — pointing users at `--source afl-api`
+  (2012+) for a season-specific squad. The TSDoc on
+  `AflTablesSquadSource` already noted this; the warning surfaces the
+  caveat at the call site so it doesn't go unnoticed (#88).
+- `FootyWireClient.fetchSeasonFixture` and `parseFixtureList` now accept a
+  `CompetitionCode`. When the parsed fixture row's month is earlier than
+  the competition's season opener (AFLW: August), the date is rolled to
+  the following calendar year. AFLM stays calendar-year-aligned so the
+  rollover never triggers there. Defensive forward-compat for the day
+  AFLW is wired to FootyWire (#111).
+
+### Fixed
+
+- `fetchLineup` no longer fails with `Response validation failed` for
+  historical rounds where the AFL API returns `null` for venue `state`,
+  `venueId` or `timeZone`. `CfsVenueSchema` now accepts both `null` and
+  `undefined` on those optional fields, unblocking ingestion of ~36
+  historical matches across 2015-2019 (#127).
+
 ## [3.0.1] - 2026-06-12
 
 ### Fixed

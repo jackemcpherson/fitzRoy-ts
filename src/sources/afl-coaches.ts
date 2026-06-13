@@ -242,6 +242,7 @@ export function parseCoachesVotesHtml(
       type: "coaches",
       season,
       competition,
+      source: "afl-coaches",
       round: roundNumber,
       homeTeam,
       awayTeam,

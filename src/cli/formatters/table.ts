@@ -24,18 +24,40 @@ interface TableOptions {
   readonly terminalWidth?: number | undefined;
 }
 
-const AEST_COMPACT_FORMATTER = new Intl.DateTimeFormat("en-AU", {
-  timeZone: "Australia/Melbourne",
-  day: "numeric",
-  month: "short",
-  hour: "numeric",
-  minute: "2-digit",
-  hour12: true,
-});
+const DEFAULT_DISPLAY_TZ = "Australia/Melbourne";
 
-function toDisplayValue(value: unknown): string {
+const compactFormatterCache = new Map<string, Intl.DateTimeFormat>();
+
+function compactFormatterFor(timeZone: string): Intl.DateTimeFormat {
+  const cached = compactFormatterCache.get(timeZone);
+  if (cached) return cached;
+  const fmt = new Intl.DateTimeFormat("en-AU", {
+    timeZone,
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+  compactFormatterCache.set(timeZone, fmt);
+  return fmt;
+}
+
+/**
+ * Format a single cell value. When a Date is rendered, use the
+ * row's `venueTimezone` (#109) so a 7:30pm-Perth match shows as
+ * "7:30 pm" in AWST rather than "9:30 pm" in AEST. Falls back to
+ * Melbourne when the row has no IANA tz.
+ */
+function toDisplayValue(value: unknown, row?: Record<string, unknown>): string {
   if (value === null || value === undefined) return "-";
-  if (value instanceof Date) return AEST_COMPACT_FORMATTER.format(value);
+  if (value instanceof Date) {
+    const tz =
+      typeof row?.venueTimezone === "string" && row.venueTimezone.length > 0
+        ? row.venueTimezone
+        : DEFAULT_DISPLAY_TZ;
+    return compactFormatterFor(tz).format(value);
+  }
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);
 }
@@ -85,7 +107,7 @@ export function formatTable(data: Record<string, unknown>[], options: TableOptio
     for (let i = 0; i < columns.length; i++) {
       const col = columns[i];
       if (!col) continue;
-      const len = toDisplayValue(readPath(row, col.key)).length;
+      const len = toDisplayValue(readPath(row, col.key), row).length;
       const current = colWidths[i];
       if (current !== undefined && len > current) {
         colWidths[i] = len;
@@ -137,7 +159,7 @@ export function formatTable(data: Record<string, unknown>[], options: TableOptio
       const col = columns[i];
       const width = colWidths[i];
       if (!col || width === undefined) return "";
-      const val = toDisplayValue(readPath(row, col.key));
+      const val = toDisplayValue(readPath(row, col.key), row);
       return truncate(val, width).padEnd(width);
     });
     return parts.join("  ");

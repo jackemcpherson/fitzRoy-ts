@@ -24,7 +24,7 @@ import {
 } from "../formatters/index";
 import { resolveMatchId } from "../match-resolver";
 import { resolveTeamNameOrPrompt } from "../resolvers";
-import { showSummary, withSpinner } from "../ui";
+import { showSummary, showWarning, withSpinner } from "../ui";
 import {
   validateCompetition,
   validateFormat,
@@ -175,6 +175,12 @@ export const teamCommand = defineCommand({
       const team = isAfl
         ? await resolveTeamNameOrPrompt(teamName)
         : await resolveTeamNameOrPrompt(teamName, []);
+
+      if (source === "afl-tables") {
+        showWarning(
+          `--source afl-tables returns the all-time team roster — the --season ${season} filter does not narrow the player list. Use --source afl-api (2012+) for a season-specific squad. (#88)`,
+        );
+      }
 
       const result = await withSpinner("Fetching squad…", () =>
         fetchSquad({ source, team, season, competition }),

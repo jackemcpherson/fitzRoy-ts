@@ -208,6 +208,7 @@ export class AflApiSquadSource implements SquadSource {
       season: query.season,
       players,
       competition,
+      source: "afl-api" as const,
     });
   }
 
@@ -325,6 +326,11 @@ export class AflApiLadderSource implements LadderSource {
       roundNumber: ladderResult.data.round?.roundNumber ?? null,
       entries,
       competition,
+      source: "afl-api" as const,
+      // AFL API's ladder response doesn't include the most-recent-match id
+      // on its current schema (#119); leave null. Sources that synthesise
+      // the ladder from match results (afl-tables) populate it.
+      asOfMatch: null,
     });
   }
 }

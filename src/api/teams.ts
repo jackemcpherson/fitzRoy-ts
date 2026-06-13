@@ -40,11 +40,12 @@ function toTeams(
   data: ReadonlyArray<{ id: number; name: string; abbreviation?: string | undefined }>,
   competition: CompetitionCode,
 ): Team[] {
-  const mapped = data.map((t) => ({
+  const mapped: Team[] = data.map((t) => ({
     teamId: String(t.id),
     name: normaliseTeamName(t.name),
     abbreviation: t.abbreviation ?? "",
     competition,
+    source: "afl-api",
   }));
 
   let result = competition === "AFLM" ? mapped.filter((t) => AFL_SENIOR_TEAMS.has(t.name)) : mapped;
@@ -53,7 +54,7 @@ function toTeams(
     const present = new Set(result.map((t) => t.name));
     for (const backfill of AFLW_TEAM_BACKFILL) {
       if (!present.has(backfill.name)) {
-        result = [...result, { ...backfill, teamId: backfill.id, competition }];
+        result = [...result, { ...backfill, teamId: backfill.id, competition, source: "afl-api" }];
       }
     }
   }

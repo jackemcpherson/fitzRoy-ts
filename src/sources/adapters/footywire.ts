@@ -40,7 +40,7 @@ export class FootyWireMatchSource implements MatchSource {
     // fetchSeasonFixture returns ALL matches (any status). fetchSeasonResults
     // returns only completed. Use the broader call so the api-layer status
     // filter applies uniformly across sources.
-    const result = await this.client.fetchSeasonFixture(query.season);
+    const result = await this.client.fetchSeasonFixture(query.season, query.competition ?? "AFLM");
     if (!result.success) return result;
     const filtered =
       query.round != null ? result.data.filter((m) => m.roundNumber === query.round) : result.data;
@@ -135,6 +135,7 @@ export class FootyWireSquadSource implements SquadSource {
       season: query.season,
       players,
       competition,
+      source: "footywire" as const,
     });
   }
 }

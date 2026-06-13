@@ -265,6 +265,7 @@ export function rankColemanFromStats(
       type: "coleman" as const,
       season,
       competition,
+      source: "afl-api" as const,
       rank,
       player: entry.player,
       team: entry.team,
