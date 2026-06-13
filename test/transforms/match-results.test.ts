@@ -173,6 +173,123 @@ describe("transformMatchItems", () => {
     expect(r.completedQuarter).toBe(0);
   });
 
+  it("completedQuarter ignores period gaps and returns the highest completed periodNumber", () => {
+    const item = makeMatchItem();
+    if (item.score) {
+      item.score.matchClock = {
+        periods: [
+          {
+            periodNumber: 1,
+            periodSeconds: 1800,
+            periodCompleted: true,
+            periodStart: null,
+            nextPeriodStart: null,
+          },
+          {
+            periodNumber: 2,
+            periodSeconds: null,
+            periodCompleted: false,
+            periodStart: null,
+            nextPeriodStart: null,
+          },
+          {
+            periodNumber: 3,
+            periodSeconds: 1800,
+            periodCompleted: true,
+            periodStart: null,
+            nextPeriodStart: null,
+          },
+        ],
+      };
+    }
+    const r = first(transformMatchItems([item], 2026, "AFLM"));
+    expect(r.matchClockPeriods).toHaveLength(3);
+    expect(r.completedQuarter).toBe(3);
+  });
+
+  it("completedQuarter is capped at 4 when periodNumber exceeds 4 (overtime)", () => {
+    const item = makeMatchItem();
+    if (item.score) {
+      item.score.matchClock = {
+        periods: [
+          {
+            periodNumber: 1,
+            periodSeconds: 1800,
+            periodCompleted: true,
+            periodStart: null,
+            nextPeriodStart: null,
+          },
+          {
+            periodNumber: 2,
+            periodSeconds: 1800,
+            periodCompleted: true,
+            periodStart: null,
+            nextPeriodStart: null,
+          },
+          {
+            periodNumber: 3,
+            periodSeconds: 1800,
+            periodCompleted: true,
+            periodStart: null,
+            nextPeriodStart: null,
+          },
+          {
+            periodNumber: 4,
+            periodSeconds: 1800,
+            periodCompleted: true,
+            periodStart: null,
+            nextPeriodStart: null,
+          },
+          {
+            periodNumber: 5,
+            periodSeconds: 300,
+            periodCompleted: true,
+            periodStart: null,
+            nextPeriodStart: null,
+          },
+        ],
+      };
+    }
+    const r = first(transformMatchItems([item], 2026, "AFLM"));
+    expect(r.completedQuarter).toBe(4);
+  });
+
+  it("completedQuarter is 0 when the periods array is empty", () => {
+    const item = makeMatchItem();
+    if (item.score) {
+      item.score.matchClock = { periods: [] };
+    }
+    const r = first(transformMatchItems([item], 2026, "AFLM"));
+    expect(r.matchClockPeriods).toHaveLength(0);
+    expect(r.completedQuarter).toBe(0);
+  });
+
+  it("completedQuarter is order-independent across the periods array", () => {
+    const item = makeMatchItem();
+    if (item.score) {
+      item.score.matchClock = {
+        periods: [
+          {
+            periodNumber: 3,
+            periodSeconds: 1800,
+            periodCompleted: true,
+            periodStart: null,
+            nextPeriodStart: null,
+          },
+          {
+            periodNumber: 1,
+            periodSeconds: 1800,
+            periodCompleted: true,
+            periodStart: null,
+            nextPeriodStart: null,
+          },
+        ],
+      };
+    }
+    const r = first(transformMatchItems([item], 2026, "AFLM"));
+    expect(r.completedQuarter).toBe(3);
+  });
+
   it("handles missing periodScore gracefully", () => {
     const item = makeMatchItem({
       score: {
