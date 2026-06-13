@@ -13,6 +13,7 @@
  * this module *is* what gets imported.
  */
 
+import { AflApiClient } from "../afl-api";
 import {
   AflApiLadderSource,
   AflApiLineupSource,
@@ -45,9 +46,15 @@ import {
 import { SquiggleLadderSource, SquiggleMatchSource } from "./squiggle";
 
 // ---------------------------------------------------------------------------
+// Shared AFL API client — one instance reused across every AFL API adapter
+// registration so that authentication (token POST) happens once per session.
+// ---------------------------------------------------------------------------
+const aflApiClient = new AflApiClient();
+
+// ---------------------------------------------------------------------------
 // Match
 // ---------------------------------------------------------------------------
-matchRegistry.register(new AflApiMatchSource());
+matchRegistry.register(new AflApiMatchSource(aflApiClient));
 matchRegistry.register(new FootyWireMatchSource());
 matchRegistry.register(new AflTablesMatchSource());
 matchRegistry.register(new SquiggleMatchSource());
@@ -55,7 +62,7 @@ matchRegistry.register(new SquiggleMatchSource());
 // ---------------------------------------------------------------------------
 // PlayerStats
 // ---------------------------------------------------------------------------
-playerStatsRegistry.register(new AflApiPlayerStatsSource());
+playerStatsRegistry.register(new AflApiPlayerStatsSource(aflApiClient));
 playerStatsRegistry.register(new FootyWirePlayerStatsSource());
 playerStatsRegistry.register(new AflTablesPlayerStatsSource());
 playerStatsRegistry.register(new FryziggPlayerStatsSource());
@@ -69,25 +76,22 @@ teamStatsRegistry.register(new AflTablesTeamStatsSource());
 // ---------------------------------------------------------------------------
 // Squad — AFL API (all comps), FootyWire and AFL Tables (AFLM only).
 // ---------------------------------------------------------------------------
-squadRegistry.register(new AflApiSquadSource());
+squadRegistry.register(new AflApiSquadSource(aflApiClient));
 squadRegistry.register(new FootyWireSquadSource());
 squadRegistry.register(new AflTablesSquadSource());
 
 // ---------------------------------------------------------------------------
 // Lineup (AFL API only)
 // ---------------------------------------------------------------------------
-lineupRegistry.register(new AflApiLineupSource());
+lineupRegistry.register(new AflApiLineupSource(aflApiClient));
 
 // ---------------------------------------------------------------------------
 // Ladder
 // ---------------------------------------------------------------------------
-ladderRegistry.register(new AflApiLadderSource());
+ladderRegistry.register(new AflApiLadderSource(aflApiClient));
 ladderRegistry.register(new AflTablesLadderSource());
 ladderRegistry.register(new SquiggleLadderSource());
 
-// ---------------------------------------------------------------------------
-// Re-exports — public surface for src/api/*
-// ---------------------------------------------------------------------------
 export type {
   CapabilityAdapter,
   LadderSource,
@@ -115,3 +119,7 @@ export {
   squadRegistry,
   teamStatsRegistry,
 } from "./registry";
+// ---------------------------------------------------------------------------
+// Re-exports — public surface for src/api/*
+// ---------------------------------------------------------------------------
+export { aflApiClient };
