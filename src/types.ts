@@ -335,6 +335,14 @@ export interface PlayerStats {
  *
  * Total failure of the season-level request itself (e.g. the season page
  * is unreachable) is still reported as an `err` Result, not an envelope.
+ *
+ * **Per-source semantics:** scraper sources (`afl-tables`, `footywire`) return
+ * partial results — `stats` contains every game that scraped successfully and
+ * `failedMatchIds` lists the rest. The `afl-api` source is fail-fast: any
+ * per-match failure aborts and is returned as an `err` Result, so on an `ok`
+ * Result `failedMatchIds` is always empty for that source. The asymmetry is
+ * intentional — see ADR-0003 for the reasoning (scrapers fail often; the API
+ * doesn't).
  */
 export interface SeasonPlayerStats {
   /** Per-player stat lines for every game that was fetched successfully. */
