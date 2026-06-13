@@ -5,6 +5,7 @@
  * back to 1897 for historical AFL/VFL results.
  */
 
+import type * as cheerio from "cheerio/slim";
 import { batchedMap } from "../lib/concurrency";
 import { localToUtc, parseDate } from "../lib/date-utils";
 import { DstGapError, ScrapeError } from "../lib/errors";
@@ -15,7 +16,10 @@ import { normaliseTeamName } from "../lib/team-mapping";
 import { emptyMetricSet, type MutableTeamMetricSet } from "../lib/team-metrics";
 import { normaliseVenueName } from "../lib/venue-mapping";
 import { resolveVenueTimezone } from "../lib/venue-timezones";
-import { extractGameUrls, parseAflTablesGameStats } from "../transforms/afl-tables-player-stats";
+import {
+  extractGameUrlsFromDoc,
+  parseAflTablesGameStats,
+} from "../transforms/afl-tables-player-stats";
 import { finalsRoundNumber, inferRoundType, toRoundCode } from "../transforms/match-results";
 import type {
   Match,
@@ -106,7 +110,10 @@ export class AflTablesClient {
       }
 
       const seasonHtml = await seasonResponse.text();
-      const gameUrls = extractGameUrls(seasonHtml);
+      // Parse once and share the cheerio document between the two extractors
+      // — parse5+cheerio over a 100KB+ page is the expensive step here.
+      const $season = parseHtml(seasonHtml);
+      const gameUrls = extractGameUrlsFromDoc($season);
 
       if (gameUrls.length === 0) {
         return ok({ stats: [], failedMatchIds: [] });
@@ -116,7 +123,7 @@ export class AflTablesClient {
       // the season parse may skip a malformed row, and an index-based
       // alignment would then shift every later game's round (COR-10).
       const roundByGameId = new Map<string, number>();
-      for (const game of parseSeasonPageGames(seasonHtml, year)) {
+      for (const game of parseSeasonPageGamesFromDoc($season, year)) {
         if (game.gameId != null) {
           roundByGameId.set(game.gameId, game.match.roundNumber);
         }
@@ -277,7 +284,15 @@ interface SeasonPageGame {
  * Internal companion to {@link parseSeasonPage}.
  */
 function parseSeasonPageGames(html: string, year: number): SeasonPageGame[] {
-  const $ = parseHtml(html);
+  return parseSeasonPageGamesFromDoc(parseHtml(html), year);
+}
+
+/**
+ * Same as {@link parseSeasonPageGames} but accepts a pre-parsed cheerio
+ * document, so callers that already parsed the season HTML for another
+ * reason can avoid a second parse pass.
+ */
+function parseSeasonPageGamesFromDoc($: cheerio.CheerioAPI, year: number): SeasonPageGame[] {
   const results: Match[] = [];
   const gameIds: (string | null)[] = [];
   let currentRound = 0;

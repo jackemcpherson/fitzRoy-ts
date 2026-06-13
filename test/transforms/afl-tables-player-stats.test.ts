@@ -1,7 +1,12 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { parseAflTablesGameStats } from "../../src/transforms/afl-tables-player-stats";
+import { parseHtml } from "../../src/lib/parse-html";
+import {
+  extractGameUrls,
+  extractGameUrlsFromDoc,
+  parseAflTablesGameStats,
+} from "../../src/transforms/afl-tables-player-stats";
 
 const fixturesDir = join(__dirname, "..", "fixtures");
 
@@ -66,5 +71,15 @@ describe("AFL Tables player stats parsing", () => {
     expect(totalVotes).toBe(6);
     const voteCounts = voteRows.map((s) => s.brownlowVotes).sort();
     expect(voteCounts).toEqual([1, 2, 3]);
+  });
+});
+
+describe("extractGameUrlsFromDoc", () => {
+  it("returns the same URL list as extractGameUrls for a real season fixture", () => {
+    const seasonHtml = readFileSync(join(fixturesDir, "afl-tables-season.html"), "utf-8");
+    const fromHtml = extractGameUrls(seasonHtml);
+    const fromDoc = extractGameUrlsFromDoc(parseHtml(seasonHtml));
+    expect(fromDoc).toEqual(fromHtml);
+    expect(fromDoc.length).toBeGreaterThan(0);
   });
 });
