@@ -4,8 +4,7 @@
 
 import { ok, Result } from "../lib/result";
 import { AFL_SENIOR_TEAMS, normaliseTeamName } from "../lib/team-mapping";
-import { dispatch, squadRegistry } from "../sources/adapters/index";
-import { AflApiClient } from "../sources/afl-api";
+import { aflApiClient, dispatch, squadRegistry } from "../sources/adapters/index";
 import type { CompetitionCode, Squad, SquadQuery, Team, TeamQuery } from "../types";
 
 /**
@@ -69,13 +68,11 @@ function toTeams(
  * @returns Array of teams.
  */
 export async function fetchTeams(query?: TeamQuery): Promise<Result<Team[], Error>> {
-  const client = new AflApiClient();
-
   // When no competition specified, fetch both AFLM and AFLW teams (the AFL "senior" comps).
   if (!query?.competition) {
     const [menResult, womenResult] = await Promise.all([
-      client.fetchTeams("AFLM"),
-      client.fetchTeams("AFLW"),
+      aflApiClient.fetchTeams("AFLM"),
+      aflApiClient.fetchTeams("AFLW"),
     ]);
     if (!menResult.success) return menResult;
     if (!womenResult.success) return womenResult;
@@ -83,7 +80,7 @@ export async function fetchTeams(query?: TeamQuery): Promise<Result<Team[], Erro
     return ok([...toTeams(menResult.data, "AFLM"), ...toTeams(womenResult.data, "AFLW")]);
   }
 
-  const result = await client.fetchTeams(query.competition);
+  const result = await aflApiClient.fetchTeams(query.competition);
   if (!result.success) return result;
 
   return ok(toTeams(result.data, query.competition));

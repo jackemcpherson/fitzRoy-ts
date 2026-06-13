@@ -5,6 +5,7 @@
  * #, Player, KI, MK, HB, DI, GL, BH, HO, TK, RB, IF, CL, CG, FF, FA, BR, CP, UP, CM, MI, 1%, BO, GA, %P
  */
 
+import type * as cheerio from "cheerio/slim";
 import { parseHtml } from "../lib/parse-html";
 import { safeInt, safeIntOrZero } from "../lib/parse-utils";
 import { normaliseTeamName } from "../lib/team-mapping";
@@ -158,13 +159,16 @@ export function parseAflTablesGameStats(
 }
 
 /**
- * Extract game URLs from an AFL Tables season page.
+ * Extract game URLs from an already-parsed AFL Tables season document.
  *
- * @param seasonHtml - HTML of the season page (e.g. afltables.com/afl/seas/2024.html).
- * @returns Array of relative game URLs like "../stats/games/2024/111620240307.html".
+ * Companion to {@link extractGameUrls} that accepts a pre-built cheerio API,
+ * so callers that also need to parse other parts of the same season page
+ * can avoid re-running parse5 on the same HTML.
+ *
+ * @param $ - Cheerio API bound to a parsed AFL Tables season page.
+ * @returns Array of absolute game URLs like "https://afltables.com/afl/stats/games/2024/111620240307.html".
  */
-export function extractGameUrls(seasonHtml: string): string[] {
-  const $ = parseHtml(seasonHtml);
+export function extractGameUrlsFromDoc($: cheerio.CheerioAPI): string[] {
   const urls: string[] = [];
 
   $("tr:nth-child(2) td:nth-child(4) a").each((_i, el) => {
@@ -175,4 +179,14 @@ export function extractGameUrls(seasonHtml: string): string[] {
   });
 
   return urls;
+}
+
+/**
+ * Extract game URLs from an AFL Tables season page.
+ *
+ * @param seasonHtml - HTML of the season page (e.g. afltables.com/afl/seas/2024.html).
+ * @returns Array of relative game URLs like "../stats/games/2024/111620240307.html".
+ */
+export function extractGameUrls(seasonHtml: string): string[] {
+  return extractGameUrlsFromDoc(parseHtml(seasonHtml));
 }

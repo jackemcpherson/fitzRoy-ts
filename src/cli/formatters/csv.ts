@@ -7,10 +7,26 @@
 import { toVenueIso } from "./date-format";
 
 function escapeField(value: string): string {
-  if (value.includes(",") || value.includes('"') || value.includes("\n") || value.includes("\r")) {
-    return `"${value.replace(/"/g, '""')}"`;
+  // CSV injection defence: prefix formula-trigger first characters with '
+  // so spreadsheet apps treat the cell as literal text. OWASP "Formula Injection".
+  const first = value.charCodeAt(0);
+  const guarded =
+    first === 0x3d || // =
+    first === 0x2b || // +
+    first === 0x2d || // -
+    first === 0x40 || // @
+    first === 0x09 // \t
+      ? `'${value}`
+      : value;
+  if (
+    guarded.includes(",") ||
+    guarded.includes('"') ||
+    guarded.includes("\n") ||
+    guarded.includes("\r")
+  ) {
+    return `"${guarded.replace(/"/g, '""')}"`;
   }
-  return value;
+  return guarded;
 }
 
 function toStringValue(value: unknown, row?: Record<string, unknown>): string {
