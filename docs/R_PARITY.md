@@ -19,14 +19,11 @@ fitzRoy-ts normalises all team names to the AFL API's canonical names across all
 
 fitzRoy-ts uses the AFL API's match/ladder naming as canonical, with title-cased mascots (e.g. "GWS Giants" not "GWS GIANTS"). All sources (AFL Tables, FootyWire) normalise to these names. Use `normaliseTeamName()` to convert any variant to the canonical form.
 
-## Data Sources Not Yet Implemented
+## Data Sources With Limited Coverage
 
 | Source | R Functions | Status in TS |
 |---|---|---|
-| Squiggle | `fetch_results`, `fetch_ladder` | Not implemented |
-| Fryzigg | `fetch_player_stats` | Stub (unsupported) |
-| FootyWire player stats | `fetch_player_stats(source="footywire")` | Not implemented |
-| AFL Tables player stats | `fetch_player_stats(source="afltables")` | Not implemented |
+| Fryzigg | `fetch_player_stats` | Stub — returns `UnsupportedSourceError` for queries outside 2024 |
 
 ## Structural Differences
 
