@@ -1,0 +1,22 @@
+{
+  "teams": [
+    {
+      "id": 5,
+      "name": "Carlton",
+      "abbreviation": "CARL",
+      "teamType": "MEN"
+    },
+    {
+      "id": 13,
+      "name": "Sydney Swans",
+      "abbreviation": "SYD",
+      "teamType": "MEN"
+    },
+    {
+      "id": 100,
+      "name": "Carlton",
+      "abbreviation": "CARL",
+      "teamType": "WOMEN"
+    }
+  ]
+}
