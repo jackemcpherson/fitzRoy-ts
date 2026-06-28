@@ -10,6 +10,7 @@ import { batchedMap } from "../lib/concurrency";
 import { localToUtc, parseDate } from "../lib/date-utils";
 import { DstGapError, ScrapeError } from "../lib/errors";
 import { parseHtml } from "../lib/parse-html";
+import { safeInt } from "../lib/parse-utils";
 import { err, ok, type Result } from "../lib/result";
 import { createSourceFetch, type SourceFetchOptions } from "../lib/source-fetch";
 import { normaliseTeamName } from "../lib/team-mapping";
@@ -602,7 +603,7 @@ function parseVenueFromInfo(html: string): string {
 function parseAttendanceFromInfo(text: string): number | null {
   const match = /Att:\s*([\d,]+)/i.exec(text);
   if (!match?.[1]) return null;
-  return Number.parseInt(match[1].replace(/,/g, ""), 10) || null;
+  return safeInt(match[1]);
 }
 
 /**
@@ -824,15 +825,15 @@ function parseAflTablesPlayerList(
     const goalsText = $(cells[7]).text().trim();
     const debutText = cells.length > 9 ? $(cells[9]).text().trim() : "";
 
-    const heightCm = htText ? Number.parseInt(htText, 10) || null : null;
-    const weightKg = wtText ? Number.parseInt(wtText, 10) || null : null;
-    const gamesPlayed = gamesMatch?.[1] ? Number.parseInt(gamesMatch[1], 10) || null : null;
-    const goalsScored = goalsText ? Number.parseInt(goalsText, 10) || null : null;
-    const jumperNumber = jumperText ? Number.parseInt(jumperText, 10) || null : null;
+    const heightCm = safeInt(htText);
+    const weightKg = safeInt(wtText);
+    const gamesPlayed = safeInt(gamesMatch?.[1] ?? "");
+    const goalsScored = safeInt(goalsText);
+    const jumperNumber = safeInt(jumperText);
 
     // Extract debut year from debut text (e.g. "R1 1990")
     const debutYearMatch = /(\d{4})/.exec(debutText);
-    const debutYear = debutYearMatch?.[1] ? Number.parseInt(debutYearMatch[1], 10) || null : null;
+    const debutYear = safeInt(debutYearMatch?.[1] ?? "");
 
     players.push({
       playerId: `AT_${teamName}_${surname}_${givenName}`.replace(/\s+/g, "_"),

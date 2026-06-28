@@ -105,6 +105,21 @@ describe("parseSeasonPage", () => {
     expect(date?.getTime()).toBe(Date.UTC(2025, 9, 11, 15, 30));
     expect(date?.getUTCHours()).not.toBe(0);
   });
+
+  it("preserves a legitimate 0 attendance rather than nulling it", () => {
+    // Behind-closed-doors 2020 COVID matches recorded "Att: 0". The old
+    // `parseInt(...) || null` idiom collapsed that genuine 0 to null.
+    const html = `<html><body>
+<table><tr><td>Round 1</td><td></td></tr></table>
+<table border=1>
+<tr><td><a href="../teams/swans_idx.html">Sydney</a></td><td><tt>3.3 4.3 7.10 12.14</tt></td><td> 86</td><td>Thu 07-Mar-2024 7:30 PM <b>Att: </b>0 <b>Venue:</b> <a href="../venues/scg.html">S.C.G.</a></td></tr>
+<tr><td><a href="../teams/melbourne_idx.html">Melbourne</a></td><td><tt>1.6 2.8 7.8 9.10</tt></td><td> 64</td><td><b>Sydney</b> won by <b>22 pts </b></td></tr>
+</table>
+</body></html>`;
+    const results = parseSeasonPage(html, 2024);
+    expect(results).toHaveLength(1);
+    expect(results[0]?.attendance).toBe(0);
+  });
 });
 
 // Season page with two matches that BOTH carry "Match stats" game links, so

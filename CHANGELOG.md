@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Scraped numeric fields (attendance, games played, goals, height, weight,
+  jumper number, draft/debut year) no longer collapse a legitimate `0` to
+  `null`. Previously the `parseInt(...) || null` idiom treated `0` as absent.
+
 ## [3.1.1] - 2026-06-13
 
 ### Fixed
