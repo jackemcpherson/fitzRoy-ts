@@ -1,0 +1,44 @@
+{
+  "squad": {
+    "team": {
+      "name": "Carlton"
+    },
+    "players": [
+      {
+        "player": {
+          "id": 11900,
+          "providerId": "CD_I1000900",
+          "firstName": "Patrick",
+          "surname": "Cripps",
+          "dateOfBirth": "1995-03-18",
+          "heightInCm": 195,
+          "weightInKg": 92,
+          "draftYear": "2013",
+          "draftPosition": "13",
+          "draftType": "National Draft",
+          "debutYear": "2014",
+          "recruitedFrom": "Northern Knights"
+        },
+        "jumperNumber": 9,
+        "position": "Midfield"
+      },
+      {
+        "player": {
+          "id": 12001,
+          "providerId": "CD_I1001020",
+          "firstName": "Sam",
+          "surname": "Walsh",
+          "dateOfBirth": "2000-06-29",
+          "heightInCm": 184,
+          "weightInKg": 81,
+          "draftYear": "2018",
+          "draftPosition": "1",
+          "draftType": "National Draft",
+          "debutYear": "2019"
+        },
+        "jumperNumber": 3,
+        "position": "Midfield"
+      }
+    ]
+  }
+}

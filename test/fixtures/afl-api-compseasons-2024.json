@@ -1,0 +1,18 @@
+{
+  "compSeasons": [
+    {
+      "id": 62,
+      "providerId": "CD_S2024014",
+      "name": "2024 Toyota AFL Premiership",
+      "shortName": "Premiership",
+      "currentRoundNumber": 28
+    },
+    {
+      "id": 49,
+      "providerId": "CD_S2023014",
+      "name": "2023 Toyota AFL Premiership",
+      "shortName": "Premiership",
+      "currentRoundNumber": 28
+    }
+  ]
+}
