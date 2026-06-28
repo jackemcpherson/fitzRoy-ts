@@ -14,6 +14,7 @@ import { err, ok, type Result } from "../lib/result";
 import { createSourceFetch, type SourceFetchOptions } from "../lib/source-fetch";
 import {
   AflApiTokenSchema,
+  type Compseason,
   CompseasonListSchema,
   type LadderResponse,
   LadderResponseSchema,
@@ -69,6 +70,19 @@ const AFL_API_TEAM_TYPES: Record<CompetitionCode, string> = {
   VFL: "VFL_MEN",
   VFLW: "VFL_WOMEN",
 };
+
+/**
+ * Parse a 4-digit year out of a compseason `name` (e.g.
+ * "2025 Toyota AFL Premiership" → `2025`). The year is the only place the
+ * season's calendar label lives on a compseason object.
+ *
+ * @param name - The compseason name.
+ * @returns The parsed year, or `null` when no 4-digit run is present.
+ */
+function parseSeasonYear(name: string): number | null {
+  const match = name.match(/\b(\d{4})\b/);
+  return match ? Number(match[1]) : null;
+}
 
 /** Cached token with expiry tracking. */
 interface CachedToken {
@@ -308,6 +322,31 @@ export class AflApiClient {
   }
 
   /**
+   * Fetch the compseason list for a competition.
+   *
+   * Shared by {@link resolveSeasonId} (year → ID lookup) and
+   * {@link resolveCurrentSeason} (newest-season detection) so the
+   * compseasons URL is defined in exactly one place.
+   *
+   * @param competitionId - The competition ID (from {@link resolveCompetitionId}).
+   * @returns Array of compseason objects on success.
+   */
+  private async fetchCompseasons(
+    competitionId: number,
+  ): Promise<Result<Compseason[], AflApiError | ValidationError>> {
+    const result = await this.fetchJson(
+      `${API_BASE}/competitions/${competitionId}/compseasons?pageSize=100`,
+      CompseasonListSchema,
+    );
+
+    if (!result.success) {
+      return result;
+    }
+
+    return ok(result.data.compSeasons);
+  }
+
+  /**
    * Resolve a season (compseason) ID from a competition ID and year.
    *
    * @param competitionId - The competition ID (from {@link resolveCompetitionId}).
@@ -318,10 +357,7 @@ export class AflApiClient {
     competitionId: number,
     year: number,
   ): Promise<Result<number, AflApiError | ValidationError>> {
-    const result = await this.fetchJson(
-      `${API_BASE}/competitions/${competitionId}/compseasons?pageSize=100`,
-      CompseasonListSchema,
-    );
+    const result = await this.fetchCompseasons(competitionId);
 
     if (!result.success) {
       return result;
@@ -330,13 +366,86 @@ export class AflApiClient {
     // Anchor the year with word boundaries — a bare substring match would
     // also hit a year embedded in a longer number (COR-10).
     const yearPattern = new RegExp(`\\b${String(year)}\\b`);
-    const season = result.data.compSeasons.find((cs) => yearPattern.test(cs.name));
+    const season = result.data.find((cs) => yearPattern.test(cs.name));
 
     if (!season) {
       return err(new AflApiError(`Season not found for year: ${year}`));
     }
 
     return ok(season.id);
+  }
+
+  /**
+   * Resolve the *current* default season for a competition from the AFL's
+   * round schedule — never from the local calendar year.
+   *
+   * The compseasons endpoint carries no start/end dates and pre-creates the
+   * next season (with a populated `currentRoundNumber`) before it begins, so
+   * it cannot answer "which season is current". The rounds endpoint, however,
+   * carries `utcStartTime` per round, so the season's start instant is
+   * derivable. The rule:
+   *
+   * 1. Rank compseasons by the 4-digit year in their `name`, newest first.
+   * 2. Take the newest season's earliest defined round `utcStartTime` (`S`).
+   * 3. If `now >= S`, the newest season has started (in-progress or just
+   *    completed) → return the newest year.
+   * 4. If `now < S`, the newest season is pre-created but not yet started →
+   *    return the previous (most recently completed) year.
+   * 5. If `S` is indeterminate (no round carries `utcStartTime`) or any fetch
+   *    fails → return a `Result` error so callers can fall back; never guess.
+   *
+   * @param code - The competition code (e.g. "AFLM").
+   * @returns The resolved default season year on success.
+   */
+  async resolveCurrentSeason(
+    code: CompetitionCode,
+  ): Promise<Result<number, AflApiError | ValidationError>> {
+    const compResult = await this.resolveCompetitionId(code);
+    if (!compResult.success) return compResult;
+
+    const seasonsResult = await this.fetchCompseasons(compResult.data);
+    if (!seasonsResult.success) return seasonsResult;
+
+    // Rank by the calendar year embedded in each name, newest first.
+    const dated = seasonsResult.data
+      .map((season) => ({ season, year: parseSeasonYear(season.name) }))
+      .filter((entry): entry is { season: Compseason; year: number } => entry.year !== null)
+      .sort((a, b) => b.year - a.year);
+
+    const newest = dated[0];
+    if (!newest) {
+      return err(new AflApiError(`No dated compseasons found for competition: ${code}`));
+    }
+    const previous = dated[1];
+
+    const roundsResult = await this.resolveRounds(newest.season.id);
+    if (!roundsResult.success) return roundsResult;
+
+    // Earliest defined round start = the instant the newest season begins.
+    const startInstants = roundsResult.data
+      .flatMap((round) => (round.utcStartTime ? [new Date(round.utcStartTime).getTime()] : []))
+      .filter((instant) => Number.isFinite(instant));
+
+    if (startInstants.length === 0) {
+      return err(
+        new AflApiError(`Cannot determine season start: no round has utcStartTime (${code})`),
+      );
+    }
+
+    const earliestStart = Math.min(...startInstants);
+
+    if (Date.now() >= earliestStart) {
+      // Newest season has started — it is the current / most-recent season.
+      return ok(newest.year);
+    }
+
+    // Newest season is pre-created but not yet started → most recently completed.
+    if (!previous) {
+      return err(
+        new AflApiError(`Newest season has not started and no previous season exists (${code})`),
+      );
+    }
+    return ok(previous.year);
   }
 
   /**

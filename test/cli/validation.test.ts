@@ -119,6 +119,8 @@ describe("validateOptionalSeason", () => {
 });
 
 describe("resolveDefaultSeason", () => {
+  // These assert the clock-based offline fallback only; the authoritative
+  // data-driven path is tested in test/sources/afl-api.test.ts.
   it("returns current year for AFLM", () => {
     const year = new Date().getFullYear();
     expect(resolveDefaultSeason("AFLM")).toBe(year);

@@ -12,6 +12,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Scraped numeric fields (attendance, games played, goals, height, weight,
   jumper number, draft/debut year) no longer collapse a legitimate `0` to
   `null`. Previously the `parseInt(...) || null` idiom treated `0` as absent.
+- The default season (used when `--season` is omitted) is now resolved from the
+  AFL's round schedule — the current in-progress season, else the most recently
+  completed — rather than the local calendar year. This fixes the season default
+  being wrong for part of the year (notably AFLW, which previously defaulted via a
+  `year - 1` heuristic). Falls back to the prior calendar-based approximation when
+  the AFL API is unreachable.
+- `fetchPlayerDetails` now resolves its default season (when `season` is omitted)
+  from the AFL round schedule via the same data-driven path as the CLI, instead
+  of the local calendar year. Previously it defaulted to `new Date().getFullYear()`,
+  which was wrong for part of the year (notably AFLW).
+
+### Added
+
+- `resolveDefaultSeasonForCompetition(competition)` — async helper that resolves
+  the current/most-recent season for a competition from the AFL round schedule,
+  falling back to the calendar-based approximation when the API is unreachable.
+
+### Security
+
+- Pinned a patched `undici` (`>=7.28.0`, via the `overrides` block) to clear a
+  high-severity transitive advisory pulled in through `cheerio`. The vulnerable
+  code path was not reachable from this library, but the pin removes the advisory
+  from downstream `npm audit` for consumers.
 
 ## [3.1.1] - 2026-06-13
 

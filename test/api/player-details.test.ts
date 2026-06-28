@@ -1,7 +1,21 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+// `fetchSquad` is wrapped as a spy that calls through to the real
+// implementation by default, so the happy-path test below still exercises the
+// real comp-season → team-id → squad chain (via the stubbed global fetch). The
+// default-season test (#149) overrides it with `mockResolvedValue` to assert
+// which season `fetchPlayerDetails` passed downstream, without re-stubbing the
+// whole chain.
+vi.mock("../../src/api/teams", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../src/api/teams")>();
+  return { ...actual, fetchSquad: vi.fn(actual.fetchSquad) };
+});
+
 import { fetchPlayerDetails } from "../../src/api/player-details";
+import { fetchSquad } from "../../src/api/teams";
+import { ok } from "../../src/lib/result";
 
 const COMPSEASONS = readFileSync(
   resolve(__dirname, "../fixtures/afl-api-compseasons-2024.json"),
@@ -99,5 +113,55 @@ describe("fetchPlayerDetails public API dispatch", () => {
     if (!result.success) {
       expect(result.error.message).toContain("2010");
     }
+  });
+});
+
+describe("fetchPlayerDetails default-season resolution (#149)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.mocked(fetchSquad).mockReset();
+  });
+
+  it("resolves the omitted season via the data-driven resolver (offline fallback), not new Date().getFullYear()", async () => {
+    // Mid-June 2025: new Date().getFullYear() === 2025. Force the data-driven
+    // resolver's network lookup to fail (every fetch returns 500) so
+    // resolveDefaultSeasonForCompetition falls back to the sync
+    // resolveDefaultSeason("AFLW") = year - 1 = 2024. Asserting 2024 (not the
+    // calendar year 2025) flowed into fetchSquad proves the default now flows
+    // through the resolver instead of a hard-coded getFullYear().
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2025-06-15T00:00:00.000Z"));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("", { status: 500, statusText: "Server Error" })),
+    );
+
+    const mockedFetchSquad = vi.mocked(fetchSquad);
+    // Reset first: the happy-path test above calls through the same spy, so
+    // clear its recorded call before asserting this test's call count.
+    mockedFetchSquad.mockReset();
+    mockedFetchSquad.mockResolvedValue(
+      ok({
+        teamId: "1",
+        teamName: "Carlton",
+        season: 2024,
+        players: [],
+        competition: "AFLW",
+        source: "afl-api",
+      }),
+    );
+
+    const result = await fetchPlayerDetails({
+      source: "afl-api",
+      team: "Carlton",
+      competition: "AFLW",
+    });
+
+    expect(result.success).toBe(true);
+    expect(mockedFetchSquad).toHaveBeenCalledTimes(1);
+    expect(mockedFetchSquad).toHaveBeenCalledWith(
+      expect.objectContaining({ team: "Carlton", competition: "AFLW", season: 2024 }),
+    );
   });
 });

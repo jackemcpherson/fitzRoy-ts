@@ -168,11 +168,20 @@ export function toAestString(date: Date): string {
 }
 
 /**
- * Resolve the default season for a competition when none is provided.
+ * Clock-based approximation of the default season, used only as an **offline
+ * fallback**.
  *
- * AFLM, VFL, and VFLW use the current calendar year. AFLW seasons run ahead
- * of the calendar year (e.g. the "2025" AFLW season starts in late 2024/early
- * 2025), so the default is the previous year.
+ * AFLM, VFL, and VFLW use the current calendar year. AFLW's `year - 1` is a
+ * rough heuristic (the "2025" AFLW season starts in late 2024/early 2025) that
+ * is only coincidentally right for part of the year. Because this is derived
+ * from the local calendar clock rather than the AFL's actual schedule, it can
+ * be wrong for stretches of the year.
+ *
+ * The authoritative resolution is the data-driven
+ * `resolveDefaultSeasonForCompetition` (`src/api/season.ts`), which picks the
+ * current in-progress season — else the most recently completed — from the
+ * AFL's round windows. This function is what that path falls back to when the
+ * AFL API is unreachable; do not "fix" the AFLW heuristic here.
  */
 export function resolveDefaultSeason(competition: CompetitionCode = "AFLM"): number {
   const year = new Date().getFullYear();
