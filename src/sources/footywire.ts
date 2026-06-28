@@ -8,6 +8,7 @@
 import { parseDate } from "../lib/date-utils";
 import { ScrapeError } from "../lib/errors";
 import { parseHtml } from "../lib/parse-html";
+import { safeInt } from "../lib/parse-utils";
 import { err, ok, type Result } from "../lib/result";
 import { createSourceFetch, type SourceFetchOptions } from "../lib/source-fetch";
 import { normaliseTeamName } from "../lib/team-mapping";
@@ -427,7 +428,7 @@ export function parseMatchList(html: string, year: number): Match[] {
       livePeriodStatus: null,
       matchClockPeriods: null,
       completedQuarter: null,
-      attendance: attendance ? Number.parseInt(attendance, 10) || null : null,
+      attendance: safeInt(attendance ?? ""),
       weatherTempCelsius: null,
       weatherType: null,
       roundCode: toRoundCode(currentRoundName),
@@ -823,10 +824,10 @@ function parseFootyWirePlayerList(
     const surname = nameParts[0] ?? "";
     const givenName = nameParts[1] ?? "";
 
-    const jumperNumber = jumperText ? Number.parseInt(jumperText, 10) || null : null;
-    const gamesPlayed = gamesText ? Number.parseInt(gamesText, 10) || null : null;
+    const jumperNumber = safeInt(jumperText);
+    const gamesPlayed = safeInt(gamesText);
     const heightMatch = /(\d+)cm/.exec(heightText);
-    const heightCm = heightMatch?.[1] ? Number.parseInt(heightMatch[1], 10) || null : null;
+    const heightCm = safeInt(heightMatch?.[1] ?? "");
 
     players.push({
       playerId: `FW_${teamName}_${surname}_${givenName}`.replace(/\s+/g, "_"),

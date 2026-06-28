@@ -65,6 +65,24 @@ describe("parseMatchList", () => {
   it("returns empty array for empty HTML", () => {
     expect(parseMatchList("<html></html>", 2025)).toEqual([]);
   });
+
+  it("preserves a legitimate 0 attendance rather than nulling it", () => {
+    // Behind-closed-doors 2020 COVID matches recorded an attendance of 0.
+    // The old `parseInt(...) || null` idiom collapsed that genuine 0 to null.
+    const html = `<html><body><table>
+      <tr><td colspan="7">Round 5</td></tr>
+      <tr>
+        <td class="data">Sat 1 May 7:30pm</td>
+        <td class="data"><a>Hawthorn</a><a>Geelong Cats</a></td>
+        <td class="data">MCG</td>
+        <td class="data">0</td>
+        <td class="data"><a href="?mid=9999">82-69</a></td>
+      </tr>
+    </table></body></html>`;
+    const results = parseMatchList(html, 2025);
+    expect(results).toHaveLength(1);
+    expect(results[0]?.attendance).toBe(0);
+  });
 });
 
 describe("parseFixtureList (#122)", () => {

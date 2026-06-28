@@ -11,6 +11,7 @@
 import { batchedMap } from "../../lib/concurrency";
 import { parseDate } from "../../lib/date-utils";
 import { AflApiError, ValidationError } from "../../lib/errors";
+import { safeInt } from "../../lib/parse-utils";
 import { err, ok, type Result } from "../../lib/result";
 import { AFL_API_TEAM_IDS, normaliseTeamName } from "../../lib/team-mapping";
 import { transformLadderEntries } from "../../transforms/ladder";
@@ -187,12 +188,10 @@ export class AflApiSquadSource implements SquadSource {
       dateOfBirth: p.player.dateOfBirth ?? null,
       heightCm: p.player.heightInCm || null,
       weightKg: p.player.weightInKg || null,
-      draftYear: p.player.draftYear ? Number.parseInt(p.player.draftYear, 10) || null : null,
-      draftPosition: p.player.draftPosition
-        ? Number.parseInt(p.player.draftPosition, 10) || null
-        : null,
+      draftYear: safeInt(p.player.draftYear ?? ""),
+      draftPosition: safeInt(p.player.draftPosition ?? ""),
       draftType: p.player.draftType ?? null,
-      debutYear: p.player.debutYear ? Number.parseInt(p.player.debutYear, 10) || null : null,
+      debutYear: safeInt(p.player.debutYear ?? ""),
       recruitedFrom: p.player.recruitedFrom ?? null,
       // AFL API squad endpoint doesn't carry career counters
       gamesPlayed: null,
