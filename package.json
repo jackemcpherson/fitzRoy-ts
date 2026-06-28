@@ -69,6 +69,7 @@
     "vitest": "^4.1.1"
   },
   "overrides": {
-    "fflate": "0.8.2"
+    "fflate": "0.8.2",
+    "undici": "^7.28.0"
   }
 }
