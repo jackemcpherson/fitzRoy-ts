@@ -17,6 +17,7 @@ export { fetchLineup } from "./api/lineup";
 export { fetchMatches } from "./api/match";
 export { fetchPlayerDetails } from "./api/player-details";
 export { fetchPlayerStats } from "./api/player-stats";
+export { resolveDefaultSeasonForCompetition } from "./api/season";
 export { fetchTeamStats } from "./api/team-stats";
 export { fetchSquad, fetchTeams } from "./api/teams";
 export {

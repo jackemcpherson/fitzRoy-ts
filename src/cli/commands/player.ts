@@ -2,11 +2,13 @@
  * `player` command — biographical lookup for players.
  *
  * Replaces the old `player-details` command. Default behaviour mirrors the
- * old command: optional `--team` filter, season defaults to current via
- * `resolveDefaultSeason`. Future enhancement: add per-player season summary.
+ * old command: optional `--team` filter, season defaults to the current
+ * in-progress (else most recently completed) season via
+ * `resolveDefaultSeasonForCompetition`. Future enhancement: add per-player
+ * season summary.
  */
 
-import { fetchPlayerDetails } from "../../index";
+import { fetchPlayerDetails, resolveDefaultSeasonForCompetition } from "../../index";
 import { defineFitzroyCommand } from "../command-builder";
 import {
   COMPETITION_FLAG,
@@ -17,12 +19,7 @@ import {
 } from "../flags";
 import type { TableColumnConfig } from "../formatters/index";
 import { resolveTeamNameOrPrompt } from "../resolvers";
-import {
-  resolveDefaultSeason,
-  validateCompetition,
-  validateOptionalSeason,
-  validateSource,
-} from "../validation";
+import { validateCompetition, validateOptionalSeason, validateSource } from "../validation";
 
 const DEFAULT_COLUMNS: TableColumnConfig[] = [
   { key: "displayName", label: "Player", maxWidth: 24 },
@@ -59,7 +56,8 @@ export const playerCommand = defineFitzroyCommand<PlayerArgs & Record<string, un
   run: async (args) => {
     const source = validateSource(args.source);
     const competition = validateCompetition(args.competition);
-    const season = validateOptionalSeason(args.season) ?? resolveDefaultSeason(competition);
+    const explicit = validateOptionalSeason(args.season);
+    const season = explicit ?? (await resolveDefaultSeasonForCompetition(competition));
     const team = args.team ? await resolveTeamNameOrPrompt(args.team) : undefined;
 
     return fetchPlayerDetails({ source, team, season, competition });

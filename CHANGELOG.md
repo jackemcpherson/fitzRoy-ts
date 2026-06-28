@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- The default season (used when `--season` is omitted) is now resolved from the
+  AFL's round schedule — the current in-progress season, else the most recently
+  completed — rather than the local calendar year. This fixes the season default
+  being wrong for part of the year (notably AFLW, which previously defaulted via a
+  `year - 1` heuristic). Falls back to the prior calendar-based approximation when
+  the AFL API is unreachable.
+
 ## [3.1.1] - 2026-06-13
 
 ### Fixed
