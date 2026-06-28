@@ -14,6 +14,7 @@ import { AFL_SENIOR_TEAMS } from "../lib/team-mapping";
 import { dispatch, squadRegistry } from "../sources/adapters/index";
 import { squadToPlayerDetails } from "../transforms/player-details";
 import type { PlayerDetails, PlayerDetailsQuery } from "../types";
+import { resolveDefaultSeasonForCompetition } from "./season";
 import { fetchSquad } from "./teams";
 
 /**
@@ -37,6 +38,11 @@ export async function fetchPlayerDetails(
   query: PlayerDetailsQuery,
 ): Promise<Result<PlayerDetails[], Error>> {
   const competition = query.competition ?? "AFLM";
+  // Resolve the default season once, data-driven (current in-progress, else
+  // most recently completed — from the AFL round schedule, not the local
+  // calendar year), with the same offline fallback as the CLI. Resolving here
+  // guarantees a single lookup even on the all-teams path. (#149)
+  const season = query.season ?? (await resolveDefaultSeasonForCompetition(competition));
 
   // Verify the chosen source actually exposes squad data before iterating.
   // Without this guard, sources like fryzigg (player-stats only) silently
@@ -45,14 +51,14 @@ export async function fetchPlayerDetails(
   const dispatchResult = dispatch(squadRegistry, "squad", {
     source: query.source,
     competition,
-    season: query.season ?? new Date().getFullYear(),
+    season,
   });
   if (!dispatchResult.success) return err(dispatchResult.error);
 
   if (query.team) {
     const squadR = await fetchSquad({
       team: query.team,
-      season: query.season ?? new Date().getFullYear(),
+      season,
       source: query.source,
       competition,
     });
@@ -64,7 +70,7 @@ export async function fetchPlayerDetails(
   const results = await batchedMap(teamNames, (team) =>
     fetchSquad({
       team,
-      season: query.season ?? new Date().getFullYear(),
+      season,
       source: query.source,
       competition,
     }),

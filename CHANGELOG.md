@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   being wrong for part of the year (notably AFLW, which previously defaulted via a
   `year - 1` heuristic). Falls back to the prior calendar-based approximation when
   the AFL API is unreachable.
+- `fetchPlayerDetails` now resolves its default season (when `season` is omitted)
+  from the AFL round schedule via the same data-driven path as the CLI, instead
+  of the local calendar year. Previously it defaulted to `new Date().getFullYear()`,
+  which was wrong for part of the year (notably AFLW).
 
 ## [3.1.1] - 2026-06-13
 
