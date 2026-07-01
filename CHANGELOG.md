@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- FootyWire season player-stats scrapes fetch each match's basic and advanced pages concurrently (~2× fewer sequential round-trips).
+
 ## [3.2.0] - 2026-06-28
 
 ### Fixed
