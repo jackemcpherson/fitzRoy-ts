@@ -15,7 +15,7 @@ vi.mock("../../src/api/teams", async (importOriginal) => {
 
 import { fetchPlayerDetails } from "../../src/api/player-details";
 import { fetchSquad } from "../../src/api/teams";
-import { ok } from "../../src/lib/result";
+import { err, ok } from "../../src/lib/result";
 
 const COMPSEASONS = readFileSync(
   resolve(__dirname, "../fixtures/afl-api-compseasons-2024.json"),
@@ -163,5 +163,49 @@ describe("fetchPlayerDetails default-season resolution (#149)", () => {
     expect(mockedFetchSquad).toHaveBeenCalledWith(
       expect.objectContaining({ team: "Carlton", competition: "AFLW", season: 2024 }),
     );
+  });
+});
+
+describe("fetchPlayerDetails all-teams failure modes (#155)", () => {
+  afterEach(() => {
+    vi.mocked(fetchSquad).mockReset();
+  });
+
+  it("returns an error when every team squad fetch fails", async () => {
+    vi.mocked(fetchSquad).mockResolvedValue(err(new Error("network failure")));
+
+    const result = await fetchPlayerDetails({ source: "afl-api", season: 2024 });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.message).toContain("2024");
+      expect(result.error.message).toContain("afl-api");
+    }
+  });
+
+  it("returns partial results when some team squad fetches fail", async () => {
+    let callCount = 0;
+    vi.mocked(fetchSquad).mockImplementation(async () => {
+      callCount++;
+      if (callCount === 1) {
+        return ok({
+          teamId: "1",
+          teamName: "Carlton",
+          season: 2024,
+          players: [],
+          competition: "AFLM",
+          source: "afl-api",
+        });
+      }
+      return err(new Error("network failure"));
+    });
+
+    const result = await fetchPlayerDetails({ source: "afl-api", season: 2024 });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    // Only players from the one successful team are included; Carlton's squad
+    // has 0 players in this fixture, so the array is empty but not an error.
+    expect(result.data).toHaveLength(0);
   });
 });
