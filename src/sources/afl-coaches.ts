@@ -11,6 +11,58 @@ import { err, ok, type Result } from "../lib/result";
 import { createSourceFetch, type SourceFetchOptions } from "../lib/source-fetch";
 import type { CoachesVote, CompetitionCode } from "../types";
 
+/**
+ * Final home-and-away round per AFLM season on aflcoaches.com.au.
+ *
+ * Sourced by `scripts/probe-afl-coaches.ts` on 2026-07-02.
+ * Seasons not listed use {@link DEFAULT_LAST_HA_ROUND}.
+ *
+ * Evidence: for each entry, the Gary Ayres (finals) URL shows a large jump
+ * in vote-row count at the round AFTER the value listed here, confirming
+ * that listed round is the last H&A round. See the probe script for detail.
+ *
+ * Maintenance: add one entry when a new season's H&A round count differs
+ * from {@link DEFAULT_LAST_HA_ROUND} (same class as `FRYZIGG_LATEST_SNAPSHOT`).
+ */
+const AFLM_LAST_HA_ROUND: ReadonlyMap<number, number> = new Map([
+  // Pre-2011: AFL ran 22 H&A rounds. Probe confirmed 2010; assumed for 2006–2009.
+  [2006, 22],
+  [2007, 22],
+  [2008, 22],
+  [2009, 22],
+  [2010, 22],
+  // 2023: 24 H&A rounds — Gary Ayres jump at round 25 (probe confirmed).
+  [2023, 24],
+  // 2024–2025: 25 H&A rounds — Gary Ayres jump at round 26 (probe confirmed).
+  [2024, 25],
+  [2025, 25],
+]);
+
+/**
+ * Default last home-and-away round for AFLM seasons not listed in
+ * {@link AFLM_LAST_HA_ROUND}. Covers 2011–2022 (probe confirmed 2015, 2017, 2019).
+ */
+const DEFAULT_LAST_HA_ROUND = 23;
+
+/**
+ * Returns `true` if the given round is a finals round for AFLM.
+ *
+ * Uses a per-season lookup table derived from live probes of aflcoaches.com.au
+ * rather than the former hardcoded `round >= 24 && season >= 2018` expression,
+ * which misclassified round-24 H&A games in 2023+ as finals.
+ *
+ * For AFLW, `isFinals` is irrelevant (single URL), so this helper is only
+ * meaningful for AFLM callers.
+ *
+ * @param season - Season year (e.g. 2024).
+ * @param round - Round number.
+ * @returns `true` if `round` exceeds the last home-and-away round for that season.
+ */
+export function isFinalsRound(season: number, round: number): boolean {
+  const lastHa = AFLM_LAST_HA_ROUND.get(season) ?? DEFAULT_LAST_HA_ROUND;
+  return round > lastHa;
+}
+
 /** Options for constructing an AFL Coaches client. */
 export interface AflCoachesClientOptions extends SourceFetchOptions {
   readonly fetchFn?: typeof fetch | undefined;
@@ -144,8 +196,7 @@ export class AflCoachesClient {
     const maxRound = 30;
 
     for (let round = 1; round <= maxRound; round++) {
-      // Finals start at round 24 for seasons >= 2018
-      const isFinals = round >= 24 && season >= 2018;
+      const isFinals = isFinalsRound(season, round);
 
       const result = await this.scrapeRoundVotes(season, round, competition, isFinals);
 

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Coaches votes: finals rounds are now detected per season instead of assuming
+  23 home-and-away rounds; round-24 home-and-away votes (2023+) are no longer
+  dropped, and seasons with 25 H&A rounds (2024–2025) are handled correctly.
+
 ## [3.2.0] - 2026-06-28
 
 ### Fixed

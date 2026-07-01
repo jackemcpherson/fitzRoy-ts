@@ -1,7 +1,11 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { AflCoachesClient, parseCoachesVotesHtml } from "../../src/sources/afl-coaches";
+import {
+  AflCoachesClient,
+  isFinalsRound,
+  parseCoachesVotesHtml,
+} from "../../src/sources/afl-coaches";
 
 const FIXTURE_PATH = resolve(__dirname, "../fixtures/afl-coaches-votes.html");
 const fixtureHtml = readFileSync(FIXTURE_PATH, "utf-8");
@@ -126,5 +130,59 @@ describe("AflCoachesClient.scrapeRoundVotes", () => {
 
     const result = await client.scrapeRoundVotes(2024, 1, "AFLM", false);
     expect(result.success).toBe(false);
+  });
+});
+
+describe("isFinalsRound", () => {
+  // 2023: 24 H&A rounds confirmed by probe (Gary Ayres jump at round 25)
+  it("returns false for round 24 in 2023 (last H&A round)", () => {
+    expect(isFinalsRound(2023, 24)).toBe(false);
+  });
+
+  it("returns true for round 25 in 2023 (first finals round)", () => {
+    expect(isFinalsRound(2023, 25)).toBe(true);
+  });
+
+  // 2019: 23 H&A rounds confirmed by probe (Gary Ayres jump at round 24)
+  it("returns false for round 23 in 2019 (last H&A round)", () => {
+    expect(isFinalsRound(2019, 23)).toBe(false);
+  });
+
+  it("returns true for round 24 in 2019 (first finals round)", () => {
+    expect(isFinalsRound(2019, 24)).toBe(true);
+  });
+
+  // 2024: 25 H&A rounds confirmed by probe (Gary Ayres jump at round 26)
+  it("returns false for round 25 in 2024 (last H&A round)", () => {
+    expect(isFinalsRound(2024, 25)).toBe(false);
+  });
+
+  it("returns true for round 26 in 2024 (first finals round)", () => {
+    expect(isFinalsRound(2024, 26)).toBe(true);
+  });
+
+  // Pre-2018: default last H&A = 23; Gary Ayres URL returns 404 for finals
+  // rounds in these seasons (silently skipped), but the boundary is correct.
+  it("returns false for round 23 in 2017 (last H&A round, default boundary)", () => {
+    expect(isFinalsRound(2017, 23)).toBe(false);
+  });
+
+  it("returns true for round 24 in 2017 (after H&A ends)", () => {
+    expect(isFinalsRound(2017, 24)).toBe(true);
+  });
+
+  // 2010: 22 H&A rounds confirmed by probe
+  it("returns false for round 22 in 2010 (last H&A round)", () => {
+    expect(isFinalsRound(2010, 22)).toBe(false);
+  });
+
+  it("returns true for round 23 in 2010 (after H&A ends)", () => {
+    expect(isFinalsRound(2010, 23)).toBe(true);
+  });
+
+  // Default boundary applies to unlisted seasons (DEFAULT_LAST_HA_ROUND = 23)
+  it("uses the default boundary (23) for an unlisted season", () => {
+    expect(isFinalsRound(2015, 23)).toBe(false);
+    expect(isFinalsRound(2015, 24)).toBe(true);
   });
 });
