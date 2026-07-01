@@ -11,7 +11,7 @@
 
 import { defineCommand } from "citty";
 import { fetchLineup, fetchSquad, fetchTeams } from "../../index";
-import type { Lineup, TeamResponse } from "../../types";
+import type { TeamResponse } from "../../types";
 import { rejectUnknownFlags } from "../command-builder";
 import { withErrorBoundary } from "../error-boundary";
 import { COMPETITION_FLAG, OUTPUT_FLAGS, ROUND_FLAG, SOURCE_FLAG, TEAM_FLAG } from "../flags";
@@ -24,6 +24,7 @@ import {
 } from "../formatters/index";
 import { resolveMatchId } from "../match-resolver";
 import { resolveTeamNameOrPrompt } from "../resolvers";
+import { filterLineupsByTeam, filterTeamList, flattenLineups } from "../team-filters";
 import { showSummary, showWarning, withSpinner } from "../ui";
 import {
   validateCompetition,
@@ -65,33 +66,6 @@ function printTeamResponse(
   console.log(
     resolvedFormat === "json" ? formatJson(jsonPayload) : formatOutput(tableData, formatOptions),
   );
-}
-
-function flattenLineups(
-  lineups: readonly Lineup[],
-  teamFilter?: string,
-): Record<string, unknown>[] {
-  const rows: Record<string, unknown>[] = [];
-  for (const lineup of lineups) {
-    for (const { players, team } of [
-      { players: lineup.homePlayers, team: lineup.homeTeam },
-      { players: lineup.awayPlayers, team: lineup.awayTeam },
-    ]) {
-      if (teamFilter != null && team !== teamFilter) continue;
-      for (const p of players) {
-        rows.push({
-          matchId: lineup.matchId,
-          team,
-          displayName: p.displayName,
-          jumperNumber: p.jumperNumber,
-          matchPosition: p.matchPosition,
-          isEmergency: p.isEmergency,
-          isSubstitute: p.isSubstitute,
-        });
-      }
-    }
-  }
-  return rows;
 }
 
 const TEAM_ARGS = {
@@ -143,9 +117,7 @@ export const teamCommand = defineCommand({
       if (!result.success) throw result.error;
 
       const teamName = args.name || args.team;
-      const data = teamName
-        ? result.data.filter((l) => l.homeTeam === teamName || l.awayTeam === teamName)
-        : result.data;
+      const data = teamName ? filterLineupsByTeam(result.data, teamName) : result.data;
       showSummary(
         `Loaded ${data.length} lineup${data.length === 1 ? "" : "s"} for ${season} round ${round}${teamName ? ` (${teamName})` : ""}`,
       );
@@ -212,22 +184,7 @@ export const teamCommand = defineCommand({
     if (!result.success) throw result.error;
 
     const filterName = args.name || args.team;
-    const data = filterName
-      ? result.data.filter((t) => {
-          const target = filterName.toLowerCase();
-          return (
-            t.name.toLowerCase() === target ||
-            t.abbreviation.toLowerCase() === target ||
-            t.teamId === filterName
-          );
-        })
-      : result.data;
-
-    if (filterName && data.length === 0) {
-      throw new Error(
-        `No team matched "${filterName}". Available: ${result.data.map((t) => `${t.name} (${t.abbreviation})`).join(", ")}`,
-      );
-    }
+    const data = filterName ? filterTeamList(result.data, filterName) : result.data;
 
     showSummary(`Loaded ${data.length} team${data.length === 1 ? "" : "s"}`);
     const formatOptions: FormatOptions = {
