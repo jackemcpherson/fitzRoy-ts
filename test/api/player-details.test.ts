@@ -16,6 +16,7 @@ vi.mock("../../src/api/teams", async (importOriginal) => {
 import { fetchPlayerDetails } from "../../src/api/player-details";
 import { fetchSquad } from "../../src/api/teams";
 import { err, ok } from "../../src/lib/result";
+import type { Player } from "../../src/types";
 
 const COMPSEASONS = readFileSync(
   resolve(__dirname, "../fixtures/afl-api-compseasons-2024.json"),
@@ -184,6 +185,27 @@ describe("fetchPlayerDetails all-teams failure modes (#155)", () => {
   });
 
   it("returns partial results when some team squad fetches fail", async () => {
+    const mockPlayer: Player = {
+      playerId: "1",
+      givenName: "Sam",
+      surname: "Walsh",
+      displayName: "Sam Walsh",
+      jumperNumber: 3,
+      position: null,
+      dateOfBirth: null,
+      heightCm: null,
+      weightKg: null,
+      draftYear: null,
+      draftPosition: null,
+      draftType: null,
+      debutYear: null,
+      recruitedFrom: null,
+      gamesPlayed: null,
+      goals: null,
+      team: "Carlton",
+      source: "afl-api",
+      competition: "AFLM",
+    };
     let callCount = 0;
     vi.mocked(fetchSquad).mockImplementation(async () => {
       callCount++;
@@ -192,7 +214,7 @@ describe("fetchPlayerDetails all-teams failure modes (#155)", () => {
           teamId: "1",
           teamName: "Carlton",
           season: 2024,
-          players: [],
+          players: [mockPlayer],
           competition: "AFLM",
           source: "afl-api",
         });
@@ -204,8 +226,9 @@ describe("fetchPlayerDetails all-teams failure modes (#155)", () => {
 
     expect(result.success).toBe(true);
     if (!result.success) return;
-    // Only players from the one successful team are included; Carlton's squad
-    // has 0 players in this fixture, so the array is empty but not an error.
-    expect(result.data).toHaveLength(0);
+    // The one successful Carlton squad contributes exactly one player.
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0]?.displayName).toBe("Sam Walsh");
+    expect(result.data[0]?.team).toBe("Carlton");
   });
 });
