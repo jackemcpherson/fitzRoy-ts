@@ -151,6 +151,9 @@ Run `fitzroy --help` for all commands and options.
 
 1. Clone the repo
 2. Install dependencies: `bun install`
+
+   bun is the only supported installer (`bun.lock` is the single lockfile); `npm install` is blocked by a preinstall guard. `npm run <script>` works fine for the quality gates.
+
 3. Run quality checks: `npm run typecheck && npm run check && npm run test`
 
 ## License

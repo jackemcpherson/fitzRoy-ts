@@ -38,6 +38,7 @@
     "aflw"
   ],
   "scripts": {
+    "preinstall": "node -e \"const ua = process.env.npm_config_user_agent || ''; if (ua.startsWith('npm')) { console.error('This repo uses bun for installs (bun.lock is the only lockfile). Run: bun install'); process.exit(1); }\"",
     "build": "bunup && bun run build.ts",
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
