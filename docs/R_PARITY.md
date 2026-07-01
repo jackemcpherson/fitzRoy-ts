@@ -23,7 +23,7 @@ fitzRoy-ts uses the AFL API's match/ladder naming as canonical, with title-cased
 
 | Source | R Functions | Status in TS |
 |---|---|---|
-| Fryzigg | `fetch_player_stats` | Stub — returns `UnsupportedSourceError` for queries outside 2024 |
+| Fryzigg | `fetch_player_stats` | Implemented — AFLM 2012–2024, AFLW 2017–2024 (static snapshot; coverage capped at the latest dump year, see `src/sources/adapters/fryzigg.ts`) |
 
 ## Structural Differences
 
