@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- In non-interactive (piped) runs, an ambiguous `--team`/`--match` name now
+  exits with an error listing the candidates instead of silently using the best
+  fuzzy match.
+
 ## [3.2.0] - 2026-06-28
 
 ### Fixed
