@@ -46,7 +46,11 @@
     "typecheck": "tsc --noEmit",
     "typecheck:portable": "tsc --noEmit -p tsconfig.portable.json",
     "prepublishOnly": "bun run build",
-    "prerelease": "npm run typecheck && npm run check && npm run test && bun run build"
+    "prerelease": "npm run typecheck && npm run check && npm run test && bun run build",
+    "prepare": "simple-git-hooks"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "npx biome check --staged --no-errors-on-unmatched"
   },
   "dependencies": {
     "@jackemcpherson/rds-js": "^0.3.0",
@@ -65,6 +69,7 @@
     "citty": "^0.2.1",
     "esbuild": "^0.27.4",
     "picocolors": "^1.1.1",
+    "simple-git-hooks": "^2.13.1",
     "typescript": "^6.0.2",
     "vitest": "^4.1.1"
   },
