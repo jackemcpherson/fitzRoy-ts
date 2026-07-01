@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Fryzigg coverage caps corrected per live-dump probe: AFLM now covers through 2025; AFLW capped at 2022 (upstream AFLW dump has not updated since January 2022 — such queries now return a coverage error suggesting `--source afl-api` instead of empty results).
+
 ## [3.2.0] - 2026-06-28
 
 ### Fixed
