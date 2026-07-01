@@ -180,6 +180,17 @@ describe("isFinalsRound", () => {
     expect(isFinalsRound(2010, 23)).toBe(true);
   });
 
+  // 2011: Gold Coast joined → 17 teams → 24 H&A rounds.
+  // Probe confirmed 2026-07-02: H&A URL returns DATA at round 24, HTTP 404 at
+  // round 25. Gary Ayres returns empty for all rounds (pre-2018 behaviour).
+  it("returns false for round 24 in 2011 (last H&A round — 24 H&A rounds that season)", () => {
+    expect(isFinalsRound(2011, 24)).toBe(false);
+  });
+
+  it("returns true for round 25 in 2011 (first finals round)", () => {
+    expect(isFinalsRound(2011, 25)).toBe(true);
+  });
+
   // Default boundary applies to unlisted seasons (DEFAULT_LAST_HA_ROUND = 23)
   it("uses the default boundary (23) for an unlisted season", () => {
     expect(isFinalsRound(2015, 23)).toBe(false);

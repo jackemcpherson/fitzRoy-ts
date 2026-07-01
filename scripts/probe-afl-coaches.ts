@@ -17,6 +17,10 @@
  * Key results — last H&A round per sampled season:
  *
  *   2010 → 22   (round 23+ returns HTTP 404 on both URLs)
+ *   2011 → 24   (H&A returns DATA at round 24, HTTP 404 at round 25; Gary Ayres
+ *                empty for all rounds — pre-2018 behaviour, no finals URL signal)
+ *   2012 → 23   (H&A returns DATA at round 23, HTTP 404 at round 24; Gary Ayres
+ *                empty for all rounds — matches DEFAULT_LAST_HA_ROUND)
  *   2015 → 23   (Gary Ayres always empty; H&A round 24+ = 404)
  *   2017 → 23   (Gary Ayres 404 at round 24; no finals data via URL)
  *   2019 → 23   (Gary Ayres big jump at round 24: 6→31 col-2)
@@ -44,9 +48,10 @@
  *   For 2019+, Gary Ayres is available and the URL structure matches the
  *   existing buildUrl() logic.
  *
- * CONCLUSION — DEFAULT_LAST_HA_ROUND = 23 (covers 2011–2022)
+ * CONCLUSION — DEFAULT_LAST_HA_ROUND = 23 (covers 2012–2022)
  * Exception table (seasons that differ from the default):
  *   2006–2010: 22  (probe confirmed 2010; AFL ran 22 H&A rounds pre-2011)
+ *   2011: 24        (probe confirmed — Gold Coast joined, 17 teams, 24 H&A rounds)
  *   2023: 24        (probe confirmed)
  *   2024: 25        (probe confirmed)
  *   2025: 25        (probe confirmed)
@@ -77,7 +82,7 @@ const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 /** Seasons to probe — representative sample per the plan. */
-const SEASONS = [2010, 2015, 2017, 2019, 2023, 2024, 2025];
+const SEASONS = [2010, 2011, 2012, 2015, 2017, 2019, 2023, 2024, 2025];
 
 /** Rounds to check per season — boundary region. */
 const PROBE_ROUNDS = [22, 23, 24, 25, 26, 27, 28];

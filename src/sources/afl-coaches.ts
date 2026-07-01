@@ -31,6 +31,10 @@ const AFLM_LAST_HA_ROUND: ReadonlyMap<number, number> = new Map([
   [2008, 22],
   [2009, 22],
   [2010, 22],
+  // 2011: 24 H&A rounds — Gold Coast joined (17 teams); H&A URL returns DATA at
+  // round 24 and HTTP 404 at round 25 (probe confirmed 2026-07-02). Gary Ayres
+  // returns empty for all rounds (pre-2018 behaviour — no usable finals signal).
+  [2011, 24],
   // 2023: 24 H&A rounds — Gary Ayres jump at round 25 (probe confirmed).
   [2023, 24],
   // 2024–2025: 25 H&A rounds — Gary Ayres jump at round 26 (probe confirmed).
@@ -40,7 +44,7 @@ const AFLM_LAST_HA_ROUND: ReadonlyMap<number, number> = new Map([
 
 /**
  * Default last home-and-away round for AFLM seasons not listed in
- * {@link AFLM_LAST_HA_ROUND}. Covers 2011–2022 (probe confirmed 2015, 2017, 2019).
+ * {@link AFLM_LAST_HA_ROUND}. Covers 2012–2022 (probe confirmed 2012, 2015, 2017, 2019).
  */
 const DEFAULT_LAST_HA_ROUND = 23;
 
