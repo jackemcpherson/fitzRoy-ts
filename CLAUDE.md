@@ -40,7 +40,7 @@ The codebase follows a "pure core, effectful shell" pattern:
 - **`src/api/`** — Public API functions (fetchMatchResults, fetchPlayerStats, etc.)
 - **`src/lib/`** — Shared utilities: `result.ts` (Result type), `errors.ts` (custom errors), `validation.ts` (Zod schemas), `team-mapping.ts` (team name normalisation), `date-utils.ts` (AEST/AEDT-aware dates)
 - **`src/cli.ts`** — CLI entry point (shebang, root command, error boundary). NOT importable from `src/index.ts`.
-- **`src/cli/commands/`** — Citty subcommands (matches, stats, fixture, ladder, lineup, squad, teams)
+- **`src/cli/commands/`** — Citty subcommands (team, player, match, stats, ladder, awards)
 - **`src/cli/formatters/`** — Output formatters (table, JSON, CSV) and format dispatcher
 - **`src/cli/ui.ts`** — Spinner and summary helpers wrapping @clack/prompts
 - **`test/fixtures/`** — Fixture data for snapshot-based tests (no live API calls)
@@ -126,8 +126,7 @@ The CLI is a thin presentation layer over the library — no business logic. Eac
 This project uses Ralph — an autonomous iteration loop for completing user stories.
 
 **Key files:**
-- `plans/SPEC.md` — Full product requirements document
-- `plans/TASKS.json` — Task list with completion status
+- `plans/README.md` — advisor plan index (execution order + status)
 - `plans/PROGRESS.txt` — Append-only iteration log
 
 **Iteration process:**
@@ -136,8 +135,8 @@ This project uses Ralph — an autonomous iteration loop for completing user sto
 3. Run quality checks: `npm run typecheck && npm run check && npm run test`
 4. Fix failures and re-run (up to 3 attempts)
 5. Commit: `feat: [Story ID] - [Story Title]`
-6. Update TASKS.json (`passes: true`) and append to PROGRESS.txt
-7. Update this file and AGENTS.md with discovered patterns
+6. Update the plan's status row in `plans/README.md` and append to PROGRESS.txt
+7. Update this file with discovered patterns
 
 ## CHANGELOG.md
 
