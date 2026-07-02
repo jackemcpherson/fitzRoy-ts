@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `roundLabel`, `roundAbbreviation`, and `roundTypeLabel` helpers in
+  `src/lib/round-labels.ts`, exported from the package root. These are pure
+  functions that derive R fitzRoy `round.name` / `round.abbreviation` /
+  `round.type`-equivalent values from the `roundNumber`, `roundName`, and
+  `roundType` fields already present on every `Match` row — closing a gap
+  where consumers hand-rolled the same derivation themselves.
+
 ## [3.3.0] - 2026-07-02
 
 ### Changed
