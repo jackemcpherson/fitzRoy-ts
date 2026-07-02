@@ -1,7 +1,11 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { AflTablesClient, parseSeasonPage } from "../../src/sources/afl-tables";
+import {
+  AflTablesClient,
+  parseSeasonPage,
+  teamNameToAflTablesSlug,
+} from "../../src/sources/afl-tables";
 
 const FIXTURE_PATH = resolve(__dirname, "../fixtures/afl-tables-season.html");
 const fixtureHtml = readFileSync(FIXTURE_PATH, "utf-8");
@@ -268,5 +272,29 @@ describe("AflTablesClient", () => {
       expect(round2Stats.length).toBeGreaterThan(0);
       expect(round2Stats[0]?.roundNumber).toBe(2);
     });
+  });
+});
+
+describe("teamNameToAflTablesSlug", () => {
+  it("returns the probe-verified slug for Brisbane Lions (brisbanel, not brisbane)", () => {
+    expect(teamNameToAflTablesSlug("Brisbane Lions")).toBe("brisbanel");
+  });
+
+  it("returns correct slugs for all canonical teams", () => {
+    // Spot-check a representative set to guard against future regressions.
+    expect(teamNameToAflTablesSlug("Adelaide Crows")).toBe("adelaide");
+    expect(teamNameToAflTablesSlug("Carlton")).toBe("carlton");
+    expect(teamNameToAflTablesSlug("Western Bulldogs")).toBe("bullldogs");
+    expect(teamNameToAflTablesSlug("North Melbourne")).toBe("kangaroos");
+    expect(teamNameToAflTablesSlug("Sydney Swans")).toBe("swans");
+    expect(teamNameToAflTablesSlug("GWS Giants")).toBe("gws");
+    expect(teamNameToAflTablesSlug("Fitzroy")).toBe("fitzroy");
+    expect(teamNameToAflTablesSlug("University")).toBe("university");
+  });
+
+  it("returns undefined for unknown team names", () => {
+    expect(teamNameToAflTablesSlug("Brisbane Bears")).toBeUndefined();
+    expect(teamNameToAflTablesSlug("")).toBeUndefined();
+    expect(teamNameToAflTablesSlug("unknown")).toBeUndefined();
   });
 });

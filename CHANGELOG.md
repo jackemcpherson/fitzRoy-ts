@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- AFL Tables squad/player-details requests for Brisbane Lions no longer target
+  a wrong or missing team page — the slug was corrected from `brisbane` to
+  `brisbanel` (verified against the live site; AFL Tables distinguishes Brisbane
+  Lions from Brisbane Bears `brisbaneb`). All other slugs were audited and
+  confirmed correct, including `bullldogs` (triple-L), which is afltables.com's
+  own spelling.
+
 ## [3.3.0] - 2026-07-02
 
 ### Changed
