@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   2025; AFLW capped at 2022 (upstream AFLW dump has not updated since January
   2022 — such queries now return a coverage error suggesting `--source afl-api`
   instead of empty results).
+- FootyWire season player-stats scrapes fetch each match's basic and advanced
+  pages concurrently (~2× fewer sequential round-trips).
 
 ### Fixed
 

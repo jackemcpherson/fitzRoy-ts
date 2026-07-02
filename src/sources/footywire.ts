@@ -133,10 +133,11 @@ export class FootyWireClient {
     const basicUrl = `${FOOTYWIRE_BASE}/ft_match_statistics?mid=${matchId}`;
     const advancedUrl = `${FOOTYWIRE_BASE}/ft_match_statistics?mid=${matchId}&advv=Y`;
 
-    const basicResult = await this.fetchHtml(basicUrl);
+    const [basicResult, advancedResult] = await Promise.all([
+      this.fetchHtml(basicUrl),
+      this.fetchHtml(advancedUrl),
+    ]);
     if (!basicResult.success) return basicResult;
-
-    const advancedResult = await this.fetchHtml(advancedUrl);
     if (!advancedResult.success) return advancedResult;
 
     try {
