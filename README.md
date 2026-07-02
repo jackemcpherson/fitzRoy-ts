@@ -150,7 +150,7 @@ Run `fitzroy --help` for all commands and options.
 ## Contributing
 
 1. Clone the repo
-2. Install dependencies: `bun install`
+2. Install dependencies: `bun install` (also installs a pre-commit hook that runs `biome check --staged`; bypass with `git commit --no-verify`)
 
    bun is the only supported installer (`bun.lock` is the single lockfile); `npm install` is blocked by a preinstall guard. `npm run <script>` works fine for the quality gates.
 
