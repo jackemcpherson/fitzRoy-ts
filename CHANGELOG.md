@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instead of empty results).
 - FootyWire season player-stats scrapes fetch each match's basic and advanced
   pages concurrently (~2× fewer sequential round-trips).
+- In non-interactive (piped) runs, an ambiguous `--team`/`--match` name now
+  exits with an error listing the candidates instead of silently using the best
+  fuzzy match.
 
 ### Fixed
 
