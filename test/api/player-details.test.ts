@@ -15,7 +15,8 @@ vi.mock("../../src/api/teams", async (importOriginal) => {
 
 import { fetchPlayerDetails } from "../../src/api/player-details";
 import { fetchSquad } from "../../src/api/teams";
-import { ok } from "../../src/lib/result";
+import { err, ok } from "../../src/lib/result";
+import type { Player } from "../../src/types";
 
 const COMPSEASONS = readFileSync(
   resolve(__dirname, "../fixtures/afl-api-compseasons-2024.json"),
@@ -163,5 +164,71 @@ describe("fetchPlayerDetails default-season resolution (#149)", () => {
     expect(mockedFetchSquad).toHaveBeenCalledWith(
       expect.objectContaining({ team: "Carlton", competition: "AFLW", season: 2024 }),
     );
+  });
+});
+
+describe("fetchPlayerDetails all-teams failure modes (#155)", () => {
+  afterEach(() => {
+    vi.mocked(fetchSquad).mockReset();
+  });
+
+  it("returns an error when every team squad fetch fails", async () => {
+    vi.mocked(fetchSquad).mockResolvedValue(err(new Error("network failure")));
+
+    const result = await fetchPlayerDetails({ source: "afl-api", season: 2024 });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.message).toContain("2024");
+      expect(result.error.message).toContain("afl-api");
+    }
+  });
+
+  it("returns partial results when some team squad fetches fail", async () => {
+    const mockPlayer: Player = {
+      playerId: "1",
+      givenName: "Sam",
+      surname: "Walsh",
+      displayName: "Sam Walsh",
+      jumperNumber: 3,
+      position: null,
+      dateOfBirth: null,
+      heightCm: null,
+      weightKg: null,
+      draftYear: null,
+      draftPosition: null,
+      draftType: null,
+      debutYear: null,
+      recruitedFrom: null,
+      gamesPlayed: null,
+      goals: null,
+      team: "Carlton",
+      source: "afl-api",
+      competition: "AFLM",
+    };
+    let callCount = 0;
+    vi.mocked(fetchSquad).mockImplementation(async () => {
+      callCount++;
+      if (callCount === 1) {
+        return ok({
+          teamId: "1",
+          teamName: "Carlton",
+          season: 2024,
+          players: [mockPlayer],
+          competition: "AFLM",
+          source: "afl-api",
+        });
+      }
+      return err(new Error("network failure"));
+    });
+
+    const result = await fetchPlayerDetails({ source: "afl-api", season: 2024 });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    // The one successful Carlton squad contributes exactly one player.
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0]?.displayName).toBe("Sam Walsh");
+    expect(result.data[0]?.team).toBe("Carlton");
   });
 });

@@ -76,6 +76,23 @@ export async function fetchPlayerDetails(
     }),
   );
 
+  const failures = results.flatMap((r) => (r.success ? [] : [r.error]));
+  if (failures.length === results.length && results.length > 0) {
+    const first = failures[0];
+    if (!first) {
+      // Unreachable: failures.length > 0 guarantees an element exists.
+      return err(
+        new Error(`All team squad fetches failed for season ${season} (source: ${query.source})`),
+      );
+    }
+    return err(
+      new Error(
+        `All ${results.length} team squad fetches failed for season ${season} (source: ${query.source}); first error: ${first.message}`,
+        { cause: first },
+      ),
+    );
+  }
+
   const allPlayers: PlayerDetails[] = [];
   for (const result of results) {
     if (result.success) {

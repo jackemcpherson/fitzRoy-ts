@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `fetchPlayerDetails` (all-teams mode) now returns an error when every team's
+  squad fetch fails, instead of an empty success.
+
 ## [3.2.0] - 2026-06-28
 
 ### Fixed
