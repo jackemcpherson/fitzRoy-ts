@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-07-02
+
+### Changed
+
+- Fryzigg coverage caps corrected per live-dump probe: AFLM now covers through
+  2025; AFLW capped at 2022 (upstream AFLW dump has not updated since January
+  2022 — such queries now return a coverage error suggesting `--source afl-api`
+  instead of empty results).
+- FootyWire season player-stats scrapes fetch each match's basic and advanced
+  pages concurrently (~2× fewer sequential round-trips).
+- In non-interactive (piped) runs, an ambiguous `--team`/`--match` name now
+  exits with an error listing the candidates instead of silently using the best
+  fuzzy match.
+
+### Fixed
+
+- `fetchPlayerDetails` (all-teams mode) now returns an error when every team's
+  squad fetch fails, instead of an empty success.
+- Coaches votes: finals rounds are now detected per season instead of assuming
+  23 home-and-away rounds; round-24 home-and-away votes (2023+) are no longer
+  dropped, and seasons with 25 H&A rounds (2024–2025) are handled correctly.
+
 ## [3.2.0] - 2026-06-28
 
 ### Fixed

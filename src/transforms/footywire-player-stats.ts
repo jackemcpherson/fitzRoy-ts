@@ -7,7 +7,7 @@
  */
 
 import { parseHtml } from "../lib/parse-html";
-import { parseFloatOr0, parseIntOr0 } from "../lib/parse-utils";
+import { parseFloatOr0, safeIntOrZero } from "../lib/parse-utils";
 import { normaliseTeamName } from "../lib/team-mapping";
 import { normaliseVenueName } from "../lib/venue-mapping";
 import type { PlayerStats } from "../types";
@@ -182,23 +182,23 @@ function parseBasicRow(cells: string[]): RawBasicRow | null {
 
   return {
     player,
-    kicks: parseIntOr0(cells[1] ?? "0"),
-    handballs: parseIntOr0(cells[2] ?? "0"),
-    disposals: parseIntOr0(cells[3] ?? "0"),
-    marks: parseIntOr0(cells[4] ?? "0"),
-    goals: parseIntOr0(cells[5] ?? "0"),
-    behinds: parseIntOr0(cells[6] ?? "0"),
-    tackles: parseIntOr0(cells[7] ?? "0"),
-    hitouts: parseIntOr0(cells[8] ?? "0"),
-    goalAssists: parseIntOr0(cells[9] ?? "0"),
-    inside50s: parseIntOr0(cells[10] ?? "0"),
-    clearances: parseIntOr0(cells[11] ?? "0"),
-    clangers: parseIntOr0(cells[12] ?? "0"),
-    rebound50s: parseIntOr0(cells[13] ?? "0"),
-    freesFor: parseIntOr0(cells[14] ?? "0"),
-    freesAgainst: parseIntOr0(cells[15] ?? "0"),
-    dreamTeamPoints: parseIntOr0(cells[16] ?? "0"),
-    supercoachPoints: parseIntOr0(cells[17] ?? "0"),
+    kicks: safeIntOrZero(cells[1] ?? "0"),
+    handballs: safeIntOrZero(cells[2] ?? "0"),
+    disposals: safeIntOrZero(cells[3] ?? "0"),
+    marks: safeIntOrZero(cells[4] ?? "0"),
+    goals: safeIntOrZero(cells[5] ?? "0"),
+    behinds: safeIntOrZero(cells[6] ?? "0"),
+    tackles: safeIntOrZero(cells[7] ?? "0"),
+    hitouts: safeIntOrZero(cells[8] ?? "0"),
+    goalAssists: safeIntOrZero(cells[9] ?? "0"),
+    inside50s: safeIntOrZero(cells[10] ?? "0"),
+    clearances: safeIntOrZero(cells[11] ?? "0"),
+    clangers: safeIntOrZero(cells[12] ?? "0"),
+    rebound50s: safeIntOrZero(cells[13] ?? "0"),
+    freesFor: safeIntOrZero(cells[14] ?? "0"),
+    freesAgainst: safeIntOrZero(cells[15] ?? "0"),
+    dreamTeamPoints: safeIntOrZero(cells[16] ?? "0"),
+    supercoachPoints: safeIntOrZero(cells[17] ?? "0"),
   };
 }
 
@@ -209,22 +209,22 @@ function parseAdvancedRow(cells: string[]): RawAdvancedRow | null {
 
   return {
     player,
-    contestedPossessions: parseIntOr0(cells[1] ?? "0"),
-    uncontestedPossessions: parseIntOr0(cells[2] ?? "0"),
-    effectiveDisposals: parseIntOr0(cells[3] ?? "0"),
+    contestedPossessions: safeIntOrZero(cells[1] ?? "0"),
+    uncontestedPossessions: safeIntOrZero(cells[2] ?? "0"),
+    effectiveDisposals: safeIntOrZero(cells[3] ?? "0"),
     disposalEfficiency: parseFloatOr0(cells[4] ?? "0"),
-    contestedMarks: parseIntOr0(cells[5] ?? "0"),
-    goalAssists: parseIntOr0(cells[6] ?? "0"),
-    marksInside50: parseIntOr0(cells[7] ?? "0"),
-    onePercenters: parseIntOr0(cells[8] ?? "0"),
-    bounces: parseIntOr0(cells[9] ?? "0"),
-    centreClearances: parseIntOr0(cells[10] ?? "0"),
-    stoppageClearances: parseIntOr0(cells[11] ?? "0"),
-    scoreInvolvements: parseIntOr0(cells[12] ?? "0"),
-    metresGained: parseIntOr0(cells[13] ?? "0"),
-    turnovers: parseIntOr0(cells[14] ?? "0"),
-    intercepts: parseIntOr0(cells[15] ?? "0"),
-    tacklesInside50: parseIntOr0(cells[16] ?? "0"),
+    contestedMarks: safeIntOrZero(cells[5] ?? "0"),
+    goalAssists: safeIntOrZero(cells[6] ?? "0"),
+    marksInside50: safeIntOrZero(cells[7] ?? "0"),
+    onePercenters: safeIntOrZero(cells[8] ?? "0"),
+    bounces: safeIntOrZero(cells[9] ?? "0"),
+    centreClearances: safeIntOrZero(cells[10] ?? "0"),
+    stoppageClearances: safeIntOrZero(cells[11] ?? "0"),
+    scoreInvolvements: safeIntOrZero(cells[12] ?? "0"),
+    metresGained: safeIntOrZero(cells[13] ?? "0"),
+    turnovers: safeIntOrZero(cells[14] ?? "0"),
+    intercepts: safeIntOrZero(cells[15] ?? "0"),
+    tacklesInside50: safeIntOrZero(cells[16] ?? "0"),
     timeOnGroundPercentage: parseFloatOr0(cells[17] ?? "0"),
   };
 }

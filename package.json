@@ -1,6 +1,6 @@
 {
   "name": "fitzroy",
-  "version": "3.2.0",
+  "version": "3.3.0",
   "description": "TypeScript port of the fitzRoy R package — programmatic access to AFL data including match results, player stats, fixtures, ladders, and more",
   "type": "module",
   "main": "./dist/index.js",
@@ -38,6 +38,7 @@
     "aflw"
   ],
   "scripts": {
+    "preinstall": "node -e \"const ua = process.env.npm_config_user_agent || ''; if (ua.startsWith('npm')) { console.error('This repo uses bun for installs (bun.lock is the only lockfile). Run: bun install'); process.exit(1); }\"",
     "build": "bunup && bun run build.ts",
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -46,7 +47,11 @@
     "typecheck": "tsc --noEmit",
     "typecheck:portable": "tsc --noEmit -p tsconfig.portable.json",
     "prepublishOnly": "bun run build",
-    "prerelease": "npm run typecheck && npm run check && npm run test && bun run build"
+    "prerelease": "npm run typecheck && npm run check && npm run test && bun run build",
+    "prepare": "simple-git-hooks"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "npx biome check --staged --no-errors-on-unmatched"
   },
   "dependencies": {
     "@jackemcpherson/rds-js": "^0.3.0",
@@ -65,6 +70,7 @@
     "citty": "^0.2.1",
     "esbuild": "^0.27.4",
     "picocolors": "^1.1.1",
+    "simple-git-hooks": "^2.13.1",
     "typescript": "^6.0.2",
     "vitest": "^4.1.1"
   },

@@ -10,7 +10,7 @@
 import { ScrapeError } from "../lib/errors";
 import { err, ok, Result } from "../lib/result";
 import { normaliseTeamName } from "../lib/team-mapping";
-import { AflCoachesClient } from "../sources/afl-coaches";
+import { AflCoachesClient, isFinalsRound } from "../sources/afl-coaches";
 import { FootyWireClient } from "../sources/footywire";
 import {
   parseAllAustralian,
@@ -178,7 +178,7 @@ async function fetchCoachesVotes(query: AwardQuery): Promise<Result<Award[], Err
           query.season,
           query.round,
           competition,
-          query.round >= 24 && query.season >= 2018,
+          isFinalsRound(query.season, query.round),
         )
       : await client.fetchSeasonVotes(query.season, competition);
 

@@ -12,8 +12,6 @@ import { AFL_SENIOR_TEAMS, normaliseTeamName } from "../lib/team-mapping";
 import type { MatchItem } from "../lib/validation";
 import { resolveMatchByTeam, resolveTeamIdentifier } from "./validation";
 
-const isTTY = process.stdout.isTTY === true;
-
 /** Minimal team shape accepted by the resolver. */
 interface TeamCandidate {
   readonly teamId: string;
@@ -214,17 +212,23 @@ interface DisambiguationOption {
 /**
  * Core disambiguation logic shared by all resolvers.
  *
+ * Exported for unit testing. In production the `isTTY` parameter takes its
+ * default from `process.stdout.isTTY`; tests pass an explicit value to
+ * exercise the non-interactive branch without mocking the process object.
+ *
  * @param query - Original search term (for error messages).
  * @param options - Scored options from fuzzy search.
  * @param allLabels - All valid labels (for error messages).
  * @param entityName - Entity type name (for error/prompt messages).
+ * @param isTTY - Whether the process is running in an interactive terminal.
  * @returns The resolved value string.
  */
-async function disambiguate(
+export async function disambiguate(
   query: string,
   options: readonly DisambiguationOption[],
   allLabels: readonly string[],
   entityName: string,
+  isTTY = process.stdout.isTTY === true,
 ): Promise<string> {
   const best = options[0];
   if (!best) {
@@ -250,6 +254,8 @@ async function disambiguate(
     return choice as string;
   }
 
-  console.error(`Matched "${query}" → ${best.label}`);
-  return best.value;
+  throw new Error(
+    `Multiple ${entityName}s matched "${query}": ${options.map((o) => o.label).join(", ")}. ` +
+      `Re-run with a more specific name (best guess was "${best.label}").`,
+  );
 }

@@ -9,7 +9,6 @@
 import { defineCommand } from "citty";
 import pc from "picocolors";
 import { fetchPlayerStats, fetchTeamStats } from "../../index";
-import { fuzzySearch } from "../../lib/fuzzy";
 import { playerStatsRegistry, teamStatsRegistry } from "../../sources/adapters/registry";
 import type { DataSource } from "../../types";
 import { rejectUnknownFlags } from "../command-builder";
@@ -28,6 +27,7 @@ import {
 import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
 import { resolveMatchId } from "../match-resolver";
 import { resolveTeamNameOrPrompt } from "../resolvers";
+import { applyStatsFilters } from "../stats-filters";
 import { showSummary, withSpinner } from "../ui";
 import {
   validateCompetition,
@@ -159,24 +159,11 @@ export const statsCommand = defineCommand({
       );
     }
 
-    let data = result.data.stats;
-    // Sources other than afl-api ignore matchId at the adapter layer (#123).
-    // When --match resolved to a known game, post-filter to its participants
-    // so cross-source behaviour matches afl-api's per-match scoping.
-    if (matchResolution?.participants) {
-      const { homeTeam, awayTeam } = matchResolution.participants;
-      data = data.filter((p) => p.team === homeTeam || p.team === awayTeam);
-    }
-    if (teamFilter) {
-      data = data.filter((p) => p.team === teamFilter);
-    }
-    if (args.player) {
-      const playerMatches = fuzzySearch(args.player, data, (p) => p.displayName, {
-        maxResults: 50,
-        threshold: 0.4,
-      });
-      data = playerMatches.map((m) => m.item);
-    }
+    const data = applyStatsFilters(result.data.stats, {
+      participants: matchResolution?.participants,
+      team: teamFilter,
+      player: args.player,
+    });
 
     showSummary(
       `Loaded ${data.length} player stat lines for ${season}${round ? ` round ${round}` : ""}`,
