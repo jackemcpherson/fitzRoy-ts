@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `docs/MIGRATION-v3.md` — consolidated upgrade guide covering all 3.0.x→3.3.0
+  changes: per-version bullet summaries, behavioural changes to check, and
+  consumer notes on removable workarounds (team-name aliases, Fryzigg fields).
+
+### Fixed
+
+- README `fetchTeamStats` example now uses `source: "afl-tables"` (a
+  registered source) instead of `"afl-api"`, which has no team-stats endpoint
+  and would error when copy-pasted.
+
 ## [3.3.0] - 2026-07-02
 
 ### Changed

@@ -22,6 +22,10 @@ A port of the [fitzRoy R package](https://github.com/jimmyday12/fitzRoy).
 npm install fitzroy
 ```
 
+Upgrading from 3.0.x? See [docs/MIGRATION-v3.md](docs/MIGRATION-v3.md) for a
+per-release breakdown of what changed and a checklist of behavioural changes
+to verify during upgrade.
+
 ## Library Usage
 
 All public functions return `Result<T, E>` — check `result.success` before
@@ -89,7 +93,7 @@ await fetchMatches({ source: "afl-api", season, status: "Upcoming" });
 
 // Player and team stats for round 1
 await fetchPlayerStats({ source: "afl-api", season, round: 1 });
-await fetchTeamStats({ source: "afl-api", season, round: 1 });
+await fetchTeamStats({ source: "afl-tables", season, round: 1 }); // team stats: afl-tables or footywire (afl-api has no team-stats endpoint)
 
 // Ladder
 await fetchLadder({ source: "afl-api", season });
@@ -104,6 +108,28 @@ await fetchPlayerDetails({ source: "afl-api", season, team: "Carlton" });
 await fetchAwards({ award: "coleman", season, limit: 10 });
 await fetchAwards({ award: "brownlow", season });
 ```
+
+### Wire schemas (`fitzroy/schemas`)
+
+The `fitzroy/schemas` subpath exports the raw AFL API and Squiggle response
+schemas (Zod) for consumers who need to validate wire-level payloads
+directly. This subpath is published but its contents track upstream API
+shapes — schemas may change at **minor** versions when the upstream changes.
+Only depend on it if you are deliberately coupling to the raw wire format.
+
+```typescript
+import { MatchItemListSchema } from "fitzroy/schemas";
+
+// Validate a raw AFL API round response
+const result = MatchItemListSchema.safeParse(rawJson);
+if (!result.success) {
+  console.error("Upstream shape changed:", result.error.issues);
+}
+```
+
+Available exports include `MatchItemListSchema`, `PlayerStatsListSchema`,
+`CompetitionListSchema`, `SquiggleGameSchema`, and the full suite of AFL API
+CFS response schemas. See `src/schemas.ts` for the complete list.
 
 ## CLI
 
