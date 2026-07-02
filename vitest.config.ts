@@ -1,8 +1,11 @@
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
     globals: true,
+    // Local agent worktrees under .claude/ contain full repo copies; without
+    // this exclude vitest discovers every copy's test suite.
+    exclude: [...configDefaults.exclude, "**/.claude/**"],
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],
