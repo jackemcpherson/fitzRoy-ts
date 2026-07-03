@@ -745,7 +745,7 @@ export function parseAflTablesTeamStats(html: string, year: number): TeamStatsEn
 /** Map canonical team names to AFL Tables URL slugs (used in `teams/SLUG_idx.html`). */
 const AFL_TABLES_SLUG_MAP: ReadonlyMap<string, string> = new Map([
   ["Adelaide Crows", "adelaide"],
-  ["Brisbane Lions", "brisbane"],
+  ["Brisbane Lions", "brisbanel"],
   ["Carlton", "carlton"],
   ["Collingwood", "collingwood"],
   ["Essendon", "essendon"],
@@ -772,7 +772,7 @@ const AFL_TABLES_SLUG_MAP: ReadonlyMap<string, string> = new Map([
  * @param teamName - Canonical team name (e.g. "Sydney Swans").
  * @returns The AFL Tables slug or undefined if not found.
  */
-function teamNameToAflTablesSlug(teamName: string): string | undefined {
+export function teamNameToAflTablesSlug(teamName: string): string | undefined {
   return AFL_TABLES_SLUG_MAP.get(teamName);
 }
 

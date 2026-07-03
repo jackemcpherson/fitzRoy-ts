@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-07-03
+
+### Added
+
+- `roundLabel`, `roundAbbreviation`, and `roundTypeLabel` helpers in
+  `src/lib/round-labels.ts`, exported from the package root. These are pure
+  functions that derive R fitzRoy `round.name` / `round.abbreviation` /
+  `round.type`-equivalent values from the `roundNumber`, `roundName`, and
+  `roundType` fields already present on every `Match` row — closing a gap
+  where consumers hand-rolled the same derivation themselves.
+- `docs/MIGRATION-v3.md` — consolidated upgrade guide covering all 3.0.x→3.3.0
+  changes: per-version bullet summaries, behavioural changes to check, and
+  consumer notes on removable workarounds (team-name aliases, Fryzigg fields).
+
+### Fixed
+
+- AFL Tables squad/player-details requests for Brisbane Lions no longer target
+  a wrong or missing team page — the slug was corrected from `brisbane` to
+  `brisbanel` (verified against the live site; AFL Tables distinguishes Brisbane
+  Lions from Brisbane Bears `brisbaneb`). All other slugs were audited and
+  confirmed correct, including `bullldogs` (triple-L), which is afltables.com's
+  own spelling.
+- README `fetchTeamStats` example now uses `source: "afl-tables"` (a
+  registered source) instead of `"afl-api"`, which has no team-stats endpoint
+  and would error when copy-pasted.
+
 ## [3.3.0] - 2026-07-02
 
 ### Changed
