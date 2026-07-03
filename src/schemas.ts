@@ -7,6 +7,21 @@
  * major release of the core API; depend on this subpath only if you
  * are deliberately coupling to the raw wire shapes.
  *
+ * **Support level:** wire shapes only — schemas in this subpath may
+ * change at **minor** versions when an upstream API response shape
+ * changes. They are not subject to the same semver stability guarantee
+ * as the types and functions exported from the package root (`fitzroy`).
+ *
+ * @example
+ * ```typescript
+ * import { MatchItemListSchema } from "fitzroy/schemas";
+ *
+ * const result = MatchItemListSchema.safeParse(rawJson);
+ * if (!result.success) {
+ *   console.error("Upstream shape changed:", result.error.issues);
+ * }
+ * ```
+ *
  * @packageDocumentation
  */
 
