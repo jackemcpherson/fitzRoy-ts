@@ -1,12 +1,12 @@
-# Upgrading from 3.0.x → 3.3.0
+# Upgrading from 3.0.x
 
-All changes in 3.1.x–3.3.x are backwards-compatible at the TypeScript API
-level. If you are on any 3.0.x release you can upgrade to `^3.3` with no
-call-site changes beyond the 3.0.0 breaking changes listed below.
+All changes in 3.1.x–3.4.x are backwards-compatible at the TypeScript API
+level. If you are on any 3.0.x release you can upgrade to the latest `^3`
+with no call-site changes beyond the 3.0.0 breaking changes listed below.
 
 **CHANGELOG read confirms:** no `BREAKING` markers appear in any 3.1.0,
-3.1.1, 3.2.0, or 3.3.0 section. The migration steps below apply only if
-you are upgrading from a 2.x or early-3.0.0 baseline.
+3.1.1, 3.2.0, 3.3.0, or 3.4.0 section. The migration steps below apply only
+if you are upgrading from a 2.x or early-3.0.0 baseline.
 
 ---
 
@@ -111,6 +111,17 @@ import { MatchItemSchema } from "fitzroy/schemas";
 - **Non-TTY ambiguity now errors** — piped runs with an ambiguous
   `--team`/`--match` name now exit with an error listing candidates instead
   of silently using the best fuzzy match.
+
+### 3.4.0
+
+- **AFL Tables Brisbane Lions slug corrected** (`brisbane` → `brisbanel`) —
+  `fetchSquad`/`fetchPlayerDetails` with `source: "afl-tables"` for Brisbane
+  Lions previously targeted a missing page. If you worked around this with
+  your own slug override, it is deletable.
+- **Round-label helpers added** — `roundLabel`, `roundAbbreviation`, and
+  `roundTypeLabel` are exported from the package root (R fitzRoy
+  `round.name`/`round.abbreviation`/`round.type` parity). If you hand-roll
+  round-label derivation, these replace it. Purely additive.
 
 ---
 
