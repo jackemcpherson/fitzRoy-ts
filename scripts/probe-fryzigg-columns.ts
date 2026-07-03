@@ -186,7 +186,7 @@ function sampleValue(col: unknown[]): string {
   for (const v of col) {
     if (v !== null && v !== undefined) {
       const s = String(v);
-      return s.length > 40 ? s.slice(0, 40) + "…" : s;
+      return s.length > 40 ? `${s.slice(0, 40)}…` : s;
     }
   }
   return "(all null)";
@@ -215,7 +215,12 @@ const MATCH_HINTS = /^match_|weather|venue|crowd|attendance|local_time|temperatu
 // ID/join key hints
 const ID_HINTS = /^.*_id$|^id$/i;
 
-function classifyColumn(name: string, typedSet: Set<string>, sample: string, type: string): string {
+function classifyColumn(
+  name: string,
+  typedSet: Set<string>,
+  _sample: string,
+  _type: string,
+): string {
   if (typedSet.has(name)) return "A-typed";
   if (MATCH_HINTS.test(name)) return "B-match-context";
   if (BIO_HINTS.test(name)) return "C-player-bio";
