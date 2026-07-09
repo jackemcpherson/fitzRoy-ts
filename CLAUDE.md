@@ -141,3 +141,11 @@ This project uses Ralph — an autonomous iteration loop for completing user sto
 ## CHANGELOG.md
 
 Maintain a CHANGELOG.md under `[Unreleased]` using categories: Added, Changed, Deprecated, Removed, Fixed, Security. Only update for user-facing changes — not refactors, tests, docs, or formatting.
+
+## Ecosystem doc
+
+The public ecosystem doc (homepage repo: `public/docs/afl-data-ecosystem.md`,
+served at jackemcpherson.com/docs/afl-data-ecosystem.md) describes this
+project's public surface. If a change alters that surface — exported
+functions/types, data sources or coverage, endpoints, DB schema, CLI
+commands, cron behavior — update the doc in the same sitting.
