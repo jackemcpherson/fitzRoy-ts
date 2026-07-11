@@ -39,14 +39,9 @@ jobs:
 
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
-          node-version: "20"
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
-
-      # npm trusted-publisher OIDC auth for `npm publish` requires npm 11.5.1+.
-      # Node 20 ships npm 10.x; provenance signing works on 10.x but the auth
-      # exchange against the registry returns 404 without 11.5.1+.
-      - name: Install npm 11.5.1+
-        run: npm install -g npm@11.5.1
+          package-manager-cache: false
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
