@@ -53,6 +53,9 @@ jobs:
       - name: Build
         run: bun run build
 
+      - name: Verify npm consumer install
+        run: node scripts/verify-package-install.mjs
+
       - name: Verify package contents
         run: npm pack --dry-run
 
