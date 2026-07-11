@@ -38,7 +38,6 @@
     "aflw"
   ],
   "scripts": {
-    "preinstall": "node -e \"const ua = process.env.npm_config_user_agent || ''; if (ua.startsWith('npm')) { console.error('This repo uses bun for installs (bun.lock is the only lockfile). Run: bun install'); process.exit(1); }\"",
     "build": "bunup && bun run build.ts",
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -64,15 +63,15 @@
     "@arethetypeswrong/cli": "^0.18.2",
     "@biomejs/biome": "^2.4.9",
     "@clack/prompts": "^1.1.0",
-    "@types/node": "^25.5.0",
-    "@vitest/coverage-v8": "^4.1.1",
+    "@types/node": "^20.19.0",
+    "@vitest/coverage-v8": "4.1.8",
     "bunup": "^0.16.31",
     "citty": "^0.2.1",
     "esbuild": "^0.27.4",
     "picocolors": "^1.1.1",
     "simple-git-hooks": "^2.13.1",
-    "typescript": "^6.0.2",
-    "vitest": "^4.1.1"
+    "typescript": "^7.0.2",
+    "vitest": "4.1.8"
   },
   "overrides": {
     "fflate": "0.8.2",
