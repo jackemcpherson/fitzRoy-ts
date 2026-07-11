@@ -5,6 +5,7 @@
  * approach as the R package's `scrape_coaches_votes` helper.
  */
 
+import { batchedMap } from "../lib/concurrency";
 import { ScrapeError } from "../lib/errors";
 import { parseHtml } from "../lib/parse-html";
 import { err, ok, type Result } from "../lib/result";
@@ -196,19 +197,15 @@ export class AflCoachesClient {
     season: number,
     competition: CompetitionCode,
   ): Promise<Result<CoachesVote[], ScrapeError>> {
-    const allVotes: CoachesVote[] = [];
-    const maxRound = 30;
-
-    for (let round = 1; round <= maxRound; round++) {
-      const isFinals = isFinalsRound(season, round);
-
-      const result = await this.scrapeRoundVotes(season, round, competition, isFinals);
-
-      if (result.success && result.data.length > 0) {
-        allVotes.push(...result.data);
-      }
-      // Silently skip rounds with errors (no data available)
-    }
+    const rounds = Array.from({ length: 30 }, (_, index) => index + 1);
+    const roundResults = await batchedMap(
+      rounds,
+      (round) => this.scrapeRoundVotes(season, round, competition, isFinalsRound(season, round)),
+      { batchSize: 3, delayMs: 250 },
+    );
+    const allVotes = roundResults.flatMap((result) =>
+      result.success && result.data.length > 0 ? result.data : [],
+    );
 
     if (allVotes.length === 0) {
       return err(new ScrapeError(`No coaches votes found for season ${season}`, "afl-coaches"));

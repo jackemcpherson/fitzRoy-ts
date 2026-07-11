@@ -148,6 +148,17 @@ These are not breaking changes but may affect downstream consumers:
    an ambiguous team/match name will now exit 1 instead of picking the
    closest match. Pass an exact name or match ID in automation.
 
+5. **Scraper match ID correction** — AFL Tables match rows previously used
+   `AT_<season>_<ordinal>` while their player-stat rows used
+   `AT_<providerId>`. FootyWire fixture rows similarly used
+   `FW_<season>_R<round>_G<ordinal>` even when the completed match linked to
+   the provider ID used by player stats. Completed rows now use
+   `AT_<providerId>` and `FW_<providerId>` consistently. Rows without a
+   provider link use explicit `AT_SYNTH_<season>_<ordinal>` or
+   `FW_SYNTH_<season>_R<round>_G<ordinal>` fallbacks. Do not persist synthetic
+   IDs as stable identifiers: they are deterministic only for the current
+   source-page ordering and may change when the provider edits its page.
+
 ---
 
 ## Consumer notes

@@ -30,7 +30,6 @@ describe("parseMatchList", () => {
     expect(first.homeTeam).toBe("Richmond");
     expect(first.awayTeam).toBe("Carlton");
     expect(first.matchId).toBe("FW_11193");
-    expect(first.matchId).toBe("FW_11193");
     expect(first.source).toBe("footywire");
     expect(first.competition).toBe("AFLM");
 

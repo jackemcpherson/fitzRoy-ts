@@ -133,6 +133,67 @@ describe("AflCoachesClient.scrapeRoundVotes", () => {
   });
 });
 
+describe("AflCoachesClient.fetchSeasonVotes", () => {
+  it("limits concurrency to three, preserves round order, and skips failed or empty rounds", async () => {
+    vi.useFakeTimers();
+    try {
+      let inFlight = 0;
+      let maxInFlight = 0;
+      const fetchFn = vi.fn((input: RequestInfo | URL) => {
+        const round = Number.parseInt(/(\d{2})$/.exec(String(input))?.[1] ?? "0", 10);
+        inFlight++;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+
+        return new Promise<Response>((resolve) => {
+          // Resolve each batch out of order while keeping later rounds fast.
+          const delay = round % 3 === 1 ? 30 : round % 3 === 2 ? 10 : 20;
+          setTimeout(() => {
+            inFlight--;
+            if (round === 2) {
+              resolve(new Response("", { status: 503 }));
+            } else if (round === 4) {
+              resolve(new Response("<html></html>", { status: 200 }));
+            } else {
+              resolve(new Response(fixtureHtml, { status: 200 }));
+            }
+          }, delay);
+        });
+      });
+      const resultPromise = new AflCoachesClient({ fetchFn }).fetchSeasonVotes(2024, "AFLM");
+
+      await vi.runAllTimersAsync();
+      const result = await resultPromise;
+
+      expect(maxInFlight).toBe(3);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        const rounds = [...new Set(result.data.map((vote) => vote.round))];
+        expect(rounds).toEqual([1, 3, ...Array.from({ length: 26 }, (_, i) => i + 5)]);
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("returns an error when all rounds fail or contain no votes", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchFn = vi.fn().mockResolvedValue(new Response("<html></html>", { status: 200 }));
+      const resultPromise = new AflCoachesClient({ fetchFn }).fetchSeasonVotes(2024, "AFLM");
+
+      await vi.runAllTimersAsync();
+      const result = await resultPromise;
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.message).toContain("No coaches votes found for season 2024");
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe("isFinalsRound", () => {
   // 2023: 24 H&A rounds confirmed by probe (Gary Ayres jump at round 25)
   it("returns false for round 24 in 2023 (last H&A round)", () => {
