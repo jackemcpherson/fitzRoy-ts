@@ -17,6 +17,7 @@ import { ScrapeError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { createSourceFetch, type SourceFetchOptions } from "../lib/source-fetch";
 import type { CompetitionCode } from "../types";
+import { FRYZIGG_SNAPSHOTS } from "./fryzigg-snapshots";
 
 /**
  * Fryzigg only publishes AFLM and AFLW datasets. VFL/VFLW are not available
@@ -25,27 +26,22 @@ import type { CompetitionCode } from "../types";
  *
  * Security note (SEC-10): fryziggafl.net does not serve HTTPS (verified
  * 2026-06-10 — TLS connections are refused), so these downloads are
- * plain HTTP and an on-path attacker could substitute content fed into
- * the RDS parser. Mitigations: rds-js validates input defensively, and
- * callers who mirror a known-good dataset can pin it via the
- * `sha256` client option below.
+ * plain HTTP and an on-path attacker could substitute content. The default
+ * client pins operator-reviewed, trust-on-first-use snapshot digests and
+ * rejects substituted bytes before invoking the RDS parser.
  */
-const FRYZIGG_URLS: Partial<Record<CompetitionCode, string>> = {
-  AFLM: "http://www.fryziggafl.net/static/fryziggafl.rds",
-  AFLW: "http://www.fryziggafl.net/static/aflw_player_stats.rds",
-};
-
 const USER_AGENT = "fitzRoy-ts/1.0 (https://github.com/jackemcpherson/fitzRoy-ts)";
 
 /** Options for constructing a Fryzigg client. */
 export interface FryziggClientOptions extends SourceFetchOptions {
   readonly fetchFn?: typeof fetch | undefined;
   /**
-   * Optional hex-encoded SHA-256 checksum of the expected RDS payload.
-   * When set, a downloaded file that doesn't match is rejected — the
-   * only integrity control available while the host is HTTP-only.
+   * Override the manifest's hex-encoded SHA-256 checksum. This supports
+   * explicitly trusted mirrors and test fixtures. Pass `null` only when the
+   * caller deliberately accepts unchecked custom bytes; default downloads
+   * always use the reviewed manifest checksum.
    */
-  readonly sha256?: string | undefined;
+  readonly sha256?: string | null | undefined;
 }
 
 /**
@@ -58,7 +54,7 @@ export interface FryziggClientOptions extends SourceFetchOptions {
  */
 export class FryziggClient {
   private readonly fetchFn: typeof fetch;
-  private readonly sha256: string | undefined;
+  private readonly sha256: string | null | undefined;
 
   constructor(options?: FryziggClientOptions) {
     this.fetchFn = createSourceFetch(options);
@@ -75,35 +71,36 @@ export class FryziggClient {
    * @returns Column-major DataFrame with all rows, or an error.
    */
   async fetchPlayerStats(competition: CompetitionCode): Promise<Result<DataFrame, ScrapeError>> {
-    const url = FRYZIGG_URLS[competition];
-    if (!url) {
+    const snapshot = FRYZIGG_SNAPSHOTS[competition as keyof typeof FRYZIGG_SNAPSHOTS];
+    if (!snapshot) {
       return err(new ScrapeError(`Fryzigg does not publish ${competition} data`, "fryzigg"));
     }
+    const expectedSha256 = this.sha256 === undefined ? snapshot.sha256 : this.sha256;
 
     try {
-      const response = await this.fetchFn(url, {
+      const response = await this.fetchFn(snapshot.url, {
         headers: { "User-Agent": USER_AGENT },
       });
 
       if (!response.ok) {
         return err(
-          new ScrapeError(`Fryzigg request failed: ${response.status} (${url})`, "fryzigg"),
+          new ScrapeError(
+            `Fryzigg request failed: ${response.status} (${snapshot.url})`,
+            "fryzigg",
+          ),
         );
       }
 
       const buffer = new Uint8Array(await response.arrayBuffer());
 
-      if (this.sha256 !== undefined) {
+      if (expectedSha256 !== null) {
         const digest = await crypto.subtle.digest("SHA-256", buffer);
         const actual = Array.from(new Uint8Array(digest))
           .map((b) => b.toString(16).padStart(2, "0"))
           .join("");
-        if (actual !== this.sha256.toLowerCase()) {
+        if (actual !== expectedSha256.toLowerCase()) {
           return err(
-            new ScrapeError(
-              `Fryzigg checksum mismatch: expected ${this.sha256}, got ${actual}`,
-              "fryzigg",
-            ),
+            new ScrapeError(`Fryzigg checksum mismatch for ${competition} snapshot`, "fryzigg"),
           );
         }
       }

@@ -5,7 +5,7 @@
  * - Dump URLs and HTTP metadata (Content-Length, Last-Modified)
  * - Whether a lightweight index/manifest exists
  * - Actual max season present in each dump
- * - Download size and time
+ * - Two-download SHA-256 and byte-length stability
  *
  * Run: bun run scripts/probe-fryzigg.ts
  *
@@ -14,13 +14,9 @@
  */
 
 import { isDataFrame, parseRds } from "@jackemcpherson/rds-js";
+import { FRYZIGG_SNAPSHOTS } from "../src/sources/fryzigg-snapshots";
 
 const USER_AGENT = "fitzRoy-ts/1.0 probe (https://github.com/jackemcpherson/fitzRoy-ts)";
-
-const DUMP_URLS: Record<string, string> = {
-  AFLM: "http://www.fryziggafl.net/static/fryziggafl.rds",
-  AFLW: "http://www.fryziggafl.net/static/aflw_player_stats.rds",
-};
 
 /**
  * Candidate lightweight index/manifest URLs to probe before downloading the
@@ -78,6 +74,8 @@ interface DumpProbeResult {
   readonly lastModified: string | null;
   readonly downloadBytes: number;
   readonly downloadMs: number;
+  readonly sha256: string | null;
+  readonly downloadsMatch: boolean;
   readonly rowCount: number;
   readonly columnCount: number;
   readonly maxDateStr: string | null;
@@ -101,6 +99,8 @@ async function probeDump(competition: string, url: string): Promise<DumpProbeRes
       lastModified: null,
       downloadBytes: 0,
       downloadMs: 0,
+      sha256: null,
+      downloadsMatch: false,
       rowCount: 0,
       columnCount: 0,
       maxDateStr: null,
@@ -128,6 +128,8 @@ async function probeDump(competition: string, url: string): Promise<DumpProbeRes
       lastModified: head.lastModified,
       downloadBytes: 0,
       downloadMs: Date.now() - t0,
+      sha256: null,
+      downloadsMatch: false,
       rowCount: 0,
       columnCount: 0,
       maxDateStr: null,
@@ -148,6 +150,8 @@ async function probeDump(competition: string, url: string): Promise<DumpProbeRes
       lastModified: head.lastModified,
       downloadBytes: 0,
       downloadMs: Date.now() - t0,
+      sha256: null,
+      downloadsMatch: false,
       rowCount: 0,
       columnCount: 0,
       maxDateStr: null,
@@ -163,6 +167,60 @@ async function probeDump(competition: string, url: string): Promise<DumpProbeRes
   const downloadMs = Date.now() - t0;
   const downloadBytes = buffer.length;
 
+  // A snapshot update must be based on two independent, byte-identical GETs.
+  const secondResponse = await fetch(url, { headers: { "User-Agent": USER_AGENT } });
+  if (!secondResponse.ok) {
+    return {
+      competition,
+      url,
+      httpStatus: secondResponse.status,
+      contentLengthHeader: head.contentLength,
+      lastModified: head.lastModified,
+      downloadBytes,
+      downloadMs,
+      sha256: null,
+      downloadsMatch: false,
+      rowCount: 0,
+      columnCount: 0,
+      maxDateStr: null,
+      maxSeason: null,
+      minDateStr: null,
+      minSeason: null,
+      dateColName: null,
+      error: `second GET returned ${secondResponse.status}`,
+    };
+  }
+  const secondBuffer = new Uint8Array(await secondResponse.arrayBuffer());
+  const digestHex = async (bytes: Uint8Array): Promise<string> => {
+    const digest = await crypto.subtle.digest("SHA-256", bytes);
+    return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join(
+      "",
+    );
+  };
+  const [sha256, secondSha256] = await Promise.all([digestHex(buffer), digestHex(secondBuffer)]);
+  const downloadsMatch = downloadBytes === secondBuffer.length && sha256 === secondSha256;
+  if (!downloadsMatch) {
+    return {
+      competition,
+      url,
+      httpStatus: response.status,
+      contentLengthHeader: head.contentLength,
+      lastModified: head.lastModified,
+      downloadBytes,
+      downloadMs,
+      sha256,
+      downloadsMatch,
+      rowCount: 0,
+      columnCount: 0,
+      maxDateStr: null,
+      maxSeason: null,
+      minDateStr: null,
+      minSeason: null,
+      dateColName: null,
+      error: "independent downloads had different byte lengths or SHA-256 digests",
+    };
+  }
+
   // Parse RDS
   let parsed: unknown;
   try {
@@ -176,6 +234,8 @@ async function probeDump(competition: string, url: string): Promise<DumpProbeRes
       lastModified: head.lastModified,
       downloadBytes,
       downloadMs,
+      sha256,
+      downloadsMatch,
       rowCount: 0,
       columnCount: 0,
       maxDateStr: null,
@@ -196,6 +256,8 @@ async function probeDump(competition: string, url: string): Promise<DumpProbeRes
       lastModified: head.lastModified,
       downloadBytes,
       downloadMs,
+      sha256,
+      downloadsMatch,
       rowCount: 0,
       columnCount: 0,
       maxDateStr: null,
@@ -249,6 +311,8 @@ async function probeDump(competition: string, url: string): Promise<DumpProbeRes
     lastModified: head.lastModified,
     downloadBytes,
     downloadMs,
+    sha256,
+    downloadsMatch,
     rowCount,
     columnCount,
     maxDateStr,
@@ -268,7 +332,8 @@ console.log(`  Probing at: ${new Date().toISOString()}`);
 await probeIndex();
 
 console.log("\n=== Dump probes ===");
-for (const [competition, url] of Object.entries(DUMP_URLS)) {
+for (const [competition, snapshot] of Object.entries(FRYZIGG_SNAPSHOTS)) {
+  const { url } = snapshot;
   console.log(`\n-- ${competition} (${url})`);
   const r = await probeDump(competition, url);
 
@@ -285,6 +350,12 @@ for (const [competition, url] of Object.entries(DUMP_URLS)) {
   console.log(`  HTTP status:    ${r.httpStatus}`);
   console.log(`  Last-Modified:  ${r.lastModified ?? "(none)"}`);
   console.log(`  Download:       ${mbDownloaded} MB${headerMb}`);
+  console.log(`  Bytes:          ${r.downloadBytes}`);
+  console.log(`  SHA-256:        ${r.sha256 ?? "(unavailable)"}`);
+  console.log(`  Downloads match:${r.downloadsMatch ? " yes" : " no"}`);
+  console.log(
+    `  Manifest match: ${r.sha256 === snapshot.sha256 && r.downloadBytes === snapshot.byteLength ? "yes" : "NO"}`,
+  );
   console.log(`  Download time:  ${r.downloadMs} ms`);
   console.log(`  Rows:           ${r.rowCount.toLocaleString()}`);
   console.log(`  Columns:        ${r.columnCount}`);
@@ -294,8 +365,8 @@ for (const [competition, url] of Object.entries(DUMP_URLS)) {
 }
 
 console.log("\n=== Summary ===");
-console.log("  FRYZIGG_LATEST_SNAPSHOT (current hardcoded):  2024");
-console.log("  See above for actual max seasons in each dump.");
+console.log("  Review both digests and parsed season ranges before editing the manifest.");
 console.log("\nNote: there is no per-year file scheme or index.");
 console.log("      The only way to know the max season is to download and parse the full dump,");
 console.log("      or rely on Last-Modified + a maintained constant (Option C / bump ritual).");
+console.log("      Digests are TOFU because the upstream transport is unauthenticated HTTP.");

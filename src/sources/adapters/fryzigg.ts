@@ -9,31 +9,25 @@ import { Result } from "../../lib/result";
 import { transformFryziggPlayerStats } from "../../transforms/fryzigg-player-stats";
 import type { PlayerStatsQuery, SeasonPlayerStats } from "../../types";
 import { FryziggClient } from "../fryzigg";
+import { FRYZIGG_SNAPSHOTS } from "../fryzigg-snapshots";
 import type { PlayerStatsSource } from "./capabilities";
 import type { CoverageMap } from "./coverage";
 
-// Fryzigg distributes static RDS dumps that update infrequently and on
-// independent schedules per competition. Caps prevent empty/stale-row returns
-// for seasons not yet in a dump — dispatch suggests --source afl-api instead
-// (#89). Update these after each AFL season by checking Last-Modified:
-//
-//   curl -sI http://www.fryziggafl.net/static/fryziggafl.rds | grep -i last-modified
-//   curl -sI http://www.fryziggafl.net/static/aflw_player_stats.rds | grep -i last-modified
-//
-// A Last-Modified date beyond the current cap's season Grand Final means a new
-// dump is available. Run `bun run scripts/probe-fryzigg.ts` to confirm the
-// new max season, then bump the relevant constant below.
-//
-// NOTE: the AFLW dump has not been updated since January 2022 (last verified
-// 2026-07-02 via probe). FRYZIGG_AFLW_LATEST_SNAPSHOT should NOT be bumped
-// until the upstream dump resumes — it is deliberately set to the actual max
-// season present in the dump, not the current year.
-const FRYZIGG_AFLM_LATEST_SNAPSHOT = 2025; // dump updated Sep 2025; data through 2025-09-27
-const FRYZIGG_AFLW_LATEST_SNAPSHOT = 2022; // dump last updated Jan 2022; appears abandoned
-
 const FRYZIGG_PLAYER_STATS_COVERAGE: CoverageMap = new Map([
-  ["AFLM", { minSeason: 2012, maxSeason: FRYZIGG_AFLM_LATEST_SNAPSHOT }],
-  ["AFLW", { minSeason: 2017, maxSeason: FRYZIGG_AFLW_LATEST_SNAPSHOT }],
+  [
+    "AFLM",
+    {
+      minSeason: FRYZIGG_SNAPSHOTS.AFLM.minSeason,
+      maxSeason: FRYZIGG_SNAPSHOTS.AFLM.maxSeason,
+    },
+  ],
+  [
+    "AFLW",
+    {
+      minSeason: FRYZIGG_SNAPSHOTS.AFLW.minSeason,
+      maxSeason: FRYZIGG_SNAPSHOTS.AFLW.maxSeason,
+    },
+  ],
 ]);
 
 /** Fryzigg as a PlayerStatsSource (AFLM and AFLW only). */
