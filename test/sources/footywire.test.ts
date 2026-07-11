@@ -5,6 +5,16 @@ import { FootyWireClient, parseFixtureList, parseMatchList } from "../../src/sou
 
 const FIXTURE_PATH = resolve(__dirname, "../fixtures/footywire-match-list.html");
 const fixtureHtml = readFileSync(FIXTURE_PATH, "utf-8");
+const BASIC_STATS_FIXTURE = resolve(
+  __dirname,
+  "../fixtures/footywire-match-stats-basic-11174.html",
+);
+const ADVANCED_STATS_FIXTURE = resolve(
+  __dirname,
+  "../fixtures/footywire-match-stats-advanced-11174.html",
+);
+const basicStatsHtml = readFileSync(BASIC_STATS_FIXTURE, "utf-8");
+const advancedStatsHtml = readFileSync(ADVANCED_STATS_FIXTURE, "utf-8");
 
 describe("parseMatchList", () => {
   it("parses complete match results from fixture", () => {
@@ -19,6 +29,7 @@ describe("parseMatchList", () => {
     // Teams and identity
     expect(first.homeTeam).toBe("Richmond");
     expect(first.awayTeam).toBe("Carlton");
+    expect(first.matchId).toBe("FW_11193");
     expect(first.matchId).toBe("FW_11193");
     expect(first.source).toBe("footywire");
     expect(first.competition).toBe("AFLM");
@@ -128,6 +139,50 @@ describe("parseFixtureList (#122)", () => {
     expect(fixtures[0]?.homePoints).toBeNull();
     expect(fixtures[0]?.awayPoints).toBeNull();
     expect(fixtures[0]?.margin).toBeNull();
+    expect(fixtures[0]?.matchId).toBe("FW_SYNTH_2025_R5_G1");
+  });
+
+  it("uses the provider id for a completed match and matches player-stat ids", async () => {
+    const html = `<html><body><table>
+      <tr><td colspan="7">Round 5</td></tr>
+      <tr>
+        <td class="data">Sat 1 May 7:30pm</td>
+        <td class="data"><a>Hawthorn</a><br><a>Geelong Cats</a></td>
+        <td class="data">MCG</td><td class="data">12345</td>
+        <td class="data"><a href="ft_match_statistics?mid=11174">82-69</a></td>
+      </tr>
+    </table></body></html>`;
+    const match = parseFixtureList(html, 2025)[0];
+    const fetchFn = vi.fn((input: RequestInfo | URL) =>
+      Promise.resolve(
+        new Response(String(input).includes("advv=Y") ? advancedStatsHtml : basicStatsHtml, {
+          status: 200,
+        }),
+      ),
+    );
+    const statsResult = await new FootyWireClient({ fetchFn }).fetchMatchPlayerStats(
+      "11174",
+      2025,
+      5,
+    );
+
+    expect(match?.matchId).toBe("FW_11174");
+    expect(statsResult.success).toBe(true);
+    if (statsResult.success) {
+      expect(statsResult.data.length).toBeGreaterThan(0);
+      expect(statsResult.data[0]?.matchId).toBe(match?.matchId);
+    }
+  });
+
+  it("rejects an unparseable required date instead of returning January 1", () => {
+    const html = `<html><body><table>
+      <tr><td colspan="7">Round 5</td></tr>
+      <tr><td class="data"></td><td class="data"><a>Hawthorn</a><a>Geelong Cats</a></td>
+      <td class="data">MCG</td><td class="data"></td><td class="data"><a href="?mid=1">82-69</a></td></tr>
+    </table></body></html>`;
+
+    expect(() => parseFixtureList(html, 2025)).toThrow(/required FootyWire match date/);
+    expect(() => parseMatchList(html, 2025)).toThrow(/required FootyWire match date/);
   });
 
   it("rolls a January AFLW row to the next calendar year (#111)", () => {
