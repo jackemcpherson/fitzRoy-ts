@@ -7,6 +7,7 @@ import {
   squadRegistry,
   teamStatsRegistry,
 } from "../../../src/sources/adapters/index";
+import { FRYZIGG_SNAPSHOTS } from "../../../src/sources/fryzigg-snapshots";
 
 describe("source-adapter registry", () => {
   describe("Match registrations", () => {
@@ -94,6 +95,20 @@ describe("source-adapter registry", () => {
       const ladder = ladderRegistry.get("afl-tables");
       const match = matchRegistry.get("afl-tables");
       expect(ladder?.coverage.get("AFLM")?.minSeason).toBe(match?.coverage.get("AFLM")?.minSeason);
+    });
+  });
+
+  describe("Fryzigg coverage", () => {
+    it("derives both competition ranges from the reviewed snapshot manifest", () => {
+      const adapter = playerStatsRegistry.get("fryzigg");
+      expect(adapter?.coverage.get("AFLM")).toEqual({
+        minSeason: FRYZIGG_SNAPSHOTS.AFLM.minSeason,
+        maxSeason: FRYZIGG_SNAPSHOTS.AFLM.maxSeason,
+      });
+      expect(adapter?.coverage.get("AFLW")).toEqual({
+        minSeason: FRYZIGG_SNAPSHOTS.AFLW.minSeason,
+        maxSeason: FRYZIGG_SNAPSHOTS.AFLW.maxSeason,
+      });
     });
   });
 

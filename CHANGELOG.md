@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Default Fryzigg AFLM and AFLW downloads now verify operator-reviewed SHA-256
+  checksums before parsing. The upstream transport remains HTTP-only, so the
+  initial pinned digests are trust-on-first-use values confirmed from two
+  byte-identical downloads. Snapshot updates must compare two downloads,
+  inspect schema and maximum season, obtain human digest review, update all
+  manifest metadata atomically, and run the focused and full test suites.
+
 ## [3.4.0] - 2026-07-03
 
 ### Added
