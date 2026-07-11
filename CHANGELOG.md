@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.5.0] - 2026-07-11
+
 ### Changed
 
 - Season-wide AFL Coaches Association vote fetches now request rounds in polite
@@ -15,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- npm consumers can now install the published package without triggering the
+  repository-only `prepare` tooling, and CI verifies installation from the
+  packed tarball.
 - AFL Tables and FootyWire match rows now use the same provider-derived match
   IDs as their player-stat rows when the provider ID is available. Required
   scraper dates now fail visibly when upstream markup drifts instead of being

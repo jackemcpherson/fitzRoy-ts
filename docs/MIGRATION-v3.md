@@ -1,11 +1,11 @@
 # Upgrading from 3.0.x
 
-All changes in 3.1.x–3.4.x are backwards-compatible at the TypeScript API
+All changes in 3.1.x–3.5.x are backwards-compatible at the TypeScript API
 level. If you are on any 3.0.x release you can upgrade to the latest `^3`
 with no call-site changes beyond the 3.0.0 breaking changes listed below.
 
 **CHANGELOG read confirms:** no `BREAKING` markers appear in any 3.1.0,
-3.1.1, 3.2.0, 3.3.0, or 3.4.0 section. The migration steps below apply only
+3.1.1, 3.2.0, 3.3.0, 3.4.0, or 3.5.0 section. The migration steps below apply only
 if you are upgrading from a 2.x or early-3.0.0 baseline.
 
 ---
@@ -122,6 +122,22 @@ import { MatchItemSchema } from "fitzroy/schemas";
   `roundTypeLabel` are exported from the package root (R fitzRoy
   `round.name`/`round.abbreviation`/`round.type` parity). If you hand-roll
   round-label derivation, these replace it. Purely additive.
+
+### 3.5.0
+
+- **Provider match IDs aligned** — completed AFL Tables and FootyWire match
+  rows now use the same provider-derived IDs as their player-stat rows.
+- **Scoped queries fail closed** — explicit ladder and Fryzigg round queries
+  return an error when a source cannot honour the requested scope instead of
+  returning unrelated unscoped data.
+- **Coleman rankings corrected** — finals are excluded from Coleman Medal goal
+  totals.
+- **Fryzigg snapshot integrity** — default AFLM and AFLW downloads are checked
+  against operator-reviewed SHA-256 digests before parsing.
+- **Faster coaches-vote seasons** — AFL Coaches Association rounds are fetched
+  in polite batches of three while retaining partial-success behaviour.
+- **npm installation fixed** — packed consumer installs no longer invoke
+  repository-only preparation tooling.
 
 ---
 

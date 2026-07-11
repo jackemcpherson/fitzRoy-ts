@@ -37,7 +37,6 @@ coverage/
 
 # development artifacts
 plans/
-AGENTS.md
 HANDOFF.md
 
 # comparison test outputs (keep scripts, ignore generated data)
