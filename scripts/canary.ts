@@ -12,7 +12,7 @@
  *   comment on) a tracking issue.
  *
  * Row-count baseline (#improve-8):
- * - Each source records a row count to `scripts/canary-baseline.json`.
+ * - Each successful run records source row counts to `scripts/canary-baseline.json`.
  * - On subsequent runs, a check fails if `count < previousCount * 0.85`
  *   (i.e. more than a 15% drop). This catches HTML/parser drift that
  *   silently sheds rows without total failure (which the >0 check alone
@@ -22,11 +22,7 @@
  *   benign upstream variability (rounds in progress, late corrections).
  * - First run for a new source: logs "first run" and records the count
  *   without failing.
- * - Manually bumping the baseline: when the team accepts a new lower
- *   count (e.g. a season's worth of finals dropped from the previous
- *   season probe), either edit `scripts/canary-baseline.json` by hand
- *   to the new floor, or let the next successful CI run overwrite it
- *   (the canary always writes the latest counts on success).
+ * - A failed run never replaces the last known-good baseline artifact.
  */
 
 import { readFile, writeFile } from "node:fs/promises";
@@ -34,6 +30,7 @@ import { AflApiClient } from "../src/sources/afl-api";
 import { AflTablesClient } from "../src/sources/afl-tables";
 import { FootyWireClient } from "../src/sources/footywire";
 import { SquiggleClient } from "../src/sources/squiggle";
+import { type Baseline, evaluateCount, promoteBaseline, validateBaseline } from "./canary-baseline";
 
 /** Previous season — guaranteed to have complete published data. */
 const season = new Date().getUTCFullYear() - 1;
@@ -102,22 +99,14 @@ const checks: readonly CanaryCheck[] = [
   },
 ];
 
-/** Persisted shape of `scripts/canary-baseline.json`: source name -> last recorded count. */
-type Baseline = Record<string, number>;
-
 async function readBaseline(): Promise<Baseline> {
   try {
     const raw = await readFile(BASELINE_PATH, "utf8");
     const parsed: unknown = JSON.parse(raw);
-    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-      console.warn(`warn: ${BASELINE_PATH} is not a JSON object; treating as empty`);
+    const baseline = validateBaseline(parsed);
+    if (baseline === undefined) {
+      console.warn(`warn: ${BASELINE_PATH} has an invalid shape; treating as empty`);
       return {};
-    }
-    const baseline: Baseline = {};
-    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
-      if (typeof value === "number" && Number.isFinite(value)) {
-        baseline[key] = value;
-      }
     }
     return baseline;
   } catch (error) {
@@ -146,29 +135,28 @@ async function writeBaseline(baseline: Baseline): Promise<void> {
 }
 
 const previousBaseline = await readBaseline();
-const nextBaseline: Baseline = { ...previousBaseline };
+const observedCounts: Baseline = {};
 
 let hasFailure = false;
 for (const check of checks) {
   try {
     const { summary, count } = await check.run();
     const previous = previousBaseline[check.name];
-    if (previous === undefined) {
-      console.log(`ok   ${check.name}: ${summary} (first run, recording ${count})`);
-    } else {
-      const floor = previous * DRIFT_THRESHOLD;
-      if (count < floor) {
+    const evaluation = evaluateCount(count, previous, DRIFT_THRESHOLD);
+    switch (evaluation.status) {
+      case "first-run":
+        console.log(`ok   ${check.name}: ${summary} (first run, recording ${count})`);
+        break;
+      case "accepted":
+        console.log(`ok   ${check.name}: ${summary} (previous=${evaluation.previous})`);
+        break;
+      case "drift":
         hasFailure = true;
         console.error(
-          `FAIL ${check.name}: row-count drift — previous=${previous}, new=${count} (below ${DRIFT_THRESHOLD * 100}% floor of ${floor.toFixed(1)})`,
+          `FAIL ${check.name}: row-count drift — previous=${evaluation.previous}, new=${count} (below ${DRIFT_THRESHOLD * 100}% floor of ${evaluation.floor.toFixed(1)})`,
         );
-      } else {
-        console.log(`ok   ${check.name}: ${summary} (previous=${previous})`);
-      }
     }
-    // Always record the new count, even on drift failure — operators can
-    // inspect the baseline file in the artifact to see what was observed.
-    nextBaseline[check.name] = count;
+    observedCounts[check.name] = count;
   } catch (error) {
     hasFailure = true;
     const message = error instanceof Error ? error.message : String(error);
@@ -176,11 +164,14 @@ for (const check of checks) {
   }
 }
 
-try {
-  await writeBaseline(nextBaseline);
-} catch (error) {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(`warn: failed to write ${BASELINE_PATH}: ${message}`);
+if (!hasFailure) {
+  try {
+    await writeBaseline(promoteBaseline(previousBaseline, observedCounts, true));
+  } catch (error) {
+    hasFailure = true;
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`FAIL baseline: failed to write ${BASELINE_PATH}: ${message}`);
+  }
 }
 
 if (hasFailure) {
