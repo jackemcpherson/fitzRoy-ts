@@ -290,9 +290,12 @@ export class AflApiLadderSource implements LadderSource {
     if (query.round != null) {
       // Honour an explicit round number.
       const round = roundsResult.data.find((r) => r.roundNumber === query.round);
-      if (round) {
-        roundId = round.id;
+      if (!round) {
+        return err(
+          new AflApiError(`Round ${query.round} was not found for the ${query.season} season`),
+        );
       }
+      roundId = round.id;
     } else {
       // No explicit round — resolve to the latest *completed* H&A round.
       // Finals don't alter the ladder (it's a Home & Away artefact only),

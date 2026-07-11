@@ -19,9 +19,10 @@ const LADDER = readFileSync(
  * (see `createSourceFetch`), so stubbing the global intercepts the
  * import-time singleton used by `fetchLadder`.
  */
-function ladderFetch(): typeof fetch {
+function ladderFetch(requestedUrls?: string[]): typeof fetch {
   return vi.fn((input: string | URL | Request) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    requestedUrls?.push(url);
     if (url.includes("compseasons?pageSize")) {
       return Promise.resolve(new Response(COMPSEASONS, { status: 200 }));
     }
@@ -71,6 +72,19 @@ describe("fetchLadder afl-api happy path", () => {
     expect(result.success).toBe(true);
     if (!result.success) return;
     expect(result.data.entries[0]?.team).toBe("Sydney Swans");
+  });
+
+  it("rejects an explicit round that does not exist without fetching a ladder", async () => {
+    const requestedUrls: string[] = [];
+    vi.stubGlobal("fetch", ladderFetch(requestedUrls));
+
+    const result = await fetchLadder({ source: "afl-api", season: 2024, round: 999 });
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.message).toContain("999");
+    expect(result.error.message).toContain("2024");
+    expect(requestedUrls.some((url) => url.includes("/ladders"))).toBe(false);
   });
 });
 

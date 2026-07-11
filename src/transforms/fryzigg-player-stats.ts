@@ -268,6 +268,12 @@ export function transformFryziggPlayerStats(
     scoreLaunches: getCol("score_launches"),
   };
 
+  if (options.round !== undefined && cols.round === undefined) {
+    return err(
+      new ScrapeError(`Fryzigg data frame missing required column: "${mapping.round}"`, "fryzigg"),
+    );
+  }
+
   const dateCol = cols.date;
   const roundCol = cols.round;
   const nRows = dateCol ? dateCol.length : 0;

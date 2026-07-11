@@ -15,6 +15,15 @@ async function loadFixture(): Promise<DataFrame> {
   return result;
 }
 
+function frameWithoutRound(competition: "AFLM" | "AFLW"): DataFrame {
+  const dateColumn = competition === "AFLW" ? "date" : "match_date";
+  const teamColumn = competition === "AFLW" ? "team" : "player_team";
+  return {
+    names: ["match_id", dateColumn, "player_id", teamColumn],
+    columns: [["1"], ["2024-03-15"], ["123"], ["Melbourne"]],
+  };
+}
+
 describe("transformFryziggPlayerStats", () => {
   it("maps all 5 fixture rows to PlayerStats", async () => {
     const frame = await loadFixture();
@@ -163,6 +172,31 @@ describe("transformFryziggPlayerStats", () => {
     expect(result.success).toBe(false);
     if (result.success) return;
     expect(result.error.message).toContain("missing required column");
+  });
+
+  it.each([
+    ["AFLM", "match_round"],
+    ["AFLW", "fixture_round"],
+  ] as const)("returns an error when an explicit %s round cannot be filtered", (competition, roundColumn) => {
+    const result = transformFryziggPlayerStats(frameWithoutRound(competition), {
+      competition,
+      round: 1,
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.message).toContain(roundColumn);
+  });
+
+  it("keeps the round column optional when no round is requested", () => {
+    const result = transformFryziggPlayerStats(frameWithoutRound("AFLM"), {
+      competition: "AFLM",
+      season: 2024,
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data).toHaveLength(1);
   });
 
   it("sets competition from options", async () => {
