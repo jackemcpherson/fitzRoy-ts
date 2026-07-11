@@ -18,6 +18,7 @@ import {
   parseRisingStarNominations,
 } from "../transforms/awards";
 import type { Award, AwardQuery, ColemanLeader, CompetitionCode, PlayerStats } from "../types";
+import { fetchMatches } from "./match";
 import { fetchPlayerStats } from "./player-stats";
 
 const FOOTYWIRE_BASE = "https://www.footywire.com/afl/footy";
@@ -212,13 +213,35 @@ async function fetchColemanLeaderboard(query: AwardQuery): Promise<Result<Award[
     );
   }
 
-  const statsR = await fetchPlayerStats({
-    source: "afl-api",
-    season: query.season,
-    competition,
-  });
-  return Result.map(statsR, (seasonStats) =>
-    rankColemanFromStats(seasonStats.stats, query.season, competition, query.limit),
+  const [matchesR, statsR] = await Promise.all([
+    fetchMatches({
+      source: "afl-api",
+      season: query.season,
+      competition,
+      status: "Complete",
+    }),
+    fetchPlayerStats({
+      source: "afl-api",
+      season: query.season,
+      competition,
+    }),
+  ]);
+
+  if (!matchesR.success) return matchesR;
+  if (!statsR.success) return statsR;
+
+  const homeAndAwayMatchIds = new Set(
+    matchesR.data
+      .filter((match) => match.roundType === "HomeAndAway")
+      .map((match) => match.matchId),
+  );
+  return ok(
+    rankColemanFromStats(
+      statsR.data.stats.filter((stats) => homeAndAwayMatchIds.has(stats.matchId)),
+      query.season,
+      competition,
+      query.limit,
+    ),
   );
 }
 
