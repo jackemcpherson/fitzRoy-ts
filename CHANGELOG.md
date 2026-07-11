@@ -7,7 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Season-wide AFL Coaches Association vote fetches now request rounds in polite
+  batches of three, preserving round order and partial-success behaviour while
+  reducing end-to-end latency.
+
 ### Fixed
+
+- AFL Tables and FootyWire match rows now use the same provider-derived match
+  IDs as their player-stat rows when the provider ID is available. Required
+  scraper dates now fail visibly when upstream markup drifts instead of being
+  silently replaced with January 1.
 
 - Coleman Medal rankings now exclude finals and count goals from home-and-away
   matches only.

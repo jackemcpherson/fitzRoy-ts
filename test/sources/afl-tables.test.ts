@@ -23,6 +23,7 @@ describe("parseSeasonPage", () => {
     // Teams and identity
     expect(first.homeTeam).toBe("Sydney Swans");
     expect(first.awayTeam).toBe("Melbourne");
+    expect(first.matchId).toBe("AT_111620240307");
     expect(first.source).toBe("afl-tables");
     expect(first.competition).toBe("AFLM");
 
@@ -67,6 +68,28 @@ describe("parseSeasonPage", () => {
 
   it("returns empty array for empty HTML", () => {
     expect(parseSeasonPage("<html></html>", 2024)).toEqual([]);
+  });
+
+  it("uses a non-colliding synthetic id when a match has no provider link", () => {
+    const html = `<html><body>
+<table><tr><td>Round 1</td><td></td></tr></table>
+<table border=1>
+<tr><td><a>Sydney</a></td><td>3.3 4.3 7.10 12.14</td><td>86</td><td>Thu 07-Mar-2024 7:30 PM <b>Venue:</b> <a href="../venues/scg.html">S.C.G.</a></td></tr>
+<tr><td><a>Melbourne</a></td><td>1.6 2.8 7.8 9.10</td><td>64</td><td>Sydney won by 22 pts</td></tr>
+</table></body></html>`;
+
+    expect(parseSeasonPage(html, 2024)[0]?.matchId).toBe("AT_SYNTH_2024_1");
+  });
+
+  it("rejects an unparseable required match date instead of returning January 1", () => {
+    const html = `<html><body>
+<table><tr><td>Round 1</td><td></td></tr></table>
+<table border=1>
+<tr><td><a>Sydney</a></td><td>3.3 4.3 7.10 12.14</td><td>86</td><td>TBC <b>Venue:</b> <a href="../venues/scg.html">S.C.G.</a></td></tr>
+<tr><td><a>Melbourne</a></td><td>1.6 2.8 7.8 9.10</td><td>64</td><td>Sydney won by 22 pts</td></tr>
+</table></body></html>`;
+
+    expect(() => parseSeasonPage(html, 2024)).toThrow(/required AFL Tables match date/);
   });
 
   // 2025-10-05 02:00 → 03:00 AEDT in Australia/Melbourne, so 02:30 doesn't
@@ -186,6 +209,9 @@ describe("AflTablesClient", () => {
       if (!result.success) return;
       expect(result.data.stats.length).toBeGreaterThan(0);
       expect(result.data.stats[0]?.matchId).toBe("AT_111620240307");
+      expect(parseSeasonPage(seasonWithTwoGameLinksHtml, 2024)[0]?.matchId).toBe(
+        result.data.stats[0]?.matchId,
+      );
       expect(result.data.failedMatchIds).toEqual(["AT_031420240308"]);
     });
 

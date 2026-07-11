@@ -392,9 +392,10 @@ export function parseMatchList(html: string, year: number): Match[] {
     // Parse date with venue tz so non-Melbourne games (Brisbane, Perth, Adelaide)
     // produce the correct UTC instant.
     const canonicalVenue = normaliseVenueName(venue);
-    const date =
-      parseDate(dateText, { defaultYear: year, venue: canonicalVenue }) ??
-      new Date(Date.UTC(year, 0, 1));
+    const date = parseDate(dateText, { defaultYear: year, venue: canonicalVenue });
+    if (!date) {
+      throw new Error(`Unable to parse required FootyWire match date: ${JSON.stringify(dateText)}`);
+    }
 
     // FootyWire's match-list page only carries total points — goals/behinds
     // are NOT published there. They used to be fabricated from the total
@@ -523,9 +524,10 @@ export function parseFixtureList(
     const awayTeam = normaliseTeamName($(teamLinks[1]).text().trim());
 
     const canonicalVenue = normaliseVenueName(venue);
-    const initialDate =
-      parseDate(dateText, { defaultYear: year, venue: canonicalVenue }) ??
-      new Date(Date.UTC(year, 0, 1));
+    const initialDate = parseDate(dateText, { defaultYear: year, venue: canonicalVenue });
+    if (!initialDate) {
+      throw new Error(`Unable to parse required FootyWire match date: ${JSON.stringify(dateText)}`);
+    }
     // Cross-calendar rollover: parseDate used `year` as the default. If the
     // resulting month is earlier than the season opener, the row actually
     // belongs to year + 1 (#111). For AFLM (opener month 3) this never
@@ -556,8 +558,11 @@ export function parseFixtureList(
       margin = homePoints - awayPoints;
     }
 
+    const scoreLink = scoreCell?.find("a").attr("href") ?? "";
+    const providerId = /mid=(\d+)/.exec(scoreLink)?.[1];
+
     fixtures.push({
-      matchId: `FW_${year}_R${currentRound}_G${gameNumber}`,
+      matchId: providerId ? `FW_${providerId}` : `FW_SYNTH_${year}_R${currentRound}_G${gameNumber}`,
       season: year,
       roundNumber: currentRound,
       roundType: currentRoundType,

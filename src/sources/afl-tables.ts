@@ -361,6 +361,12 @@ function parseSeasonPageGamesFromDoc($: cheerio.CheerioAPI, year: number): Seaso
     const date = parseDateFromInfo(infoText, year, venueTimezone);
     const attendance = parseAttendanceFromInfo(infoText);
 
+    // Parse the provider id once and use it for both the public Match id and
+    // the player-stat round lookup. Rows without a stats link retain a
+    // namespaced deterministic fallback that cannot collide with AT_<digits>.
+    const statsCellHtml = $(awayCells[3]).html() ?? "";
+    const gameId = /\/games\/\d{4}\/(\d+)\.html/.exec(statsCellHtml)?.[1] ?? null;
+
     // AFL Tables stores quarter scores as running totals; convert to per-quarter
     // so q1+q2+q3+q4 == total (matching afl-api / footywire / squiggle).
     const homePerQuarter = toPerQuarter(homeQuarters);
@@ -377,14 +383,10 @@ function parseSeasonPageGamesFromDoc($: cheerio.CheerioAPI, year: number): Seaso
 
     matchCounter++;
 
-    // Game id from the away row's "Match stats" link (when present) — keys
-    // the round lookup for the per-game player-stats scrape.
-    const statsCellHtml = $(awayCells[3]).html() ?? "";
-    const gameIdMatch = /\/games\/\d{4}\/(\d+)\.html/.exec(statsCellHtml);
-    gameIds.push(gameIdMatch?.[1] ?? null);
+    gameIds.push(gameId);
 
     results.push({
-      matchId: `AT_${year}_${matchCounter}`,
+      matchId: gameId ? `AT_${gameId}` : `AT_SYNTH_${year}_${matchCounter}`,
       season: year,
       roundNumber: currentRound,
       roundType: currentRoundType,
@@ -539,9 +541,11 @@ function parseQuarterScores(text: string): (QuarterScore | undefined)[] {
  */
 function parseDateFromInfo(text: string, year: number, venueTimezone: string | null): Date {
   const m = /(\d{1,2})-([A-Z][a-z]{2})-(\d{4})(?:\s+(\d{1,2}):(\d{2})\s*([AaPp][Mm]))?/.exec(text);
-  // Fallbacks use Date.UTC — `new Date(year, 0, 1)` would depend on the
-  // host machine's local timezone (COR-10).
-  if (!m) return parseDate(text) ?? new Date(Date.UTC(year, 0, 1));
+  if (!m) {
+    const parsed = parseDate(text);
+    if (parsed) return parsed;
+    throw new Error(`Unable to parse required AFL Tables match date: ${JSON.stringify(text)}`);
+  }
 
   const day = Number.parseInt(m[1] ?? "0", 10);
   const monthStr = (m[2] ?? "").toLowerCase();
@@ -561,7 +565,11 @@ function parseDateFromInfo(text: string, year: number, venueTimezone: string | n
     dec: 11,
   };
   const monthIndex = months[monthStr];
-  if (monthIndex == null) return parseDate(text) ?? new Date(Date.UTC(year, 0, 1));
+  if (monthIndex == null) {
+    const parsed = parseDate(text);
+    if (parsed) return parsed;
+    throw new Error(`Unable to parse required AFL Tables match date: ${JSON.stringify(text)}`);
+  }
 
   // No time → midnight UTC (matches AFL Tables' historical convention pre-2010s).
   if (!m[4] || !m[5] || !m[6]) {
