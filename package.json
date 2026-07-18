@@ -63,7 +63,7 @@
     "@arethetypeswrong/cli": "^0.18.5",
     "@biomejs/biome": "^2.5.3",
     "@clack/prompts": "^1.7.0",
-    "@types/node": "^20.19.0",
+    "@types/node": "^26.0.0",
     "@vitest/coverage-v8": "4.1.10",
     "bunup": "^0.16.32",
     "citty": "^0.2.2",
