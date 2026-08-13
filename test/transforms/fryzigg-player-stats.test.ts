@@ -177,16 +177,19 @@ describe("transformFryziggPlayerStats", () => {
   it.each([
     ["AFLM", "match_round"],
     ["AFLW", "fixture_round"],
-  ] as const)("returns an error when an explicit %s round cannot be filtered", (competition, roundColumn) => {
-    const result = transformFryziggPlayerStats(frameWithoutRound(competition), {
-      competition,
-      round: 1,
-    });
+  ] as const)(
+    "returns an error when an explicit %s round cannot be filtered",
+    (competition, roundColumn) => {
+      const result = transformFryziggPlayerStats(frameWithoutRound(competition), {
+        competition,
+        round: 1,
+      });
 
-    expect(result.success).toBe(false);
-    if (result.success) return;
-    expect(result.error.message).toContain(roundColumn);
-  });
+      expect(result.success).toBe(false);
+      if (result.success) return;
+      expect(result.error.message).toContain(roundColumn);
+    },
+  );
 
   it("keeps the round column optional when no round is requested", () => {
     const result = transformFryziggPlayerStats(frameWithoutRound("AFLM"), {

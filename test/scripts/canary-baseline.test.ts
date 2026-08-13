@@ -13,16 +13,12 @@ describe("validateBaseline", () => {
     });
   });
 
-  it.each([
-    null,
-    [],
-    "invalid",
-    { source: "10" },
-    { source: -1 },
-    { source: Number.NaN },
-  ])("rejects invalid shape %#", (value) => {
-    expect(validateBaseline(value)).toBeUndefined();
-  });
+  it.each([null, [], "invalid", { source: "10" }, { source: -1 }, { source: Number.NaN }])(
+    "rejects invalid shape %#",
+    (value) => {
+      expect(validateBaseline(value)).toBeUndefined();
+    },
+  );
 });
 
 describe("evaluateCount", () => {
