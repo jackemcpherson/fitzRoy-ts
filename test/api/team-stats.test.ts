@@ -103,14 +103,14 @@ describe("FootyWireClient.fetchTeamStats", () => {
 });
 
 describe("fetchTeamStats public API", () => {
-  it.each([
-    "afl-api",
-    "squiggle",
-  ] as const)("returns error for unsupported %s source", async (source) => {
-    const result = await fetchTeamStats({ source, season: 2024 });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.message).toContain(`${source} does not provide team stats`);
-    }
-  });
+  it.each(["afl-api", "squiggle"] as const)(
+    "returns error for unsupported %s source",
+    async (source) => {
+      const result = await fetchTeamStats({ source, season: 2024 });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.message).toContain(`${source} does not provide team stats`);
+      }
+    },
+  );
 });

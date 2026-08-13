@@ -236,18 +236,17 @@ describe("fetchAwards FootyWire routing", () => {
     expect(String(fetchStub.mock.calls[0]?.[0])).toContain(`${path}?year=2025`);
   });
 
-  it.each([
-    "AFLW",
-    "VFL",
-    "VFLW",
-  ] as const)("rejects FootyWire awards for %s without fetching", async (competition) => {
-    const fetchStub = stubFootyWire(brownlowHtml());
+  it.each(["AFLW", "VFL", "VFLW"] as const)(
+    "rejects FootyWire awards for %s without fetching",
+    async (competition) => {
+      const fetchStub = stubFootyWire(brownlowHtml());
 
-    const result = await fetchAwards({ award: "brownlow", season: 2025, competition });
+      const result = await fetchAwards({ award: "brownlow", season: 2025, competition });
 
-    expect(result.success).toBe(false);
-    expect(fetchStub).not.toHaveBeenCalled();
-  });
+      expect(result.success).toBe(false);
+      expect(fetchStub).not.toHaveBeenCalled();
+    },
+  );
 
   it("propagates a non-OK upstream response", async () => {
     stubFootyWire("upstream unavailable", 503);
