@@ -11,6 +11,7 @@ const sampleSquad: Squad = {
   teamId: "1",
   teamName: "Sydney Swans",
   season: 2024,
+  scope: "all-time",
   competition: "AFLM",
   players: [
     {
@@ -59,6 +60,7 @@ describe("team verb discriminated union (#99)", () => {
     expect(parsed.squad.teamId).toBe("1");
     expect(parsed.squad.teamName).toBe("Sydney Swans");
     expect(parsed.squad.season).toBe(2024);
+    expect(parsed.squad.scope).toBe("all-time");
     expect(parsed.squad.competition).toBe("AFLM");
     expect(parsed.squad.players).toHaveLength(1);
   });

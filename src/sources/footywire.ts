@@ -627,7 +627,7 @@ export function parseFixtureList(
 /** Intermediate per-direction parse result before for/against merge. */
 interface FootyWireDirectionEntry {
   readonly team: string;
-  readonly gamesPlayed: number;
+  readonly gamesPlayed: number | null;
   readonly metrics: TeamMetricSet;
 }
 
@@ -681,7 +681,8 @@ export function parseFootyWireTeamStats(html: string, _year: number): FootyWireD
 
     const parseNum = (cell: ReturnType<typeof $>) => Number.parseFloat(cell.text().trim()) || 0;
 
-    const gamesPlayed = parseNum($(cells[2]));
+    const parsedGamesPlayed = Number.parseFloat($(cells[2]).text().trim());
+    const gamesPlayed = Number.isFinite(parsedGamesPlayed) ? parsedGamesPlayed : null;
     const metrics = emptyMetricSet();
 
     // Columns 3-19 (0-indexed) map to FOOTYWIRE_STAT_KEYS

@@ -8,7 +8,8 @@
  * the suggestion target) is `afl-tables` (see `teamStatsRegistry.defaultSource`).
  */
 
-import { Result } from "../lib/result";
+import { ScrapeError } from "../lib/errors";
+import { err, ok, Result } from "../lib/result";
 import { dispatch, teamStatsRegistry } from "../sources/adapters/index";
 import type { TeamStatsEntry, TeamStatsQuery } from "../types";
 
@@ -17,6 +18,8 @@ import type { TeamStatsEntry, TeamStatsQuery } from "../types";
  *
  * Team-stat sources currently cover AFLM only. Dispatch validates the requested
  * competition before an adapter performs network access.
+ * AFL Tables totals can contain `gamesPlayed: null` when match enrichment fails.
+ * Averages fail when any denominator is missing or non-positive.
  *
  * @example
  * ```ts
@@ -27,5 +30,18 @@ export async function fetchTeamStats(
   query: TeamStatsQuery,
 ): Promise<Result<TeamStatsEntry[], Error>> {
   const adapterR = dispatch(teamStatsRegistry, "team stats", query);
-  return Result.flatMapAsync(adapterR, (a) => a.fetchTeamStats(query));
+  const fetched = await Result.flatMapAsync(adapterR, (a) => a.fetchTeamStats(query));
+  if (query.summaryType !== "averages") return fetched;
+  return Result.flatMap(fetched, (entries) => {
+    const invalid = entries.filter((entry) => entry.gamesPlayed === null || entry.gamesPlayed <= 0);
+    if (invalid.length > 0) {
+      return err(
+        new ScrapeError(
+          `Cannot return team-stat averages because games played is missing or non-positive for: ${invalid.map((entry) => entry.team).join(", ")}`,
+          query.source,
+        ),
+      );
+    }
+    return ok(entries);
+  });
 }

@@ -164,16 +164,15 @@ export const teamCommand = defineCommand({
         ? await resolveTeamNameOrPrompt(teamName)
         : await resolveTeamNameOrPrompt(teamName, []);
 
-      if (source === "afl-tables") {
-        showWarning(
-          `--source afl-tables returns the all-time team roster — the --season ${season} filter does not narrow the player list. Use --source afl-api (2012+) for a season-specific squad. (#88)`,
-        );
-      }
-
       const result = await withSpinner("Fetching squad…", () =>
         fetchSquad({ source, team, season, competition }),
       );
       if (!result.success) throw result.error;
+      if (result.data.scope === "all-time") {
+        showWarning(
+          `--source ${source} returns an all-time roster. The requested --season ${season} is query context and does not narrow the player list.`,
+        );
+      }
 
       showSummary(
         `Loaded ${result.data.players.length} players for ${result.data.teamName} ${season}`,

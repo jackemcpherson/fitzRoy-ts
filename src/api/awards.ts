@@ -17,7 +17,15 @@ import {
   parseBrownlowVotes,
   parseRisingStarNominations,
 } from "../transforms/awards";
-import type { Award, AwardQuery, ColemanLeader, CompetitionCode, PlayerStats } from "../types";
+import type {
+  Award,
+  AwardQuery,
+  AwardResult,
+  CoachesVote,
+  ColemanLeader,
+  CompetitionCode,
+  PlayerStats,
+} from "../types";
 import { fetchMatches } from "./match";
 import { fetchPlayerStats } from "./player-stats";
 
@@ -28,7 +36,7 @@ const FOOTYWIRE_BASE = "https://www.footywire.com/afl/footy";
  *
  * @param query - Award type and season; some award types accept additional
  * filters (see {@link AwardQuery}).
- * @returns Array of award entries (discriminated union by `type` field).
+ * @returns Award rows and any coaches rounds that failed.
  *
  * @example
  * ```ts
@@ -37,12 +45,15 @@ const FOOTYWIRE_BASE = "https://www.footywire.com/afl/footy";
  * await fetchAwards({ award: "coaches", season: 2024, round: 3 });
  * ```
  */
-export async function fetchAwards(query: AwardQuery): Promise<Result<Award[], Error>> {
+export async function fetchAwards(query: AwardQuery): Promise<Result<AwardResult, Error>> {
   const fetched = await fetchAwardsRaw(query);
-  return Result.map(fetched, (entries) => applyAwardFilters(entries, query));
+  return Result.map(fetched, (result) => ({
+    awards: applyAwardFilters(result.awards, query),
+    failedRounds: result.failedRounds,
+  }));
 }
 
-async function fetchAwardsRaw(query: AwardQuery): Promise<Result<Award[], Error>> {
+async function fetchAwardsRaw(query: AwardQuery): Promise<Result<AwardResult, Error>> {
   // FootyWire-scraped award pages cover AFLM only. Reject non-AFLM
   // requests up front instead of silently returning AFLM data (#82).
   const isFootyWireScraped =
@@ -59,40 +70,52 @@ async function fetchAwardsRaw(query: AwardQuery): Promise<Result<Award[], Error>
 
   switch (query.award) {
     case "brownlow":
-      return fetchFootyWireAward(
-        `${FOOTYWIRE_BASE}/brownlow_medal?year=${query.season}`,
-        (html) => parseBrownlowVotes(html, query.season, competition),
-        "Brownlow",
-        query.season,
+      return withCompleteAwardResult(
+        fetchFootyWireAward(
+          `${FOOTYWIRE_BASE}/brownlow_medal?year=${query.season}`,
+          (html) => parseBrownlowVotes(html, query.season, competition),
+          "Brownlow",
+          query.season,
+        ),
       );
 
     case "all-australian":
-      return fetchFootyWireAward(
-        `${FOOTYWIRE_BASE}/all_australian_selection?year=${query.season}`,
-        (html) => parseAllAustralian(html, query.season, competition),
-        "All-Australian",
-        query.season,
+      return withCompleteAwardResult(
+        fetchFootyWireAward(
+          `${FOOTYWIRE_BASE}/all_australian_selection?year=${query.season}`,
+          (html) => parseAllAustralian(html, query.season, competition),
+          "All-Australian",
+          query.season,
+        ),
       );
 
     case "rising-star":
-      return fetchFootyWireAward(
-        `${FOOTYWIRE_BASE}/rising_star_nominations?year=${query.season}`,
-        (html) => parseRisingStarNominations(html, query.season, competition),
-        "Rising Star",
-        query.season,
+      return withCompleteAwardResult(
+        fetchFootyWireAward(
+          `${FOOTYWIRE_BASE}/rising_star_nominations?year=${query.season}`,
+          (html) => parseRisingStarNominations(html, query.season, competition),
+          "Rising Star",
+          query.season,
+        ),
       );
 
     case "coaches":
       return fetchCoachesVotes(query);
 
     case "coleman":
-      return fetchColemanLeaderboard(query);
+      return withCompleteAwardResult(fetchColemanLeaderboard(query));
 
     default:
       return err(
         new ScrapeError(`Unknown award type: ${(query as AwardQuery).award}`, "footywire"),
       );
   }
+}
+
+async function withCompleteAwardResult(
+  result: Promise<Result<Award[], Error>>,
+): Promise<Result<AwardResult, Error>> {
+  return Result.map(await result, (awards) => ({ awards, failedRounds: [] }));
 }
 
 /**
@@ -157,7 +180,7 @@ async function fetchFootyWireAward(
  *
  * Available from ~2006 for AFLM and ~2018 for AFLW.
  */
-async function fetchCoachesVotes(query: AwardQuery): Promise<Result<Award[], Error>> {
+async function fetchCoachesVotes(query: AwardQuery): Promise<Result<AwardResult, Error>> {
   const competition = query.competition ?? "AFLM";
 
   if (query.season < 2006) {
@@ -173,26 +196,32 @@ async function fetchCoachesVotes(query: AwardQuery): Promise<Result<Award[], Err
   }
 
   const client = new AflCoachesClient();
-  const result =
-    query.round != null
-      ? await client.scrapeRoundVotes(
-          query.season,
-          query.round,
-          competition,
-          isFinalsRound(query.season, query.round),
-        )
-      : await client.fetchSeasonVotes(query.season, competition);
+  let votes: readonly CoachesVote[];
+  let failedRounds: readonly number[];
+  if (query.round != null) {
+    const result = await client.scrapeRoundVotes(
+      query.season,
+      query.round,
+      competition,
+      isFinalsRound(query.season, query.round),
+    );
+    if (!result.success) return result;
+    votes = result.data;
+    failedRounds = [];
+  } else {
+    const result = await client.fetchSeasonVotes(query.season, competition);
+    if (!result.success) return result;
+    votes = result.data.votes;
+    failedRounds = result.data.failedRounds;
+  }
 
-  if (!result.success) return result;
-
-  let votes = result.data;
   if (query.team != null) {
     const target = normaliseTeamName(query.team);
     votes = votes.filter(
       (v) => normaliseTeamName(v.homeTeam) === target || normaliseTeamName(v.awayTeam) === target,
     );
   }
-  return ok(votes);
+  return ok({ awards: votes, failedRounds });
 }
 
 /**

@@ -13,7 +13,7 @@ import { err, ok, type Result } from "../lib/result";
 import { AFL_SENIOR_TEAMS } from "../lib/team-mapping";
 import { dispatch, squadRegistry } from "../sources/adapters/index";
 import { squadToPlayerDetails } from "../transforms/player-details";
-import type { PlayerDetails, PlayerDetailsQuery } from "../types";
+import type { PlayerDetails, PlayerDetailsQuery, PlayerDetailsResult } from "../types";
 import { resolveDefaultSeasonForCompetition } from "./season";
 import { fetchSquad } from "./teams";
 
@@ -24,6 +24,7 @@ import { fetchSquad } from "./teams";
  * Career counts (`gamesPlayed`, `goals`) come from the source's
  * team-list page on FootyWire and AFL Tables; AFL API doesn't carry
  * career stats so they stay `null` for that source.
+ * All-team requests retain successful squads and list failed team names.
  *
  * @example
  * ```ts
@@ -36,7 +37,7 @@ import { fetchSquad } from "./teams";
  */
 export async function fetchPlayerDetails(
   query: PlayerDetailsQuery,
-): Promise<Result<PlayerDetails[], Error>> {
+): Promise<Result<PlayerDetailsResult, Error>> {
   const competition = query.competition ?? "AFLM";
   // Resolve the default season once, data-driven (current in-progress, else
   // most recently completed — from the AFL round schedule, not the local
@@ -63,20 +64,25 @@ export async function fetchPlayerDetails(
       competition,
     });
     if (!squadR.success) return squadR;
-    return ok(squadToPlayerDetails(squadR.data, query.source));
+    return ok({
+      players: squadToPlayerDetails(squadR.data, query.source),
+      failedTeams: [],
+      scope: squadR.data.scope,
+    });
   }
 
   const teamNames = [...AFL_SENIOR_TEAMS];
-  const results = await batchedMap(teamNames, (team) =>
-    fetchSquad({
+  const results = await batchedMap(teamNames, async (team) => ({
+    team,
+    result: await fetchSquad({
       team,
       season,
       source: query.source,
       competition,
     }),
-  );
+  }));
 
-  const failures = results.flatMap((r) => (r.success ? [] : [r.error]));
+  const failures = results.flatMap(({ result }) => (result.success ? [] : [result.error]));
   if (failures.length === results.length && results.length > 0) {
     const first = failures[0];
     if (!first) {
@@ -94,10 +100,18 @@ export async function fetchPlayerDetails(
   }
 
   const allPlayers: PlayerDetails[] = [];
-  for (const result of results) {
+  const failedTeams: string[] = [];
+  let scope: PlayerDetailsResult["scope"] | undefined;
+  for (const { team, result } of results) {
     if (result.success) {
       allPlayers.push(...squadToPlayerDetails(result.data, query.source));
+      scope ??= result.data.scope;
+    } else {
+      failedTeams.push(team);
     }
   }
-  return ok(allPlayers);
+  if (scope === undefined) {
+    return err(new Error(`No player details found for season ${season} (source: ${query.source})`));
+  }
+  return ok({ players: allPlayers, failedTeams, scope });
 }
