@@ -59,11 +59,12 @@ export function buildPlayerStatsQuery(args: ValidatedCommonArgs): PlayerStatsQue
 }
 
 export function buildTeamStatsQuery(
-  args: Pick<ValidatedCommonArgs, "source" | "season">,
+  args: Pick<ValidatedCommonArgs, "source" | "season" | "competition">,
 ): TeamStatsQuery {
   return {
     source: args.source,
     season: args.season,
+    competition: args.competition,
   };
 }
 

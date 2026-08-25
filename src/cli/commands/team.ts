@@ -23,6 +23,7 @@ import {
   type TableColumnConfig,
 } from "../formatters/index";
 import { resolveMatchId } from "../match-resolver";
+import { validateTeamMode } from "../mode-validation";
 import { resolveTeamNameOrPrompt } from "../resolvers";
 import { filterLineupsByTeam, filterTeamList, flattenLineups } from "../team-filters";
 import { showSummary, showWarning, withSpinner } from "../ui";
@@ -93,13 +94,29 @@ export const teamCommand = defineCommand({
     const source = validateSource(args.source);
     const competition = validateCompetition(args.competition);
     const format = validateFormat(args.format);
+    const mode = validateTeamMode({
+      season,
+      round,
+      name: args.name,
+      team: args.team,
+      match: args.match,
+      matchId: args["match-id"],
+    });
 
     // Dispatch by flag presence
-    if (season != null && round != null) {
+    if (mode === "lineup" && season != null && round != null) {
       // Lineup mode
+      const teamInput = args.name ?? args.team;
+      const teamName = teamInput
+        ? await resolveTeamNameOrPrompt(
+            teamInput,
+            competition === "AFLM" || competition === "AFLW" ? undefined : [],
+          )
+        : undefined;
       const matchResolution = await resolveMatchId({
         matchIdArg: args["match-id"],
         matchArg: args.match,
+        source,
         competition,
         season,
         round,
@@ -116,7 +133,6 @@ export const teamCommand = defineCommand({
       );
       if (!result.success) throw result.error;
 
-      const teamName = args.name || args.team;
       const data = teamName ? filterLineupsByTeam(result.data, teamName) : result.data;
       showSummary(
         `Loaded ${data.length} lineup${data.length === 1 ? "" : "s"} for ${season} round ${round}${teamName ? ` (${teamName})` : ""}`,
@@ -138,7 +154,7 @@ export const teamCommand = defineCommand({
     }
 
     const teamName = args.name || args.team;
-    if (season != null && teamName) {
+    if (mode === "squad" && season != null && teamName) {
       // Squad mode. For VFL/VFLW, skip the AFLM-senior allow-list — those
       // competitions include standalone clubs (Box Hill, Sandringham, …)
       // that the adapter resolves against the per-competition team list

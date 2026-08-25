@@ -25,6 +25,7 @@ import {
   TEAM_FLAG,
 } from "../flags";
 import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
+import { validateAwardsMode } from "../mode-validation";
 import { resolveTeamNameOrPrompt } from "../resolvers";
 import { showSummary, withSpinner } from "../ui";
 import {
@@ -99,6 +100,7 @@ export const awardsCommand = defineCommand({
     const season = validateSeason(args.season as string);
     const round = args.round ? validateRound(args.round as string) : undefined;
     const competition = validateCompetition(args.competition as string);
+    validateAwardsMode(award, round);
     const team = args.team ? await resolveTeamNameOrPrompt(args.team as string) : undefined;
     // The Coleman leaderboard is by definition a top-N list — defaulting to
     // every player who scored a goal (~500 rows for AFLM) is unfriendly at
@@ -107,12 +109,6 @@ export const awardsCommand = defineCommand({
     const requestedLimit = validateLimit(args.limit as string | undefined);
     const limit = requestedLimit ?? (award === "coleman" ? 25 : undefined);
     const format = validateFormat(args.format as string | undefined);
-
-    if (round != null && award !== "coaches") {
-      throw new Error(
-        `--round is not supported for --type ${award}. Round-scoped data is only available for coaches votes; brownlow, all-australian, rising-star, and coleman are season-level.`,
-      );
-    }
 
     const result = await withSpinner("Fetching awards…", () =>
       fetchAwards({ award, season, round, competition, team, limit }),

@@ -117,6 +117,32 @@ export function validateSource(raw: string): DataSource {
   throw new Error(`Invalid source: "${raw}" — valid sources are: ${VALID_SOURCES.join(", ")}`);
 }
 
+/** Validate a provider-specific match identifier before any fetch occurs. */
+export function validateMatchId(source: DataSource, raw: string): string {
+  const patterns: Partial<Record<DataSource, RegExp>> = {
+    "afl-api": /^CD_M\d+$/,
+    footywire: /^FW_(?:\d+|SYNTH_\d+_R\d+_G\d+)$/,
+    "afl-tables": /^AT_(?:\d+|SYNTH_\d+_\d+)$/,
+    squiggle: /^SQ_\d+$/,
+    fryzigg: /^\d+$/,
+  };
+  const examples: Partial<Record<DataSource, string>> = {
+    "afl-api": "CD_M20250140101",
+    footywire: "FW_11193 or FW_SYNTH_2025_R5_G1",
+    "afl-tables": "AT_111620240307 or AT_SYNTH_2024_1",
+    squiggle: "SQ_12345",
+    fryzigg: "10001",
+  };
+  const pattern = patterns[source];
+  if (pattern?.test(raw)) return raw;
+  const example = examples[source];
+  throw new Error(
+    example === undefined
+      ? `${source} does not accept match identifiers.`
+      : `Invalid match ID "${raw}" for ${source}; expected ${example}.`,
+  );
+}
+
 /** Validate a summary type string (case-insensitive). */
 export function validateSummary(raw: string): TeamStatsSummaryType {
   const lower = raw.toLowerCase();

@@ -17,8 +17,9 @@
 
 import { normaliseTeamName } from "../lib/team-mapping";
 import { AflApiClient } from "../sources/afl-api";
-import type { CompetitionCode } from "../types";
+import type { CompetitionCode, DataSource } from "../types";
 import { resolveMatchOrPrompt } from "./resolvers";
+import { validateMatchId } from "./validation";
 
 /** Raw inputs from the command handler. `matchIdArg` short-circuits the fetch. */
 export interface MatchResolverInput {
@@ -26,6 +27,7 @@ export interface MatchResolverInput {
   readonly matchIdArg?: string | undefined;
   /** Free-text team name (from `--match`) to disambiguate within the round. */
   readonly matchArg?: string | undefined;
+  readonly source: DataSource;
   readonly competition: CompetitionCode;
   readonly season: number;
   readonly round: number | undefined;
@@ -48,6 +50,23 @@ export interface MatchResolution {
 }
 
 /**
+ * Select the identifier that a player-stat source can consume.
+ *
+ * A name-based match lookup uses the AFL API to learn participants. Its opaque
+ * identifier applies only to AFL API requests. Other sources receive no ID and
+ * are narrowed by the resolved participant names after their fetch completes.
+ */
+export function matchIdForPlayerStatsSource(
+  source: DataSource,
+  resolution: MatchResolution | undefined,
+): string | undefined {
+  if (source === "afl-api" || resolution?.participants === undefined) {
+    return resolution?.matchId;
+  }
+  return undefined;
+}
+
+/**
  * Resolve a match ID (and, when known, the participating teams).
  *
  * Returns:
@@ -63,14 +82,7 @@ export async function resolveMatchId(
   input: MatchResolverInput,
 ): Promise<MatchResolution | undefined> {
   if (input.matchIdArg) {
-    // Pre-validate the format so a malformed --match-id fails fast with a
-    // clear message instead of an opaque 400 from the upstream API (#95).
-    if (!/^CD_M\d+$/.test(input.matchIdArg)) {
-      throw new Error(
-        `Invalid --match-id "${input.matchIdArg}" — expected format like "CD_M20240140101" (provider-assigned).`,
-      );
-    }
-    return { matchId: input.matchIdArg };
+    return { matchId: validateMatchId(input.source, input.matchIdArg) };
   }
   if (!input.matchArg) return undefined;
 

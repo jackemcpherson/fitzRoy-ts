@@ -14,7 +14,16 @@
  *      purely presentational.
  */
 
+import { normaliseTeamName } from "../lib/team-mapping";
 import type { Lineup, Team } from "../types";
+
+/** Compare canonical team names without case sensitivity. */
+function teamNamesEqual(left: string, right: string): boolean {
+  return (
+    normaliseTeamName(left).toLocaleLowerCase("en-AU") ===
+    normaliseTeamName(right).toLocaleLowerCase("en-AU")
+  );
+}
 
 /**
  * Keep only lineups in which `teamName` participated.
@@ -24,7 +33,10 @@ import type { Lineup, Team } from "../types";
  * @returns Lineups where `homeTeam` or `awayTeam` equals `teamName`.
  */
 export function filterLineupsByTeam(lineups: readonly Lineup[], teamName: string): Lineup[] {
-  return lineups.filter((l) => l.homeTeam === teamName || l.awayTeam === teamName);
+  return lineups.filter(
+    (lineup) =>
+      teamNamesEqual(lineup.homeTeam, teamName) || teamNamesEqual(lineup.awayTeam, teamName),
+  );
 }
 
 /**
@@ -45,7 +57,7 @@ export function flattenLineups(
       { players: lineup.homePlayers, team: lineup.homeTeam },
       { players: lineup.awayPlayers, team: lineup.awayTeam },
     ]) {
-      if (teamFilter != null && team !== teamFilter) continue;
+      if (teamFilter != null && !teamNamesEqual(team, teamFilter)) continue;
       for (const p of players) {
         rows.push({
           matchId: lineup.matchId,

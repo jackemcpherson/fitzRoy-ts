@@ -4,6 +4,7 @@ import {
   resolveTeamIdentifier,
   validateCompetition,
   validateFormat,
+  validateMatchId,
   validateOptionalCompetition,
   validateOptionalSeason,
   validateRound,
@@ -104,6 +105,30 @@ describe("validateSource", () => {
 
   it("throws for invalid source", () => {
     expect(() => validateSource("invalid")).toThrow("Invalid source");
+  });
+});
+
+describe("validateMatchId", () => {
+  it.each([
+    ["afl-api", "CD_M20250140101"],
+    ["footywire", "FW_11193"],
+    ["footywire", "FW_SYNTH_2025_R5_G1"],
+    ["afl-tables", "AT_111620240307"],
+    ["afl-tables", "AT_SYNTH_2024_1"],
+    ["squiggle", "SQ_12345"],
+    ["fryzigg", "10001"],
+  ] as const)("accepts %s identifier %s", (source, matchId) => {
+    expect(validateMatchId(source, matchId)).toBe(matchId);
+  });
+
+  it.each([
+    ["afl-api", "FW_11193"],
+    ["footywire", "CD_M20250140101"],
+    ["afl-tables", "111620240307"],
+    ["squiggle", "SQ_bad"],
+    ["fryzigg", "FW_11193"],
+  ] as const)("rejects %s identifier %s", (source, matchId) => {
+    expect(() => validateMatchId(source, matchId)).toThrow(`Invalid match ID "${matchId}"`);
   });
 });
 

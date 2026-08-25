@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { disambiguate } from "../../src/cli/resolvers";
+import { disambiguate, resolveTeamNameOrPrompt } from "../../src/cli/resolvers";
 
 const ALL_LABELS = ["Carlton", "Richmond", "Collingwood"];
 
@@ -59,5 +59,11 @@ describe("disambiguate", () => {
     expect(message).toContain("Richmond");
     expect(message).toContain("Collingwood");
     expect(message).toContain("more specific");
+  });
+});
+
+describe("resolveTeamNameOrPrompt", () => {
+  it("rejects numeric identifiers on name-only paths", async () => {
+    await expect(resolveTeamNameOrPrompt("30")).rejects.toThrow("team name or abbreviation");
   });
 });

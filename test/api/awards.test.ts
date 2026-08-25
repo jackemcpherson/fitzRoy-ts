@@ -126,12 +126,13 @@ function playerStats(
   playerId: string,
   displayName: string,
   goals: number,
+  team = "Carlton",
 ): PlayerStats {
   return {
     matchId,
     season: 2025,
     roundNumber: 1,
-    team: "Carlton",
+    team,
     competition: "AFLM",
     date: null,
     homeTeam: null,
@@ -356,6 +357,32 @@ describe("fetchAwards Coleman orchestration", () => {
       season: 2025,
       competition: "AFLM",
     });
+  });
+
+  it("filters the full Coleman field by team before applying the limit", async () => {
+    fetchMatchesMock.mockResolvedValue(ok([match("H1", "HomeAndAway")]));
+    fetchPlayerStatsMock.mockResolvedValue(
+      ok({
+        stats: [
+          playerStats("H1", "leader", "League Leader", 8, "Richmond"),
+          playerStats("H1", "blue-one", "First Blue", 6, "Carlton"),
+          playerStats("H1", "blue-two", "Second Blue", 5, "Carlton"),
+        ],
+        failedMatchIds: [],
+      }),
+    );
+
+    const result = await fetchAwards({
+      award: "coleman",
+      season: 2025,
+      team: "Blues",
+      limit: 1,
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0]).toMatchObject({ player: "First Blue", team: "Carlton" });
   });
 
   it.each([

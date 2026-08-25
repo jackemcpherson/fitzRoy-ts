@@ -4,12 +4,35 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { resolveMatchId } from "../../src/cli/match-resolver";
+import { matchIdForPlayerStatsSource, resolveMatchId } from "../../src/cli/match-resolver";
+
+describe("matchIdForPlayerStatsSource", () => {
+  const nameResolution = {
+    matchId: "CD_M20250140101",
+    participants: { homeTeam: "Carlton", awayTeam: "Richmond" },
+  };
+
+  it("keeps a name-resolved identifier for AFL API", () => {
+    expect(matchIdForPlayerStatsSource("afl-api", nameResolution)).toBe("CD_M20250140101");
+  });
+
+  it.each(["footywire", "afl-tables", "fryzigg"] as const)(
+    "uses participants instead of an AFL API identifier for %s",
+    (source) => {
+      expect(matchIdForPlayerStatsSource(source, nameResolution)).toBeUndefined();
+    },
+  );
+
+  it("keeps an explicit provider identifier", () => {
+    expect(matchIdForPlayerStatsSource("footywire", { matchId: "FW_11193" })).toBe("FW_11193");
+  });
+});
 
 describe("resolveMatchId", () => {
   it("returns matchIdArg unchanged when present (no fetch needed)", async () => {
     const result = await resolveMatchId({
       matchIdArg: "CD_M20250140101",
+      source: "afl-api",
       competition: "AFLM",
       season: 2025,
       round: 1,
@@ -22,6 +45,7 @@ describe("resolveMatchId", () => {
     const result = await resolveMatchId({
       matchIdArg: "CD_M20250140102",
       matchArg: "Carlton",
+      source: "afl-api",
       competition: "AFLM",
       season: 2025,
       round: 1,
@@ -33,16 +57,28 @@ describe("resolveMatchId", () => {
     await expect(
       resolveMatchId({
         matchIdArg: "BAD_ID",
+        source: "afl-api",
         competition: "AFLM",
         season: 2025,
         round: 1,
       }),
-    ).rejects.toThrow(/Invalid --match-id "BAD_ID"/);
+    ).rejects.toThrow(/Invalid match ID "BAD_ID" for afl-api/);
+  });
+
+  it.each([
+    ["footywire", "FW_11193"],
+    ["afl-tables", "AT_111620240307"],
+    ["fryzigg", "10001"],
+  ] as const)("accepts a valid %s identifier without fetching", async (source, matchId) => {
+    await expect(
+      resolveMatchId({ source, matchIdArg: matchId, competition: "AFLM", season: 2025, round: 1 }),
+    ).resolves.toEqual({ matchId });
   });
 
   it("returns undefined when neither matchIdArg nor matchArg is given", async () => {
     const result = await resolveMatchId({
       competition: "AFLM",
+      source: "afl-api",
       season: 2025,
       round: 1,
     });
@@ -53,6 +89,7 @@ describe("resolveMatchId", () => {
     await expect(
       resolveMatchId({
         matchArg: "Carlton",
+        source: "afl-api",
         competition: "AFLM",
         season: 2025,
         round: undefined,
@@ -63,6 +100,7 @@ describe("resolveMatchId", () => {
   it("does not throw when round is given but matchArg is missing", async () => {
     const result = await resolveMatchId({
       competition: "AFLM",
+      source: "afl-api",
       season: 2025,
       round: undefined,
     });

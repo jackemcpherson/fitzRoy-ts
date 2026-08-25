@@ -787,5 +787,7 @@ export interface TeamStatsEntry {
 export interface TeamStatsQuery {
   readonly source: DataSource;
   readonly season: number;
+  /** Competition to query. Defaults to `AFLM`. */
+  readonly competition?: CompetitionCode | undefined;
   readonly summaryType?: TeamStatsSummaryType | undefined;
 }

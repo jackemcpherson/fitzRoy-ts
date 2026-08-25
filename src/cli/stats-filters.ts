@@ -13,7 +13,15 @@
  */
 
 import { fuzzySearch } from "../lib/fuzzy";
-import type { PlayerStats } from "../types";
+import { normaliseTeamName } from "../lib/team-mapping";
+import type { PlayerStats, TeamStatsEntry } from "../types";
+
+function teamNamesEqual(left: string, right: string): boolean {
+  return (
+    normaliseTeamName(left).toLocaleLowerCase("en-AU") ===
+    normaliseTeamName(right).toLocaleLowerCase("en-AU")
+  );
+}
 
 /** Options controlling which rows survive the filter pipeline. */
 export interface StatsFilterOptions {
@@ -49,10 +57,12 @@ export function applyStatsFilters(
   let data: PlayerStats[] = [...stats];
   if (participants) {
     const { homeTeam, awayTeam } = participants;
-    data = data.filter((p) => p.team === homeTeam || p.team === awayTeam);
+    data = data.filter(
+      (entry) => teamNamesEqual(entry.team, homeTeam) || teamNamesEqual(entry.team, awayTeam),
+    );
   }
   if (team) {
-    data = data.filter((p) => p.team === team);
+    data = data.filter((entry) => teamNamesEqual(entry.team, team));
   }
   if (player) {
     const playerMatches = fuzzySearch(player, data, (p) => p.displayName, {
@@ -62,4 +72,13 @@ export function applyStatsFilters(
     data = playerMatches.map((m) => m.item);
   }
   return data;
+}
+
+/** Filter season team-stat rows by a canonical team name. */
+export function filterTeamStats(
+  stats: readonly TeamStatsEntry[],
+  team: string | undefined,
+): TeamStatsEntry[] {
+  if (team === undefined) return [...stats];
+  return stats.filter((entry) => teamNamesEqual(entry.team, team));
 }
