@@ -89,10 +89,10 @@ export async function resolveTeamNameOrPrompt(
 ): Promise<string> {
   const trimmed = query.trim();
 
-  // Numeric team IDs are valid input per the help text (#95). Pass them
-  // through unchanged — the adapter's own ID-aware lookup handles them.
   if (/^\d+$/.test(trimmed)) {
-    return trimmed;
+    throw new Error(
+      `Team "${query}" is a numeric identifier. Use a team name or abbreviation on this command.`,
+    );
   }
 
   const canonical = normaliseTeamName(trimmed);

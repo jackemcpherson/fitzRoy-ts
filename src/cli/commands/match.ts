@@ -23,6 +23,7 @@ import type { TableColumnConfig } from "../formatters/index";
 import { resolveTeamNameOrPrompt } from "../resolvers";
 import {
   validateCompetition,
+  validateMatchId,
   validateMatchStatus,
   validateRound,
   validateSeason,
@@ -73,12 +74,13 @@ export const matchCommand = defineFitzroyCommand<MatchArgs & Record<string, unkn
     const competition = validateCompetition(args.competition);
     const status = args.status ? validateMatchStatus(args.status) : undefined;
     const team = args.team ? await resolveTeamNameOrPrompt(args.team) : undefined;
+    const matchId = args.id ? validateMatchId(source, args.id) : undefined;
 
     return fetchMatches({
       source,
       season,
       round,
-      matchId: args.id,
+      matchId,
       team,
       status,
       competition,

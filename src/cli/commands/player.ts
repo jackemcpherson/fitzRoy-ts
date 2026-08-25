@@ -57,8 +57,8 @@ export const playerCommand = defineFitzroyCommand<PlayerArgs & Record<string, un
     const source = validateSource(args.source);
     const competition = validateCompetition(args.competition);
     const explicit = validateOptionalSeason(args.season);
-    const season = explicit ?? (await resolveDefaultSeasonForCompetition(competition));
     const team = args.team ? await resolveTeamNameOrPrompt(args.team) : undefined;
+    const season = explicit ?? (await resolveDefaultSeasonForCompetition(competition));
 
     return fetchPlayerDetails({ source, team, season, competition });
   },

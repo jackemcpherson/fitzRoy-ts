@@ -7,6 +7,7 @@
 
 import { Result } from "../lib/result";
 import { dispatch, playerStatsRegistry } from "../sources/adapters/index";
+import { filterSeasonPlayerStats } from "../transforms/player-stats-query";
 import type { PlayerStatsQuery, SeasonPlayerStats } from "../types";
 
 /**
@@ -36,5 +37,6 @@ export async function fetchPlayerStats(
   query: PlayerStatsQuery,
 ): Promise<Result<SeasonPlayerStats, Error>> {
   const adapterR = dispatch(playerStatsRegistry, "player stats", query);
-  return Result.flatMapAsync(adapterR, (a) => a.fetchPlayerStats(query));
+  const fetched = await Result.flatMapAsync(adapterR, (a) => a.fetchPlayerStats(query));
+  return Result.map(fetched, (result) => filterSeasonPlayerStats(result, query.matchId));
 }

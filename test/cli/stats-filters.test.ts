@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { applyStatsFilters } from "../../src/cli/stats-filters";
-import type { PlayerStats } from "../../src/types";
+import { applyStatsFilters, filterTeamStats } from "../../src/cli/stats-filters";
+import type { PlayerStats, TeamStatsEntry } from "../../src/types";
 
 /** Build a minimal PlayerStats object with only the filter-relevant fields set. */
 function makeStats(team: string, displayName: string): PlayerStats {
@@ -113,6 +113,14 @@ describe("applyStatsFilters", () => {
     expect(result.map((r) => r.team)).toEqual(["Richmond", "Collingwood"]);
   });
 
+  it("participants filter compares aliases and case canonically", () => {
+    const stats = [makeStats("Carlton", "Patrick Cripps"), makeStats("Richmond", "Tom Lynch")];
+    const result = applyStatsFilters(stats, {
+      participants: { homeTeam: "blues", awayTeam: "RICHMOND" },
+    });
+    expect(result).toHaveLength(2);
+  });
+
   it("team filter composes after participants — row in the match but wrong team is excluded", () => {
     const stats = [makeStats("Richmond", "Jack Riewoldt"), makeStats("Collingwood", "Nick Daicos")];
     const result = applyStatsFilters(stats, {
@@ -142,5 +150,12 @@ describe("applyStatsFilters", () => {
     const stats = [makeStats("Richmond", "Jack Riewoldt")];
     const result = applyStatsFilters(stats, { player: "ZZZZZZZZZZZZ" });
     expect(result).toHaveLength(0);
+  });
+});
+
+describe("filterTeamStats", () => {
+  it("uses --team as a canonical team-row filter", () => {
+    const stats = [{ team: "Carlton" } as TeamStatsEntry, { team: "Richmond" } as TeamStatsEntry];
+    expect(filterTeamStats(stats, "blues").map((entry) => entry.team)).toEqual(["Carlton"]);
   });
 });

@@ -15,9 +15,8 @@ import type { TeamStatsEntry, TeamStatsQuery } from "../types";
 /**
  * Fetch team-level aggregate statistics for a season.
  *
- * TeamStatsQuery has no per-call competition (every TeamStats source we
- * support is AFLM-only), so dispatch checks coverage against AFLM by
- * convention.
+ * Team-stat sources currently cover AFLM only. Dispatch validates the requested
+ * competition before an adapter performs network access.
  *
  * @example
  * ```ts
@@ -27,6 +26,6 @@ import type { TeamStatsEntry, TeamStatsQuery } from "../types";
 export async function fetchTeamStats(
   query: TeamStatsQuery,
 ): Promise<Result<TeamStatsEntry[], Error>> {
-  const adapterR = dispatch(teamStatsRegistry, "team stats", { ...query, competition: "AFLM" });
+  const adapterR = dispatch(teamStatsRegistry, "team stats", query);
   return Result.flatMapAsync(adapterR, (a) => a.fetchTeamStats(query));
 }

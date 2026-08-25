@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { fetchTeamStats } from "../../src/api/team-stats";
+import { ok } from "../../src/lib/result";
+import { teamStatsRegistry } from "../../src/sources/adapters/registry";
 import { parseAflTablesTeamStats } from "../../src/sources/afl-tables";
 import { FootyWireClient, parseFootyWireTeamStats } from "../../src/sources/footywire";
 
@@ -113,4 +115,32 @@ describe("fetchTeamStats public API", () => {
       }
     },
   );
+
+  it("rejects an unsupported competition before adapter network access", async () => {
+    const adapter = teamStatsRegistry.get("footywire");
+    expect(adapter).toBeDefined();
+    if (!adapter) return;
+    const fetchSpy = vi.spyOn(adapter, "fetchTeamStats").mockResolvedValue(ok([]));
+
+    const result = await fetchTeamStats({
+      source: "footywire",
+      season: 2024,
+      competition: "AFLW",
+    });
+
+    expect(result.success).toBe(false);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("defaults competition coverage to AFLM", async () => {
+    const adapter = teamStatsRegistry.get("footywire");
+    expect(adapter).toBeDefined();
+    if (!adapter) return;
+    const fetchSpy = vi.spyOn(adapter, "fetchTeamStats").mockResolvedValue(ok([]));
+
+    const result = await fetchTeamStats({ source: "footywire", season: 2024 });
+
+    expect(result.success).toBe(true);
+    expect(fetchSpy).toHaveBeenCalledOnce();
+  });
 });

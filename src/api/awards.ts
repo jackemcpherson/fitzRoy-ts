@@ -240,7 +240,6 @@ async function fetchColemanLeaderboard(query: AwardQuery): Promise<Result<Award[
       statsR.data.stats.filter((stats) => homeAndAwayMatchIds.has(stats.matchId)),
       query.season,
       competition,
-      query.limit,
     ),
   );
 }

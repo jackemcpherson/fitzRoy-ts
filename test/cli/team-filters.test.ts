@@ -74,6 +74,18 @@ describe("flattenLineups", () => {
     expect(rows.every((r) => r.team === "Richmond")).toBe(true);
   });
 
+  it("teamFilter matches lowercase aliases", () => {
+    const lineup = makeLineup(
+      "CD_M20250101001",
+      "Carlton",
+      "Richmond",
+      [makePlayer("Patrick Cripps")],
+      [makePlayer("Tom Lynch")],
+    );
+    const rows = flattenLineups([lineup], "blues");
+    expect(rows.map((row) => row.team)).toEqual(["Carlton"]);
+  });
+
   it("carries isEmergency and isSubstitute flags through to the flattened rows", () => {
     const lineup = makeLineup(
       "CD_M20250101001",
@@ -106,6 +118,11 @@ describe("filterLineupsByTeam", () => {
     const lineups = [makeLineup("CD_M001", "Carlton", "Essendon", [], [])];
     expect(filterLineupsByTeam(lineups, "Richmond")).toHaveLength(0);
   });
+
+  it("matches lowercase aliases against canonical lineup names", () => {
+    const lineups = [makeLineup("CD_M001", "Carlton", "Richmond", [], [])];
+    expect(filterLineupsByTeam(lineups, "blues")).toHaveLength(1);
+  });
 });
 
 describe("filterTeamList", () => {
@@ -137,6 +154,11 @@ describe("filterTeamList", () => {
     const result = filterTeamList(teams, "CD_T30");
     expect(result).toHaveLength(1);
     expect(result[0]?.name).toBe("Carlton");
+  });
+
+  it("retains numeric team-list identifier lookup", () => {
+    const numericTeams = [makeTeam("30", "Carlton", "CAR")];
+    expect(filterTeamList(numericTeams, "30")).toEqual(numericTeams);
   });
 
   it("throws with a helpful message listing alternatives when no team matches", () => {

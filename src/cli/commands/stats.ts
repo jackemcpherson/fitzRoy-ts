@@ -25,9 +25,10 @@ import {
   TEAM_FLAG,
 } from "../flags";
 import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
-import { resolveMatchId } from "../match-resolver";
+import { matchIdForPlayerStatsSource, resolveMatchId } from "../match-resolver";
+import { validateStatsMode } from "../mode-validation";
 import { resolveTeamNameOrPrompt } from "../resolvers";
-import { applyStatsFilters } from "../stats-filters";
+import { applyStatsFilters, filterTeamStats } from "../stats-filters";
 import { showSummary, withSpinner } from "../ui";
 import {
   validateCompetition,
@@ -89,27 +90,33 @@ export const statsCommand = defineCommand({
     const competition = validateCompetition(args.competition);
     const format = validateFormat(args.format);
     const groupBy = validateGroupBy(args.by);
+    validateStatsMode({
+      groupBy,
+      round,
+      match: args.match,
+      matchId: args.id,
+      player: args.player,
+      summary: args.summary,
+    });
 
     if (groupBy === "team") {
-      if (round != null) {
-        throw new Error(
-          "--round is not supported for --by team. Team-stats sources (footywire, afl-tables) only expose season-level aggregates.",
-        );
-      }
       const source: DataSource = args.source
         ? validateSource(args.source)
         : teamStatsRegistry.defaultSource;
       const summaryType = args.summary ? validateSummary(args.summary) : undefined;
+      const team = args.team ? await resolveTeamNameOrPrompt(args.team) : undefined;
       const result = await withSpinner("Fetching team stats…", () =>
         fetchTeamStats({
           source,
           season,
+          competition,
           ...(summaryType !== undefined && { summaryType }),
         }),
       );
       if (!result.success) throw result.error;
+      const data = filterTeamStats(result.data, team);
       showSummary(
-        `Loaded stats for ${result.data.length} teams (${season}${summaryType ? `, ${summaryType}` : ""})`,
+        `Loaded stats for ${data.length} teams (${season}${summaryType ? `, ${summaryType}` : ""})`,
       );
       const formatOptions: FormatOptions = {
         json: args.json,
@@ -118,30 +125,30 @@ export const statsCommand = defineCommand({
         full: args.full,
         columns: TEAM_COLUMNS,
       };
-      console.log(formatOutput(result.data as readonly object[], formatOptions));
+      console.log(formatOutput(data as readonly object[], formatOptions));
       return;
     }
 
     const source: DataSource = args.source
       ? validateSource(args.source)
       : playerStatsRegistry.defaultSource;
+    const teamFilter = args.team ? await resolveTeamNameOrPrompt(args.team) : undefined;
 
     const matchResolution = await resolveMatchId({
       matchIdArg: args.id as string | undefined,
       matchArg: args.match,
+      source,
       competition,
       season,
       round,
     });
-
-    const teamFilter = args.team ? await resolveTeamNameOrPrompt(args.team) : undefined;
 
     const result = await withSpinner("Fetching player stats…", () =>
       fetchPlayerStats({
         source,
         season,
         round,
-        matchId: matchResolution?.matchId,
+        matchId: matchIdForPlayerStatsSource(source, matchResolution),
         competition,
       }),
     );
