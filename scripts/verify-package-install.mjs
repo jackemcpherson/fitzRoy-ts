@@ -25,13 +25,25 @@ function run(command, args, cwd) {
 try {
   const packOutput = run("npm", ["pack", "--json", "--ignore-scripts"], repoRoot);
   const packOutputLines = packOutput.split(/\r?\n/);
-  const jsonStart = packOutputLines.indexOf("[");
-  const jsonEnd = packOutputLines.lastIndexOf("]");
+  const arrayStart = packOutputLines.indexOf("[");
+  const objectStart = packOutputLines.indexOf("{");
+  const jsonStart =
+    arrayStart === -1
+      ? objectStart
+      : objectStart === -1
+        ? arrayStart
+        : Math.min(arrayStart, objectStart);
+  const closingToken = packOutputLines[jsonStart] === "[" ? "]" : "}";
+  const jsonEnd = packOutputLines.lastIndexOf(closingToken);
   if (jsonStart === -1 || jsonEnd < jsonStart) {
     throw new Error("npm pack did not return a JSON payload");
   }
 
-  const [{ filename }] = JSON.parse(packOutputLines.slice(jsonStart, jsonEnd + 1).join("\n"));
+  const parsedPackOutput = JSON.parse(packOutputLines.slice(jsonStart, jsonEnd + 1).join("\n"));
+  const packEntries = Array.isArray(parsedPackOutput)
+    ? parsedPackOutput
+    : Object.values(parsedPackOutput);
+  const [{ filename }] = packEntries;
   tarballPath = resolve(repoRoot, filename);
 
   consumerDirectory = await mkdtemp(join(tmpdir(), "fitzroy-package-consumer-"));

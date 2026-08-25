@@ -24,8 +24,8 @@ Operation-specific filters extend the set per command.
 
 | Command   | Concept                                                          |
 |-----------|------------------------------------------------------------------|
-| `team`    | identity with temporal zoom: `team` → entity; `team -s` → squad; `team -s -r` → lineup |
-| `player`  | biographical lookup; `player NAME [-s S]` → bio + optional season summary |
+| `team`    | identity with temporal zoom: `team` lists entities; season plus team returns a squad; season plus round returns a lineup |
+| `player`  | biographical lookup with optional team and season filters |
 | `match`   | matches in any temporal scope; `--status` filter subsumes "fixture" |
 | `stats`   | performance numbers; `--by player` (default) or `--by team`       |
 | `ladder`  | standings                                                         |
@@ -36,14 +36,18 @@ Operation-specific filters extend the set per command.
 - **Match** — unified type for matches in any state. A "fixture" is a Match
   with `status="Upcoming"` and null score fields. There is no separate Fixture
   type.
-- **Squad** — team's roster for a season. Biographical fields (DOB, height,
-  draft, debut). Subsumes any per-source "player list" notion.
+- **Squad** — team roster with biographical fields. `scope` distinguishes a
+  season squad from an all-time scraper list. The requested season remains
+  query context for both scopes.
 - **Lineup** — match-day team sheet. Positional fields (jumper, position,
   isEmergency, isSubstitute). Distinct from Squad.
 - **PlayerStats** — per-player per-match performance numbers.
 - **Award** — season recognition. Either *fetched* (Brownlow, Coaches votes,
   All-Australian, Rising Star) or *computed* (Coleman, etc.). The `awards`
   subsystem hides this distinction behind one verb.
+- **Completeness envelope** — successful rows plus ordered failure metadata.
+  Player stats identify matches, player details identify teams, and awards
+  identify coaches rounds.
 
 ## Architectural concepts
 
@@ -90,10 +94,13 @@ is the deepest module in the codebase: small interface, substantial behaviour.
 
 ### CLI consolidates, library stays factored
 
-For `team` (and `stats`), the user-facing CLI command is one verb that
+For `team` and `stats`, the user-facing CLI command is one verb that
 dispatches to multiple library functions based on flag presence. Library
 keeps precise types (Squad and Lineup have orthogonal field sets that don't
 collapse cleanly into one type). The CLI dispatcher handles the consolidation.
+
+JSON output preserves public completeness envelopes. Tables and CSV emit inner
+rows. Every completeness warning uses standard error.
 
 ## Source coverage (as of 2026-05)
 
@@ -107,9 +114,8 @@ collapse cleanly into one type). The CLI dispatcher handles the consolidation.
 | afl-coaches   | 2006+ (votes)                    | 2018+ (votes)  | —      | —      |
 
 Notes:
-- AFL API has no `team-stats` endpoint — `fetchTeamStats` falls back to
-  `afl-tables` (or `footywire`), which means it requires `--source` for any
-  request the default can't serve.
+- AFL API has no `team-stats` endpoint. The CLI defaults team stats to
+  `afl-tables`. Coverage dispatch never changes a caller-selected source.
 - AFL API VFL/VFLW PlayerStats are partial: 20/30 core fields populated; the
   10 advanced fields (bounces, totalPossessions, marksInside50, onePercenters,
   clangers, goalAssists, goalAccuracy, turnovers, shotsAtGoal, metresGained)

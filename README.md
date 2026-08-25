@@ -13,11 +13,11 @@ A port of the [fitzRoy R package](https://github.com/jimmyday12/fitzRoy).
 - AFL API: official AFL data covering AFLM (2012+), AFLW (2017+), VFL and VFLW
   (2021+). Default for matches, stats, squads, lineups, ladders.
 - FootyWire: scraped AFLM match results, fixtures, player stats, team stats,
-  awards
-- AFL Tables: AFLM historical results (1897+) and player stats (~1965+)
-- Squiggle: AFLM match results and ladder
-- Fryzigg: advanced AFLM and AFLW player stats
-- AFL Coaches: AFLCA coaches votes
+  and awards.
+- AFL Tables: AFLM historical results from 1897 and statistics from about 1965.
+- Squiggle: AFLM match results and ladders.
+- Fryzigg: advanced AFLM and AFLW player-stat snapshots.
+- AFL Coaches: AFLCA coaches votes.
 
 ## Install
 
@@ -25,9 +25,7 @@ A port of the [fitzRoy R package](https://github.com/jimmyday12/fitzRoy).
 npm install fitzroy
 ```
 
-Upgrading from 3.0.x? See [docs/migration-v3.md](docs/migration-v3.md) for a
-per-release breakdown of what changed and a checklist of behavioural changes to
-verify during upgrade.
+Upgrading from version 3? Read the [version 4 migration guide](docs/migration-v4.md).
 
 ## Library Usage
 
@@ -56,17 +54,17 @@ const summary = Result.map(r, (matches) => matches.length);
 
 ### Public API
 
-| Function             | Query type           | Returns                           |
-| -------------------- | -------------------- | --------------------------------- |
-| `fetchMatches`       | `MatchQuery`         | `Result<Match[], Error>`          |
-| `fetchPlayerStats`   | `PlayerStatsQuery`   | `Result<PlayerStats[], Error>`    |
-| `fetchTeamStats`     | `TeamStatsQuery`     | `Result<TeamStatsEntry[], Error>` |
-| `fetchLadder`        | `LadderQuery`        | `Result<Ladder, Error>`           |
-| `fetchTeams`         | `TeamQuery`          | `Result<Team[], Error>`           |
-| `fetchSquad`         | `SquadQuery`         | `Result<Squad, Error>`            |
-| `fetchLineup`        | `LineupQuery`        | `Result<Lineup[], Error>`         |
-| `fetchPlayerDetails` | `PlayerDetailsQuery` | `Result<PlayerDetails[], Error>`  |
-| `fetchAwards`        | `AwardQuery`         | `Result<Award[], Error>`          |
+| Function             | Query type           | Returns                              |
+| -------------------- | -------------------- | ------------------------------------ |
+| `fetchMatches`       | `MatchQuery`         | `Result<Match[], Error>`             |
+| `fetchPlayerStats`   | `PlayerStatsQuery`   | `Result<SeasonPlayerStats, Error>`   |
+| `fetchTeamStats`     | `TeamStatsQuery`     | `Result<TeamStatsEntry[], Error>`    |
+| `fetchLadder`        | `LadderQuery`        | `Result<Ladder, Error>`              |
+| `fetchTeams`         | `TeamQuery`          | `Result<Team[], Error>`              |
+| `fetchSquad`         | `SquadQuery`         | `Result<Squad, Error>`               |
+| `fetchLineup`        | `LineupQuery`        | `Result<Lineup[], Error>`            |
+| `fetchPlayerDetails` | `PlayerDetailsQuery` | `Result<PlayerDetailsResult, Error>` |
+| `fetchAwards`        | `AwardQuery`         | `Result<AwardResult, Error>`         |
 
 Examples for each (using `resolveDefaultSeason` so the snippets stay stable
 year-on-year):
@@ -96,13 +94,13 @@ await fetchMatches({ source: "afl-api", season, status: "Upcoming" });
 
 // Player and team stats for round 1
 await fetchPlayerStats({ source: "afl-api", season, round: 1 });
-await fetchTeamStats({ source: "afl-tables", season, round: 1 }); // team stats: afl-tables or footywire (afl-api has no team-stats endpoint)
+await fetchTeamStats({ source: "afl-tables", season, competition: "AFLM" });
 
 // Ladder
 await fetchLadder({ source: "afl-api", season });
 
 // Team identity
-await fetchTeams({ source: "afl-api", competition: "AFLM" });
+await fetchTeams({ competition: "AFLM" });
 await fetchSquad({ source: "afl-api", season, team: "Carlton" });
 await fetchLineup({ source: "afl-api", season, round: 1 });
 await fetchPlayerDetails({ source: "afl-api", season, team: "Carlton" });
@@ -111,6 +109,11 @@ await fetchPlayerDetails({ source: "afl-api", season, team: "Carlton" });
 await fetchAwards({ award: "coleman", season, limit: 10 });
 await fetchAwards({ award: "brownlow", season });
 ```
+
+Partial-result envelopes keep successful rows and identify missing data. Check
+`failedMatchIds`, `failedTeams`, or `failedRounds` before you treat a result as
+complete. Check `Squad.scope` and `PlayerDetailsResult.scope` before you treat a
+scraped roster as season-specific.
 
 ### Wire Schemas (`fitzroy/schemas`)
 
@@ -172,10 +175,13 @@ fitzroy match --season 2025 --csv     # CSV with headers
 fitzroy match --season 2025 --full    # All columns in table view
 ```
 
-Pass `--competition VFL` (or AFLW, VFLW) to any command to scope to that
-competition.
+Pass `--competition VFL` to select a competition when the command and source
+cover it. Coverage errors identify unsupported combinations.
 
 Run `fitzroy --help` for all commands and options.
+
+Read the [CLI guide](docs/cli.md) for modes, validation rules, source limits,
+output envelopes, and partial-failure behaviour.
 
 ## Contributing
 
