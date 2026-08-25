@@ -7,7 +7,48 @@ The project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ## [Unreleased]
 
-No unreleased changes are currently recorded.
+No unreleased changes.
+
+## [4.0.0] - 2026-08-25
+
+Version 4.0.0 includes the following changes.
+
+### Added
+
+- Added completeness envelopes for player details, awards, and season coaches
+  votes.
+- Added `SquadScope` and required `scope` on squads and player-detail results.
+- Added optional `competition` to `TeamStatsQuery`.
+- Added a CLI guide and version 4 migration guide.
+
+### Changed
+
+- `fetchPlayerDetails` now returns players, failed team names, and scope.
+- `fetchAwards` now returns awards and failed coaches rounds.
+- `AflCoachesClient.fetchSeasonVotes` now keeps successful rounds and reports
+  actual round failures.
+- `TeamStatsEntry.gamesPlayed` now uses `null` when no denominator is available.
+- Player stats, players, and awards now preserve completeness metadata in CLI
+  JSON. Table and CSV output still contain row data.
+- Team statistics now reject unsupported competitions before network access.
+- Scraped squads now identify their all-time scope while retaining season query
+  context.
+
+### Fixed
+
+- Applied exact match identifier filtering to player rows and failure metadata.
+- Used resolved match participants for name-based scraper stat queries.
+- Made lineup team filters canonical and case-insensitive.
+- Rejected incomplete or inapplicable CLI flag combinations before data access.
+- Validated match identifiers against the selected source.
+- Rejected numeric identifiers on name-only team paths.
+- Applied Coleman team filtering before the result limit.
+- Preserved successful player squads and listed failed canonical team names.
+- Distinguished unavailable coaches rounds from network, HTTP, and parse
+  failures.
+- Returned team-stat totals with missing denominators and rejected unsafe
+  averages.
+- Updated the package-install verifier for npm 11 JSON output.
 
 <!-- vale off -->
 
