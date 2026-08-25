@@ -16,6 +16,7 @@ vi.mock("../../src/api/teams", async (importOriginal) => {
 import { fetchPlayerDetails } from "../../src/api/player-details";
 import { fetchSquad } from "../../src/api/teams";
 import { err, ok } from "../../src/lib/result";
+import { AFL_SENIOR_TEAMS } from "../../src/lib/team-mapping";
 import type { Player } from "../../src/types";
 
 const COMPSEASONS = readFileSync(
@@ -63,9 +64,11 @@ describe("fetchPlayerDetails afl-api happy path", () => {
     expect(result.success).toBe(true);
     if (!result.success) return;
 
-    expect(result.data).toHaveLength(2);
+    expect(result.data.players).toHaveLength(2);
+    expect(result.data.failedTeams).toEqual([]);
+    expect(result.data.scope).toBe("season");
 
-    const walsh = result.data.find((p) => p.surname === "Walsh");
+    const walsh = result.data.players.find((p) => p.surname === "Walsh");
     expect(walsh).toBeDefined();
     expect(walsh?.displayName).toBe("Sam Walsh");
     expect(walsh?.team).toBe("Carlton");
@@ -147,6 +150,7 @@ describe("fetchPlayerDetails default-season resolution (#149)", () => {
         teamId: "1",
         teamName: "Carlton",
         season: 2024,
+        scope: "season",
         players: [],
         competition: "AFLW",
         source: "afl-api",
@@ -206,14 +210,13 @@ describe("fetchPlayerDetails all-teams failure modes (#155)", () => {
       source: "afl-api",
       competition: "AFLM",
     };
-    let callCount = 0;
-    vi.mocked(fetchSquad).mockImplementation(async () => {
-      callCount++;
-      if (callCount === 1) {
+    vi.mocked(fetchSquad).mockImplementation(async (query) => {
+      if (query.team === "Carlton") {
         return ok({
           teamId: "1",
           teamName: "Carlton",
           season: 2024,
+          scope: "season",
           players: [mockPlayer],
           competition: "AFLM",
           source: "afl-api",
@@ -227,8 +230,43 @@ describe("fetchPlayerDetails all-teams failure modes (#155)", () => {
     expect(result.success).toBe(true);
     if (!result.success) return;
     // The one successful Carlton squad contributes exactly one player.
-    expect(result.data).toHaveLength(1);
-    expect(result.data[0]?.displayName).toBe("Sam Walsh");
-    expect(result.data[0]?.team).toBe("Carlton");
+    expect(result.data.players).toHaveLength(1);
+    expect(result.data.players[0]?.displayName).toBe("Sam Walsh");
+    expect(result.data.players[0]?.team).toBe("Carlton");
+    expect(result.data.failedTeams).toEqual(
+      [...AFL_SENIOR_TEAMS].filter((team) => team !== "Carlton"),
+    );
+    expect(result.data.scope).toBe("season");
+  });
+});
+
+describe("fetchPlayerDetails scope", () => {
+  afterEach(() => {
+    vi.mocked(fetchSquad).mockReset();
+  });
+
+  it("reports all-time scope from scraped player lists", async () => {
+    vi.mocked(fetchSquad).mockResolvedValue(
+      ok({
+        teamId: "Carlton",
+        teamName: "Carlton",
+        season: 2024,
+        scope: "all-time",
+        players: [],
+        competition: "AFLM",
+        source: "footywire",
+      }),
+    );
+
+    const result = await fetchPlayerDetails({
+      source: "footywire",
+      team: "Carlton",
+      season: 2024,
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.scope).toBe("all-time");
+    expect(result.data.failedTeams).toEqual([]);
   });
 });

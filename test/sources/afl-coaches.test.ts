@@ -144,7 +144,7 @@ describe("AflCoachesClient.fetchSeasonVotes", () => {
         inFlight++;
         maxInFlight = Math.max(maxInFlight, inFlight);
 
-        return new Promise<Response>((resolve) => {
+        return new Promise<Response>((resolve, reject) => {
           // Resolve each batch out of order while keeping later rounds fast.
           const delay = round % 3 === 1 ? 30 : round % 3 === 2 ? 10 : 20;
           setTimeout(() => {
@@ -153,6 +153,10 @@ describe("AflCoachesClient.fetchSeasonVotes", () => {
               resolve(new Response("", { status: 503 }));
             } else if (round === 4) {
               resolve(new Response("<html></html>", { status: 200 }));
+            } else if (round === 5) {
+              resolve(new Response("", { status: 404 }));
+            } else if (round === 6) {
+              reject(new Error("connection reset"));
             } else {
               resolve(new Response(fixtureHtml, { status: 200 }));
             }
@@ -167,8 +171,9 @@ describe("AflCoachesClient.fetchSeasonVotes", () => {
       expect(maxInFlight).toBe(3);
       expect(result.success).toBe(true);
       if (result.success) {
-        const rounds = [...new Set(result.data.map((vote) => vote.round))];
-        expect(rounds).toEqual([1, 3, ...Array.from({ length: 26 }, (_, i) => i + 5)]);
+        const rounds = [...new Set(result.data.votes.map((vote) => vote.round))];
+        expect(rounds).toEqual([1, 3, ...Array.from({ length: 24 }, (_, i) => i + 7)]);
+        expect(result.data.failedRounds).toEqual([2, 6]);
       }
     } finally {
       vi.useRealTimers();
@@ -188,6 +193,21 @@ describe("AflCoachesClient.fetchSeasonVotes", () => {
       if (!result.success) {
         expect(result.error.message).toContain("No coaches votes found for season 2024");
       }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("returns an error when every round has an actual HTTP failure", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchFn = vi.fn().mockResolvedValue(new Response("", { status: 503 }));
+      const resultPromise = new AflCoachesClient({ fetchFn }).fetchSeasonVotes(2024, "AFLM");
+
+      await vi.runAllTimersAsync();
+      const result = await resultPromise;
+
+      expect(result.success).toBe(false);
     } finally {
       vi.useRealTimers();
     }

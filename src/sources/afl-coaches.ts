@@ -10,7 +10,16 @@ import { ScrapeError } from "../lib/errors";
 import { parseHtml } from "../lib/parse-html";
 import { err, ok, type Result } from "../lib/result";
 import { createSourceFetch, type SourceFetchOptions } from "../lib/source-fetch";
-import type { CoachesVote, CompetitionCode } from "../types";
+import type { CoachesVote, CoachesVotesResult, CompetitionCode } from "../types";
+
+class AflCoachesHttpError extends ScrapeError {
+  constructor(
+    message: string,
+    readonly statusCode: number,
+  ) {
+    super(message, "afl-coaches");
+  }
+}
 
 /**
  * Final home-and-away round per AFLM season on aflcoaches.com.au.
@@ -99,7 +108,10 @@ export class AflCoachesClient {
 
       if (!response.ok) {
         return err(
-          new ScrapeError(`AFL Coaches request failed: ${response.status} (${url})`, "afl-coaches"),
+          new AflCoachesHttpError(
+            `AFL Coaches request failed: ${response.status} (${url})`,
+            response.status,
+          ),
         );
       }
 
@@ -186,17 +198,17 @@ export class AflCoachesClient {
   /**
    * Fetch coaches votes for an entire season (all rounds).
    *
-   * Iterates over rounds 1-30, skipping rounds that return errors (e.g. byes or
-   * rounds that haven't been played yet). Finals rounds (>= 24) use the finals URL.
+   * Iterates over rounds 1-30. It treats 404 and valid empty pages as unavailable,
+   * and records network, other HTTP, and parse failures in `failedRounds`.
    *
    * @param season - Season year.
    * @param competition - "AFLM" or "AFLW".
-   * @returns Combined array of coaches votes for the season.
+   * @returns Successful votes and rounds with actual fetch or parse failures.
    */
   async fetchSeasonVotes(
     season: number,
     competition: CompetitionCode,
-  ): Promise<Result<CoachesVote[], ScrapeError>> {
+  ): Promise<Result<CoachesVotesResult, ScrapeError>> {
     const rounds = Array.from({ length: 30 }, (_, index) => index + 1);
     const roundResults = await batchedMap(
       rounds,
@@ -206,12 +218,21 @@ export class AflCoachesClient {
     const allVotes = roundResults.flatMap((result) =>
       result.success && result.data.length > 0 ? result.data : [],
     );
+    const failedRounds = roundResults.flatMap((result, index) => {
+      if (
+        result.success ||
+        (result.error instanceof AflCoachesHttpError && result.error.statusCode === 404)
+      ) {
+        return [];
+      }
+      return [rounds[index] ?? index + 1];
+    });
 
     if (allVotes.length === 0) {
       return err(new ScrapeError(`No coaches votes found for season ${season}`, "afl-coaches"));
     }
 
-    return ok(allVotes);
+    return ok({ votes: allVotes, failedRounds });
   }
 }
 

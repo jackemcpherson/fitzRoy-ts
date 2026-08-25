@@ -51,6 +51,7 @@ describe("fetchSquad afl-api happy path", () => {
     expect(result.data.teamName).toBe("Carlton");
     expect(result.data.teamId).toBe("5");
     expect(result.data.season).toBe(2024);
+    expect(result.data.scope).toBe("season");
     expect(result.data.competition).toBe("AFLM");
     expect(result.data.source).toBe("afl-api");
     expect(result.data.players).toHaveLength(2);

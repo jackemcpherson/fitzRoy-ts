@@ -6,7 +6,8 @@
  * their own coverage in their own classes.
  */
 
-import { ok, type Result } from "../../lib/result";
+import { ScrapeError } from "../../lib/errors";
+import { err, ok, type Result } from "../../lib/result";
 import { normaliseTeamName } from "../../lib/team-mapping";
 import { computeLadder } from "../../transforms/computed-ladder";
 import type {
@@ -90,7 +91,7 @@ export class AflTablesTeamStatsSource implements TeamStatsSource {
     if (!statsResult.success) return statsResult;
 
     // The stats page lacks a GP column — derive from match results if needed.
-    const needsGp = statsResult.data.some((e) => e.gamesPlayed === 0);
+    const needsGp = statsResult.data.some((entry) => entry.gamesPlayed === null);
     const gpMap = new Map<string, number>();
     if (needsGp) {
       const resultsResult = await this.client.fetchSeasonResults(query.season);
@@ -110,6 +111,17 @@ export class AflTablesTeamStatsSource implements TeamStatsSource {
     }));
 
     if (summaryType === "averages") {
+      const invalid = enriched.filter(
+        (entry) => entry.gamesPlayed === null || entry.gamesPlayed <= 0,
+      );
+      if (invalid.length > 0) {
+        return err(
+          new ScrapeError(
+            `Cannot calculate team-stat averages because games played is missing or non-positive for: ${invalid.map((entry) => entry.team).join(", ")}`,
+            "afl-tables",
+          ),
+        );
+      }
       return ok(enriched.map((entry) => averageMetrics(entry)));
     }
     return ok(enriched);
@@ -118,13 +130,14 @@ export class AflTablesTeamStatsSource implements TeamStatsSource {
 
 /** Convert a TeamStatsEntry's `for`/`against` totals into per-game averages. */
 function averageMetrics(entry: TeamStatsEntry): TeamStatsEntry {
+  const gamesPlayed = entry.gamesPlayed;
+  if (gamesPlayed === null || gamesPlayed <= 0) return entry;
   const divide = (set: TeamStatsEntry["for"]): TeamStatsEntry["for"] => {
-    if (entry.gamesPlayed <= 0) return set;
     const out = { ...set };
     for (const key of Object.keys(out) as (keyof typeof out)[]) {
       const v = out[key];
       if (v != null) {
-        out[key] = +(v / entry.gamesPlayed).toFixed(1);
+        out[key] = +(v / gamesPlayed).toFixed(1);
       }
     }
     return out;
@@ -181,6 +194,7 @@ export class AflTablesSquadSource implements SquadSource {
       teamId: teamName,
       teamName,
       season: query.season,
+      scope: "all-time",
       players,
       competition,
       source: "afl-tables" as const,

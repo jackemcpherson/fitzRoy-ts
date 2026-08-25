@@ -8,8 +8,11 @@
  * season summary.
  */
 
+import { defineCommand } from "citty";
 import { fetchPlayerDetails, resolveDefaultSeasonForCompetition } from "../../index";
-import { defineFitzroyCommand } from "../command-builder";
+import { rejectUnknownFlags } from "../command-builder";
+import { formatCompletenessOutput } from "../completeness-output";
+import { withErrorBoundary } from "../error-boundary";
 import {
   COMPETITION_FLAG,
   OPTIONAL_SEASON_FLAG,
@@ -17,9 +20,15 @@ import {
   SOURCE_FLAG,
   TEAM_FLAG,
 } from "../flags";
-import type { TableColumnConfig } from "../formatters/index";
+import type { FormatOptions, TableColumnConfig } from "../formatters/index";
 import { resolveTeamNameOrPrompt } from "../resolvers";
-import { validateCompetition, validateOptionalSeason, validateSource } from "../validation";
+import { showSummary, showWarning, withSpinner } from "../ui";
+import {
+  validateCompetition,
+  validateFormat,
+  validateOptionalSeason,
+  validateSource,
+} from "../validation";
 
 const DEFAULT_COLUMNS: TableColumnConfig[] = [
   { key: "displayName", label: "Player", maxWidth: 24 },
@@ -32,38 +41,58 @@ const DEFAULT_COLUMNS: TableColumnConfig[] = [
   { key: "dateOfBirth", label: "DOB", maxWidth: 12 },
 ];
 
-interface PlayerArgs {
-  source: string;
-  season?: string;
-  competition: string;
-  team?: string;
-}
+const PLAYER_ARGS = {
+  ...TEAM_FLAG,
+  ...SOURCE_FLAG,
+  ...OPTIONAL_SEASON_FLAG,
+  ...COMPETITION_FLAG,
+  ...OUTPUT_FLAGS,
+} as const;
 
-export const playerCommand = defineFitzroyCommand<PlayerArgs & Record<string, unknown>, object>({
+export const playerCommand = defineCommand({
   meta: {
     name: "player",
     description: "Fetch player biographical details (optionally filtered by team)",
   },
-  args: {
-    ...TEAM_FLAG,
-    ...SOURCE_FLAG,
-    ...OPTIONAL_SEASON_FLAG,
-    ...COMPETITION_FLAG,
-    ...OUTPUT_FLAGS,
-  },
-  columns: DEFAULT_COLUMNS,
-  spinner: "Fetching player details…",
-  run: async (args) => {
+  args: PLAYER_ARGS,
+  run: withErrorBoundary(async ({ args }) => {
+    rejectUnknownFlags(PLAYER_ARGS, process.argv);
     const source = validateSource(args.source);
     const competition = validateCompetition(args.competition);
     const explicit = validateOptionalSeason(args.season);
     const team = args.team ? await resolveTeamNameOrPrompt(args.team) : undefined;
     const season = explicit ?? (await resolveDefaultSeasonForCompetition(competition));
+    const format = validateFormat(args.format);
 
-    return fetchPlayerDetails({ source, team, season, competition });
-  },
-  summary: (data, args) =>
-    args.team
-      ? `Loaded ${data.length} players for ${args.team} (${args.source})`
-      : `Loaded ${data.length} players across all teams (${args.source})`,
+    const result = await withSpinner("Fetching player details…", () =>
+      fetchPlayerDetails({ source, team, season, competition }),
+    );
+    if (!result.success) throw result.error;
+
+    const { players, failedTeams, scope } = result.data;
+    if (failedTeams.length > 0) {
+      showWarning(
+        `${failedTeams.length} team squad request(s) failed and are missing: ${failedTeams.join(", ")}`,
+      );
+    }
+    if (scope === "all-time") {
+      showWarning(
+        `--source ${source} returns all-time player data. The requested season ${season} is query context and does not narrow the player list.`,
+      );
+    }
+    showSummary(
+      team
+        ? `Loaded ${players.length} players for ${team} (${source})`
+        : `Loaded ${players.length} players across all teams (${source})`,
+    );
+
+    const formatOptions: FormatOptions = {
+      json: args.json,
+      csv: args.csv,
+      format,
+      full: args.full,
+      columns: DEFAULT_COLUMNS,
+    };
+    console.log(formatCompletenessOutput(result.data, players as readonly object[], formatOptions));
+  }),
 });

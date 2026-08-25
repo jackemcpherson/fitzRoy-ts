@@ -205,6 +205,7 @@ export class AflApiSquadSource implements SquadSource {
       teamId: String(teamIdResult.data),
       teamName,
       season: query.season,
+      scope: "season",
       players,
       competition,
       source: "afl-api" as const,

@@ -428,6 +428,9 @@ export interface Ladder {
 // Team and squad
 // ---------------------------------------------------------------------------
 
+/** Time scope represented by a squad or player-details response. */
+export type SquadScope = "season" | "all-time";
+
 /** An AFL team. */
 export interface Team {
   readonly teamId: string;
@@ -483,6 +486,8 @@ export interface Squad {
   readonly teamId: string;
   readonly teamName: string;
   readonly season: number;
+  /** Whether players belong to the requested season or the source's all-time roster. */
+  readonly scope: SquadScope;
   readonly players: readonly Player[];
   readonly competition: CompetitionCode;
   /** Adapter that produced this squad (#120). */
@@ -512,6 +517,16 @@ export type TeamResponse =
  * canonical {@link Player} type — these were converged in 2.1.0. (#96)
  */
 export type PlayerDetails = Player;
+
+/** Partial-result envelope for player biographical details. */
+export interface PlayerDetailsResult {
+  /** Players returned by successful squad requests. */
+  readonly players: readonly PlayerDetails[];
+  /** Canonical team names whose squad requests failed, in request order. */
+  readonly failedTeams: readonly string[];
+  /** Time scope shared by the returned squad data. */
+  readonly scope: SquadScope;
+}
 
 /** Query parameters for fetching player details. */
 export interface PlayerDetailsQuery {
@@ -627,6 +642,14 @@ export interface AwardQuery {
   readonly limit?: number | undefined;
 }
 
+/** Partial-result envelope for awards data. */
+export interface AwardResult {
+  /** Award rows that were fetched or computed successfully. */
+  readonly awards: readonly Award[];
+  /** Coaches-vote rounds that failed to fetch or parse, in round order. */
+  readonly failedRounds: readonly number[];
+}
+
 // ---------------------------------------------------------------------------
 // Coaches votes
 // ---------------------------------------------------------------------------
@@ -652,6 +675,14 @@ export interface CoachesVoteQuery {
   readonly round?: number | undefined;
   readonly competition?: CompetitionCode | undefined;
   readonly team?: string | undefined;
+}
+
+/** Partial-result envelope for a season of AFL Coaches Association votes. */
+export interface CoachesVotesResult {
+  /** Vote rows retained from successful rounds. */
+  readonly votes: readonly CoachesVote[];
+  /** Rounds with network, non-404 HTTP, or parse failures. */
+  readonly failedRounds: readonly number[];
 }
 
 // ---------------------------------------------------------------------------
@@ -777,7 +808,8 @@ export interface TeamStatsEntry {
   readonly season: number;
   readonly competition: CompetitionCode;
   readonly team: string;
-  readonly gamesPlayed: number;
+  /** Games used as the denominator, or `null` when enrichment failed. */
+  readonly gamesPlayed: number | null;
   readonly for: TeamMetricSet;
   readonly against: TeamMetricSet;
   readonly source: DataSource;

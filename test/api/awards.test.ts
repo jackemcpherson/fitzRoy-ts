@@ -232,7 +232,10 @@ describe("fetchAwards FootyWire routing", () => {
 
     expect(result.success).toBe(true);
     if (!result.success) return;
-    expect(result.data.some((entry) => "player" in entry && entry.player === player)).toBe(true);
+    expect(result.data.awards.some((entry) => "player" in entry && entry.player === player)).toBe(
+      true,
+    );
+    expect(result.data.failedRounds).toEqual([]);
     expect(fetchStub).toHaveBeenCalledOnce();
     expect(String(fetchStub.mock.calls[0]?.[0])).toContain(`${path}?year=2025`);
   });
@@ -274,57 +277,86 @@ describe("fetchAwards FootyWire routing", () => {
 
     expect(result.success).toBe(true);
     if (!result.success) return;
-    expect(result.data).toHaveLength(1);
-    expect(result.data[0]).toMatchObject({ player: "Blue Leader", team: "Carlton" });
+    expect(result.data.awards).toHaveLength(1);
+    expect(result.data.awards[0]).toMatchObject({ player: "Blue Leader", team: "Carlton" });
   });
 });
 
 describe("fetchAwards coaches filtering", () => {
   it("matches either home or away team and applies the limit", async () => {
     vi.spyOn(AflCoachesClient.prototype, "fetchSeasonVotes").mockResolvedValue(
-      ok([
-        {
-          type: "coaches",
-          season: 2025,
-          competition: "AFLM",
-          source: "afl-coaches",
-          round: 1,
-          homeTeam: "Carlton",
-          awayTeam: "Richmond",
-          player: "First Blue",
-          votes: 10,
-        },
-        {
-          type: "coaches",
-          season: 2025,
-          competition: "AFLM",
-          source: "afl-coaches",
-          round: 2,
-          homeTeam: "Collingwood",
-          awayTeam: "Carlton",
-          player: "Second Blue",
-          votes: 9,
-        },
-        {
-          type: "coaches",
-          season: 2025,
-          competition: "AFLM",
-          source: "afl-coaches",
-          round: 3,
-          homeTeam: "Richmond",
-          awayTeam: "Geelong",
-          player: "Tiger",
-          votes: 8,
-        },
-      ]),
+      ok({
+        votes: [
+          {
+            type: "coaches",
+            season: 2025,
+            competition: "AFLM",
+            source: "afl-coaches",
+            round: 1,
+            homeTeam: "Carlton",
+            awayTeam: "Richmond",
+            player: "First Blue",
+            votes: 10,
+          },
+          {
+            type: "coaches",
+            season: 2025,
+            competition: "AFLM",
+            source: "afl-coaches",
+            round: 2,
+            homeTeam: "Collingwood",
+            awayTeam: "Carlton",
+            player: "Second Blue",
+            votes: 9,
+          },
+          {
+            type: "coaches",
+            season: 2025,
+            competition: "AFLM",
+            source: "afl-coaches",
+            round: 3,
+            homeTeam: "Richmond",
+            awayTeam: "Geelong",
+            player: "Tiger",
+            votes: 8,
+          },
+        ],
+        failedRounds: [4],
+      }),
     );
 
     const result = await fetchAwards({ award: "coaches", season: 2025, team: "Blues", limit: 1 });
 
     expect(result.success).toBe(true);
     if (!result.success) return;
-    expect(result.data).toHaveLength(1);
-    expect(result.data[0]).toMatchObject({ player: "First Blue" });
+    expect(result.data.awards).toHaveLength(1);
+    expect(result.data.awards[0]).toMatchObject({ player: "First Blue" });
+    expect(result.data.failedRounds).toEqual([4]);
+  });
+
+  it("uses an empty failure list for a successful single-round request", async () => {
+    vi.spyOn(AflCoachesClient.prototype, "scrapeRoundVotes").mockResolvedValue(
+      ok([
+        {
+          type: "coaches",
+          season: 2025,
+          competition: "AFLM",
+          source: "afl-coaches",
+          round: 2,
+          homeTeam: "Carlton",
+          awayTeam: "Richmond",
+          player: "Patrick Cripps",
+          votes: 10,
+        },
+      ]),
+    );
+
+    const result = await fetchAwards({ award: "coaches", season: 2025, round: 2 });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.awards).toHaveLength(1);
+    expect(result.data.failedRounds).toEqual([]);
   });
 });
 
@@ -345,7 +377,10 @@ describe("fetchAwards Coleman orchestration", () => {
 
     expect(result.success).toBe(true);
     if (!result.success) return;
-    expect(result.data.map((entry) => "player" in entry && entry.player)).toEqual(["Home Leader"]);
+    expect(result.data.awards.map((entry) => "player" in entry && entry.player)).toEqual([
+      "Home Leader",
+    ]);
+    expect(result.data.failedRounds).toEqual([]);
     expect(fetchMatchesMock).toHaveBeenCalledWith({
       source: "afl-api",
       season: 2025,
@@ -381,8 +416,8 @@ describe("fetchAwards Coleman orchestration", () => {
 
     expect(result.success).toBe(true);
     if (!result.success) return;
-    expect(result.data).toHaveLength(1);
-    expect(result.data[0]).toMatchObject({ player: "First Blue", team: "Carlton" });
+    expect(result.data.awards).toHaveLength(1);
+    expect(result.data.awards[0]).toMatchObject({ player: "First Blue", team: "Carlton" });
   });
 
   it.each([

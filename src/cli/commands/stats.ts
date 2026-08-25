@@ -12,6 +12,7 @@ import { fetchPlayerStats, fetchTeamStats } from "../../index";
 import { playerStatsRegistry, teamStatsRegistry } from "../../sources/adapters/registry";
 import type { DataSource } from "../../types";
 import { rejectUnknownFlags } from "../command-builder";
+import { formatCompletenessOutput } from "../completeness-output";
 import { withErrorBoundary } from "../error-boundary";
 import {
   BY_FLAG,
@@ -115,6 +116,16 @@ export const statsCommand = defineCommand({
       );
       if (!result.success) throw result.error;
       const data = filterTeamStats(result.data, team);
+      const missingGamesPlayed = data
+        .filter((entry) => entry.gamesPlayed === null)
+        .map((entry) => entry.team);
+      if (missingGamesPlayed.length > 0) {
+        console.error(
+          pc.yellow(
+            `Warning: games played is unavailable for ${missingGamesPlayed.join(", ")}; totals are returned with a null denominator.`,
+          ),
+        );
+      }
       showSummary(
         `Loaded stats for ${data.length} teams (${season}${summaryType ? `, ${summaryType}` : ""})`,
       );
@@ -182,6 +193,6 @@ export const statsCommand = defineCommand({
       full: args.full,
       columns: PLAYER_COLUMNS,
     };
-    console.log(formatOutput(data, formatOptions));
+    console.log(formatCompletenessOutput({ stats: data, failedMatchIds }, data, formatOptions));
   }),
 });

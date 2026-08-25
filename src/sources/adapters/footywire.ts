@@ -133,6 +133,7 @@ export class FootyWireSquadSource implements SquadSource {
       teamId: teamName,
       teamName,
       season: query.season,
+      scope: "all-time",
       players,
       competition,
       source: "footywire" as const,

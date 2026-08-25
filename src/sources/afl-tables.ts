@@ -658,7 +658,7 @@ const AFL_TABLES_TEAM_METRIC_MAP: Readonly<Record<string, keyof TeamMetricSet>> 
 };
 
 interface AflTablesTeamData {
-  gamesPlayed: number;
+  gamesPlayed: number | null;
   forMetrics: MutableTeamMetricSet;
   againstMetrics: MutableTeamMetricSet;
 }
@@ -699,7 +699,7 @@ export function parseAflTablesTeamStats(html: string, year: number): TeamStatsEn
 
       if (!teamMap.has(teamName)) {
         teamMap.set(teamName, {
-          gamesPlayed: 0,
+          gamesPlayed: null,
           forMetrics: emptyMetricSet(),
           againstMetrics: emptyMetricSet(),
         });
@@ -708,8 +708,8 @@ export function parseAflTablesTeamStats(html: string, year: number): TeamStatsEn
       if (!entry) continue;
 
       if (gpColIdx >= 0 && direction === "for") {
-        const gpVal = Number.parseFloat($(cells[gpColIdx]).text().trim().replace(/,/g, "")) || 0;
-        entry.gamesPlayed = gpVal;
+        const gpVal = Number.parseFloat($(cells[gpColIdx]).text().trim().replace(/,/g, ""));
+        entry.gamesPlayed = Number.isFinite(gpVal) ? gpVal : null;
       }
 
       const target = direction === "for" ? entry.forMetrics : entry.againstMetrics;

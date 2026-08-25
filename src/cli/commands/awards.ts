@@ -12,9 +12,11 @@
  */
 
 import { defineCommand } from "citty";
+import pc from "picocolors";
 import { fetchAwards } from "../../index";
 import type { AwardType } from "../../types";
 import { rejectUnknownFlags } from "../command-builder";
+import { formatCompletenessOutput } from "../completeness-output";
 import { withErrorBoundary } from "../error-boundary";
 import {
   AWARD_TYPE_FLAG,
@@ -24,7 +26,7 @@ import {
   SEASON_FLAG,
   TEAM_FLAG,
 } from "../flags";
-import { type FormatOptions, formatOutput, type TableColumnConfig } from "../formatters/index";
+import type { FormatOptions, TableColumnConfig } from "../formatters/index";
 import { validateAwardsMode } from "../mode-validation";
 import { resolveTeamNameOrPrompt } from "../resolvers";
 import { showSummary, withSpinner } from "../ui";
@@ -115,7 +117,14 @@ export const awardsCommand = defineCommand({
     );
     if (!result.success) throw result.error;
 
-    const data = result.data;
+    const { awards: data, failedRounds } = result.data;
+    if (failedRounds.length > 0) {
+      console.error(
+        pc.yellow(
+          `Warning: ${failedRounds.length} coaches round(s) failed and are missing from the results: ${failedRounds.join(", ")}`,
+        ),
+      );
+    }
     showSummary(`Loaded ${data.length} ${award} entries for ${season}`);
 
     const formatOptions: FormatOptions = {
@@ -125,6 +134,12 @@ export const awardsCommand = defineCommand({
       full: args.full as boolean | undefined,
       columns: COLUMNS_BY_TYPE[award],
     };
-    console.log(formatOutput(data as readonly object[], formatOptions));
+    console.log(
+      formatCompletenessOutput(
+        { awards: data, failedRounds },
+        data as readonly object[],
+        formatOptions,
+      ),
+    );
   }),
 });
