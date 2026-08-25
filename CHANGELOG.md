@@ -9,6 +9,8 @@ The project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 No unreleased changes are currently recorded.
 
+<!-- vale off -->
+
 ## [3.5.0] - 2026-07-11
 
 Version 3.5.0 includes the following changes.

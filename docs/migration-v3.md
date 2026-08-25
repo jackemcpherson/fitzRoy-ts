@@ -82,25 +82,24 @@ Review the releases between the source and target versions.
 
 ### 3.1.1
 
-- DST spring-forward gap handling - AFL Tables date parsing now rolls forward
-  one hour for times inside a non-existent wall-clock window (e.g. 02:30 during
-  Melbourne DST change) instead of silently mapping to midnight UTC.
+- AFL Tables date parsing now moves times in the daylight-saving gap forward one
+  hour. For example, this rule moves 02:30 during the Melbourne change.
 - CSV injection defence - CLI CSV exporter now prefixes formula-starting cells
   (`=`, `+`, `-`, `@`, tab) with a single apostrophe.
 
 ### 3.2.0
 
-- Zero-nulling fix: scraped numeric fields (attendance, goals, weight, etc.) no
-  longer collapse a legitimate `0` to `null`. The previous
+- Zero-nulling fix: scraped numeric fields such as attendance, goals, and weight
+  no longer collapse a legitimate `0` to `null`. The previous
   `parseInt(...) || null` idiom treated `0` as absent.
-- Data-driven default season: the default season (when `--season` is omitted) is
-  now resolved from the AFL round schedule rather than the local calendar year.
+- Data-driven default season: the AFL round schedule now supplies the default
+  season when you omit `--season`. The local calendar year no longer supplies it.
   `fetchPlayerDetails` defaults the same way.
 
 ### 3.3.0
 
-- Fryzigg coverage caps corrected: AFLM now covers through 2025. AFLW is capped
-  at 2022 because its upstream dump has not changed since January 2022. Queries
+- Fryzigg coverage caps corrected: AFLM now covers through 2025. AFLW coverage
+  ends at 2022 because its upstream dump has not changed since January 2022. Queries
   outside these bounds now return a coverage error suggesting `--source afl-api`
   instead of returning empty results.
 - FootyWire concurrent fetching: season player-stat scrapes now fetch each
@@ -115,8 +114,8 @@ Review the releases between the source and target versions.
   `fetchSquad`/`fetchPlayerDetails` with `source: "afl-tables"` for Brisbane
   Lions previously targeted a missing page. If you worked around this with your
   own slug override, remove it.
-- Round-label helpers added: `roundLabel`, `roundAbbreviation`, and
-  `roundTypeLabel` are exported from the package root (R fitzRoy
+- Round-label helpers added: the package root now exports `roundLabel`,
+  `roundAbbreviation`, and `roundTypeLabel` (R fitzRoy
   `round.name`/`round.abbreviation`/`round.type` parity). If you hand-roll
   round-label derivation, these replace it. Purely additive.
 
@@ -125,14 +124,13 @@ Review the releases between the source and target versions.
 - Provider match IDs aligned: completed AFL Tables and FootyWire match rows now
   use the same provider-derived IDs as their player-stat rows.
 - Scoped queries fail closed: explicit ladder and Fryzigg round queries return
-  an error when a source cannot honour the requested scope instead of returning
+  an error when a source cannot honour the requested scope. They do not return
   unrelated unscoped data.
-- Coleman rankings corrected: finals are excluded from Coleman Medal goal
-  totals.
-- Fryzigg snapshot integrity: default AFLM and AFLW downloads are checked
-  against operator-reviewed SHA-256 digests before parsing.
-- Faster coaches-vote seasons: AFL Coaches Association rounds are fetched in
-  polite batches of three while retaining partial-success behaviour.
+- Coleman rankings corrected: Coleman Medal goal totals now exclude finals.
+- Fryzigg snapshot integrity: the library verifies default AFLM and AFLW
+  downloads against operator-reviewed SHA-256 digests before parsing.
+- Faster coaches-vote seasons: the client fetches AFL Coaches Association rounds
+  in polite batches of three while retaining partial-success behaviour.
 - npm installation fixed: packed consumer installs no longer invoke
   repository-only preparation tooling.
 
@@ -165,9 +163,9 @@ These behavioural changes may affect downstream consumers:
    when the completed match linked to the provider ID used by player stats.
    Completed rows now use `AT_<providerId>` and `FW_<providerId>` consistently.
    Rows without a provider link use explicit `AT_SYNTH_<season>_<ordinal>` or
-   `FW_SYNTH_<season>_R<round>_G<ordinal>` fallback IDs. Do not persist
-   synthetic IDs as stable identifiers: they are deterministic only for the
-   current source-page ordering and may change when the provider edits its page.
+   `FW_SYNTH_<season>_R<round>_G<ordinal>` fallback IDs. Do not persist synthetic
+   IDs as stable identifiers. Their values depend on the current source-page
+   order and can change when the provider edits its page.
 
 ---
 

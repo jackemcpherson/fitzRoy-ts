@@ -4,6 +4,7 @@
     "includes": [
       "**",
       "!!**/.claude",
+      "!!**/.rumdl_cache",
       "!!**/.wrangler",
       "!!**/dist",
       "!!**/test/fixtures",
