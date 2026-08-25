@@ -56,7 +56,7 @@ The codebase follows a "pure core, effectful shell" pattern:
 
 ## Style Guide
 
-Full style guide at `docs/TYPESCRIPT_STYLE_GUIDE.md`. Key conventions:
+Full style guide at `docs/typescript-style-guide.md`. Key conventions:
 
 ### Naming
 

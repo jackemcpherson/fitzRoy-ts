@@ -40,7 +40,7 @@ package manager and build runner, while npm scripts remain supported.
 - Public exports require TSDoc and meaningful fixture-based tests. Tests must
   not call live upstream services.
 
-Follow `docs/TYPESCRIPT_STYLE_GUIDE.md` for naming, types, validation, error,
+Follow `docs/typescript-style-guide.md` for naming, types, validation, error,
 documentation, and test conventions.
 
 ## Ralph and release workflow
