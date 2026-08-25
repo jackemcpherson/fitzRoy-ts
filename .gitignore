@@ -23,6 +23,7 @@ coverage/
 
 # caches
 .cache/
+.rumdl_cache/
 *.tsbuildinfo
 
 # OS

@@ -1,67 +1,54 @@
-# ADR-0001: No silent cross-source fallback
+# ADR-0001: No Silent Cross-Source Fallback
 
-**Status:** Accepted
-**Date:** 2026-05-06
+This decision keeps source selection explicit when a request falls outside a
+provider's coverage.
+
+| Property | Value      |
+| -------- | ---------- |
+| Status   | Accepted   |
+| Date     | 6 May 2026 |
 
 ## Context
 
-fitzRoy-ts queries multiple AFL data sources (AFL API, AFL Tables, FootyWire,
-Squiggle, Fryzigg, AFL Coaches). Each source covers a different subset of
-competitions and seasons (see CONTEXT.md, "Source coverage").
+fitzRoy queries AFL API, AFL Tables, FootyWire, Squiggle, Fryzigg, and AFL
+Coaches. Each source covers different competitions, seasons, and fields.
 
-A natural design instinct, when designing the unified `--source` UX, is to
-silently fall back to a different source when the chosen source can't serve
-the request. For example: AFL API only has AFLM data from 2012; if a user
-asks for AFLM 2005, the system *could* automatically route to AFL Tables
-(which has data back to 1897) and return data without complaint.
-
-This was considered and rejected during architecture review (May 2026).
+The library could route an unsupported request to another source. For example,
+AFL Tables could answer an AFLM 2005 request that AFL API cannot serve.
 
 ## Decision
 
-**The public API never silently routes to a different source.** When a
-request falls outside the chosen source's coverage, the API returns a
-structured error suggesting an alternative `--source` value.
+The public API never changes sources silently. It returns a structured coverage
+error and suggests an explicit alternative when one exists.
 
-```
+```text
 Error: AFL API only covers AFLM from 2012.
 Try `--source afl-tables` for earlier seasons.
 ```
 
-## Why
+## Rationale
 
-Three reasons, in order of importance:
+Source field shapes differ. Changing providers can turn a time-series comparison
+into a comparison of different definitions or missing values.
 
-1. **Field shapes differ subtly between sources.** AFL API returns rich stats
-   (kicks, marks, advanced metrics like ratingPoints, extendedStats);
-   AFL Tables returns the classic stat lines but lacks the advanced fields;
-   FootyWire returns yet another shape. A user comparing 2010 (afl-tables
-   fallback) against 2015 (afl-api) would silently get incomparable data.
-   The nullable fields would mask which source was used.
+Downstream analysis also needs provenance. Explicit selection lets consumers
+understand the source of every result without inferring it from field shape.
 
-2. **Provenance matters for downstream analysis.** Users of fitzRoy-ts often
-   build pipelines that join, average, or model this data. They need to know
-   *which* source produced *which* row. Silent routing destroys that
-   information unless we add a per-row source field — at which point we've
-   reinvented the explicit `--source` choice without the user-facing clarity.
-
-3. **Failure becomes feedback.** An explicit "try `--source afl-tables`" error
-   teaches users which source covers what. Silent fallback hides the
-   architecture.
+A coverage error teaches the caller which provider can answer the request. A
+silent fallback hides this boundary.
 
 ## Consequences
 
-- Users querying outside default coverage see an error, not data.
-- The error message must be helpful — it must name the alternative source.
-- The capability descriptors on each adapter (Phase B) need to be accurate
-  enough that the suggestion in the error is correct.
-- We accept that some requests have no answer (e.g., AFLW 2005 doesn't exist
-  on any source — and AFLW didn't exist as a competition), and the error in
-  those cases just states "no source covers this request."
+- Unsupported requests return an error instead of data from another source.
+- Errors name an alternative source when the registry has one.
+- Adapter coverage declarations must remain accurate.
+- Some requests have no valid provider and therefore no result.
 
-## Will be re-suggested
+## Review Trigger
 
-Yes. Future architecture reviews will look at the user experience and propose
-"why don't we auto-route?" This is a reasonable instinct that needs an
-explicit answer. This ADR is that answer. Don't reopen unless one of the
-three reasons above no longer holds.
+Reconsider this decision only if providers converge on equivalent field
+definitions and provenance no longer affects downstream interpretation.
+
+## References
+
+- [R package parity and coverage notes](../r-parity.md)

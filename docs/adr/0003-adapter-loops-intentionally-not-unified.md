@@ -1,93 +1,69 @@
-# ADR-0003: Adapter PlayerStats batching loops are intentionally not unified
+# ADR-0003: Keep Player-Stat Adapter Loops Separate
 
-**Status:** Accepted
-**Date:** 2026-05-06
+This decision preserves source-specific player-stat pipelines while sharing only
+the bounded-concurrency primitive.
+
+| Property | Value      |
+| -------- | ---------- |
+| Status   | Accepted   |
+| Date     | 6 May 2026 |
 
 ## Context
 
-The three `PlayerStatsSource` adapters — `AflApiPlayerStatsSource`,
-`FootyWirePlayerStatsSource`, `AflTablesPlayerStatsSource` — each implement a
-similar-shaped loop:
+The AFL API, FootyWire, and AFL Tables adapters follow the same broad sequence:
 
-1. Resolve match IDs for a season (or filtered to a round).
-2. Batch-fetch per-match stats.
-3. Concatenate into a single `PlayerStats[]`.
+1. Resolve match IDs for a season or round.
+2. Fetch player statistics in batches.
+3. Combine the rows into `PlayerStats[]`.
 
-Surface similarity makes this look like obvious duplication. A natural
-refactor instinct is to extract a shared higher-order helper that takes
-"id resolver" + "per-id transform" + "batching options" as primitives, with
-each adapter providing only its source-specific bits.
-
-This was considered during architecture review (May 2026) and rejected.
+Their similar shape suggests a shared higher-order pipeline.
 
 ## Decision
 
-**The three loops stay separate.** Each adapter owns its full pipeline. The
-only shared primitive is `batchedMap` (in `src/lib/concurrency.ts`), which
-exposes a `delayMs` option for politeness delays in scraper sources.
+Each adapter retains its complete pipeline. All three share `batchedMap` from
+`src/lib/concurrency.ts`, including its optional `delayMs` control.
 
-## Why
+## Rationale
 
-The loops differ on five orthogonal axes — and three of those differences
-are deliberate product choices, not implementation accidents.
+The implementations differ across five important behaviours.
 
-1. **`matchId` fast-path.** AFL API can fetch stats for a single match
-   directly via `/cfs/afl/playerStats/{matchId}` and is the only adapter
-   that exposes this fast-path. The other two have to walk the full
-   round/season list. A unified helper would either lose the fast-path or
-   require a "skip the resolver step" branch that defeats the abstraction.
+### Single-Match Fast Path
 
-2. **Roster / `teamIdMap` pre-fetch.** The AFL API path needs an extra
-   roster fetch to map the API's opaque team IDs to canonical team names
-   before the per-match transform runs. The scrapers already get team
-   names in their stats payload. The pre-fetch is single-source.
+AFL API fetches one match directly through its player-stat endpoint. Scraper
+adapters must first traverse a round or season page.
 
-3. **Politeness delay between batches.** FootyWire and AFL Tables sleep
-   500ms between batches to be respectful to the scraped sites. AFL API is
-   a real API and doesn't need it. (Captured by the `delayMs` option on
-   `batchedMap`, which IS shared.)
+### Roster Preparation
 
-4. **Error semantics — fail-fast vs best-effort.** The AFL API adapter
-   returns the first error it sees (`return statsResult ?? err(...)`) —
-   any failure is a bug, surface it. The scrapers silently skip failed
-   matches and continue (`if (result.success) allStats.push(...)`) —
-   scrapers fail often (404s on missing match pages, transient HTML
-   changes), and best-effort is the right product choice. A unified
-   helper would have to expose this as a parameter, at which point the
-   caller still has to think about it.
+AFL API fetches a roster to translate opaque team IDs. Scraped pages already
+contain team names.
 
-5. **Per-match transform context.** AFL API's `transformPlayerStats`
-   takes a rich context object (`matchId`, `season`, `roundNumber`,
-   `competition`, `teamIdMap`, `date`, `homeTeam`, `awayTeam`). The
-   scrapers' stats are already shaped at the source layer and need
-   nothing extra. Threading a "per-source context" type through a generic
-   helper is more code than the duplication it removes.
+### Request Delays
 
-## What we did instead
+FootyWire and AFL Tables wait 500 milliseconds between batches. AFL API does not
+need the scraper politeness delay.
 
-Extracted the one piece that genuinely is shared: the politeness delay.
-`batchedMap` now accepts an optional `delayMs` option, and
-`FootyWirePlayerStatsSource` uses it instead of its hand-rolled batching
-loop. ~5-line net change.
+### Failure Semantics
+
+AFL API fails on the first provider error. Scrapers return partial season
+results and identify failed matches because individual pages often disappear or
+change.
+
+### Transform Context
+
+The AFL API transform needs match, competition, team, date, and roster context.
+Scraper adapters shape their rows at the source boundary.
+
+A generic pipeline would expose each difference as another option. The resulting
+interface would be more complex than the duplicated control flow.
 
 ## Consequences
 
-- The three adapter `fetchPlayerStats` methods stay roughly 30–80 lines
-  each. They look similar and they are — but the differences are
-  load-bearing.
-- New `PlayerStatsSource` adapters (e.g. a future Squiggle or Fryzigg
-  player-stats path) should write their own loop, copying the closest
-  existing adapter as a starting point. Don't try to subclass or
-  parameterise off an existing one.
-- If a fourth adapter lands and its loop is genuinely identical to one
-  of the existing three (same fast-path, same error semantics, same
-  transform context), reopen this ADR — at four, the case for extraction
-  is stronger.
+- The three adapter methods retain similar 30-to-80-line loops.
+- New adapters should begin from the closest source implementation.
+- Contributors should not subclass or parameterise an existing adapter loop.
+- `batchedMap` remains the shared concurrency and delay mechanism.
 
-## Will be re-suggested
+## Review Trigger
 
-Yes. The visual similarity of the three loops is striking enough that
-future architecture reviews will propose extraction. This ADR is the
-answer. Don't reopen unless one of the five axes above collapses (e.g.
-all sources adopt the same error semantics, or roster pre-fetch
-disappears) — or a fourth adapter lands with an identical-shape loop.
+Reconsider extraction when another adapter has identical fast-path, preparation,
+failure, delay, and transform requirements.

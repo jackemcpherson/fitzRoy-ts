@@ -1,9 +1,12 @@
-# comparison/ — archived parity & benchmark harness
+# Archived Parity and Benchmark Tools
 
-Point-in-time harness (2026) comparing fitzRoy-ts output and performance
-against the R fitzRoy package. **Not maintained**: it is not typechecked,
-linted, or run in CI, and may not compile against the current library API.
-The parity conclusions it produced live in `docs/R_PARITY.md`.
+This directory contains the 2026 point-in-time comparison between fitzRoy and
+the R fitzRoy package. The project does not compile, lint, or run these tools in
+CI, and they may not match the current API.
 
-If you want to revive it: add it to a tsconfig project and an npm script so
-it stays honest, or treat it as a reference for writing a fresh harness.
+See [R package parity notes](../docs/r-parity.md) for the findings that remain
+relevant.
+
+Before reviving the tools, add the directory to a TypeScript project and a
+package script. Otherwise, use the files only as source material for a new
+comparison.

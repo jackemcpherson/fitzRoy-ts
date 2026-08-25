@@ -1,20 +1,23 @@
-# fitzroy
+# Fitzroy
 
 [![CI](https://github.com/jackemcpherson/fitzRoy-ts/actions/workflows/ci.yml/badge.svg)](https://github.com/jackemcpherson/fitzRoy-ts/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/fitzroy)](https://www.npmjs.com/package/fitzroy)
 
-TypeScript library and CLI for AFL data — matches, stats, ladders, teams, players, and awards.
+TypeScript library and CLI for AFL data - matches, stats, ladders, teams,
+players, and awards.
 
 A port of the [fitzRoy R package](https://github.com/jimmyday12/fitzRoy).
 
 ## Data Sources
 
-- **AFL API** — official AFL data covering AFLM (2012+), AFLW (2017+), VFL and VFLW (2021+). Default for matches, stats, squads, lineups, ladders.
-- **FootyWire** — scraped AFLM match results, fixtures, player stats, team stats, awards
-- **AFL Tables** — AFLM historical results (1897+) and player stats (~1965+)
-- **Squiggle** — AFLM match results and ladder
-- **Fryzigg** — advanced AFLM and AFLW player stats
-- **AFL Coaches** — AFLCA coaches votes
+- AFL API: official AFL data covering AFLM (2012+), AFLW (2017+), VFL and VFLW
+  (2021+). Default for matches, stats, squads, lineups, ladders.
+- FootyWire: scraped AFLM match results, fixtures, player stats, team stats,
+  awards
+- AFL Tables: AFLM historical results (1897+) and player stats (~1965+)
+- Squiggle: AFLM match results and ladder
+- Fryzigg: advanced AFLM and AFLW player stats
+- AFL Coaches: AFLCA coaches votes
 
 ## Install
 
@@ -22,13 +25,13 @@ A port of the [fitzRoy R package](https://github.com/jimmyday12/fitzRoy).
 npm install fitzroy
 ```
 
-Upgrading from 3.0.x? See [docs/MIGRATION-v3.md](docs/MIGRATION-v3.md) for a
-per-release breakdown of what changed and a checklist of behavioural changes
-to verify during upgrade.
+Upgrading from 3.0.x? See [docs/migration-v3.md](docs/migration-v3.md) for a
+per-release breakdown of what changed and a checklist of behavioural changes to
+verify during upgrade.
 
 ## Library Usage
 
-All public functions return `Result<T, E>` — check `result.success` before
+All public functions return `Result<T, E>` - check `result.success` before
 accessing `result.data` (or `result.error` on failure):
 
 ```typescript
@@ -44,8 +47,8 @@ if (!r.success) {
 console.log(`${r.data.length} matches in ${season}`);
 ```
 
-The composition combinators on the `Result` namespace help chain calls without
-the `if (!r.success) return r` boilerplate accumulating at every call site:
+The composition functions on the `Result` namespace help chain calls without the
+`if (!r.success) return r` boilerplate accumulating at every call site:
 
 ```typescript
 const summary = Result.map(r, (matches) => matches.length);
@@ -53,17 +56,17 @@ const summary = Result.map(r, (matches) => matches.length);
 
 ### Public API
 
-| Function | Query type | Returns |
-|---|---|---|
-| `fetchMatches` | `MatchQuery` | `Result<Match[], Error>` |
-| `fetchPlayerStats` | `PlayerStatsQuery` | `Result<PlayerStats[], Error>` |
-| `fetchTeamStats` | `TeamStatsQuery` | `Result<TeamStatsEntry[], Error>` |
-| `fetchLadder` | `LadderQuery` | `Result<Ladder, Error>` |
-| `fetchTeams` | `TeamQuery` | `Result<Team[], Error>` |
-| `fetchSquad` | `SquadQuery` | `Result<Squad, Error>` |
-| `fetchLineup` | `LineupQuery` | `Result<Lineup[], Error>` |
-| `fetchPlayerDetails` | `PlayerDetailsQuery` | `Result<PlayerDetails[], Error>` |
-| `fetchAwards` | `AwardQuery` | `Result<Award[], Error>` |
+| Function             | Query type           | Returns                           |
+| -------------------- | -------------------- | --------------------------------- |
+| `fetchMatches`       | `MatchQuery`         | `Result<Match[], Error>`          |
+| `fetchPlayerStats`   | `PlayerStatsQuery`   | `Result<PlayerStats[], Error>`    |
+| `fetchTeamStats`     | `TeamStatsQuery`     | `Result<TeamStatsEntry[], Error>` |
+| `fetchLadder`        | `LadderQuery`        | `Result<Ladder, Error>`           |
+| `fetchTeams`         | `TeamQuery`          | `Result<Team[], Error>`           |
+| `fetchSquad`         | `SquadQuery`         | `Result<Squad, Error>`            |
+| `fetchLineup`        | `LineupQuery`        | `Result<Lineup[], Error>`         |
+| `fetchPlayerDetails` | `PlayerDetailsQuery` | `Result<PlayerDetails[], Error>`  |
+| `fetchAwards`        | `AwardQuery`         | `Result<Award[], Error>`          |
 
 Examples for each (using `resolveDefaultSeason` so the snippets stay stable
 year-on-year):
@@ -109,13 +112,13 @@ await fetchAwards({ award: "coleman", season, limit: 10 });
 await fetchAwards({ award: "brownlow", season });
 ```
 
-### Wire schemas (`fitzroy/schemas`)
+### Wire Schemas (`fitzroy/schemas`)
 
 The `fitzroy/schemas` subpath exports the raw AFL API and Squiggle response
-schemas (Zod) for consumers who need to validate wire-level payloads
-directly. This subpath is published but its contents track upstream API
-shapes — schemas may change at **minor** versions when the upstream changes.
-Only depend on it if you are deliberately coupling to the raw wire format.
+schemas (Zod) for consumers who need to validate wire-level payloads directly.
+The package publishes this subpath, but its contents track upstream API shapes.
+Schemas may change at minor versions when the upstream changes. Depend on it
+only if you are deliberately coupling to the raw wire format.
 
 ```typescript
 import { MatchItemListSchema } from "fitzroy/schemas";
@@ -128,8 +131,8 @@ if (!result.success) {
 ```
 
 Available exports include `MatchItemListSchema`, `PlayerStatsListSchema`,
-`CompetitionListSchema`, `SquiggleGameSchema`, and the full suite of AFL API
-CFS response schemas. See `src/schemas.ts` for the complete list.
+`CompetitionListSchema`, `SquiggleGameSchema`, and the full suite of AFL API CFS
+response schemas. See `src/schemas.ts` for the complete list.
 
 ## CLI
 
@@ -169,19 +172,20 @@ fitzroy match --season 2025 --csv     # CSV with headers
 fitzroy match --season 2025 --full    # All columns in table view
 ```
 
-Pass `--competition VFL` (or AFLW, VFLW) to any command to scope to that competition.
+Pass `--competition VFL` (or AFLW, VFLW) to any command to scope to that
+competition.
 
 Run `fitzroy --help` for all commands and options.
 
 ## Contributing
 
-1. Clone the repo
-2. Install dependencies: `bun install` (also installs a pre-commit hook that runs `biome check --staged`; bypass with `git commit --no-verify`)
-
-   bun is the only supported installer (`bun.lock` is the single lockfile); `npm install` is blocked by a preinstall guard. `npm run <script>` works fine for the quality gates.
-
-3. Run quality checks: `npm run typecheck && npm run check && npm run test`
+1. Clone the repository.
+2. Install dependencies with `bun install`. This command also installs the
+   pre-commit hook that runs `biome check --staged`.
+3. Use Bun as the only contributor package manager. `bun.lock` is the sole lock
+   file, and a pre-install guard rejects `npm install`.
+4. Run quality checks with `npm run typecheck && npm run check && npm run test`.
 
 ## License
 
-MIT
+[MIT](LICENSE)
