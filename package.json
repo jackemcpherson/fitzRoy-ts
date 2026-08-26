@@ -64,14 +64,14 @@
     "@biomejs/biome": "^2.5.3",
     "@clack/prompts": "^1.7.0",
     "@types/node": "^26.0.0",
-    "@vitest/coverage-v8": "4.1.10",
+    "@vitest/coverage-v8": "4.1.11",
     "bunup": "^0.16.32",
     "citty": "^0.2.2",
     "esbuild": "^0.28.1",
     "picocolors": "^1.1.1",
     "simple-git-hooks": "^2.13.1",
     "typescript": "^7.0.2",
-    "vitest": "4.1.10"
+    "vitest": "4.1.11"
   },
   "overrides": {
     "fflate": "0.8.3",
