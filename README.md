@@ -15,6 +15,9 @@ A port of the [fitzRoy R package](https://github.com/jimmyday12/fitzRoy).
 - FootyWire: scraped AFLM match results, fixtures, player stats, team stats,
   and awards.
 - AFL Tables: AFLM historical results from 1897 and statistics from about 1965.
+- Match coaches: AFL Tables supplies credited-coach records for AFLM from 1990.
+  FootyWire extraction remains internal. Captured match headings must establish
+  coverage before any FootyWire season-wide support.
 - Squiggle: AFLM match results and ladders.
 - Fryzigg: advanced AFLM and AFLW player-stat snapshots.
 - AFL Coaches: AFLCA coaches votes.
@@ -25,7 +28,8 @@ A port of the [fitzRoy R package](https://github.com/jimmyday12/fitzRoy).
 npm install fitzroy
 ```
 
-Upgrading from version 3? Read the [version 4 migration guide](docs/migration-v4.md).
+Upgrading to version 5? Read the [version 5 migration guide](docs/migration-v5.md).
+For earlier changes, see the [version 4 migration guide](docs/migration-v4.md).
 
 ## Library Usage
 
@@ -57,6 +61,7 @@ const summary = Result.map(r, (matches) => matches.length);
 | Function             | Query type           | Returns                              |
 | -------------------- | -------------------- | ------------------------------------ |
 | `fetchMatches`       | `MatchQuery`         | `Result<Match[], Error>`             |
+| `fetchMatchCoaches`  | `MatchCoachesQuery`  | `Result<MatchCoachesResult, Error>`  |
 | `fetchPlayerStats`   | `PlayerStatsQuery`   | `Result<SeasonPlayerStats, Error>`   |
 | `fetchTeamStats`     | `TeamStatsQuery`     | `Result<TeamStatsEntry[], Error>`    |
 | `fetchLadder`        | `LadderQuery`        | `Result<Ladder, Error>`              |
@@ -74,6 +79,7 @@ import {
   fetchAwards,
   fetchLadder,
   fetchLineup,
+  fetchMatchCoaches,
   fetchMatches,
   fetchPlayerDetails,
   fetchPlayerStats,
@@ -84,6 +90,11 @@ import {
 } from "fitzroy";
 
 const season = resolveDefaultSeason("AFLM");
+
+// Coach assignments use AFL Tables by default; partial page failures remain
+// visible in `completeness` instead of dropping successful assignments.
+await fetchMatchCoaches({ season, team: "Carlton" });
+await fetchMatchCoaches({ season, source: "footywire" }); // explicit comparison
 
 // All matches for a season
 await fetchMatches({ source: "afl-api", season });

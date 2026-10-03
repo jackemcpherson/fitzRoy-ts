@@ -9,6 +9,22 @@ The project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 No unreleased changes.
 
+## [5.0.0] - 2026-10-04
+
+Version 5.0.0 adds match-level coaching and separates historical club identities.
+
+### Added in 5.0.0
+
+- Added opt-in `fetchMatchCoaches` with AFL Tables as the default source,
+  bounded AFL Tables profile batches, provider references, and ordered
+  partial-failure metadata (AFLM 1990+).
+
+### Changed in 5.0.0
+
+- Historical team normalisation now preserves Brisbane Bears separately from
+  Brisbane Lions. Consumers that previously treated both names as one identity
+  should account for this normalisation change.
+
 ## [4.0.0] - 2026-08-25
 
 Version 4.0.0 includes the following changes.

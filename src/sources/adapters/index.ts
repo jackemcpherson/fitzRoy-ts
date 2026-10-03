@@ -23,12 +23,14 @@ import {
 } from "./afl-api";
 import {
   AflTablesLadderSource,
+  AflTablesMatchCoachesSource,
   AflTablesMatchSource,
   AflTablesPlayerStatsSource,
   AflTablesSquadSource,
   AflTablesTeamStatsSource,
 } from "./afl-tables";
 import {
+  FootyWireMatchCoachesSource,
   FootyWireMatchSource,
   FootyWirePlayerStatsSource,
   FootyWireSquadSource,
@@ -38,6 +40,7 @@ import { FryziggPlayerStatsSource } from "./fryzigg";
 import {
   ladderRegistry,
   lineupRegistry,
+  matchCoachesRegistry,
   matchRegistry,
   playerStatsRegistry,
   squadRegistry,
@@ -58,6 +61,8 @@ matchRegistry.register(new AflApiMatchSource(aflApiClient));
 matchRegistry.register(new FootyWireMatchSource());
 matchRegistry.register(new AflTablesMatchSource());
 matchRegistry.register(new SquiggleMatchSource());
+matchCoachesRegistry.register(new AflTablesMatchCoachesSource());
+matchCoachesRegistry.register(new FootyWireMatchCoachesSource());
 
 // ---------------------------------------------------------------------------
 // PlayerStats
@@ -96,6 +101,7 @@ export type {
   CapabilityAdapter,
   LadderSource,
   LineupSource,
+  MatchCoachesSource,
   MatchSource,
   PlayerStatsSource,
   SquadSource,
@@ -114,6 +120,7 @@ export {
   CapabilityRegistry,
   ladderRegistry,
   lineupRegistry,
+  matchCoachesRegistry,
   matchRegistry,
   playerStatsRegistry,
   squadRegistry,

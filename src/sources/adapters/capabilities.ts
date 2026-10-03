@@ -21,6 +21,8 @@ import type {
   Lineup,
   LineupQuery,
   Match,
+  MatchCoachesQuery,
+  MatchCoachesResult,
   MatchQuery,
   PlayerStatsQuery,
   SeasonPlayerStats,
@@ -46,6 +48,11 @@ export interface CapabilityAdapter {
 /** A source that can fetch matches. */
 export interface MatchSource extends CapabilityAdapter {
   fetchMatches(query: MatchQuery): Promise<Result<Match[], Error>>;
+}
+
+/** A source that can fetch season-level credited match coach assignments. */
+export interface MatchCoachesSource extends CapabilityAdapter {
+  fetchMatchCoaches(query: MatchCoachesQuery): Promise<Result<MatchCoachesResult, Error>>;
 }
 
 /**

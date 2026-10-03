@@ -27,6 +27,63 @@ export type DataSource =
 /** Match status as reported by the AFL API. */
 export type MatchStatus = "Upcoming" | "Live" | "Complete" | "Postponed" | "Cancelled";
 
+/** Query for source-grounded credited match coaches. */
+export interface MatchCoachesQuery {
+  readonly season: number;
+  readonly source?: DataSource;
+  readonly competition?: CompetitionCode;
+  readonly team?: string;
+  /** Optional bounded AFL Tables profile batch. Cursors are opaque and season-specific. */
+  readonly batch?: { readonly limit?: number; readonly cursor?: string };
+}
+
+/** A coach credited to one club in one source-identified match. */
+export interface MatchCoachAssignment {
+  readonly competition: CompetitionCode;
+  readonly season: number;
+  readonly team: string;
+  /** Provider-qualified coach profile key. Treat as opaque. */
+  readonly coachId: string;
+  readonly coachName: string;
+  readonly coachUrl: string;
+  /** Provider-qualified match key. Treat as opaque. */
+  readonly matchId: string;
+  readonly matchUrl: string;
+  readonly date: string | null;
+  /** Participant/score pairs in provider order; reconcile both orientations. */
+  readonly homeTeam: string | null;
+  readonly awayTeam: string | null;
+  readonly homePoints: number | null;
+  readonly awayPoints: number | null;
+  readonly roundName: string | null;
+  readonly source: "afl-tables" | "footywire";
+}
+
+/** One failed page or match scope during a coaching scrape. */
+export interface MatchCoachFailure {
+  readonly url: string;
+  readonly reason: string;
+  readonly scope: string;
+  readonly matchId?: string;
+  /** Provider-qualified failed coach profile identity, when known. */
+  readonly coachId?: string;
+}
+
+/** Successful rows plus explicit completeness information. */
+export interface MatchCoachesResult {
+  /** Page-batch success never establishes season-wide completeness. */
+  readonly batch?: {
+    readonly scope: "pages";
+    readonly nextCursor: string | null;
+    readonly completedCoachIds: readonly string[];
+  };
+  readonly assignments: MatchCoachAssignment[];
+  readonly completeness: {
+    readonly complete: boolean;
+    readonly failures: MatchCoachFailure[];
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Score types
 // ---------------------------------------------------------------------------

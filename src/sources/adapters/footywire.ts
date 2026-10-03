@@ -10,6 +10,9 @@ import { ok, type Result } from "../../lib/result";
 import { normaliseTeamName } from "../../lib/team-mapping";
 import type {
   Match,
+  MatchCoachAssignment,
+  MatchCoachesQuery,
+  MatchCoachesResult,
   MatchQuery,
   Player,
   PlayerStats,
@@ -21,13 +24,51 @@ import type {
   TeamStatsQuery,
 } from "../../types";
 import { FootyWireClient } from "../footywire";
-import type { MatchSource, PlayerStatsSource, SquadSource, TeamStatsSource } from "./capabilities";
+import { MatchCoachesClient } from "../match-coaches";
+import type {
+  MatchCoachesSource,
+  MatchSource,
+  PlayerStatsSource,
+  SquadSource,
+  TeamStatsSource,
+} from "./capabilities";
 import type { CoverageMap } from "./coverage";
 
 const FOOTYWIRE_MATCH_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 2010 }]]);
 const FOOTYWIRE_PLAYER_STATS_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 2010 }]]);
 const FOOTYWIRE_TEAM_STATS_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 2010 }]]);
 const FOOTYWIRE_SQUAD_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 2010 }]]);
+// No season-wide coach-heading scope is registered until captured pages establish it.
+const FOOTYWIRE_MATCH_COACHES_COVERAGE: CoverageMap = new Map();
+
+/** FootyWire match-page coach headings for explicit comparison requests. */
+export class FootyWireMatchCoachesSource implements MatchCoachesSource {
+  readonly id = "footywire" as const;
+  readonly coverage = FOOTYWIRE_MATCH_COACHES_COVERAGE;
+
+  constructor(
+    private readonly matchClient: FootyWireClient = new FootyWireClient(),
+    private readonly coachClient: MatchCoachesClient = new MatchCoachesClient(),
+  ) {}
+
+  async fetchMatchCoaches(query: MatchCoachesQuery): Promise<Result<MatchCoachesResult, Error>> {
+    const matchesResult = await this.matchClient.fetchSeasonFixture(
+      query.season,
+      query.competition ?? "AFLM",
+    );
+    if (!matchesResult.success) return matchesResult;
+    const records = await this.coachClient.fetchFootyWireMatches(matchesResult.data);
+    const assignments: MatchCoachAssignment[] = records.assignments.filter(
+      (assignment) =>
+        query.team === undefined ||
+        normaliseTeamName(assignment.team) === normaliseTeamName(query.team),
+    );
+    return ok({
+      assignments,
+      completeness: { complete: records.failures.length === 0, failures: records.failures },
+    });
+  }
+}
 
 /** FootyWire as a MatchSource (AFLM only, ~2010+). */
 export class FootyWireMatchSource implements MatchSource {
