@@ -15,6 +15,7 @@ export { fetchAwards } from "./api/awards";
 export { fetchLadder } from "./api/ladder";
 export { fetchLineup } from "./api/lineup";
 export { fetchMatches } from "./api/match";
+export { fetchMatchCoaches } from "./api/match-coaches";
 export { fetchPlayerDetails } from "./api/player-details";
 export { fetchPlayerStats } from "./api/player-stats";
 export { resolveDefaultSeasonForCompetition } from "./api/season";
@@ -74,6 +75,10 @@ export type {
   LineupPlayer,
   LineupQuery,
   Match,
+  MatchCoachAssignment,
+  MatchCoachesQuery,
+  MatchCoachesResult,
+  MatchCoachFailure,
   MatchQuery,
   MatchStatus,
   Player,

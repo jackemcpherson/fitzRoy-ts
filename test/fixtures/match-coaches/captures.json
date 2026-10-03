@@ -1,0 +1,50 @@
+[
+  {
+    "file": "afl-tables-hansen.html",
+    "url": "https://afltables.com/afl/stats/coaches/Ashley_Hansen.html",
+    "capturedAt": "2026-10-03T11:39:01.803384+00:00",
+    "method": "Google Chrome Save Page As, Web Page HTML Only; no content edits",
+    "bytes": 6176,
+    "sha256": "5ddfbf54d4d7c7930ddf5c4113e3c0450449dc8deab540cae20c449ef35f3ed7"
+  },
+  {
+    "file": "afl-tables-bolton.html",
+    "url": "https://afltables.com/afl/stats/coaches/Brendon_Bolton.html",
+    "capturedAt": "2026-10-03T11:39:45.659001+00:00",
+    "method": "Google Chrome Save Page As, Web Page HTML Only; no content edits",
+    "bytes": 65084,
+    "sha256": "56d152c583cde94d82f9458ced8ee7c20b3d07c49414a731298461c5a0cf94c0"
+  },
+  {
+    "file": "afl-tables-connolly.html",
+    "url": "https://afltables.com/afl/stats/coaches/Chris_Connolly.html",
+    "capturedAt": "2026-10-03T11:40:07.755965+00:00",
+    "method": "Google Chrome Save Page As, Web Page HTML Only; no content edits",
+    "bytes": 86219,
+    "sha256": "203b9f4b852b10e602cfe3fe83bbb02fa052f734307bc7169f67a384ebae1bb4"
+  },
+  {
+    "file": "afl-tables-teague.html",
+    "url": "https://afltables.com/afl/stats/coaches/David_Teague.html",
+    "capturedAt": "2026-10-03T11:40:29.545637+00:00",
+    "method": "Google Chrome Save Page As, Web Page HTML Only; no content edits",
+    "bytes": 47510,
+    "sha256": "de3a03a446e6127a6587214e87113c1690927089962d77305e191fd756bb3a77"
+  },
+  {
+    "file": "afl-tables-index-captured.html",
+    "url": "https://afltables.com/afl/stats/coaches/coaches_idx.html",
+    "capturedAt": "2026-10-03T11:41:00.231822+00:00",
+    "method": "Google Chrome Save Page As, Web Page HTML Only; no content edits",
+    "bytes": 226651,
+    "sha256": "0f8fc16c7b54652c8399774a76b7fae310d1e76b612c9fab9bd03a249281f356"
+  },
+  {
+    "file": "afl-tables-voss.html",
+    "url": "https://afltables.com/afl/stats/coaches/Michael_Voss.html",
+    "capturedAt": "2026-10-03T11:45:09.160705+00:00",
+    "method": "Google Chrome Save Page As, Web Page HTML Only; no content edits",
+    "bytes": 141331,
+    "sha256": "55485a55671f7ef3844113ce4d6510a4212ce4d612988e520ab2c750772cf699"
+  }
+]

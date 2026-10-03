@@ -52,6 +52,7 @@ try {
   const importCheck = [
     'const fitzroy = await import("fitzroy");',
     'if (typeof fitzroy.fetchMatches !== "function") process.exit(1);',
+    'if (typeof fitzroy.fetchMatchCoaches !== "function") process.exit(1);',
   ].join("\n");
   run(process.execPath, ["--input-type=module", "--eval", importCheck], consumerDirectory);
 

@@ -25,7 +25,8 @@
  */
 const TEAM_ALIASES: ReadonlyArray<readonly [canonical: string, ...aliases: string[]]> = [
   ["Adelaide Crows", "Adelaide", "Crows", "Kuwarna", "ADEL", "AD"],
-  ["Brisbane Lions", "Brisbane", "Brisbane Bears", "Bears", "Lions", "Fitzroy Lions", "BL", "BRIS"],
+  ["Brisbane Lions", "Brisbane", "Lions", "Fitzroy Lions", "BL", "BRIS"],
+  ["Brisbane Bears", "Bears"],
   ["Carlton", "Carlton Blues", "Blues", "CARL", "CA"],
   ["Collingwood", "Collingwood Magpies", "Magpies", "COLL", "CW"],
   ["Essendon", "Essendon Bombers", "Bombers", "ESS", "ES"],

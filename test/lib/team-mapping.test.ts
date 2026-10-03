@@ -61,7 +61,8 @@ describe("normaliseTeamName", () => {
     expect(normaliseTeamName("Footscray Bulldogs")).toBe("Western Bulldogs");
     expect(normaliseTeamName("South Melbourne")).toBe("Sydney Swans");
     expect(normaliseTeamName("South Melbourne Swans")).toBe("Sydney Swans");
-    expect(normaliseTeamName("Brisbane Bears")).toBe("Brisbane Lions");
+    expect(normaliseTeamName("Brisbane Bears")).toBe("Brisbane Bears");
+    expect(normaliseTeamName("Bears")).toBe("Brisbane Bears");
   });
 
   it("maps historical names case-insensitively", () => {

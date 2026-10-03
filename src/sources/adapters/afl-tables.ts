@@ -14,6 +14,9 @@ import type {
   Ladder,
   LadderQuery,
   Match,
+  MatchCoachAssignment,
+  MatchCoachesQuery,
+  MatchCoachesResult,
   MatchQuery,
   Player,
   PlayerStatsQuery,
@@ -24,8 +27,10 @@ import type {
   TeamStatsQuery,
 } from "../../types";
 import { AflTablesClient } from "../afl-tables";
+import { MatchCoachesClient } from "../match-coaches";
 import type {
   LadderSource,
+  MatchCoachesSource,
   MatchSource,
   PlayerStatsSource,
   SquadSource,
@@ -38,6 +43,31 @@ const AFL_TABLES_PLAYER_STATS_COVERAGE: CoverageMap = new Map([["AFLM", { minSea
 const AFL_TABLES_TEAM_STATS_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 1965 }]]);
 const AFL_TABLES_LADDER_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 1897 }]]);
 const AFL_TABLES_SQUAD_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 1897 }]]);
+const AFL_TABLES_MATCH_COACHES_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 1990 }]]);
+
+/** AFL Tables as the primary credited match-coach source (AFLM 1990+). */
+export class AflTablesMatchCoachesSource implements MatchCoachesSource {
+  readonly id = "afl-tables" as const;
+  readonly coverage = AFL_TABLES_MATCH_COACHES_COVERAGE;
+
+  constructor(private readonly client: MatchCoachesClient = new MatchCoachesClient()) {}
+
+  async fetchMatchCoaches(query: MatchCoachesQuery): Promise<Result<MatchCoachesResult, Error>> {
+    const result = await this.client.fetchAflTablesSeason(query.season, query.batch);
+    if (!result.success) return result;
+    const assignments: MatchCoachAssignment[] = result.data.assignments.filter(
+      (assignment) =>
+        query.team === undefined ||
+        normaliseTeamName(assignment.team) === normaliseTeamName(query.team),
+    );
+    const failures = result.data.failures;
+    return ok({
+      assignments,
+      completeness: { complete: failures.length === 0, failures },
+      ...(result.data.batch && { batch: result.data.batch }),
+    });
+  }
+}
 
 /** AFL Tables as a MatchSource (AFLM only, 1897+). */
 export class AflTablesMatchSource implements MatchSource {

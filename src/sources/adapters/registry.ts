@@ -16,6 +16,7 @@ import type {
   CapabilityAdapter,
   LadderSource,
   LineupSource,
+  MatchCoachesSource,
   MatchSource,
   PlayerStatsSource,
   SquadSource,
@@ -56,6 +57,7 @@ export class CapabilityRegistry<I extends CapabilityAdapter> {
  * endpoint; afl-tables is the senior fallback).
  */
 export const matchRegistry = new CapabilityRegistry<MatchSource>("afl-api");
+export const matchCoachesRegistry = new CapabilityRegistry<MatchCoachesSource>("afl-tables");
 export const playerStatsRegistry = new CapabilityRegistry<PlayerStatsSource>("afl-api");
 export const teamStatsRegistry = new CapabilityRegistry<TeamStatsSource>("afl-tables");
 export const squadRegistry = new CapabilityRegistry<SquadSource>("afl-api");
