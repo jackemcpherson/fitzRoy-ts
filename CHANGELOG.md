@@ -7,7 +7,37 @@ The project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ## [Unreleased]
 
-No unreleased changes.
+No changes yet.
+
+## [6.0.0] - 2026-10-04
+
+See [the version 6 migration guide](docs/migration-v6.md) for explicit season selectors.
+
+### Added in 6.0.0
+
+- Added `fetchSeasons(competition)` and `fitzroy seasons` to discover canonical
+  season keys, calendar years, display names and provider season IDs.
+- Public season-scoped results include `seasonKey` while retaining numeric `season`.
+
+### Changed in 6.0.0
+
+- AFLW `2022` is ambiguous and returns `AmbiguousSeasonError` listing
+  `2022-S6` and `2022-S7`. Select either key in `season` or `--season`.
+- Default season selection preserves the competition season, including both
+  AFLW 2022 seasons. Unavailable chronology requires an explicit season instead
+  of guessing from the calendar. Match-ID statistics and lineup requests validate
+  membership.
+- AFL API season statistics retain successful matches and report failures in
+  `failedMatchIds`.
+- The pinned January 2022 Fryzigg snapshot supports AFLW season six only.
+  Season seven requests return an error instead of relabelling season six.
+- AFLW coaches votes for explicit 2022 seasons remain unsupported because the
+  upstream year-based selector has no verified mapping.
+
+### Fixed in 6.0.0
+
+- Interchange position `INT` no longer marks a player as a substitute. Only
+  an explicit `SUB` designation does so. Emergencies retain their own flag.
 
 ## [5.0.0] - 2026-10-04
 

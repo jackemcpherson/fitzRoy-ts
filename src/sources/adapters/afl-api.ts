@@ -1,3 +1,4 @@
+import { seasonYear } from "../../lib/seasons";
 /**
  * AFL API source adapters.
  *
@@ -68,7 +69,7 @@ export class AflApiMatchSource implements MatchSource {
         ? await this.client.fetchRoundMatchItemsByNumber(seasonResult.data, query.round)
         : await this.client.fetchSeasonMatchItems(seasonResult.data, { includeUpcoming });
     if (!itemsResult.success) return itemsResult;
-    return ok(transformMatchItems(itemsResult.data, query.season, competition));
+    return ok(transformMatchItems(itemsResult.data, seasonYear(query.season), competition));
   }
 }
 
@@ -83,6 +84,21 @@ export class AflApiPlayerStatsSource implements PlayerStatsSource {
     const competition = query.competition ?? "AFLM";
 
     if (query.matchId) {
+      const scope = await this.client.resolveCompSeason(competition, query.season);
+      if (!scope.success) return scope;
+      const inventory = await this.client.fetchSeasonMatchItems(scope.data, {
+        includeUpcoming: true,
+      });
+      if (!inventory.success) return inventory;
+      const member = inventory.data.find((item) => item.match.matchId === query.matchId);
+      if (!member || (query.round !== undefined && member.round?.roundNumber !== query.round)) {
+        return err(
+          new ValidationError(
+            `Match ${query.matchId} does not belong to ${competition} ${query.season} within the requested round`,
+          ),
+        );
+      }
+
       const [rosterResult, statsResult] = await Promise.all([
         this.client.fetchMatchRoster(query.matchId),
         this.client.fetchPlayerStats(query.matchId),
@@ -99,8 +115,8 @@ export class AflApiPlayerStatsSource implements PlayerStatsSource {
       return ok({
         stats: transformPlayerStats(statsResult.data, {
           matchId: query.matchId,
-          season: query.season,
-          roundNumber: query.round ?? 0,
+          season: seasonYear(query.season),
+          roundNumber: member.round?.roundNumber ?? 0,
           competition,
           source: "afl-api",
           teamIdMap,
@@ -128,22 +144,21 @@ export class AflApiPlayerStatsSource implements PlayerStatsSource {
       this.client.fetchPlayerStats(item.match.matchId),
     );
 
-    // Unlike the scraper sources, a single failed match here fails the whole
-    // season — the AFL API is a structured endpoint where per-match failures
-    // indicate a real problem rather than routine scrape flakiness, so the
-    // envelope's failedMatchIds stays empty for this source.
+    // Isolate failed matches and preserve every successful provider response.
     const allStats: PlayerStats[] = [];
+    const failedMatchIds: string[] = [];
     for (let i = 0; i < statsResults.length; i++) {
       const statsResult = statsResults[i];
-      if (!statsResult?.success) {
-        return statsResult ?? err(new AflApiError("Missing stats result"));
-      }
       const item = matchItemsResult.data[i];
       if (!item) continue;
+      if (!statsResult?.success) {
+        failedMatchIds.push(item.match.matchId);
+        continue;
+      }
       allStats.push(
         ...transformPlayerStats(statsResult.data, {
           matchId: item.match.matchId,
-          season: query.season,
+          season: seasonYear(query.season),
           roundNumber: item.round?.roundNumber ?? query.round ?? 0,
           competition,
           source: "afl-api",
@@ -155,7 +170,7 @@ export class AflApiPlayerStatsSource implements PlayerStatsSource {
       );
     }
 
-    return ok({ stats: allStats, failedMatchIds: [] });
+    return ok({ stats: allStats, failedMatchIds });
   }
 }
 
@@ -204,7 +219,7 @@ export class AflApiSquadSource implements SquadSource {
     return ok({
       teamId: String(teamIdResult.data),
       teamName,
-      season: query.season,
+      season: seasonYear(query.season),
       scope: "season",
       players,
       competition,
@@ -240,9 +255,26 @@ export class AflApiLineupSource implements LineupSource {
     const competition = query.competition ?? "AFLM";
 
     if (query.matchId) {
+      const scope = await this.client.resolveCompSeason(competition, query.season);
+      if (!scope.success) return scope;
+      const inventory = await this.client.fetchSeasonMatchItems(scope.data, {
+        includeUpcoming: true,
+      });
+      if (!inventory.success) return inventory;
+      const member = inventory.data.find((item) => item.match.matchId === query.matchId);
+      if (!member || (query.round !== undefined && member.round?.roundNumber !== query.round)) {
+        return err(
+          new ValidationError(
+            `Match ${query.matchId} does not belong to ${competition} ${query.season} within the requested round`,
+          ),
+        );
+      }
+
       const rosterResult = await this.client.fetchMatchRoster(query.matchId);
       if (!rosterResult.success) return rosterResult;
-      return ok([transformMatchRoster(rosterResult.data, query.season, query.round, competition)]);
+      return ok([
+        transformMatchRoster(rosterResult.data, seasonYear(query.season), query.round, competition),
+      ]);
     }
 
     const seasonResult = await this.client.resolveCompSeason(competition, query.season);
@@ -265,7 +297,9 @@ export class AflApiLineupSource implements LineupSource {
     const lineups: Lineup[] = [];
     for (const rosterResult of rosterResults) {
       if (!rosterResult.success) return rosterResult;
-      lineups.push(transformMatchRoster(rosterResult.data, query.season, query.round, competition));
+      lineups.push(
+        transformMatchRoster(rosterResult.data, seasonYear(query.season), query.round, competition),
+      );
     }
 
     return ok(lineups);
@@ -325,7 +359,7 @@ export class AflApiLadderSource implements LadderSource {
     const entries = firstLadder ? transformLadderEntries(firstLadder.entries) : [];
 
     return ok({
-      season: query.season,
+      season: seasonYear(query.season),
       roundNumber: ladderResult.data.round?.roundNumber ?? null,
       entries,
       competition,

@@ -128,6 +128,8 @@ export interface Match {
   /** Provider-assigned match identifier (e.g. AFL API `matchProviderId`). */
   readonly matchId: string;
   readonly season: number;
+  /** Canonical competition-season identity, populated by public fetch APIs. */
+  readonly seasonKey?: string;
   readonly roundNumber: number;
   readonly roundType: RoundType;
   /**
@@ -274,6 +276,8 @@ export interface Match {
 export interface PlayerStats {
   readonly matchId: string;
   readonly season: number;
+  /** Canonical competition-season identity, populated by public fetch APIs. */
+  readonly seasonKey?: string;
   readonly roundNumber: number;
   readonly team: string;
   readonly competition: CompetitionCode;
@@ -393,13 +397,10 @@ export interface PlayerStats {
  * Total failure of the season-level request itself (e.g. the season page
  * is unreachable) is still reported as an `err` Result, not an envelope.
  *
- * **Per-source semantics:** scraper sources (`afl-tables`, `footywire`) return
- * partial results — `stats` contains every game that scraped successfully and
- * `failedMatchIds` lists the rest. The `afl-api` source is fail-fast: any
- * per-match failure aborts and is returned as an `err` Result, so on an `ok`
- * Result `failedMatchIds` is always empty for that source. The asymmetry is
- * intentional — see ADR-0003 for the reasoning (scrapers fail often; the API
- * doesn't).
+ * Season-wide AFL API and scraper requests preserve successful matches and
+ * list individual failures in `failedMatchIds`. A single-match failure remains
+ * an error Result. No caller needs to discard successful matches after a
+ * different match fails. Adapter loops remain source-specific (ADR-0003).
  */
 export interface SeasonPlayerStats {
   /** Per-player stat lines for every game that was fetched successfully. */
@@ -433,6 +434,8 @@ export interface LineupPlayer {
 export interface Lineup {
   readonly matchId: string;
   readonly season: number;
+  /** Canonical competition-season identity, populated by public fetch APIs. */
+  readonly seasonKey?: string;
   readonly roundNumber: number;
   readonly homeTeam: string;
   readonly awayTeam: string;
@@ -465,6 +468,8 @@ export interface LadderEntry {
 /** Season ladder snapshot (optionally for a specific round). */
 export interface Ladder {
   readonly season: number;
+  /** Canonical competition-season identity, populated by public fetch APIs. */
+  readonly seasonKey?: string;
   readonly roundNumber: number | null;
   readonly entries: readonly LadderEntry[];
   readonly competition: CompetitionCode;
@@ -543,6 +548,8 @@ export interface Squad {
   readonly teamId: string;
   readonly teamName: string;
   readonly season: number;
+  /** Canonical competition-season identity, populated by public fetch APIs. */
+  readonly seasonKey?: string;
   /** Whether players belong to the requested season or the source's all-time roster. */
   readonly scope: SquadScope;
   readonly players: readonly Player[];
@@ -590,7 +597,7 @@ export interface PlayerDetailsQuery {
   readonly source: DataSource;
   /** Team name. When omitted, returns details for all teams. */
   readonly team?: string | undefined;
-  readonly season?: number | undefined;
+  readonly season?: SeasonSelector | undefined;
   readonly current?: boolean | undefined;
   readonly competition?: CompetitionCode | undefined;
 }
@@ -606,6 +613,8 @@ export type AwardType = "brownlow" | "all-australian" | "rising-star" | "coleman
 export interface BrownlowVote {
   readonly type: "brownlow";
   readonly season: number;
+  /** Canonical competition-season identity, populated by public fetch APIs. */
+  readonly seasonKey?: string;
   readonly competition: CompetitionCode;
   /** Adapter that scraped this vote tally (#120). */
   readonly source: DataSource;
@@ -633,6 +642,8 @@ export interface BrownlowVote {
 export interface AllAustralianSelection {
   readonly type: "all-australian";
   readonly season: number;
+  /** Canonical competition-season identity, populated by public fetch APIs. */
+  readonly seasonKey?: string;
   readonly competition: CompetitionCode;
   /** Adapter that scraped this selection (#120). */
   readonly source: DataSource;
@@ -646,6 +657,8 @@ export interface AllAustralianSelection {
 export interface RisingStarNomination {
   readonly type: "rising-star";
   readonly season: number;
+  /** Canonical competition-season identity, populated by public fetch APIs. */
+  readonly seasonKey?: string;
   readonly competition: CompetitionCode;
   /** Adapter that scraped this nomination (#120). */
   readonly source: DataSource;
@@ -666,6 +679,8 @@ export interface RisingStarNomination {
 export interface ColemanLeader {
   readonly type: "coleman";
   readonly season: number;
+  /** Canonical competition-season identity, populated by public fetch APIs. */
+  readonly seasonKey?: string;
   readonly competition: CompetitionCode;
   /** Adapter that produced this leaderboard entry (#120). */
   readonly source: DataSource;
@@ -688,7 +703,7 @@ export type Award =
 /** Query parameters for fetching awards. */
 export interface AwardQuery {
   readonly award: AwardType;
-  readonly season: number;
+  readonly season: SeasonSelector;
   /** Coaches votes are competition-scoped; defaults to AFLM. Other awards ignore. */
   readonly competition?: CompetitionCode | undefined;
   /** Coaches votes only — narrow to a specific round. */
@@ -715,6 +730,8 @@ export interface AwardResult {
 export interface CoachesVote {
   readonly type: "coaches";
   readonly season: number;
+  /** Canonical competition-season identity, populated by public fetch APIs. */
+  readonly seasonKey?: string;
   readonly competition: CompetitionCode;
   /** Adapter that scraped this vote line (#120). */
   readonly source: DataSource;
@@ -749,7 +766,7 @@ export interface CoachesVotesResult {
 /** Query for data by season and optional round. */
 export interface SeasonRoundQuery {
   readonly source: DataSource;
-  readonly season: number;
+  readonly season: SeasonSelector;
   readonly round?: number | undefined;
   readonly competition?: CompetitionCode | undefined;
 }
@@ -765,7 +782,7 @@ export interface SeasonRoundQuery {
  */
 export interface MatchQuery {
   readonly source: DataSource;
-  readonly season: number;
+  readonly season: SeasonSelector;
   readonly round?: number | undefined;
   readonly matchId?: string | undefined;
   readonly team?: string | undefined;
@@ -776,7 +793,7 @@ export interface MatchQuery {
 /** Query for player stats (by season/round or specific match). */
 export interface PlayerStatsQuery {
   readonly source: DataSource;
-  readonly season: number;
+  readonly season: SeasonSelector;
   readonly round?: number | undefined;
   readonly matchId?: string | undefined;
   readonly competition?: CompetitionCode | undefined;
@@ -785,7 +802,7 @@ export interface PlayerStatsQuery {
 /** Query for lineup data. */
 export interface LineupQuery {
   readonly source: DataSource;
-  readonly season: number;
+  readonly season: SeasonSelector;
   readonly round: number;
   readonly matchId?: string | undefined;
   readonly competition?: CompetitionCode | undefined;
@@ -794,7 +811,7 @@ export interface LineupQuery {
 /** Query for ladder standings. */
 export interface LadderQuery {
   readonly source: DataSource;
-  readonly season: number;
+  readonly season: SeasonSelector;
   readonly round?: number | undefined;
   readonly competition?: CompetitionCode | undefined;
 }
@@ -809,7 +826,7 @@ export interface TeamQuery {
 export interface SquadQuery {
   /** Canonical team name (e.g. "Carlton"). Adapters handle their own translation. */
   readonly team: string;
-  readonly season: number;
+  readonly season: SeasonSelector;
   readonly source?: DataSource | undefined;
   readonly competition?: CompetitionCode | undefined;
 }
@@ -863,6 +880,8 @@ export interface TeamMetricSet {
  */
 export interface TeamStatsEntry {
   readonly season: number;
+  /** Canonical competition-season identity, populated by public fetch APIs. */
+  readonly seasonKey?: string;
   readonly competition: CompetitionCode;
   readonly team: string;
   /** Games used as the denominator, or `null` when enrichment failed. */
@@ -875,8 +894,20 @@ export interface TeamStatsEntry {
 /** Query parameters for fetching team statistics. */
 export interface TeamStatsQuery {
   readonly source: DataSource;
-  readonly season: number;
+  readonly season: SeasonSelector;
   /** Competition to query. Defaults to `AFLM`. */
   readonly competition?: CompetitionCode | undefined;
   readonly summaryType?: TeamStatsSummaryType | undefined;
+}
+
+/** Canonical season key or an unambiguous numeric calendar year. */
+export type SeasonSelector = number | `${number}` | "2022-S6" | "2022-S7";
+
+/** Provider-backed identity of one competition season. */
+export interface CompetitionSeason {
+  readonly competition: CompetitionCode;
+  readonly seasonKey: string;
+  readonly year: number;
+  readonly displayName: string;
+  readonly providerSeasonId: number;
 }

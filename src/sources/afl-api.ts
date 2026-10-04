@@ -1,3 +1,6 @@
+import { AmbiguousSeasonError } from "../lib/errors";
+import { canonicalSeasonKey, seasonYear } from "../lib/seasons";
+import type { CompetitionSeason, SeasonSelector } from "../types";
 /**
  * AFL API client with token authentication and typed fetch helpers.
  *
@@ -331,7 +334,7 @@ export class AflApiClient {
    * @param competitionId - The competition ID (from {@link resolveCompetitionId}).
    * @returns Array of compseason objects on success.
    */
-  private async fetchCompseasons(
+  async fetchCompseasons(
     competitionId: number,
   ): Promise<Result<Compseason[], AflApiError | ValidationError>> {
     const result = await this.fetchJson(
@@ -346,6 +349,31 @@ export class AflApiClient {
     return ok(result.data.compSeasons);
   }
 
+  /** Discover canonical identities from the competition's provider season list. */
+  async fetchSeasons(code: CompetitionCode): Promise<Result<CompetitionSeason[], Error>> {
+    const competition = await this.resolveCompetitionId(code);
+    if (!competition.success) return competition;
+    const result = await this.fetchCompseasons(competition.data);
+    if (!result.success) return result;
+    const seasons: CompetitionSeason[] = [];
+    for (const season of result.data) {
+      const year = parseSeasonYear(season.name);
+      if (year === null) continue;
+      const suffix =
+        code === "AFLW" && year === 2022 ? /Season ([67])\b/.exec(season.name)?.[1] : undefined;
+      if (code === "AFLW" && year === 2022 && !suffix)
+        return err(new ValidationError("Unrecognised AFLW 2022 provider season"));
+      seasons.push({
+        competition: code,
+        seasonKey: suffix ? `${year}-S${suffix}` : String(year),
+        year,
+        displayName: season.name,
+        providerSeasonId: season.id,
+      });
+    }
+    return ok(seasons);
+  }
+
   /**
    * Resolve a season (compseason) ID from a competition ID and year.
    *
@@ -355,23 +383,33 @@ export class AflApiClient {
    */
   async resolveSeasonId(
     competitionId: number,
-    year: number,
-  ): Promise<Result<number, AflApiError | ValidationError>> {
+    year: SeasonSelector,
+  ): Promise<Result<number, Error>> {
     const result = await this.fetchCompseasons(competitionId);
 
     if (!result.success) {
       return result;
     }
 
-    // Anchor the year with word boundaries — a bare substring match would
-    // also hit a year embedded in a longer number (COR-10).
-    const yearPattern = new RegExp(`\\b${String(year)}\\b`);
-    const season = result.data.find((cs) => yearPattern.test(cs.name));
-
-    if (!season) {
-      return err(new AflApiError(`Season not found for year: ${year}`));
+    const matches = result.data.filter((cs) => parseSeasonYear(cs.name) === seasonYear(year));
+    const key = String(year);
+    const season = key.includes("-S")
+      ? matches.find((cs) => new RegExp(`Season ${key.slice(-1)}\\b`).test(cs.name))
+      : matches.length === 1
+        ? matches[0]
+        : undefined;
+    if (!key.includes("-S") && matches.length > 1) {
+      return err(
+        new AmbiguousSeasonError(
+          String(competitionId),
+          seasonYear(year),
+          matches.map(
+            (cs) => `${seasonYear(year)}-S${/Season (\d+)/.exec(cs.name)?.[1] ?? "unknown"}`,
+          ),
+        ),
+      );
     }
-
+    if (!season) return err(new AflApiError(`Season not found: ${key}`));
     return ok(season.id);
   }
 
@@ -399,7 +437,7 @@ export class AflApiClient {
    */
   async resolveCurrentSeason(
     code: CompetitionCode,
-  ): Promise<Result<number, AflApiError | ValidationError>> {
+  ): Promise<Result<SeasonSelector, AflApiError | ValidationError>> {
     const compResult = await this.resolveCompetitionId(code);
     if (!compResult.success) return compResult;
 
@@ -410,42 +448,33 @@ export class AflApiClient {
     const dated = seasonsResult.data
       .map((season) => ({ season, year: parseSeasonYear(season.name) }))
       .filter((entry): entry is { season: Compseason; year: number } => entry.year !== null)
-      .sort((a, b) => b.year - a.year);
+      .sort(
+        (a, b) =>
+          b.year - a.year ||
+          Number(/Season (\d+)/.exec(b.season.name)?.[1] ?? 0) -
+            Number(/Season (\d+)/.exec(a.season.name)?.[1] ?? 0),
+      );
 
     const newest = dated[0];
     if (!newest) {
       return err(new AflApiError(`No dated compseasons found for competition: ${code}`));
     }
-    const previous = dated[1];
-
-    const roundsResult = await this.resolveRounds(newest.season.id);
-    if (!roundsResult.success) return roundsResult;
-
-    // Earliest defined round start = the instant the newest season begins.
-    const startInstants = roundsResult.data
-      .flatMap((round) => (round.utcStartTime ? [new Date(round.utcStartTime).getTime()] : []))
-      .filter((instant) => Number.isFinite(instant));
-
-    if (startInstants.length === 0) {
-      return err(
-        new AflApiError(`Cannot determine season start: no round has utcStartTime (${code})`),
-      );
+    for (const candidate of dated) {
+      const roundsResult = await this.resolveRounds(candidate.season.id);
+      if (!roundsResult.success) return roundsResult;
+      const startInstants = roundsResult.data
+        .flatMap((round) => (round.utcStartTime ? [new Date(round.utcStartTime).getTime()] : []))
+        .filter((instant) => Number.isFinite(instant));
+      if (startInstants.length === 0) {
+        return err(
+          new AflApiError(`Cannot determine season start: no round has utcStartTime (${code})`),
+        );
+      }
+      if (Date.now() >= Math.min(...startInstants)) {
+        return currentSelector(code, candidate.season, candidate.year);
+      }
     }
-
-    const earliestStart = Math.min(...startInstants);
-
-    if (Date.now() >= earliestStart) {
-      // Newest season has started — it is the current / most-recent season.
-      return ok(newest.year);
-    }
-
-    // Newest season is pre-created but not yet started → most recently completed.
-    if (!previous) {
-      return err(
-        new AflApiError(`Newest season has not started and no previous season exists (${code})`),
-      );
-    }
-    return ok(previous.year);
+    return err(new AflApiError(`No dated season has started (${code})`));
   }
 
   /**
@@ -457,8 +486,10 @@ export class AflApiClient {
    */
   async resolveCompSeason(
     code: CompetitionCode,
-    year: number,
-  ): Promise<Result<number, AflApiError | ValidationError>> {
+    year: SeasonSelector,
+  ): Promise<Result<number, Error>> {
+    const key = canonicalSeasonKey(code, year);
+    if (!key.success) return key;
     const compResult = await this.resolveCompetitionId(code);
     if (!compResult.success) return compResult;
     return this.resolveSeasonId(compResult.data, year);
@@ -651,4 +682,17 @@ export class AflApiClient {
     }
     return this.fetchJson(url, LadderResponseSchema);
   }
+}
+
+function currentSelector(
+  code: CompetitionCode,
+  season: Compseason,
+  year: number,
+): Result<SeasonSelector, ValidationError> {
+  if (code === "AFLW" && year === 2022) {
+    if (/Season 6\b/.test(season.name)) return ok("2022-S6");
+    if (/Season 7\b/.test(season.name)) return ok("2022-S7");
+    return err(new ValidationError("Unknown AFLW 2022 provider season"));
+  }
+  return ok(year);
 }

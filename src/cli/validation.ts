@@ -12,6 +12,7 @@ import type {
   CompetitionCode,
   DataSource,
   MatchStatus,
+  SeasonSelector,
   TeamStatsSummaryType,
 } from "../types";
 
@@ -44,7 +45,8 @@ const VALID_GROUP_BY = ["player", "team"] as const;
 export type GroupBy = (typeof VALID_GROUP_BY)[number];
 
 /** Validate and parse a season year string. */
-export function validateSeason(raw: string): number {
+export function validateSeason(raw: string): SeasonSelector {
+  if (raw === "2022-S6" || raw === "2022-S7") return raw;
   const season = Number(raw);
   if (Number.isNaN(season) || !Number.isInteger(season)) {
     throw new Error(`Invalid season: "${raw}" — season must be a number (e.g. 2025)`);
@@ -56,7 +58,7 @@ export function validateSeason(raw: string): number {
 }
 
 /** Validate and parse an optional season year string. */
-export function validateOptionalSeason(raw: string | undefined): number | undefined {
+export function validateOptionalSeason(raw: string | undefined): SeasonSelector | undefined {
   if (raw != null) return validateSeason(raw);
   return undefined;
 }

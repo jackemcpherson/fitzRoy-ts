@@ -31,5 +31,7 @@ import type { Match, MatchQuery } from "../types";
 export async function fetchMatches(query: MatchQuery): Promise<Result<Match[], Error>> {
   const adapterR = dispatch(matchRegistry, "match", query);
   const fetchedR = await Result.flatMapAsync(adapterR, (a) => a.fetchMatches(query));
-  return Result.map(fetchedR, (matches) => filterMatches(matches, query));
+  return Result.map(fetchedR, (matches) =>
+    filterMatches(matches, query).map((match) => ({ ...match, seasonKey: String(query.season) })),
+  );
 }

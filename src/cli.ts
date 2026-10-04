@@ -14,6 +14,7 @@ const main = defineCommand({
     description: "TypeScript port of the fitzRoy R package — fetch AFL data from the command line",
   },
   subCommands: {
+    seasons: () => import("./cli/commands/seasons").then((m) => m.seasonsCommand),
     team: () => import("./cli/commands/team").then((m) => m.teamCommand),
     player: () => import("./cli/commands/player").then((m) => m.playerCommand),
     match: () => import("./cli/commands/match").then((m) => m.matchCommand),

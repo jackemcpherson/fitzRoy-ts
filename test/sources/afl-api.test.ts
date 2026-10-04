@@ -447,33 +447,35 @@ describe("AflApiClient", () => {
       }
     });
 
-    it("returns the previous year when the newest season is pre-created but not yet started (the AFLW case)", async () => {
-      // Mid-June 2025: the 2026 AFLW season is pre-created with a first round
-      // that does not start until August. The old `year - 1` heuristic would
-      // have wrongly returned 2024 here; the data-driven rule returns 2025.
+    it("skips every pre-created future season using each season's start", async () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date("2025-06-15T00:00:00.000Z"));
-
-      const compseasons = {
-        compSeasons: [
-          { id: 90, name: "2025 NAB AFLW Season" },
-          { id: 91, name: "2026 NAB AFLW Season" },
-        ],
+      const starts: Record<string, string> = {
+        "90": "2024-08-14T08:30:00.000Z",
+        "91": "2025-08-14T08:30:00.000Z",
+        "92": "2026-08-14T08:30:00.000Z",
       };
-      const rounds = {
-        rounds: [
-          { id: 1, name: "Round 1", roundNumber: 1, utcStartTime: "2025-08-14T08:30:00.000Z" },
-          { id: 2, name: "Round 2", roundNumber: 2, utcStartTime: "2025-08-21T08:30:00.000Z" },
-        ],
-      };
-      const client = new AflApiClient({ fetchFn: seasonFetch(compseasons, rounds) });
-
-      const result = await client.resolveCurrentSeason("AFLW");
-
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data).toBe(2025);
-      }
+      const fetchFn = vi.fn().mockImplementation((url: string) => {
+        const seasonId = /compseasons\/(\d+)\/rounds/.exec(url)?.[1];
+        if (seasonId)
+          return Promise.resolve(
+            mockResponse({
+              rounds: [{ id: 1, name: "Round 1", roundNumber: 1, utcStartTime: starts[seasonId] }],
+            }),
+          );
+        return Promise.resolve(
+          mockResponse({
+            compSeasons: [
+              { id: 91, name: "2025 NAB AFLW Season" },
+              { id: 90, name: "2024 NAB AFLW Season" },
+              { id: 92, name: "2026 NAB AFLW Season" },
+            ],
+          }),
+        );
+      });
+      const client = new AflApiClient({ fetchFn });
+      expect(await client.resolveCurrentSeason("AFLW")).toEqual({ success: true, data: 2024 });
+      expect(fetchFn).toHaveBeenCalledTimes(4);
     });
 
     it("returns a Result error when no round carries utcStartTime (indeterminate)", async () => {
@@ -905,6 +907,11 @@ describe("AflApiClient", () => {
       });
 
       const sharedClient = new AflApiClient({ fetchFn });
+      vi.spyOn(sharedClient, "resolveCompSeason").mockResolvedValue({ success: true, data: 73 });
+      vi.spyOn(sharedClient, "fetchSeasonMatchItems").mockResolvedValue({
+        success: true,
+        data: [{ match: rosterResponse.match, round: { roundNumber: 1 } }],
+      });
       const playerStatsAdapter = new AflApiPlayerStatsSource(sharedClient);
       const lineupAdapter = new AflApiLineupSource(sharedClient);
 

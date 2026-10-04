@@ -30,7 +30,10 @@ export async function fetchTeamStats(
   query: TeamStatsQuery,
 ): Promise<Result<TeamStatsEntry[], Error>> {
   const adapterR = dispatch(teamStatsRegistry, "team stats", query);
-  const fetched = await Result.flatMapAsync(adapterR, (a) => a.fetchTeamStats(query));
+  const fetched = Result.map(
+    await Result.flatMapAsync(adapterR, (a) => a.fetchTeamStats(query)),
+    (entries) => entries.map((entry) => ({ ...entry, seasonKey: String(query.season) })),
+  );
   if (query.summaryType !== "averages") return fetched;
   return Result.flatMap(fetched, (entries) => {
     const invalid = entries.filter((entry) => entry.gamesPlayed === null || entry.gamesPlayed <= 0);

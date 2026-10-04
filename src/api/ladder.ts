@@ -19,5 +19,6 @@ import type { Ladder, LadderQuery } from "../types";
  */
 export async function fetchLadder(query: LadderQuery): Promise<Result<Ladder, Error>> {
   const adapterR = dispatch(ladderRegistry, "ladder", query);
-  return Result.flatMapAsync(adapterR, (a) => a.fetchLadder(query));
+  const fetched = await Result.flatMapAsync(adapterR, (a) => a.fetchLadder(query));
+  return Result.map(fetched, (row) => ({ ...row, seasonKey: String(query.season) }));
 }

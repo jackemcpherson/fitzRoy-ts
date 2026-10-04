@@ -1,3 +1,4 @@
+import { seasonYear } from "../../lib/seasons";
 /**
  * FootyWire source adapters.
  *
@@ -53,7 +54,7 @@ export class FootyWireMatchCoachesSource implements MatchCoachesSource {
 
   async fetchMatchCoaches(query: MatchCoachesQuery): Promise<Result<MatchCoachesResult, Error>> {
     const matchesResult = await this.matchClient.fetchSeasonFixture(
-      query.season,
+      seasonYear(query.season),
       query.competition ?? "AFLM",
     );
     if (!matchesResult.success) return matchesResult;
@@ -81,7 +82,10 @@ export class FootyWireMatchSource implements MatchSource {
     // fetchSeasonFixture returns ALL matches (any status). fetchSeasonResults
     // returns only completed. Use the broader call so the api-layer status
     // filter applies uniformly across sources.
-    const result = await this.client.fetchSeasonFixture(query.season, query.competition ?? "AFLM");
+    const result = await this.client.fetchSeasonFixture(
+      seasonYear(query.season),
+      query.competition ?? "AFLM",
+    );
     if (!result.success) return result;
     const filtered =
       query.round != null ? result.data.filter((m) => m.roundNumber === query.round) : result.data;
@@ -104,7 +108,7 @@ export class FootyWirePlayerStatsSource implements PlayerStatsSource {
   constructor(private readonly client: FootyWireClient = new FootyWireClient()) {}
 
   async fetchPlayerStats(query: PlayerStatsQuery): Promise<Result<SeasonPlayerStats, Error>> {
-    const idsResult = await this.client.fetchSeasonMatchIds(query.season);
+    const idsResult = await this.client.fetchSeasonMatchIds(seasonYear(query.season));
     if (!idsResult.success) return idsResult;
 
     const entries =
@@ -116,7 +120,7 @@ export class FootyWirePlayerStatsSource implements PlayerStatsSource {
 
     const results = await batchedMap(
       entries,
-      (e) => this.client.fetchMatchPlayerStats(e.matchId, query.season, e.roundNumber),
+      (e) => this.client.fetchMatchPlayerStats(e.matchId, seasonYear(query.season), e.roundNumber),
       { batchSize: 5, delayMs: 500 },
     );
 
@@ -173,7 +177,7 @@ export class FootyWireSquadSource implements SquadSource {
     return ok({
       teamId: teamName,
       teamName,
-      season: query.season,
+      season: seasonYear(query.season),
       scope: "all-time",
       players,
       competition,
@@ -191,6 +195,6 @@ export class FootyWireTeamStatsSource implements TeamStatsSource {
 
   async fetchTeamStats(query: TeamStatsQuery): Promise<Result<TeamStatsEntry[], Error>> {
     const summaryType = query.summaryType ?? "totals";
-    return this.client.fetchTeamStats(query.season, summaryType);
+    return this.client.fetchTeamStats(seasonYear(query.season), summaryType);
   }
 }

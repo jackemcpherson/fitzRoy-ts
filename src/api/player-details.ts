@@ -39,11 +39,16 @@ export async function fetchPlayerDetails(
   query: PlayerDetailsQuery,
 ): Promise<Result<PlayerDetailsResult, Error>> {
   const competition = query.competition ?? "AFLM";
-  // Resolve the default season once, data-driven (current in-progress, else
-  // most recently completed — from the AFL round schedule, not the local
-  // calendar year), with the same offline fallback as the CLI. Resolving here
-  // guarantees a single lookup even on the all-teams path. (#149)
-  const season = query.season ?? (await resolveDefaultSeasonForCompetition(competition));
+  // Resolve once, preserving an explicit competition season. A failed lookup
+  // remains an error rather than substituting a calendar-year approximation.
+  let season = query.season;
+  if (season === undefined) {
+    try {
+      season = await resolveDefaultSeasonForCompetition(competition);
+    } catch (error) {
+      return err(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
 
   // Verify the chosen source actually exposes squad data before iterating.
   // Without this guard, sources like fryzigg (player-stats only) silently

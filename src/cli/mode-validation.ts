@@ -1,3 +1,4 @@
+import type { SeasonSelector } from "../types";
 /** Pure validation for CLI commands that select a mode from flag combinations. */
 
 import type { AwardType } from "../types";
@@ -41,7 +42,7 @@ export function validateStatsMode(args: StatsModeArgs): void {
 }
 
 interface TeamModeArgs {
-  readonly season?: number | undefined;
+  readonly season?: SeasonSelector | undefined;
   readonly round?: number | undefined;
   readonly name?: string | undefined;
   readonly team?: string | undefined;

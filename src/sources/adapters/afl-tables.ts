@@ -1,3 +1,4 @@
+import { seasonYear } from "../../lib/seasons";
 /**
  * AFL Tables source adapters.
  *
@@ -53,7 +54,7 @@ export class AflTablesMatchCoachesSource implements MatchCoachesSource {
   constructor(private readonly client: MatchCoachesClient = new MatchCoachesClient()) {}
 
   async fetchMatchCoaches(query: MatchCoachesQuery): Promise<Result<MatchCoachesResult, Error>> {
-    const result = await this.client.fetchAflTablesSeason(query.season, query.batch);
+    const result = await this.client.fetchAflTablesSeason(seasonYear(query.season), query.batch);
     if (!result.success) return result;
     const assignments: MatchCoachAssignment[] = result.data.assignments.filter(
       (assignment) =>
@@ -77,7 +78,7 @@ export class AflTablesMatchSource implements MatchSource {
   constructor(private readonly client: AflTablesClient = new AflTablesClient()) {}
 
   async fetchMatches(query: MatchQuery): Promise<Result<Match[], Error>> {
-    const result = await this.client.fetchSeasonResults(query.season);
+    const result = await this.client.fetchSeasonResults(seasonYear(query.season));
     if (!result.success) return result;
     const filtered =
       query.round != null ? result.data.filter((m) => m.roundNumber === query.round) : result.data;
@@ -93,7 +94,7 @@ export class AflTablesPlayerStatsSource implements PlayerStatsSource {
   constructor(private readonly client: AflTablesClient = new AflTablesClient()) {}
 
   async fetchPlayerStats(query: PlayerStatsQuery): Promise<Result<SeasonPlayerStats, Error>> {
-    const result = await this.client.fetchSeasonPlayerStats(query.season);
+    const result = await this.client.fetchSeasonPlayerStats(seasonYear(query.season));
     if (!result.success) return result;
     if (query.round != null) {
       // failedMatchIds pass through unfiltered — a failed game's round is
@@ -117,14 +118,14 @@ export class AflTablesTeamStatsSource implements TeamStatsSource {
 
   async fetchTeamStats(query: TeamStatsQuery): Promise<Result<TeamStatsEntry[], Error>> {
     const summaryType = query.summaryType ?? "totals";
-    const statsResult = await this.client.fetchTeamStats(query.season);
+    const statsResult = await this.client.fetchTeamStats(seasonYear(query.season));
     if (!statsResult.success) return statsResult;
 
     // The stats page lacks a GP column — derive from match results if needed.
     const needsGp = statsResult.data.some((entry) => entry.gamesPlayed === null);
     const gpMap = new Map<string, number>();
     if (needsGp) {
-      const resultsResult = await this.client.fetchSeasonResults(query.season);
+      const resultsResult = await this.client.fetchSeasonResults(seasonYear(query.season));
       if (resultsResult.success) {
         for (const m of resultsResult.data) {
           const home = normaliseTeamName(m.homeTeam);
@@ -223,7 +224,7 @@ export class AflTablesSquadSource implements SquadSource {
     return ok({
       teamId: teamName,
       teamName,
-      season: query.season,
+      season: seasonYear(query.season),
       scope: "all-time",
       players,
       competition,
@@ -247,7 +248,7 @@ export class AflTablesLadderSource implements LadderSource {
 
   async fetchLadder(query: LadderQuery): Promise<Result<Ladder, Error>> {
     const competition = query.competition ?? "AFLM";
-    const resultsResult = await this.client.fetchSeasonResults(query.season);
+    const resultsResult = await this.client.fetchSeasonResults(seasonYear(query.season));
     if (!resultsResult.success) return resultsResult;
 
     const entries = computeLadder(resultsResult.data, query.round ?? undefined);
@@ -263,7 +264,7 @@ export class AflTablesLadderSource implements LadderSource {
     const asOfMatch = completed[0]?.matchId ?? null;
 
     return ok({
-      season: query.season,
+      season: seasonYear(query.season),
       roundNumber: query.round ?? null,
       entries,
       competition,

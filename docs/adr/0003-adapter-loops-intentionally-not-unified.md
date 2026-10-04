@@ -29,8 +29,8 @@ The implementations differ across five important behaviours.
 
 ### Single-Match Fast Path
 
-AFL API fetches one match directly through its player-stat endpoint. Scraper
-adapters must first traverse a round or season page.
+AFL API validates a match ID against the selected competition season before
+fetching its statistics. Scraper adapters traverse a round or season page.
 
 ### Roster Preparation
 
@@ -44,9 +44,10 @@ need the scraper politeness delay.
 
 ### Failure Semantics
 
-AFL API fails on the first provider error. Scrapers return partial season
-results and identify failed matches because individual pages often disappear or
-change.
+Version 6 changes AFL API season requests to preserve successful matches and
+list failed match IDs, matching the scraper envelope. Single-match provider
+failures remain error results. The loops still differ in preparation, request
+delays and transform context, so the decision to keep them separate stands.
 
 ### Transform Context
 
