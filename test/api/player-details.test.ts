@@ -127,47 +127,21 @@ describe("fetchPlayerDetails default-season resolution (#149)", () => {
     vi.mocked(fetchSquad).mockReset();
   });
 
-  it("resolves the omitted season via the data-driven resolver (offline fallback), not new Date().getFullYear()", async () => {
-    // Mid-June 2025: new Date().getFullYear() === 2025. Force the data-driven
-    // resolver's network lookup to fail (every fetch returns 500) so
-    // resolveDefaultSeasonForCompetition falls back to the sync
-    // resolveDefaultSeason("AFLW") = year - 1 = 2024. Asserting 2024 (not the
-    // calendar year 2025) flowed into fetchSquad proves the default now flows
-    // through the resolver instead of a hard-coded getFullYear().
+  it("returns a provider error instead of inventing the omitted season", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2025-06-15T00:00:00.000Z"));
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(new Response("", { status: 500, statusText: "Server Error" })),
     );
-
-    const mockedFetchSquad = vi.mocked(fetchSquad);
-    // Reset first: the happy-path test above calls through the same spy, so
-    // clear its recorded call before asserting this test's call count.
-    mockedFetchSquad.mockReset();
-    mockedFetchSquad.mockResolvedValue(
-      ok({
-        teamId: "1",
-        teamName: "Carlton",
-        season: 2024,
-        scope: "season",
-        players: [],
-        competition: "AFLW",
-        source: "afl-api",
-      }),
-    );
-
+    vi.mocked(fetchSquad).mockReset();
     const result = await fetchPlayerDetails({
       source: "afl-api",
       team: "Carlton",
       competition: "AFLW",
     });
-
-    expect(result.success).toBe(true);
-    expect(mockedFetchSquad).toHaveBeenCalledTimes(1);
-    expect(mockedFetchSquad).toHaveBeenCalledWith(
-      expect.objectContaining({ team: "Carlton", competition: "AFLW", season: 2024 }),
-    );
+    expect(result.success).toBe(false);
+    expect(fetchSquad).not.toHaveBeenCalled();
   });
 });
 

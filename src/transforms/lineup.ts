@@ -8,7 +8,7 @@ import type { CompetitionCode, Lineup, LineupPlayer } from "../types";
 
 /** Position codes that indicate emergency or substitute status. */
 const EMERGENCY_POSITIONS = new Set(["EMG", "EMERG"]);
-const SUBSTITUTE_POSITIONS = new Set(["SUB", "INT"]);
+const SUBSTITUTE_POSITIONS = new Set(["SUB"]);
 
 /**
  * Transform a raw match roster into a typed Lineup object.

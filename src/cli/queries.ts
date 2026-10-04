@@ -1,3 +1,4 @@
+import type { SeasonSelector } from "../types";
 /**
  * Helpers to build typed library query objects from validated CLI args.
  *
@@ -27,7 +28,7 @@ import type {
 /** Common shape produced by validating the standard CLI flag set. */
 export interface ValidatedCommonArgs {
   readonly source: DataSource;
-  readonly season: number;
+  readonly season: SeasonSelector;
   readonly round?: number | undefined;
   readonly competition: CompetitionCode;
   readonly team?: string | undefined;

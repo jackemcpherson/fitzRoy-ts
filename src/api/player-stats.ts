@@ -38,5 +38,13 @@ export async function fetchPlayerStats(
 ): Promise<Result<SeasonPlayerStats, Error>> {
   const adapterR = dispatch(playerStatsRegistry, "player stats", query);
   const fetched = await Result.flatMapAsync(adapterR, (a) => a.fetchPlayerStats(query));
-  return Result.map(fetched, (result) => filterSeasonPlayerStats(result, query.matchId));
+  return Result.map(fetched, (result) =>
+    filterSeasonPlayerStats(
+      {
+        ...result,
+        stats: result.stats.map((row) => ({ ...row, seasonKey: String(query.season) })),
+      },
+      query.matchId,
+    ),
+  );
 }

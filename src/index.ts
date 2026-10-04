@@ -18,7 +18,7 @@ export { fetchMatches } from "./api/match";
 export { fetchMatchCoaches } from "./api/match-coaches";
 export { fetchPlayerDetails } from "./api/player-details";
 export { fetchPlayerStats } from "./api/player-stats";
-export { resolveDefaultSeasonForCompetition } from "./api/season";
+export { fetchSeasons, resolveDefaultSeasonForCompetition } from "./api/season";
 export { fetchTeamStats } from "./api/team-stats";
 export { fetchSquad, fetchTeams } from "./api/teams";
 export {
@@ -30,6 +30,7 @@ export {
 } from "./lib/date-utils";
 export {
   AflApiError,
+  AmbiguousSeasonError,
   DstGapError,
   OutOfRangeError,
   ScrapeError,
@@ -67,6 +68,7 @@ export type {
   CoachesVotesResult,
   ColemanLeader,
   CompetitionCode,
+  CompetitionSeason,
   DataSource,
   Ladder,
   LadderEntry,
@@ -92,6 +94,7 @@ export type {
   RoundType,
   SeasonPlayerStats,
   SeasonRoundQuery,
+  SeasonSelector,
   Squad,
   SquadQuery,
   SquadScope,

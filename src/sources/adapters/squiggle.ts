@@ -1,3 +1,4 @@
+import { seasonYear } from "../../lib/seasons";
 /**
  * Squiggle source adapters.
  *
@@ -31,9 +32,13 @@ export class SquiggleMatchSource implements MatchSource {
     // []. For other statuses fetch everything and let the API layer's
     // filterMatches do the filtering.
     const complete = query.status === "Complete" ? 100 : undefined;
-    const result = await this.client.fetchGames(query.season, query.round ?? undefined, complete);
+    const result = await this.client.fetchGames(
+      seasonYear(query.season),
+      query.round ?? undefined,
+      complete,
+    );
     if (!result.success) return result;
-    return ok(transformSquiggleGamesToFixture(result.data.games, query.season));
+    return ok(transformSquiggleGamesToFixture(result.data.games, seasonYear(query.season)));
   }
 }
 
@@ -46,10 +51,13 @@ export class SquiggleLadderSource implements LadderSource {
 
   async fetchLadder(query: LadderQuery): Promise<Result<Ladder, Error>> {
     const competition = query.competition ?? "AFLM";
-    const result = await this.client.fetchStandings(query.season, query.round ?? undefined);
+    const result = await this.client.fetchStandings(
+      seasonYear(query.season),
+      query.round ?? undefined,
+    );
     if (!result.success) return result;
     return ok({
-      season: query.season,
+      season: seasonYear(query.season),
       roundNumber: query.round ?? null,
       entries: transformSquiggleStandings(result.data.standings),
       competition,

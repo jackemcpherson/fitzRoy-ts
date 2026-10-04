@@ -206,3 +206,26 @@ output envelopes, and partial-failure behaviour.
 ## License
 
 [MIT](LICENSE)
+
+## Explicit competition seasons in version 6
+
+Use `fetchSeasons(competition)` to discover canonical season keys, calendar
+years, display names and provider season IDs. Ordinary seasons accept either
+`2026` or `"2026"`. AFLW's two 2022 seasons require `"2022-S6"` or `"2022-S7"`.
+A bare AFLW `2022` returns `AmbiguousSeasonError` with `validSelectors`.
+Competition remains separate from the season key.
+
+```typescript
+import { fetchMatches, fetchSeasons } from "fitzroy";
+
+const seasons = await fetchSeasons("AFLW");
+const matches = await fetchMatches({
+  source: "afl-api",
+  competition: "AFLW",
+  season: "2022-S7",
+});
+```
+
+The `seasons` CLI command exposes discovery. Match-ID shortcuts validate the
+selected competition and season. Returned records retain the numeric calendar
+year and add `seasonKey`. Use that key when joining or grouping season data.

@@ -13,7 +13,8 @@
  */
 
 import { err, ok, type Result } from "../../lib/result";
-import type { CompetitionCode, DataSource } from "../../types";
+import { canonicalSeasonKey, seasonYear } from "../../lib/seasons";
+import type { CompetitionCode, DataSource, SeasonSelector } from "../../types";
 import type { CapabilityAdapter } from "./capabilities";
 import { checkCoverage, findAlternativeSource, unsupportedSourceForOperation } from "./coverage";
 import type { CapabilityRegistry } from "./registry";
@@ -22,7 +23,7 @@ import type { CapabilityRegistry } from "./registry";
 export interface DispatchQuery {
   readonly source: DataSource;
   readonly competition?: CompetitionCode | undefined;
-  readonly season: number;
+  readonly season: SeasonSelector;
 }
 
 /**
@@ -53,15 +54,17 @@ export function dispatch<I extends CapabilityAdapter>(
   const alternative = findAlternativeSource(registry.all(), {
     source: query.source,
     competition,
-    season: query.season,
+    season: seasonYear(query.season),
   });
   const suggestion = alternative ? `--source ${alternative}` : undefined;
   const coverage = checkCoverage(
     adapter.coverage,
-    { source: query.source, operation, competition, season: query.season },
+    { source: query.source, operation, competition, season: seasonYear(query.season) },
     suggestion,
   );
   if (!coverage.success) return coverage;
+  const identity = canonicalSeasonKey(competition, query.season);
+  if (!identity.success) return identity;
 
   return ok(adapter);
 }

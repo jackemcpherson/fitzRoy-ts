@@ -4,21 +4,20 @@
  * The authoritative resolution is data-driven: it asks the AFL API which
  * season is current (in-progress) or, failing that, most recently completed —
  * derived from the round schedule, not the local calendar year (see
- * {@link AflApiClient.resolveCurrentSeason}). When the AFL API is unreachable
- * or cannot determine the season, this falls back to the clock-based
- * approximation in {@link resolveDefaultSeason} so the CLI still works offline.
+ * {@link AflApiClient.resolveCurrentSeason}). If chronology is unavailable,
+ * callers must choose an explicit season.
  */
 
-import { resolveDefaultSeason } from "../lib/date-utils";
 import { aflApiClient } from "../sources/adapters/index";
-import type { CompetitionCode } from "../types";
+import type { CompetitionCode, CompetitionSeason, SeasonSelector } from "../types";
 
 /**
  * Resolve the default season for a competition from the AFL's round schedule,
- * falling back to the calendar-based approximation when the lookup fails.
+ * preserving the canonical selector and failing when chronology is unavailable.
  *
  * @param competition - The competition code (defaults to "AFLM").
- * @returns The resolved season year (data-driven, else the offline fallback).
+ * @returns The season selector established by provider chronology.
+ * @throws The provider error if the season cannot be established.
  *
  * @example
  * ```ts
@@ -27,10 +26,26 @@ import type { CompetitionCode } from "../types";
  */
 export async function resolveDefaultSeasonForCompetition(
   competition: CompetitionCode = "AFLM",
-): Promise<number> {
+): Promise<SeasonSelector> {
   const result = await aflApiClient.resolveCurrentSeason(competition);
   if (result.success) {
     return result.data;
   }
-  return resolveDefaultSeason(competition);
+  throw result.error;
+}
+
+/**
+ * Discover canonical competition seasons and their provider mappings.
+ * @param competition - Competition whose provider season list should be read.
+ * @returns Season keys, calendar years, display names and provider season IDs,
+ * or an error Result when discovery or identity validation fails.
+ * @example
+ * ```ts
+ * const seasons = await fetchSeasons("AFLW");
+ * ```
+ */
+export async function fetchSeasons(
+  competition: CompetitionCode,
+): Promise<import("../lib/result").Result<CompetitionSeason[], Error>> {
+  return aflApiClient.fetchSeasons(competition);
 }

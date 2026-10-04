@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MatchRoster } from "../../src/lib/validation";
 import { transformMatchRoster } from "../../src/transforms/lineup";
+import capturedRoster from "../fixtures/grand-final-2026-roster.json";
 
 function makeRoster(overrides?: Partial<MatchRoster>): MatchRoster {
   return {
@@ -91,15 +92,25 @@ describe("transformMatchRoster", () => {
     expect(p?.matchPosition).toBe("FWD");
   });
 
-  it("identifies substitute positions", () => {
+  it("keeps interchange players separate from substitutes", () => {
     const lineup = transformMatchRoster(makeRoster(), 2025, 1, "AFLM");
     const fwd = lineup.homePlayers[0];
     const int = lineup.homePlayers[1];
 
     expect(fwd?.isSubstitute).toBe(false);
     expect(fwd?.isEmergency).toBe(false);
-    expect(int?.isSubstitute).toBe(true);
+    expect(int?.isSubstitute).toBe(false);
     expect(int?.isEmergency).toBe(false);
+  });
+
+  it("recognises an explicit substitute designation", () => {
+    const roster = makeRoster();
+    const player = roster.teamPlayers[0]?.players[1];
+    if (!player) throw new Error("Missing fixture participant");
+    player.player.position = "SUB";
+    const lineup = transformMatchRoster(roster, 2025, 1, "AFLM");
+    expect(lineup.homePlayers[1]?.isSubstitute).toBe(true);
+    expect(lineup.homePlayers[1]?.isEmergency).toBe(false);
   });
 
   it("identifies emergency positions", () => {
@@ -153,4 +164,13 @@ describe("transformMatchRoster", () => {
     expect(lineup.homePlayers).toEqual([]);
     expect(lineup.awayPlayers).toEqual([]);
   });
+});
+
+it("keeps the captured Grand Final's ten interchange players out of substitute counts", () => {
+  const lineup = transformMatchRoster(capturedRoster, 2026, 29, "AFLM");
+  const players = [...lineup.homePlayers, ...lineup.awayPlayers];
+  expect(players.filter((player) => player.matchPosition === "INT")).toHaveLength(10);
+  expect(players.filter((player) => player.isSubstitute)).toHaveLength(0);
+  expect(players.filter((player) => player.isEmergency)).toHaveLength(6);
+  expect(players.filter((player) => !player.isEmergency)).toHaveLength(46);
 });

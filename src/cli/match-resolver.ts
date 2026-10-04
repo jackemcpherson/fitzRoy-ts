@@ -1,3 +1,4 @@
+import type { SeasonSelector } from "../types";
 /**
  * Resolve a match identifier from CLI args.
  *
@@ -29,7 +30,7 @@ export interface MatchResolverInput {
   readonly matchArg?: string | undefined;
   readonly source: DataSource;
   readonly competition: CompetitionCode;
-  readonly season: number;
+  readonly season: SeasonSelector;
   readonly round: number | undefined;
 }
 

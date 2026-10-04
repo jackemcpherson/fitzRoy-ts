@@ -126,3 +126,15 @@ export class DstGapError extends Error {
     super(message);
   }
 }
+
+/** A calendar year identifies multiple competition seasons. */
+export class AmbiguousSeasonError extends Error {
+  override readonly name = "AmbiguousSeasonError";
+  constructor(
+    readonly competition: string,
+    readonly year: number,
+    readonly validSelectors: readonly string[],
+  ) {
+    super(`Ambiguous ${competition} season ${year}; choose ${validSelectors.join(" or ")}`);
+  }
+}

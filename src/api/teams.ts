@@ -101,5 +101,6 @@ export async function fetchSquad(query: SquadQuery): Promise<Result<Squad, Error
     competition: query.competition,
     season: query.season,
   });
-  return Result.flatMapAsync(adapterR, (a) => a.fetchSquad({ ...query, source }));
+  const fetched = await Result.flatMapAsync(adapterR, (a) => a.fetchSquad({ ...query, source }));
+  return Result.map(fetched, (row) => ({ ...row, seasonKey: String(query.season) }));
 }

@@ -1,6 +1,6 @@
 # Command-Line Interface
 
-The Fitzroy command-line interface (CLI) has six commands. Each command writes
+The Fitzroy command-line interface (CLI) includes season discovery and data commands. Each command writes
 data to standard output. Warnings and errors use standard error.
 
 Run the general help or command help before you automate a query:
@@ -220,3 +220,16 @@ standard error and exits with status 1. It does not print a stack trace.
 Partial results exit successfully because they contain usable rows. The CLI
 prints one completeness warning on standard error. Machine-readable standard
 output remains valid JSON or CSV.
+
+## Season selectors
+
+```shell
+fitzroy seasons --competition AFLW --json
+fitzroy match --competition AFLW --season 2022-S6 --json
+fitzroy match --competition AFLW --season 2022-S7 --json
+```
+
+Ordinary seasons continue to accept `--season 2026`. AFLW `--season 2022`
+is ambiguous and fails with the valid alternatives. Use the canonical key in
+matches, statistics, lineups, ladders, squads and applicable awards. A match ID
+must belong to the selected competition and season.

@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchLineup } from "../../src/api/lineup";
+import { aflApiClient } from "../../src/sources/adapters/index";
 
 const ROSTER_FIXTURE = resolve(__dirname, "../fixtures/afl-api-match-roster-2025.json");
 const rosterJson = readFileSync(ROSTER_FIXTURE, "utf-8");
@@ -23,10 +24,16 @@ function buildMockFetch(): typeof fetch {
 describe("fetchLineup public API", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it("returns a one-element Lineup array for an explicit matchId", async () => {
     vi.stubGlobal("fetch", buildMockFetch());
+    vi.spyOn(aflApiClient, "resolveCompSeason").mockResolvedValue({ success: true, data: 73 });
+    vi.spyOn(aflApiClient, "fetchSeasonMatchItems").mockResolvedValue({
+      success: true,
+      data: [{ match: JSON.parse(rosterJson).match, round: { roundNumber: 1 } }],
+    });
 
     const result = await fetchLineup({
       source: "afl-api",

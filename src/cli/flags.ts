@@ -5,21 +5,21 @@
  * so that all commands share a consistent interface.
  */
 
-/** Season year flag (required). */
+/** Competition season selector flag (required). */
 export const SEASON_FLAG = {
   season: {
     type: "string" as const,
-    description: "Season year (e.g. 2025)",
+    description: "Season key (e.g. 2026, AFLW 2022-S6 or 2022-S7)",
     required: true,
     alias: "s",
   },
 } as const;
 
-/** Season year flag (optional). */
+/** Competition season selector flag (optional). */
 export const OPTIONAL_SEASON_FLAG = {
   season: {
     type: "string" as const,
-    description: "Season year (e.g. 2025)",
+    description: "Season key (e.g. 2026, AFLW 2022-S6 or 2022-S7)",
     alias: "s",
   },
 } as const;
