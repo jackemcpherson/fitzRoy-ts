@@ -207,7 +207,7 @@ output envelopes, and partial-failure behaviour.
 
 [MIT](LICENSE)
 
-## Explicit competition seasons in version 6
+## Explicit Competition Seasons in Version 6
 
 Use `fetchSeasons(competition)` to discover canonical season keys, calendar
 years, display names and provider season IDs. Ordinary seasons accept either

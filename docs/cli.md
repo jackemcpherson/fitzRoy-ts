@@ -1,7 +1,8 @@
 # Command-Line Interface
 
-The Fitzroy command-line interface (CLI) includes season discovery and data commands. Each command writes
-data to standard output. Warnings and errors use standard error.
+The Fitzroy command-line interface (CLI) includes season discovery and data
+commands. Each command writes data to standard output. Warnings and errors use
+standard error.
 
 Run the general help or command help before you automate a query:
 
@@ -221,7 +222,7 @@ Partial results exit successfully because they contain usable rows. The CLI
 prints one completeness warning on standard error. Machine-readable standard
 output remains valid JSON or CSV.
 
-## Season selectors
+## Season Selectors
 
 ```shell
 fitzroy seasons --competition AFLW --json
