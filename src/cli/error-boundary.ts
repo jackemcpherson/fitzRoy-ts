@@ -1,75 +1,81 @@
 /**
- * CLI error formatting — converts errors into human-readable, coloured messages.
+ * CLI error boundary — runs command programs and formats their failures
+ * into human-readable, coloured messages (no stack traces).
  */
 
+import type { ArgsDef, CommandContext, ParsedArgs } from "citty";
+import { Cause, Effect, Exit, Match, Result } from "effect";
 import pc from "picocolors";
-import {
-  AflApiError,
-  OutOfRangeError,
-  ScrapeError,
-  UnsupportedCompetitionError,
-  UnsupportedSourceError,
-  ValidationError,
-} from "../lib/errors";
+import type { CliFailure } from "./errors";
+import { type CliServices, cliRuntime } from "./runtime";
 
-/** Format an error into a human-readable, coloured message (no stack trace). */
-export function formatError(error: unknown): string {
-  if (error instanceof ValidationError && error.issues) {
-    const issueLines = error.issues.map((i) => `  ${pc.yellow(i.path)}: ${i.message}`);
+/** Format a non-empty optional suffix, or nothing when the value is absent or empty. */
+function suffix(value: string | number | undefined, render: (present: string) => string): string {
+  return value ? render(String(value)) : "";
+}
 
-    return `${pc.red("Validation error:")}\n${issueLines.join("\n")}`;
-  }
+/** Format an expected failure into a human-readable, coloured message. */
+export const formatError: (error: CliFailure) => string = Match.type<CliFailure>().pipe(
+  Match.tag("ValidationError", (error) =>
+    error.issues
+      ? `${pc.red("Validation error:")}\n${error.issues
+          .map((i) => `  ${pc.yellow(i.path)}: ${i.message}`)
+          .join("\n")}`
+      : `${pc.red("Error:")} ${error.message}`,
+  ),
+  Match.tag(
+    "AflApiError",
+    (error) =>
+      `${pc.red("AFL API error:")} ${error.message}${suffix(error.statusCode, (s) => ` (HTTP ${s})`)}`,
+  ),
+  Match.tag(
+    "ScrapeError",
+    (error) =>
+      `${pc.red("Scrape error:")} ${error.message}${suffix(error.source, (s) => ` [${s}]`)}`,
+  ),
+  Match.tag("UnsupportedSourceError", (error) => `${pc.red("Unsupported source:")} ${error.message}`),
+  Match.tag(
+    "UnsupportedCompetitionError",
+    (error) =>
+      `${pc.red("Unsupported competition:")} ${error.message}${suffix(error.suggestion, (s) => `\n  ${pc.cyan("Try:")} ${s}`)}`,
+  ),
+  Match.tag(
+    "OutOfRangeError",
+    (error) =>
+      `${pc.red("Season out of range:")} ${error.message}${suffix(error.suggestion, (s) => `\n  ${pc.cyan("Try:")} ${s}`)}`,
+  ),
+  Match.orElse((error) => `${pc.red("Error:")} ${error.message}`),
+);
 
-  if (error instanceof AflApiError) {
-    const status = error.statusCode ? ` (HTTP ${error.statusCode})` : "";
+/**
+ * Format a failed program's cause. An expected failure uses
+ * {@link formatError}; a defect or interruption prints `Error: <message>`.
+ */
+export function formatCause(cause: Cause.Cause<CliFailure>): string {
+  const failure = Cause.findError(cause);
 
-    return `${pc.red("AFL API error:")} ${error.message}${status}`;
-  }
+  if (Result.isSuccess(failure)) return formatError(failure.success);
+  const defect = Cause.squash(cause);
 
-  if (error instanceof ScrapeError) {
-    const source = error.source ? ` [${error.source}]` : "";
-
-    return `${pc.red("Scrape error:")} ${error.message}${source}`;
-  }
-
-  if (error instanceof UnsupportedSourceError) {
-    return `${pc.red("Unsupported source:")} ${error.message}`;
-  }
-
-  if (error instanceof UnsupportedCompetitionError) {
-    const suggestion = error.suggestion ? `\n  ${pc.cyan("Try:")} ${error.suggestion}` : "";
-
-    return `${pc.red("Unsupported competition:")} ${error.message}${suggestion}`;
-  }
-
-  if (error instanceof OutOfRangeError) {
-    const suggestion = error.suggestion ? `\n  ${pc.cyan("Try:")} ${error.suggestion}` : "";
-
-    return `${pc.red("Season out of range:")} ${error.message}${suggestion}`;
-  }
-
-  if (error instanceof Error) {
-    return `${pc.red("Error:")} ${error.message}`;
-  }
-
-  return `${pc.red("Error:")} ${String(error)}`;
+  return `${pc.red("Error:")} ${defect instanceof Error ? defect.message : String(defect)}`;
 }
 
 /**
- * Wrap a command's `run` handler so that errors are caught, formatted,
- * and printed without stack traces. Citty's `runMain` intercepts errors
- * before the top-level `.catch()` fires, so each command needs its own
- * try/catch to guarantee clean output.
+ * Build a Citty `run` handler from a command program. The program runs on
+ * the process runtime; a failure is printed to stderr without a stack trace
+ * and exits with status 1.
  */
-export function withErrorBoundary<T extends { args: Record<string, unknown> }>(
-  fn: (ctx: T) => Promise<void>,
-): (ctx: T) => Promise<void> {
-  return async (ctx) => {
-    try {
-      await fn(ctx);
-    } catch (error: unknown) {
-      console.error(formatError(error));
+export function runCommand<A extends ArgsDef>(
+  program: (args: ParsedArgs<A>) => Effect.Effect<void, CliFailure, CliServices>,
+): (context: CommandContext<A>) => Promise<void> {
+  return async ({ args }) => {
+    const exit = await cliRuntime.runPromiseExit(Effect.suspend(() => program(args)));
+
+    if (Exit.isFailure(exit)) {
+      console.error(formatCause(exit.cause));
       process.exit(1);
     }
+
+    await cliRuntime.dispose();
   };
 }

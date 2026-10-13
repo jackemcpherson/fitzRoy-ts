@@ -10,13 +10,23 @@
  *   2. `flattenLineups` — expand Lineup records to one row per player,
  *      optionally narrowed to one side.
  *   3. `filterTeamList` — case-insensitive name/abbreviation/teamId filter
- *      for the team-list mode; throws on no match so the handler stays
+ *      for the team-list mode; fails on no match so the handler stays
  *      purely presentational.
  */
 
+import { Result } from "effect";
 import { normaliseTeamName } from "../lib/team-mapping";
-import type { Lineup, Team } from "../types";
-import { CliUsageError } from "./errors";
+import type { Lineup, LineupPlayer, Team } from "../types";
+import { usage, type Validated } from "./validation";
+
+/** One player row of a flattened lineup. */
+export type LineupRow = Pick<
+  LineupPlayer,
+  "displayName" | "jumperNumber" | "matchPosition" | "isEmergency" | "isSubstitute"
+> & {
+  readonly matchId: string;
+  readonly team: string;
+};
 
 /** Compare canonical team names without case sensitivity. */
 function teamNamesEqual(left: string, right: string): boolean {
@@ -51,8 +61,8 @@ export function filterLineupsByTeam(lineups: readonly Lineup[], teamName: string
 export function flattenLineups(
   lineups: readonly Lineup[],
   teamFilter?: string,
-): Record<string, unknown>[] {
-  const rows: Record<string, unknown>[] = [];
+): LineupRow[] {
+  const rows: LineupRow[] = [];
 
   for (const lineup of lineups) {
     for (const { players, team } of [
@@ -81,19 +91,19 @@ export function flattenLineups(
 /**
  * Filter a team list by name, abbreviation, or teamId.
  *
- * The "no match" error is thrown here rather than in the command handler so
+ * The "no match" error is produced here rather than in the command handler so
  * that `team.ts` stays purely presentational — it passes the data and the
- * query, and this function owns the match-or-throw semantics. The error
+ * query, and this function owns the match-or-fail semantics. The error
  * message lists all available teams so the caller doesn't need to reconstruct
  * the alternatives string.
  *
  * @param teams - Full team list to filter.
  * @param query - User-supplied name, abbreviation, or teamId (case-insensitive
  *   for name and abbreviation; exact-match for teamId).
- * @returns Matching teams (may be more than one when abbreviations collide).
- * @throws {Error} When no team matches `query`.
+ * @returns Matching teams (may be more than one when abbreviations collide),
+ *   or a usage error when no team matches `query`.
  */
-export function filterTeamList(teams: readonly Team[], query: string): Team[] {
+export function filterTeamList(teams: readonly Team[], query: string): Validated<Team[]> {
   const target = query.toLowerCase();
 
   const filtered = teams.filter(
@@ -104,10 +114,10 @@ export function filterTeamList(teams: readonly Team[], query: string): Team[] {
   );
 
   if (filtered.length === 0) {
-    throw new CliUsageError({
-      message: `No team matched "${query}". Available: ${teams.map((t) => `${t.name} (${t.abbreviation})`).join(", ")}`,
-    });
+    return usage(
+      `No team matched "${query}". Available: ${teams.map((t) => `${t.name} (${t.abbreviation})`).join(", ")}`,
+    );
   }
 
-  return filtered;
+  return Result.succeed(filtered);
 }

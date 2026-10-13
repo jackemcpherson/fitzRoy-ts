@@ -1,38 +1,45 @@
-import { describe, expect, it, vi } from "vite-plus/test";
-import { ok } from "../../../src/lib/result";
-import { AflTablesSquadSource } from "../../../src/sources/adapters/afl-tables";
-import { FootyWireSquadSource } from "../../../src/sources/adapters/footywire";
-import type { AflTablesClient } from "../../../src/sources/afl-tables";
-import type { FootyWireClient } from "../../../src/sources/footywire";
+import { describe, expect, it } from "@effect/vitest";
+import { Effect, Layer } from "effect";
+import { aflTablesSquadSource } from "../../../src/sources/adapters/afl-tables";
+import { footyWireSquadSource } from "../../../src/sources/adapters/footywire";
+import { AflTables } from "../../../src/sources/afl-tables";
+import { FootyWire } from "../../../src/sources/footywire";
+import { unexpectedCall } from "../../support/services";
+
+/** A FootyWire service whose player list is empty. */
+const emptyFootyWire = Layer.succeed(FootyWire, {
+  fetchPage: unexpectedCall("fetchPage"),
+  fetchSeasonResults: unexpectedCall("fetchSeasonResults"),
+  fetchMatchPlayerStats: unexpectedCall("fetchMatchPlayerStats"),
+  fetchSeasonMatchIds: unexpectedCall("fetchSeasonMatchIds"),
+  fetchPlayerList: () => Effect.succeed([]),
+  fetchSeasonFixture: unexpectedCall("fetchSeasonFixture"),
+  fetchTeamStats: unexpectedCall("fetchTeamStats"),
+});
+
+/** An AFL Tables service whose player list is empty. */
+const emptyAflTables = Layer.succeed(AflTables, {
+  fetchSeasonResults: unexpectedCall("fetchSeasonResults"),
+  fetchSeasonPlayerStats: unexpectedCall("fetchSeasonPlayerStats"),
+  fetchTeamStats: unexpectedCall("fetchTeamStats"),
+  fetchPlayerList: () => Effect.succeed([]),
+});
 
 describe("scraped squad scope", () => {
-  it.each([
-    [
-      "footywire",
-      () =>
-        new FootyWireSquadSource({
-          fetchPlayerList: vi.fn().mockResolvedValue(ok([])),
-        } as unknown as FootyWireClient),
-    ],
-    [
-      "afl-tables",
-      () =>
-        new AflTablesSquadSource({
-          fetchPlayerList: vi.fn().mockResolvedValue(ok([])),
-        } as unknown as AflTablesClient),
-    ],
-  ] as const)("stamps %s squads as all-time", async (_source, createSource) => {
-    const result = await createSource().fetchSquad({
-      source: _source,
-      team: "Carlton",
-      season: 2024,
-      competition: "AFLM",
-    });
+  it.effect.each([
+    ["footywire", footyWireSquadSource.pipe(Effect.provide(emptyFootyWire))],
+    ["afl-tables", aflTablesSquadSource.pipe(Effect.provide(emptyAflTables))],
+  ] as const)("stamps %s squads as all-time", ([source, adapter]) =>
+    Effect.gen(function* () {
+      const squad = yield* (yield* adapter).fetchSquad({
+        source,
+        team: "Carlton",
+        season: 2024,
+        competition: "AFLM",
+      });
 
-    expect(result.success).toBe(true);
-
-    if (!result.success) return;
-    expect(result.data.scope).toBe("all-time");
-    expect(result.data.season).toBe(2024);
-  });
+      expect(squad.scope).toBe("all-time");
+      expect(squad.season).toBe(2024);
+    }),
+  );
 });

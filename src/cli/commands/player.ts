@@ -9,10 +9,11 @@
  */
 
 import { defineCommand } from "citty";
+import { Effect } from "effect";
 import { fetchPlayerDetails, resolveDefaultSeasonForCompetition } from "../../index";
 import { rejectUnknownFlags } from "../command-builder";
 import { formatCompletenessOutput } from "../completeness-output";
-import { withErrorBoundary } from "../error-boundary";
+import { runCommand } from "../error-boundary";
 import {
   COMPETITION_FLAG,
   OPTIONAL_SEASON_FLAG,
@@ -55,49 +56,50 @@ export const playerCommand = defineCommand({
     description: "Fetch player biographical details (optionally filtered by team)",
   },
   args: PLAYER_ARGS,
-  run: withErrorBoundary(async ({ args }) => {
-    rejectUnknownFlags(PLAYER_ARGS, process.argv);
-    const source = validateSource(args.source);
-    const competition = validateCompetition(args.competition);
-    const explicit = validateOptionalSeason(args.season);
-    const team = args.team ? await resolveTeamNameOrPrompt(args.team) : undefined;
-    const season = explicit ?? (await resolveDefaultSeasonForCompetition(competition));
-    const format = validateFormat(args.format);
+  run: runCommand<typeof PLAYER_ARGS>((args) =>
+    Effect.gen(function* () {
+      yield* Effect.fromResult(rejectUnknownFlags(PLAYER_ARGS, process.argv));
+      const source = yield* Effect.fromResult(validateSource(args.source));
+      const competition = yield* Effect.fromResult(validateCompetition(args.competition));
+      const explicit = yield* Effect.fromResult(validateOptionalSeason(args.season));
+      const team = args.team ? yield* resolveTeamNameOrPrompt(args.team) : undefined;
+      const season = explicit ?? (yield* resolveDefaultSeasonForCompetition(competition));
+      const format = yield* Effect.fromResult(validateFormat(args.format));
 
-    const result = await withSpinner("Fetching player details…", () =>
-      fetchPlayerDetails({ source, team, season, competition }),
-    );
-
-    if (!result.success) throw result.error;
-
-    const { players, failedTeams, scope } = result.data;
-
-    if (failedTeams.length > 0) {
-      showWarning(
-        `${failedTeams.length} team squad request(s) failed and are missing: ${failedTeams.join(", ")}`,
+      const result = yield* withSpinner(
+        "Fetching player details…",
+        fetchPlayerDetails({ source, team, season, competition }),
       );
-    }
 
-    if (scope === "all-time") {
-      showWarning(
-        `--source ${source} returns all-time player data. The requested season ${season} is query context and does not narrow the player list.`,
+      const { players, failedTeams, scope } = result;
+
+      if (failedTeams.length > 0) {
+        showWarning(
+          `${failedTeams.length} team squad request(s) failed and are missing: ${failedTeams.join(", ")}`,
+        );
+      }
+
+      if (scope === "all-time") {
+        showWarning(
+          `--source ${source} returns all-time player data. The requested season ${season} is query context and does not narrow the player list.`,
+        );
+      }
+
+      showSummary(
+        team
+          ? `Loaded ${players.length} players for ${team} (${source})`
+          : `Loaded ${players.length} players across all teams (${source})`,
       );
-    }
 
-    showSummary(
-      team
-        ? `Loaded ${players.length} players for ${team} (${source})`
-        : `Loaded ${players.length} players across all teams (${source})`,
-    );
+      const formatOptions: FormatOptions = {
+        json: args.json,
+        csv: args.csv,
+        format,
+        full: args.full,
+        columns: DEFAULT_COLUMNS,
+      };
 
-    const formatOptions: FormatOptions = {
-      json: args.json,
-      csv: args.csv,
-      format,
-      full: args.full,
-      columns: DEFAULT_COLUMNS,
-    };
-
-    console.log(formatCompletenessOutput(result.data, players as readonly object[], formatOptions));
-  }),
+      console.log(formatCompletenessOutput(result, players, formatOptions));
+    }),
+  ),
 });

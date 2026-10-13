@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "@effect/vitest";
+import { Result } from "effect";
 import { OutOfRangeError, UnsupportedCompetitionError } from "../../../src/lib/errors";
 import {
   type CoverageMap,
@@ -21,7 +22,7 @@ describe("checkCoverage", () => {
       season: 2025,
     });
 
-    expect(result.success).toBe(true);
+    expect(Result.isSuccess(result)).toBe(true);
   });
 
   it("returns ok at the boundary (minSeason inclusive)", () => {
@@ -32,7 +33,7 @@ describe("checkCoverage", () => {
       season: 2012,
     });
 
-    expect(result.success).toBe(true);
+    expect(Result.isSuccess(result)).toBe(true);
   });
 
   it("returns UnsupportedCompetitionError when competition isn't in coverage", () => {
@@ -43,11 +44,11 @@ describe("checkCoverage", () => {
       season: 2025,
     });
 
-    expect(result.success).toBe(false);
+    expect(Result.isFailure(result)).toBe(true);
 
-    if (!result.success) {
-      expect(result.error).toBeInstanceOf(UnsupportedCompetitionError);
-      expect(result.error.message).toContain("footywire does not provide match data for VFLW");
+    if (Result.isFailure(result)) {
+      expect(result.failure).toBeInstanceOf(UnsupportedCompetitionError);
+      expect(result.failure.message).toContain("footywire does not provide match data for VFLW");
     }
   });
 
@@ -59,11 +60,11 @@ describe("checkCoverage", () => {
       season: 2005,
     });
 
-    expect(result.success).toBe(false);
+    expect(Result.isFailure(result)).toBe(true);
 
-    if (!result.success) {
-      expect(result.error).toBeInstanceOf(OutOfRangeError);
-      expect(result.error.message).toContain("from 2012; you asked for 2005");
+    if (Result.isFailure(result)) {
+      expect(result.failure).toBeInstanceOf(OutOfRangeError);
+      expect(result.failure.message).toContain("from 2012; you asked for 2005");
     }
   });
 
@@ -75,11 +76,11 @@ describe("checkCoverage", () => {
       season: 2030,
     });
 
-    expect(result.success).toBe(false);
+    expect(Result.isFailure(result)).toBe(true);
 
-    if (!result.success) {
-      expect(result.error).toBeInstanceOf(OutOfRangeError);
-      expect(result.error.message).toContain("up to 2024; you asked for 2030");
+    if (Result.isFailure(result)) {
+      expect(result.failure).toBeInstanceOf(OutOfRangeError);
+      expect(result.failure.message).toContain("up to 2024; you asked for 2030");
     }
   });
 
@@ -95,10 +96,10 @@ describe("checkCoverage", () => {
       "--source afl-api",
     );
 
-    expect(result.success).toBe(false);
+    expect(Result.isFailure(result)).toBe(true);
 
-    if (!result.success && result.error instanceof UnsupportedCompetitionError) {
-      expect(result.error.suggestion).toBe("--source afl-api");
+    if (Result.isFailure(result) && result.failure instanceof UnsupportedCompetitionError) {
+      expect(result.failure.suggestion).toBe("--source afl-api");
     }
   });
 
@@ -110,8 +111,8 @@ describe("checkCoverage", () => {
       season: 2025,
     });
 
-    if (!result.success && result.error instanceof UnsupportedCompetitionError) {
-      expect(result.error.suggestion).toBeUndefined();
+    if (Result.isFailure(result) && result.failure instanceof UnsupportedCompetitionError) {
+      expect(result.failure.suggestion).toBeUndefined();
     }
   });
 });

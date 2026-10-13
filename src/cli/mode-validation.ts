@@ -1,9 +1,8 @@
-import type { SeasonSelector } from "../types";
 /** Pure validation for CLI commands that select a mode from flag combinations. */
 
-import type { AwardType } from "../types";
-import type { GroupBy } from "./validation";
-import { CliUsageError } from "./errors";
+import { Result } from "effect";
+import type { AwardType, SeasonSelector } from "../types";
+import { type GroupBy, usage, type Validated } from "./validation";
 
 /** Mode selected by the `team` command. */
 export type TeamCommandMode = "list" | "squad" | "lineup";
@@ -18,17 +17,17 @@ interface StatsModeArgs {
 }
 
 /** Validate flags that apply differently to player and team statistics. */
-export function validateStatsMode(args: StatsModeArgs): void {
+export function validateStatsMode(args: StatsModeArgs): Validated<void> {
   if (args.match !== undefined && args.matchId !== undefined) {
-    throw new CliUsageError({ message: "Use only one of --match and --id." });
+    return usage("Use only one of --match and --id.");
   }
 
   if (args.groupBy === "player") {
     if (args.summary !== undefined) {
-      throw new CliUsageError({ message: "--summary is only supported with --by team." });
+      return usage("--summary is only supported with --by team.");
     }
 
-    return;
+    return Result.void;
   }
 
   const invalid = [
@@ -39,10 +38,12 @@ export function validateStatsMode(args: StatsModeArgs): void {
   ].filter((flag): flag is string => flag !== undefined);
 
   if (invalid.length > 0) {
-    throw new CliUsageError({
-      message: `${invalid.join(", ")} ${invalid.length === 1 ? "is" : "are"} not supported with --by team. Team stats are season-level rows.`,
-    });
+    return usage(
+      `${invalid.join(", ")} ${invalid.length === 1 ? "is" : "are"} not supported with --by team. Team stats are season-level rows.`,
+    );
   }
+
+  return Result.void;
 }
 
 interface TeamModeArgs {
@@ -55,47 +56,47 @@ interface TeamModeArgs {
 }
 
 /** Validate the `team` flag combination and return its selected mode. */
-export function validateTeamMode(args: TeamModeArgs): TeamCommandMode {
+export function validateTeamMode(args: TeamModeArgs): Validated<TeamCommandMode> {
   if (args.name !== undefined && args.team !== undefined) {
-    throw new CliUsageError({ message: "Use only one of --name and --team." });
+    return usage("Use only one of --name and --team.");
   }
 
   if (args.match !== undefined && args.matchId !== undefined) {
-    throw new CliUsageError({ message: "Use only one of --match and --match-id." });
+    return usage("Use only one of --match and --match-id.");
   }
 
   if (args.round !== undefined && args.season === undefined) {
-    throw new CliUsageError({ message: "--round requires --season for lineup mode." });
+    return usage("--round requires --season for lineup mode.");
   }
 
   if ((args.match !== undefined || args.matchId !== undefined) && args.round === undefined) {
-    throw new CliUsageError({
-      message: "--match and --match-id require --season and --round for lineup mode.",
-    });
+    return usage("--match and --match-id require --season and --round for lineup mode.");
   }
 
-  if (args.season !== undefined && args.round !== undefined) return "lineup";
+  if (args.season !== undefined && args.round !== undefined) return Result.succeed("lineup");
 
   const teamName = args.name ?? args.team;
 
   if (args.season !== undefined) {
     if (teamName === undefined) {
-      throw new CliUsageError({
-        message: "--season requires --name or --team for squad mode, or --round for lineup mode.",
-      });
+      return usage(
+        "--season requires --name or --team for squad mode, or --round for lineup mode.",
+      );
     }
 
-    return "squad";
+    return Result.succeed("squad");
   }
 
-  return "list";
+  return Result.succeed("list");
 }
 
 /** Reject round-scoped requests for season-only awards. */
-export function validateAwardsMode(award: AwardType, round: number | undefined): void {
+export function validateAwardsMode(award: AwardType, round: number | undefined): Validated<void> {
   if (round !== undefined && award !== "coaches") {
-    throw new CliUsageError({
-      message: `--round is not supported for --type ${award}. Round-scoped data is only available for coaches votes.`,
-    });
+    return usage(
+      `--round is not supported for --type ${award}. Round-scoped data is only available for coaches votes.`,
+    );
   }
+
+  return Result.void;
 }

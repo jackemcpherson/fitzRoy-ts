@@ -4,34 +4,34 @@
  * Wraps @clack/prompts spinner. Suppresses interactive output when stdout is not a TTY.
  */
 import { spinner } from "@clack/prompts";
+import { Effect, Exit } from "effect";
 import pc from "picocolors";
 
 const isTTY = process.stdout.isTTY === true;
 
 /**
- * Run an async operation with a spinner. Suppresses spinner when not a TTY.
+ * Run an effect with a spinner. Suppresses the spinner when not a TTY.
  *
  * @param message - Message to display while the spinner is active.
- * @param fn - Async function to execute.
- * @returns The result of the async function.
+ * @param effect - The effect to run.
+ * @returns The effect, wrapped so the spinner stops when it exits.
  */
-export async function withSpinner<T>(message: string, fn: () => Promise<T>): Promise<T> {
-  if (!isTTY) {
-    return fn();
-  }
+export function withSpinner<A, E, R>(
+  message: string,
+  effect: Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, R> {
+  if (!isTTY) return effect;
 
-  const s = spinner();
-  s.start(message);
+  return Effect.suspend(() => {
+    const s = spinner();
+    s.start(message);
 
-  try {
-    const result = await fn();
-    s.stop(message);
-
-    return result;
-  } catch (error) {
-    s.error("Failed");
-    throw error;
-  }
+    return effect.pipe(
+      Effect.onExit((exit) =>
+        Effect.sync(() => (Exit.isSuccess(exit) ? s.stop(message) : s.error("Failed"))),
+      ),
+    );
+  });
 }
 
 /**

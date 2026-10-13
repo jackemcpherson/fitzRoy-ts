@@ -1,6 +1,7 @@
 /**
  * Format dispatcher — selects the correct formatter based on CLI flags.
  */
+import type { CellRecord } from "./cell";
 import { formatCsv } from "./csv";
 import { formatJson } from "./json";
 import { formatTable, type TableColumnConfig } from "./table";
@@ -44,8 +45,7 @@ export function resolveFormat(options: FormatOptions): OutputFormat {
 /**
  * Format data according to the resolved output format.
  */
-export function formatOutput(data: readonly object[], options: FormatOptions): string {
-  const rows = data as Record<string, unknown>[];
+export function formatOutput(rows: readonly CellRecord[], options: FormatOptions): string {
   const format = resolveFormat(options);
 
   switch (format) {
@@ -60,6 +60,8 @@ export function formatOutput(data: readonly object[], options: FormatOptions): s
       });
   }
 }
+
+export type { CellRecord, CellValue } from "./cell";
 
 export { formatCsv } from "./csv";
 
