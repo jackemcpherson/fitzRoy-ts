@@ -66,7 +66,10 @@ export class AflTablesClient {
 
       if (!response.ok) {
         return err(
-          new ScrapeError(`AFL Tables request failed: ${response.status} (${url})`, "afl-tables"),
+          new ScrapeError({
+            message: `AFL Tables request failed: ${response.status} (${url})`,
+            source: "afl-tables",
+          }),
         );
       }
 
@@ -76,10 +79,10 @@ export class AflTablesClient {
       return ok(results);
     } catch (cause) {
       return err(
-        new ScrapeError(
-          `AFL Tables request failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-          "afl-tables",
-        ),
+        new ScrapeError({
+          message: `AFL Tables request failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+          source: "afl-tables",
+        }),
       );
     }
   }
@@ -106,10 +109,10 @@ export class AflTablesClient {
 
       if (!seasonResponse.ok) {
         return err(
-          new ScrapeError(
-            `AFL Tables request failed: ${seasonResponse.status} (${seasonUrl})`,
-            "afl-tables",
-          ),
+          new ScrapeError({
+            message: `AFL Tables request failed: ${seasonResponse.status} (${seasonUrl})`,
+            source: "afl-tables",
+          }),
         );
       }
 
@@ -173,10 +176,10 @@ export class AflTablesClient {
       });
     } catch (cause) {
       return err(
-        new ScrapeError(
-          `AFL Tables player stats failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-          "afl-tables",
-        ),
+        new ScrapeError({
+          message: `AFL Tables player stats failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+          source: "afl-tables",
+        }),
       );
     }
   }
@@ -203,7 +206,7 @@ export class AflTablesClient {
             ? `AFL Tables has no team stats for ${year}`
             : `AFL Tables stats request failed: ${response.status}`;
 
-        return err(new ScrapeError(friendly, "afl-tables"));
+        return err(new ScrapeError({ message: friendly, source: "afl-tables" }));
       }
 
       const html = await response.text();
@@ -212,10 +215,10 @@ export class AflTablesClient {
       return ok(entries);
     } catch (cause) {
       return err(
-        new ScrapeError(
-          `AFL Tables team stats failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-          "afl-tables",
-        ),
+        new ScrapeError({
+          message: `AFL Tables team stats failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+          source: "afl-tables",
+        }),
       );
     }
   }
@@ -235,7 +238,12 @@ export class AflTablesClient {
     const slug = teamNameToAflTablesSlug(teamName);
 
     if (!slug) {
-      return err(new ScrapeError(`No AFL Tables slug mapping for team: ${teamName}`, "afl-tables"));
+      return err(
+        new ScrapeError({
+          message: `No AFL Tables slug mapping for team: ${teamName}`,
+          source: "afl-tables",
+        }),
+      );
     }
 
     const url = `https://afltables.com/afl/stats/alltime/${slug}.html`;
@@ -247,7 +255,10 @@ export class AflTablesClient {
 
       if (!response.ok) {
         return err(
-          new ScrapeError(`AFL Tables request failed: ${response.status} (${url})`, "afl-tables"),
+          new ScrapeError({
+            message: `AFL Tables request failed: ${response.status} (${url})`,
+            source: "afl-tables",
+          }),
         );
       }
 
@@ -257,10 +268,10 @@ export class AflTablesClient {
       return ok(players);
     } catch (cause) {
       return err(
-        new ScrapeError(
-          `AFL Tables player list failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-          "afl-tables",
-        ),
+        new ScrapeError({
+          message: `AFL Tables player list failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+          source: "afl-tables",
+        }),
       );
     }
   }
@@ -575,7 +586,10 @@ function parseDateFromInfo(text: string, year: number, venueTimezone: string | n
     const parsed = parseDate(text);
 
     if (parsed) return parsed;
-    throw new Error(`Unable to parse required AFL Tables match date: ${JSON.stringify(text)}`);
+    throw new ScrapeError({
+      message: `Unable to parse required AFL Tables match date: ${JSON.stringify(text)}`,
+      source: "afl-tables",
+    });
   }
 
   const day = Number.parseInt(m[1] ?? "0", 10);
@@ -603,7 +617,10 @@ function parseDateFromInfo(text: string, year: number, venueTimezone: string | n
     const parsed = parseDate(text);
 
     if (parsed) return parsed;
-    throw new Error(`Unable to parse required AFL Tables match date: ${JSON.stringify(text)}`);
+    throw new ScrapeError({
+      message: `Unable to parse required AFL Tables match date: ${JSON.stringify(text)}`,
+      source: "afl-tables",
+    });
   }
 
   // No time → midnight UTC (matches AFL Tables' historical convention pre-2010s).

@@ -56,7 +56,10 @@ export class SquiggleClient {
 
       if (!response.ok) {
         return err(
-          new ScrapeError(`Squiggle request failed: ${response.status} (${url})`, "squiggle"),
+          new ScrapeError({
+            message: `Squiggle request failed: ${response.status} (${url})`,
+            source: "squiggle",
+          }),
         );
       }
 
@@ -65,10 +68,10 @@ export class SquiggleClient {
       return ok(json);
     } catch (cause) {
       return err(
-        new ScrapeError(
-          `Squiggle request failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-          "squiggle",
-        ),
+        new ScrapeError({
+          message: `Squiggle request failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+          source: "squiggle",
+        }),
       );
     }
   }
@@ -98,7 +101,12 @@ export class SquiggleClient {
     const parsed = decodeGames(result.data);
 
     if (!parsed.success) {
-      return err(new ScrapeError(`Invalid Squiggle games response: ${parsed.error}`, "squiggle"));
+      return err(
+        new ScrapeError({
+          message: `Invalid Squiggle games response: ${parsed.error}`,
+          source: "squiggle",
+        }),
+      );
     }
 
     return ok(parsed.data);
@@ -126,7 +134,10 @@ export class SquiggleClient {
 
     if (!parsed.success) {
       return err(
-        new ScrapeError(`Invalid Squiggle standings response: ${parsed.error}`, "squiggle"),
+        new ScrapeError({
+          message: `Invalid Squiggle standings response: ${parsed.error}`,
+          source: "squiggle",
+        }),
       );
     }
 

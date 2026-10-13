@@ -11,6 +11,7 @@ import { fuzzySearch } from "../lib/fuzzy";
 import { AFL_SENIOR_TEAMS, normaliseTeamName } from "../lib/team-mapping";
 import type { MatchItem } from "../lib/validation";
 import { resolveMatchByTeam, resolveTeamIdentifier } from "./validation";
+import { CliUsageError } from "./errors";
 
 /** Minimal team shape accepted by the resolver. */
 interface TeamCandidate {
@@ -91,9 +92,9 @@ export async function resolveTeamNameOrPrompt(
   const trimmed = query.trim();
 
   if (/^\d+$/.test(trimmed)) {
-    throw new Error(
-      `Team "${query}" is a numeric identifier. Use a team name or abbreviation on this command.`,
-    );
+    throw new CliUsageError({
+      message: `Team "${query}" is a numeric identifier. Use a team name or abbreviation on this command.`,
+    });
   }
 
   const canonical = normaliseTeamName(trimmed);
@@ -238,9 +239,9 @@ export async function disambiguate(
   const best = options[0];
 
   if (!best) {
-    throw new Error(
-      `No ${entityName} found for "${query}". Valid options: ${allLabels.join(", ")}`,
-    );
+    throw new CliUsageError({
+      message: `No ${entityName} found for "${query}". Valid options: ${allLabels.join(", ")}`,
+    });
   }
 
   if (best.score < 0.2 || options.length === 1) {
@@ -260,8 +261,9 @@ export async function disambiguate(
     return choice as string;
   }
 
-  throw new Error(
-    `Multiple ${entityName}s matched "${query}": ${options.map((o) => o.label).join(", ")}. ` +
+  throw new CliUsageError({
+    message:
+      `Multiple ${entityName}s matched "${query}": ${options.map((o) => o.label).join(", ")}. ` +
       `Re-run with a more specific name (best guess was "${best.label}").`,
-  );
+  });
 }

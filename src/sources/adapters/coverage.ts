@@ -50,36 +50,36 @@ export function checkCoverage(
 
   if (!range) {
     return err(
-      new UnsupportedCompetitionError(
-        `${request.source} does not provide ${request.operation} data for ${request.competition}`,
-        request.source,
-        request.competition,
+      new UnsupportedCompetitionError({
+        message: `${request.source} does not provide ${request.operation} data for ${request.competition}`,
+        source: request.source,
+        competition: request.competition,
         suggestion,
-      ),
+      }),
     );
   }
 
   if (request.season < range.minSeason) {
     return err(
-      new OutOfRangeError(
-        `${request.source} only covers ${request.competition} ${request.operation} from ${range.minSeason}; you asked for ${request.season}`,
-        request.source,
-        request.competition,
-        request.season,
+      new OutOfRangeError({
+        message: `${request.source} only covers ${request.competition} ${request.operation} from ${range.minSeason}; you asked for ${request.season}`,
+        source: request.source,
+        competition: request.competition,
+        season: request.season,
         suggestion,
-      ),
+      }),
     );
   }
 
   if (range.maxSeason != null && request.season > range.maxSeason) {
     return err(
-      new OutOfRangeError(
-        `${request.source} only covers ${request.competition} ${request.operation} up to ${range.maxSeason}; you asked for ${request.season}`,
-        request.source,
-        request.competition,
-        request.season,
+      new OutOfRangeError({
+        message: `${request.source} only covers ${request.competition} ${request.operation} up to ${range.maxSeason}; you asked for ${request.season}`,
+        source: request.source,
+        competition: request.competition,
+        season: request.season,
         suggestion,
-      ),
+      }),
     );
   }
 
@@ -92,10 +92,10 @@ export function unsupportedSourceForOperation(
   operation: string,
   registered: readonly DataSource[],
 ): UnsupportedSourceError {
-  return new UnsupportedSourceError(
-    `${source} does not provide ${operation} data. Supported sources: ${registered.join(", ")}.`,
+  return new UnsupportedSourceError({
+    message: `${source} does not provide ${operation} data. Supported sources: ${registered.join(", ")}.`,
     source,
-  );
+  });
 }
 
 /** Minimal shape we need to reason about an adapter when looking for alternatives. */

@@ -16,6 +16,7 @@
 
 import { normaliseTeamName } from "../lib/team-mapping";
 import type { Lineup, Team } from "../types";
+import { CliUsageError } from "./errors";
 
 /** Compare canonical team names without case sensitivity. */
 function teamNamesEqual(left: string, right: string): boolean {
@@ -103,9 +104,9 @@ export function filterTeamList(teams: readonly Team[], query: string): Team[] {
   );
 
   if (filtered.length === 0) {
-    throw new Error(
-      `No team matched "${query}". Available: ${teams.map((t) => `${t.name} (${t.abbreviation})`).join(", ")}`,
-    );
+    throw new CliUsageError({
+      message: `No team matched "${query}". Available: ${teams.map((t) => `${t.name} (${t.abbreviation})`).join(", ")}`,
+    });
   }
 
   return filtered;

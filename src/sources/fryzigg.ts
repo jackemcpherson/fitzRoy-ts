@@ -74,7 +74,12 @@ export class FryziggClient {
     const snapshot = FRYZIGG_SNAPSHOTS[competition as keyof typeof FRYZIGG_SNAPSHOTS];
 
     if (!snapshot) {
-      return err(new ScrapeError(`Fryzigg does not publish ${competition} data`, "fryzigg"));
+      return err(
+        new ScrapeError({
+          message: `Fryzigg does not publish ${competition} data`,
+          source: "fryzigg",
+        }),
+      );
     }
 
     const expectedSha256 = this.sha256 === undefined ? snapshot.sha256 : this.sha256;
@@ -86,10 +91,10 @@ export class FryziggClient {
 
       if (!response.ok) {
         return err(
-          new ScrapeError(
-            `Fryzigg request failed: ${response.status} (${snapshot.url})`,
-            "fryzigg",
-          ),
+          new ScrapeError({
+            message: `Fryzigg request failed: ${response.status} (${snapshot.url})`,
+            source: "fryzigg",
+          }),
         );
       }
 
@@ -104,7 +109,10 @@ export class FryziggClient {
 
         if (actual !== expectedSha256.toLowerCase()) {
           return err(
-            new ScrapeError(`Fryzigg checksum mismatch for ${competition} snapshot`, "fryzigg"),
+            new ScrapeError({
+              message: `Fryzigg checksum mismatch for ${competition} snapshot`,
+              source: "fryzigg",
+            }),
           );
         }
       }
@@ -112,20 +120,30 @@ export class FryziggClient {
       const result = await parseRds(buffer);
 
       if (!isDataFrame(result)) {
-        return err(new ScrapeError("Fryzigg RDS file did not contain a data frame", "fryzigg"));
+        return err(
+          new ScrapeError({
+            message: "Fryzigg RDS file did not contain a data frame",
+            source: "fryzigg",
+          }),
+        );
       }
 
       return ok(result);
     } catch (cause) {
       if (cause instanceof RdsError) {
-        return err(new ScrapeError(`Fryzigg RDS parse error: ${cause.message}`, "fryzigg"));
+        return err(
+          new ScrapeError({
+            message: `Fryzigg RDS parse error: ${cause.message}`,
+            source: "fryzigg",
+          }),
+        );
       }
 
       return err(
-        new ScrapeError(
-          `Fryzigg request failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-          "fryzigg",
-        ),
+        new ScrapeError({
+          message: `Fryzigg request failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+          source: "fryzigg",
+        }),
       );
     }
   }

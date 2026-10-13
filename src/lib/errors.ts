@@ -1,5 +1,9 @@
 /**
- * Custom error classes for fitzRoy-ts.
+ * Tagged error classes for fitzRoy-ts.
+ *
+ * Every expected failure is a `Schema.TaggedError`: an `Error` subclass whose
+ * `name` and `_tag` equal the class name, with typed, schema-validated fields.
+ * Handle them with `Effect.catchTag` or `Match.tag`.
  *
  * Each error class represents a distinct failure domain:
  * - {@link AflApiError} — failures when communicating with the AFL API
@@ -8,133 +12,96 @@
  * - {@link UnsupportedSourceError} — when a data source doesn't support the requested operation
  */
 
-/** Error from the AFL official API (auth failures, bad responses, timeouts). */
-export class AflApiError extends Error {
-  override readonly name = "AflApiError";
+import { Schema } from "effect";
 
-  constructor(
-    message: string,
-    readonly statusCode?: number,
-  ) {
-    super(message);
-  }
-}
+/** Error from the AFL official API (auth failures, bad responses, timeouts). */
+export class AflApiError extends Schema.TaggedError<AflApiError>()("AflApiError", {
+  message: Schema.String,
+  statusCode: Schema.optional(Schema.Number),
+}) {}
 
 /** Error when scraping HTML data sources. */
-export class ScrapeError extends Error {
-  override readonly name = "ScrapeError";
-
-  constructor(
-    message: string,
-    readonly source?: string,
-  ) {
-    super(message);
-  }
-}
+export class ScrapeError extends Schema.TaggedError<ScrapeError>()("ScrapeError", {
+  message: Schema.String,
+  source: Schema.optional(Schema.String),
+  /** HTTP status when the failure was a non-OK response. */
+  statusCode: Schema.optional(Schema.Number),
+}) {}
 
 /** Error when a data source does not support the requested operation. */
-export class UnsupportedSourceError extends Error {
-  override readonly name = "UnsupportedSourceError";
-
-  constructor(
-    message: string,
-    readonly source?: string,
-  ) {
-    super(message);
-  }
-}
-
-/**
- * Return an UnsupportedSourceError result for AFLW requests to non-AFL-API sources.
- *
- * Only the AFL API supports AFLW data. FootyWire, AFL Tables, and Squiggle
- * only provide AFLM data.
- */
-export function aflwUnsupportedError(source: string): UnsupportedSourceError {
-  return new UnsupportedSourceError(
-    `AFLW data is not available from ${source}. Use --source afl-api for AFLW data.`,
-    source,
-  );
-}
+export class UnsupportedSourceError extends Schema.TaggedError<UnsupportedSourceError>()(
+  "UnsupportedSourceError",
+  {
+    message: Schema.String,
+    source: Schema.optional(Schema.String),
+  },
+) {}
 
 /**
  * Error when a source is registered for an operation but does not cover the
  * requested competition. The optional suggestion names another source that
  * does cover it (per ADR-0001 — no silent fallback; explicit suggestion only).
  */
-export class UnsupportedCompetitionError extends Error {
-  override readonly name = "UnsupportedCompetitionError";
-
-  constructor(
-    message: string,
-    readonly source: string,
-    readonly competition: string,
-    readonly suggestion?: string,
-  ) {
-    super(message);
-  }
-}
+export class UnsupportedCompetitionError extends Schema.TaggedError<UnsupportedCompetitionError>()(
+  "UnsupportedCompetitionError",
+  {
+    message: Schema.String,
+    source: Schema.String,
+    competition: Schema.String,
+    suggestion: Schema.optional(Schema.String),
+  },
+) {}
 
 /**
  * Error when the requested season is outside the source's coverage for the
  * given competition. The optional suggestion names another source that does
  * cover the season.
  */
-export class OutOfRangeError extends Error {
-  override readonly name = "OutOfRangeError";
+export class OutOfRangeError extends Schema.TaggedError<OutOfRangeError>()("OutOfRangeError", {
+  message: Schema.String,
+  source: Schema.String,
+  competition: Schema.String,
+  season: Schema.Number,
+  suggestion: Schema.optional(Schema.String),
+}) {}
 
-  constructor(
-    message: string,
-    readonly source: string,
-    readonly competition: string,
-    readonly season: number,
-    readonly suggestion?: string,
-  ) {
-    super(message);
-  }
-}
+/** One failed check from boundary validation. */
+export const ValidationIssueSchema = Schema.Struct({
+  path: Schema.String,
+  message: Schema.String,
+});
 
 /** Error when data fails Effect Schema validation. */
-export class ValidationError extends Error {
-  override readonly name = "ValidationError";
-
-  constructor(
-    message: string,
-    readonly issues?: ReadonlyArray<{ path: string; message: string }>,
-  ) {
-    super(message);
-  }
-}
+export class ValidationError extends Schema.TaggedError<ValidationError>()("ValidationError", {
+  message: Schema.String,
+  issues: Schema.optional(Schema.Array(ValidationIssueSchema)),
+}) {}
 
 /**
  * Error returned by {@link localToUtc} when the supplied wall-clock time
  * falls inside a DST spring-forward gap (the time doesn't exist in the
  * given timezone). Callers can choose to skip, escalate, or roll forward.
  */
-export class DstGapError extends Error {
-  override readonly name = "DstGapError";
-
-  constructor(
-    message: string,
-    readonly timezone: string,
-    readonly year: number,
-    readonly monthIndex: number,
-    readonly day: number,
-    readonly hours: number,
-    readonly minutes: number,
-  ) {
-    super(message);
-  }
-}
+export class DstGapError extends Schema.TaggedError<DstGapError>()("DstGapError", {
+  message: Schema.String,
+  timezone: Schema.String,
+  year: Schema.Number,
+  monthIndex: Schema.Number,
+  day: Schema.Number,
+  hours: Schema.Number,
+  minutes: Schema.Number,
+}) {}
 
 /** A calendar year identifies multiple competition seasons. */
-export class AmbiguousSeasonError extends Error {
-  override readonly name = "AmbiguousSeasonError";
-  constructor(
-    readonly competition: string,
-    readonly year: number,
-    readonly validSelectors: readonly string[],
-  ) {
-    super(`Ambiguous ${competition} season ${year}; choose ${validSelectors.join(" or ")}`);
+export class AmbiguousSeasonError extends Schema.TaggedError<AmbiguousSeasonError>()(
+  "AmbiguousSeasonError",
+  {
+    competition: Schema.String,
+    year: Schema.Number,
+    validSelectors: Schema.Array(Schema.String),
+  },
+) {
+  override get message(): string {
+    return `Ambiguous ${this.competition} season ${this.year}; choose ${this.validSelectors.join(" or ")}`;
   }
 }

@@ -284,15 +284,15 @@ export function localToUtc(
   }
 
   return err(
-    new DstGapError(
-      `Local time ${formatTimestamp(year, monthIndex, day, hours, minutes)} does not exist in ${timezone} (DST spring-forward gap).`,
+    new DstGapError({
+      message: `Local time ${formatTimestamp(year, monthIndex, day, hours, minutes)} does not exist in ${timezone} (DST spring-forward gap).`,
       timezone,
       year,
       monthIndex,
       day,
       hours,
       minutes,
-    ),
+    }),
   );
 }
 

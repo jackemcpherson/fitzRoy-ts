@@ -20,13 +20,15 @@ export function canonicalSeasonKey(
   const key = String(selector);
 
   if (!/^\d{4}(?:-S[67])?$/.test(key))
-    return err(new ValidationError(`Invalid season selector: ${key}`));
+    return err(new ValidationError({ message: `Invalid season selector: ${key}` }));
 
   if (competition === "AFLW" && key === "2022")
-    return err(new AmbiguousSeasonError(competition, 2022, ["2022-S6", "2022-S7"]));
+    return err(
+      new AmbiguousSeasonError({ competition, year: 2022, validSelectors: ["2022-S6", "2022-S7"] }),
+    );
 
   if (key.includes("-S") && (competition !== "AFLW" || !["2022-S6", "2022-S7"].includes(key))) {
-    return err(new ValidationError(`Season ${key} does not belong to ${competition}`));
+    return err(new ValidationError({ message: `Season ${key} does not belong to ${competition}` }));
   }
 
   return ok(key);

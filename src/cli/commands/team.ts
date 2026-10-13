@@ -34,6 +34,7 @@ import {
   validateRound,
   validateSource,
 } from "../validation";
+import { CliUsageError } from "../errors";
 
 const TEAMS_COLUMNS: TableColumnConfig[] = [
   { key: "teamId", label: "ID", maxWidth: 8 },
@@ -203,9 +204,9 @@ export const teamCommand = defineCommand({
 
     // Default: list teams
     if (source !== "afl-api") {
-      throw new Error(
-        `--source ${source} is not supported for the team list. The team list is only available from afl-api; add --season (and --name) for squad mode, or --season --round for lineup mode, where other sources apply.`,
-      );
+      throw new CliUsageError({
+        message: `--source ${source} is not supported for the team list. The team list is only available from afl-api; add --season (and --name) for squad mode, or --season --round for lineup mode, where other sources apply.`,
+      });
     }
 
     const result = await withSpinner("Fetching teams…", () => fetchTeams({ competition }));

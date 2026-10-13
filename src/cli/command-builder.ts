@@ -18,6 +18,7 @@ import { withErrorBoundary } from "./error-boundary";
 import { type FormatOptions, formatOutput, type TableColumnConfig } from "./formatters/index";
 import { showSummary, withSpinner } from "./ui";
 import { validateFormat } from "./validation";
+import { CliUsageError } from "./errors";
 
 /** A command's args object as Citty produces it (raw strings/booleans). */
 type RawArgs = Record<string, unknown>;
@@ -57,7 +58,9 @@ export function rejectUnknownFlags(argsDef: ArgsDef, rawArgv: readonly string[])
 
     if (!known.has(flagName)) {
       const validList = [...known].sort().join(", ");
-      throw new Error(`Unknown flag: "${tok}". Valid flags for this command: ${validList}`);
+      throw new CliUsageError({
+        message: `Unknown flag: "${tok}". Valid flags for this command: ${validList}`,
+      });
     }
   }
 }

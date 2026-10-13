@@ -43,10 +43,10 @@ export async function fetchTeamStats(
 
     if (invalid.length > 0) {
       return err(
-        new ScrapeError(
-          `Cannot return team-stat averages because games played is missing or non-positive for: ${invalid.map((entry) => entry.team).join(", ")}`,
-          query.source,
-        ),
+        new ScrapeError({
+          message: `Cannot return team-stat averages because games played is missing or non-positive for: ${invalid.map((entry) => entry.team).join(", ")}`,
+          source: query.source,
+        }),
       );
     }
 

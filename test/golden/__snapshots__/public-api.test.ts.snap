@@ -5,7 +5,7 @@ exports[`public API golden outcomes > keeps the fetchAwards brownlow 2024 outcom
   "outcome": {
     "err": {
       "fields": {
-        "name": "ScrapeError",
+        "_tag": "ScrapeError",
         "source": "footywire",
       },
       "message": "FootyWire request failed: 404 (https://www.footywire.com/afl/footy/brownlow_medal?year=2024)",
@@ -2299,8 +2299,8 @@ exports[`public API golden outcomes > keeps the fetchMatches VFL 2019 out of ran
   "outcome": {
     "err": {
       "fields": {
+        "_tag": "OutOfRangeError",
         "competition": "VFL",
-        "name": "OutOfRangeError",
         "season": 2019,
         "source": "afl-api",
         "suggestion": undefined,
@@ -3277,8 +3277,7 @@ exports[`public API golden outcomes > keeps the fetchMatches afl-api 2025 r1 out
   "outcome": {
     "err": {
       "fields": {
-        "name": "AflApiError",
-        "statusCode": undefined,
+        "_tag": "AflApiError",
       },
       "message": "Season not found: 2025",
       "name": "AflApiError",
@@ -3679,7 +3678,7 @@ exports[`public API golden outcomes > keeps the fetchMatches fryzigg unsupported
   "outcome": {
     "err": {
       "fields": {
-        "name": "UnsupportedSourceError",
+        "_tag": "UnsupportedSourceError",
         "source": "fryzigg",
       },
       "message": "fryzigg does not provide match data. Supported sources: afl-api, footywire, afl-tables, squiggle.",
@@ -4735,7 +4734,7 @@ exports[`public API golden outcomes > keeps the fetchPlayerStats fryzigg 2024 r1
   "outcome": {
     "err": {
       "fields": {
-        "name": "ScrapeError",
+        "_tag": "ScrapeError",
         "source": "fryzigg",
       },
       "message": "Fryzigg checksum mismatch for AFLM snapshot",

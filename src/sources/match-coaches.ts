@@ -73,7 +73,10 @@ export class MatchCoachesClient {
       (!Number.isInteger(batch.limit) || batch.limit < 1 || batch.limit > 5)
     )
       return err(
-        new ScrapeError("Batch limit must be between one and five profiles", "afl-tables"),
+        new ScrapeError({
+          message: "Batch limit must be between one and five profiles",
+          source: "afl-tables",
+        }),
       );
 
     if (batch?.cursor) {
@@ -82,7 +85,12 @@ export class MatchCoachesClient {
 
         for (const page of cursor.pages) coaches.set(page.url, page);
       } catch {
-        return err(new ScrapeError("Invalid season-specific coaching cursor", "afl-tables"));
+        return err(
+          new ScrapeError({
+            message: "Invalid season-specific coaching cursor",
+            source: "afl-tables",
+          }),
+        );
       }
     } else {
       const index = await this.readPage(INDEX_URL, "afl-tables");
@@ -113,7 +121,10 @@ export class MatchCoachesClient {
 
       if (coaches.size === 0)
         return err(
-          new ScrapeError("AFL Tables coach index contained no coach profiles", "afl-tables"),
+          new ScrapeError({
+            message: "AFL Tables coach index contained no coach profiles",
+            source: "afl-tables",
+          }),
         );
     }
 
@@ -158,7 +169,9 @@ export class MatchCoachesClient {
       assignments.length === 0 &&
       failures.length === profiles.length
     )
-      return err(new ScrapeError("Every AFL Tables coach profile failed", "afl-tables"));
+      return err(
+        new ScrapeError({ message: "Every AFL Tables coach profile failed", source: "afl-tables" }),
+      );
 
     if (batch) {
       const failed = new Set(failures.map((failure) => failure.url));
@@ -300,16 +313,19 @@ export class MatchCoachesClient {
 
       if (!response.ok)
         return err(
-          new ScrapeError(`${source} request failed: ${response.status} (${url})`, source),
+          new ScrapeError({
+            message: `${source} request failed: ${response.status} (${url})`,
+            source,
+          }),
         );
 
       return ok(await response.text());
     } catch (cause) {
       return err(
-        new ScrapeError(
-          `${source} request failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+        new ScrapeError({
+          message: `${source} request failed: ${cause instanceof Error ? cause.message : String(cause)}`,
           source,
-        ),
+        }),
       );
     }
   }

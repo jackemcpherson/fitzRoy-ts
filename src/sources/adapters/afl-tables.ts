@@ -166,10 +166,10 @@ export class AflTablesTeamStatsSource implements TeamStatsSource {
 
       if (invalid.length > 0) {
         return err(
-          new ScrapeError(
-            `Cannot calculate team-stat averages because games played is missing or non-positive for: ${invalid.map((entry) => entry.team).join(", ")}`,
-            "afl-tables",
-          ),
+          new ScrapeError({
+            message: `Cannot calculate team-stat averages because games played is missing or non-positive for: ${invalid.map((entry) => entry.team).join(", ")}`,
+            source: "afl-tables",
+          }),
         );
       }
 

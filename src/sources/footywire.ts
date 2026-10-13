@@ -72,7 +72,10 @@ export class FootyWireClient {
 
       if (!response.ok) {
         return err(
-          new ScrapeError(`FootyWire request failed: ${response.status} (${url})`, "footywire"),
+          new ScrapeError({
+            message: `FootyWire request failed: ${response.status} (${url})`,
+            source: "footywire",
+          }),
         );
       }
 
@@ -81,10 +84,10 @@ export class FootyWireClient {
       return ok(html);
     } catch (cause) {
       return err(
-        new ScrapeError(
-          `FootyWire request failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-          "footywire",
-        ),
+        new ScrapeError({
+          message: `FootyWire request failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+          source: "footywire",
+        }),
       );
     }
   }
@@ -109,10 +112,10 @@ export class FootyWireClient {
       return ok(results);
     } catch (cause) {
       return err(
-        new ScrapeError(
-          `Failed to parse match list: ${cause instanceof Error ? cause.message : String(cause)}`,
-          "footywire",
-        ),
+        new ScrapeError({
+          message: `Failed to parse match list: ${cause instanceof Error ? cause.message : String(cause)}`,
+          source: "footywire",
+        }),
       );
     }
   }
@@ -152,10 +155,10 @@ export class FootyWireClient {
       return ok(stats);
     } catch (cause) {
       return err(
-        new ScrapeError(
-          `Failed to parse match stats: ${cause instanceof Error ? cause.message : String(cause)}`,
-          "footywire",
-        ),
+        new ScrapeError({
+          message: `Failed to parse match stats: ${cause instanceof Error ? cause.message : String(cause)}`,
+          source: "footywire",
+        }),
       );
     }
   }
@@ -217,10 +220,10 @@ export class FootyWireClient {
       return ok(entries);
     } catch (cause) {
       return err(
-        new ScrapeError(
-          `Failed to parse match IDs: ${cause instanceof Error ? cause.message : String(cause)}`,
-          "footywire",
-        ),
+        new ScrapeError({
+          message: `Failed to parse match IDs: ${cause instanceof Error ? cause.message : String(cause)}`,
+          source: "footywire",
+        }),
       );
     }
   }
@@ -240,7 +243,12 @@ export class FootyWireClient {
     const slug = teamNameToFootyWireSlug(teamName);
 
     if (!slug) {
-      return err(new ScrapeError(`No FootyWire slug mapping for team: ${teamName}`, "footywire"));
+      return err(
+        new ScrapeError({
+          message: `No FootyWire slug mapping for team: ${teamName}`,
+          source: "footywire",
+        }),
+      );
     }
 
     const url = `${FOOTYWIRE_BASE}/tp-${slug}`;
@@ -254,10 +262,10 @@ export class FootyWireClient {
       return ok(players);
     } catch (cause) {
       return err(
-        new ScrapeError(
-          `Failed to parse player list: ${cause instanceof Error ? cause.message : String(cause)}`,
-          "footywire",
-        ),
+        new ScrapeError({
+          message: `Failed to parse player list: ${cause instanceof Error ? cause.message : String(cause)}`,
+          source: "footywire",
+        }),
       );
     }
   }
@@ -288,10 +296,10 @@ export class FootyWireClient {
       return ok(fixtures);
     } catch (cause) {
       return err(
-        new ScrapeError(
-          `Failed to parse fixture list: ${cause instanceof Error ? cause.message : String(cause)}`,
-          "footywire",
-        ),
+        new ScrapeError({
+          message: `Failed to parse fixture list: ${cause instanceof Error ? cause.message : String(cause)}`,
+          source: "footywire",
+        }),
       );
     }
   }
@@ -333,10 +341,10 @@ export class FootyWireClient {
       return ok(merged);
     } catch (cause) {
       return err(
-        new ScrapeError(
-          `Failed to parse team stats: ${cause instanceof Error ? cause.message : String(cause)}`,
-          "footywire",
-        ),
+        new ScrapeError({
+          message: `Failed to parse team stats: ${cause instanceof Error ? cause.message : String(cause)}`,
+          source: "footywire",
+        }),
       );
     }
   }
@@ -421,7 +429,10 @@ export function parseMatchList(html: string, year: number): Match[] {
     const date = parseDate(dateText, { defaultYear: year, venue: canonicalVenue });
 
     if (!date) {
-      throw new Error(`Unable to parse required FootyWire match date: ${JSON.stringify(dateText)}`);
+      throw new ScrapeError({
+        message: `Unable to parse required FootyWire match date: ${JSON.stringify(dateText)}`,
+        source: "footywire",
+      });
     }
 
     // FootyWire's match-list page only carries total points — goals/behinds
@@ -560,7 +571,10 @@ export function parseFixtureList(
     const initialDate = parseDate(dateText, { defaultYear: year, venue: canonicalVenue });
 
     if (!initialDate) {
-      throw new Error(`Unable to parse required FootyWire match date: ${JSON.stringify(dateText)}`);
+      throw new ScrapeError({
+        message: `Unable to parse required FootyWire match date: ${JSON.stringify(dateText)}`,
+        source: "footywire",
+      });
     }
 
     // Cross-calendar rollover: parseDate used `year` as the default. If the

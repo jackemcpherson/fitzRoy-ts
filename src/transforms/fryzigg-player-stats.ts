@@ -208,10 +208,10 @@ export function transformFryziggPlayerStats(
   for (const group of REQUIRED_COLUMN_GROUPS) {
     if (!group.some((name) => colIndex.has(name))) {
       return err(
-        new ScrapeError(
-          `Fryzigg data frame missing required column: "${group.join('" or "')}"`,
-          "fryzigg",
-        ),
+        new ScrapeError({
+          message: `Fryzigg data frame missing required column: "${group.join('" or "')}"`,
+          source: "fryzigg",
+        }),
       );
     }
   }
@@ -301,7 +301,10 @@ export function transformFryziggPlayerStats(
 
   if (options.round !== undefined && cols.round === undefined) {
     return err(
-      new ScrapeError(`Fryzigg data frame missing required column: "${mapping.round}"`, "fryzigg"),
+      new ScrapeError({
+        message: `Fryzigg data frame missing required column: "${mapping.round}"`,
+        source: "fryzigg",
+      }),
     );
   }
 

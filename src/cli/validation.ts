@@ -15,6 +15,7 @@ import type {
   SeasonSelector,
   TeamStatsSummaryType,
 } from "../types";
+import { CliUsageError } from "./errors";
 
 const VALID_SOURCES: readonly DataSource[] = [
   "afl-api",
@@ -58,11 +59,15 @@ export function validateSeason(raw: string): SeasonSelector {
   const season = Number(raw);
 
   if (Number.isNaN(season) || !Number.isInteger(season)) {
-    throw new Error(`Invalid season: "${raw}" — season must be a number (e.g. 2025)`);
+    throw new CliUsageError({
+      message: `Invalid season: "${raw}" — season must be a number (e.g. 2025)`,
+    });
   }
 
   if (season < 1897 || season > 2100) {
-    throw new Error(`Invalid season: ${season} — must be between 1897 and 2100`);
+    throw new CliUsageError({
+      message: `Invalid season: ${season} — must be between 1897 and 2100`,
+    });
   }
 
   return season;
@@ -82,7 +87,9 @@ export function validateRound(raw: string): number {
   const round = Number(raw);
 
   if (Number.isNaN(round) || !Number.isInteger(round) || round < 0) {
-    throw new Error(`Invalid round: "${raw}" — round must be a non-negative integer`);
+    throw new CliUsageError({
+      message: `Invalid round: "${raw}" — round must be a non-negative integer`,
+    });
   }
 
   return round;
@@ -94,7 +101,7 @@ export function validateLimit(raw: string | undefined): number | undefined {
   const limit = Number(raw);
 
   if (Number.isNaN(limit) || !Number.isInteger(limit) || limit <= 0) {
-    throw new Error(`Invalid limit: "${raw}" — must be a positive integer`);
+    throw new CliUsageError({ message: `Invalid limit: "${raw}" — must be a positive integer` });
   }
 
   return limit;
@@ -109,7 +116,9 @@ export function validateFormat(raw: string | undefined): OutputFormat | undefine
     return lower as OutputFormat;
   }
 
-  throw new Error(`Invalid format: "${raw}" — valid formats are: ${VALID_FORMATS.join(", ")}`);
+  throw new CliUsageError({
+    message: `Invalid format: "${raw}" — valid formats are: ${VALID_FORMATS.join(", ")}`,
+  });
 }
 
 /** Validate a competition code string (case-insensitive). */
@@ -120,9 +129,9 @@ export function validateCompetition(raw: string): CompetitionCode {
     return upper;
   }
 
-  throw new Error(
-    `Invalid competition: "${raw}" — valid values are: ${VALID_COMPETITIONS.join(", ")}`,
-  );
+  throw new CliUsageError({
+    message: `Invalid competition: "${raw}" — valid values are: ${VALID_COMPETITIONS.join(", ")}`,
+  });
 }
 
 /** Validate a competition code string if provided, otherwise return undefined. */
@@ -138,7 +147,9 @@ export function validateSource(raw: string): DataSource {
     return raw as DataSource;
   }
 
-  throw new Error(`Invalid source: "${raw}" — valid sources are: ${VALID_SOURCES.join(", ")}`);
+  throw new CliUsageError({
+    message: `Invalid source: "${raw}" — valid sources are: ${VALID_SOURCES.join(", ")}`,
+  });
 }
 
 /** Validate a provider-specific match identifier before any fetch occurs. */
@@ -163,11 +174,12 @@ export function validateMatchId(source: DataSource, raw: string): string {
 
   if (pattern?.test(raw)) return raw;
   const example = examples[source];
-  throw new Error(
-    example === undefined
-      ? `${source} does not accept match identifiers.`
-      : `Invalid match ID "${raw}" for ${source}; expected ${example}.`,
-  );
+  throw new CliUsageError({
+    message:
+      example === undefined
+        ? `${source} does not accept match identifiers.`
+        : `Invalid match ID "${raw}" for ${source}; expected ${example}.`,
+  });
 }
 
 /** Validate a summary type string (case-insensitive). */
@@ -178,9 +190,9 @@ export function validateSummary(raw: string): TeamStatsSummaryType {
     return lower as TeamStatsSummaryType;
   }
 
-  throw new Error(
-    `Invalid summary type: "${raw}" — valid values are: ${VALID_SUMMARIES.join(", ")}`,
-  );
+  throw new CliUsageError({
+    message: `Invalid summary type: "${raw}" — valid values are: ${VALID_SUMMARIES.join(", ")}`,
+  });
 }
 
 /** Validate an award type string (case-insensitive). */
@@ -191,9 +203,9 @@ export function validateAwardType(raw: string): AwardType {
     return lower as AwardType;
   }
 
-  throw new Error(
-    `Invalid award type: "${raw}" — valid values are: ${VALID_AWARD_TYPES.join(", ")}`,
-  );
+  throw new CliUsageError({
+    message: `Invalid award type: "${raw}" — valid values are: ${VALID_AWARD_TYPES.join(", ")}`,
+  });
 }
 
 /** Validate a match status string (case-insensitive). */
@@ -204,9 +216,9 @@ export function validateMatchStatus(raw: string): MatchStatus {
     if (valid.toLowerCase() === lower) return valid;
   }
 
-  throw new Error(
-    `Invalid status: "${raw}" — valid values are: ${VALID_MATCH_STATUSES.join(", ")}`,
-  );
+  throw new CliUsageError({
+    message: `Invalid status: "${raw}" — valid values are: ${VALID_MATCH_STATUSES.join(", ")}`,
+  });
 }
 
 /** Validate a --by grouping flag. */
@@ -217,7 +229,9 @@ export function validateGroupBy(raw: string): GroupBy {
     return lower as GroupBy;
   }
 
-  throw new Error(`Invalid --by value: "${raw}" — valid values are: ${VALID_GROUP_BY.join(", ")}`);
+  throw new CliUsageError({
+    message: `Invalid --by value: "${raw}" — valid values are: ${VALID_GROUP_BY.join(", ")}`,
+  });
 }
 
 /**
@@ -258,7 +272,7 @@ export function resolveTeamIdentifier(
   if (byAbbrev) return byAbbrev.teamId;
 
   const validNames = teams.map((t) => `${t.name} (${t.abbreviation})`).join(", ");
-  throw new Error(`Unknown team: "${raw}" — valid teams are: ${validNames}`);
+  throw new CliUsageError({ message: `Unknown team: "${raw}" — valid teams are: ${validNames}` });
 }
 
 /**
@@ -302,9 +316,9 @@ export function resolveMatchByTeam(teamSearch: string, matchItems: readonly Matc
       )
       .join(", ");
 
-    throw new Error(
-      `No match found for "${teamSearch}" in this round. Available matches: ${available}`,
-    );
+    throw new CliUsageError({
+      message: `No match found for "${teamSearch}" in this round. Available matches: ${available}`,
+    });
   }
 
   const ambiguous = matches
@@ -314,7 +328,7 @@ export function resolveMatchByTeam(teamSearch: string, matchItems: readonly Matc
     )
     .join(", ");
 
-  throw new Error(
-    `Multiple matches found for "${teamSearch}": ${ambiguous}. Please be more specific.`,
-  );
+  throw new CliUsageError({
+    message: `Multiple matches found for "${teamSearch}": ${ambiguous}. Please be more specific.`,
+  });
 }

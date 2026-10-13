@@ -71,10 +71,10 @@ async function fetchAwardsRaw(query: AwardQuery): Promise<Result<AwardResult, Er
 
   if (isFootyWireScraped && competition !== "AFLM") {
     return err(
-      new ScrapeError(
-        `${query.award} is only available for AFLM via the FootyWire scraper. ${competition} awards are not yet supported.`,
-        "footywire",
-      ),
+      new ScrapeError({
+        message: `${query.award} is only available for AFLM via the FootyWire scraper. ${competition} awards are not yet supported.`,
+        source: "footywire",
+      }),
     );
   }
 
@@ -117,7 +117,10 @@ async function fetchAwardsRaw(query: AwardQuery): Promise<Result<AwardResult, Er
 
     default:
       return err(
-        new ScrapeError(`Unknown award type: ${(query as AwardQuery).award}`, "footywire"),
+        new ScrapeError({
+          message: `Unknown award type: ${(query as AwardQuery).award}`,
+          source: "footywire",
+        }),
       );
   }
 }
@@ -184,7 +187,12 @@ async function fetchFootyWireAward(
   const data = parse(htmlResult.data);
 
   if (data.length === 0) {
-    return err(new ScrapeError(`No ${label} data found for season ${season}`, "footywire"));
+    return err(
+      new ScrapeError({
+        message: `No ${label} data found for season ${season}`,
+        source: "footywire",
+      }),
+    );
   }
 
   return ok(data);
@@ -199,25 +207,38 @@ async function fetchCoachesVotes(query: AwardQuery): Promise<Result<AwardResult,
   const competition = query.competition ?? "AFLM";
 
   if (seasonYear(query.season) < 2006) {
-    return err(new ScrapeError("No coaches votes data available before 2006", "afl-coaches"));
+    return err(
+      new ScrapeError({
+        message: "No coaches votes data available before 2006",
+        source: "afl-coaches",
+      }),
+    );
   }
 
   if (competition === "AFLW" && seasonYear(query.season) < 2018) {
-    return err(new ScrapeError("No AFLW coaches votes data available before 2018", "afl-coaches"));
+    return err(
+      new ScrapeError({
+        message: "No AFLW coaches votes data available before 2018",
+        source: "afl-coaches",
+      }),
+    );
   }
 
   if (competition === "VFL" || competition === "VFLW") {
     return err(
-      new ScrapeError(`No coaches votes data available for ${competition}`, "afl-coaches"),
+      new ScrapeError({
+        message: `No coaches votes data available for ${competition}`,
+        source: "afl-coaches",
+      }),
     );
   }
 
   if (String(query.season).includes("-S"))
     return err(
-      new ScrapeError(
-        "Coaches votes do not expose a verified selector for separate AFLW 2022 seasons",
-        "afl-coaches",
-      ),
+      new ScrapeError({
+        message: "Coaches votes do not expose a verified selector for separate AFLW 2022 seasons",
+        source: "afl-coaches",
+      }),
     );
   const client = new AflCoachesClient();
   let votes: readonly CoachesVote[];
@@ -264,10 +285,10 @@ async function fetchColemanLeaderboard(query: AwardQuery): Promise<Result<Award[
 
   if (competition === "VFL" || competition === "VFLW") {
     return err(
-      new ScrapeError(
-        `Coleman Medal is not awarded in ${competition}; use Coleman-equivalent stats query`,
-        "afl-api",
-      ),
+      new ScrapeError({
+        message: `Coleman Medal is not awarded in ${competition}; use Coleman-equivalent stats query`,
+        source: "afl-api",
+      }),
     );
   }
 

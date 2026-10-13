@@ -164,14 +164,19 @@ export class AflApiClient {
       });
 
       if (!response.ok) {
-        return err(new AflApiError(`Token request failed: ${response.status}`, response.status));
+        return err(
+          new AflApiError({
+            message: `Token request failed: ${response.status}`,
+            statusCode: response.status,
+          }),
+        );
       }
 
       const json: unknown = await response.json();
       const parsed = decodeToken(json);
 
       if (!parsed.success) {
-        return err(new AflApiError("Invalid token response format"));
+        return err(new AflApiError({ message: "Invalid token response format" }));
       }
 
       // Token endpoint doesn't provide expiry; assume 30 minutes.
@@ -184,9 +189,9 @@ export class AflApiClient {
       return ok(parsed.data.token);
     } catch (cause) {
       return err(
-        new AflApiError(
-          `Token request failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-        ),
+        new AflApiError({
+          message: `Token request failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+        }),
       );
     }
   }
@@ -219,7 +224,7 @@ export class AflApiClient {
       const token = this.cachedToken;
 
       if (!token) {
-        throw new AflApiError("No cached token available");
+        throw new AflApiError({ message: "No cached token available" });
       }
 
       const headers = new Headers(init?.headers);
@@ -243,19 +248,19 @@ export class AflApiClient {
 
       if (!response.ok) {
         return err(
-          new AflApiError(
-            `Request failed: ${response.status} ${response.statusText}`,
-            response.status,
-          ),
+          new AflApiError({
+            message: `Request failed: ${response.status} ${response.statusText}`,
+            statusCode: response.status,
+          }),
         );
       }
 
       return ok(response);
     } catch (cause) {
       return err(
-        new AflApiError(
-          `Request failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-        ),
+        new AflApiError({
+          message: `Request failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+        }),
       );
     }
   }
@@ -281,17 +286,17 @@ export class AflApiClient {
 
         if (!response.ok) {
           return err(
-            new AflApiError(
-              `Request failed: ${response.status} ${response.statusText}`,
-              response.status,
-            ),
+            new AflApiError({
+              message: `Request failed: ${response.status} ${response.statusText}`,
+              statusCode: response.status,
+            }),
           );
         }
       } catch (cause) {
         return err(
-          new AflApiError(
-            `Request failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-          ),
+          new AflApiError({
+            message: `Request failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+          }),
         );
       }
     } else {
@@ -310,16 +315,19 @@ export class AflApiClient {
 
       if (!parsed.success) {
         return err(
-          new ValidationError("Response validation failed", [{ path: url, message: parsed.error }]),
+          new ValidationError({
+            message: "Response validation failed",
+            issues: [{ path: url, message: parsed.error }],
+          }),
         );
       }
 
       return ok(parsed.data);
     } catch (cause) {
       return err(
-        new AflApiError(
-          `JSON parse failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-        ),
+        new AflApiError({
+          message: `JSON parse failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+        }),
       );
     }
   }
@@ -385,7 +393,7 @@ export class AflApiClient {
         code === "AFLW" && year === 2022 ? /Season ([67])\b/.exec(season.name)?.[1] : undefined;
 
       if (code === "AFLW" && year === 2022 && !suffix)
-        return err(new ValidationError("Unrecognised AFLW 2022 provider season"));
+        return err(new ValidationError({ message: "Unrecognised AFLW 2022 provider season" }));
       seasons.push({
         competition: code,
         seasonKey: suffix ? `${year}-S${suffix}` : String(year),
@@ -426,17 +434,17 @@ export class AflApiClient {
 
     if (!key.includes("-S") && matches.length > 1) {
       return err(
-        new AmbiguousSeasonError(
-          String(competitionId),
-          seasonYear(year),
-          matches.map(
+        new AmbiguousSeasonError({
+          competition: String(competitionId),
+          year: seasonYear(year),
+          validSelectors: matches.map(
             (cs) => `${seasonYear(year)}-S${/Season (\d+)/.exec(cs.name)?.[1] ?? "unknown"}`,
           ),
-        ),
+        }),
       );
     }
 
-    if (!season) return err(new AflApiError(`Season not found: ${key}`));
+    if (!season) return err(new AflApiError({ message: `Season not found: ${key}` }));
 
     return ok(season.id);
   }
@@ -488,7 +496,9 @@ export class AflApiClient {
     const newest = dated[0];
 
     if (!newest) {
-      return err(new AflApiError(`No dated compseasons found for competition: ${code}`));
+      return err(
+        new AflApiError({ message: `No dated compseasons found for competition: ${code}` }),
+      );
     }
 
     for (const candidate of dated) {
@@ -502,7 +512,9 @@ export class AflApiClient {
 
       if (startInstants.length === 0) {
         return err(
-          new AflApiError(`Cannot determine season start: no round has utcStartTime (${code})`),
+          new AflApiError({
+            message: `Cannot determine season start: no round has utcStartTime (${code})`,
+          }),
         );
       }
 
@@ -511,7 +523,7 @@ export class AflApiClient {
       }
     }
 
-    return err(new AflApiError(`No dated season has started (${code})`));
+    return err(new AflApiError({ message: `No dated season has started (${code})` }));
   }
 
   /**
@@ -597,7 +609,9 @@ export class AflApiClient {
     const round = roundsResult.data.find((r) => r.roundNumber === roundNumber);
 
     if (!round?.providerId) {
-      return err(new AflApiError(`Round not found or missing providerId: round ${roundNumber}`));
+      return err(
+        new AflApiError({ message: `Round not found or missing providerId: round ${roundNumber}` }),
+      );
     }
 
     return this.fetchRoundMatchItems(round.providerId);
@@ -745,7 +759,7 @@ function currentSelector(
 
     if (/Season 7\b/.test(season.name)) return ok("2022-S7");
 
-    return err(new ValidationError("Unknown AFLW 2022 provider season"));
+    return err(new ValidationError({ message: "Unknown AFLW 2022 provider season" }));
   }
 
   return ok(year);

@@ -21,6 +21,7 @@ import { AflApiClient } from "../sources/afl-api";
 import type { CompetitionCode, DataSource } from "../types";
 import { resolveMatchOrPrompt } from "./resolvers";
 import { validateMatchId } from "./validation";
+import { CliUsageError } from "./errors";
 
 /** Raw inputs from the command handler. `matchIdArg` short-circuits the fetch. */
 export interface MatchResolverInput {
@@ -90,7 +91,9 @@ export async function resolveMatchId(
   if (!input.matchArg) return undefined;
 
   if (input.round == null) {
-    throw new Error("--match requires --round (-r) to identify which round to search.");
+    throw new CliUsageError({
+      message: "--match requires --round (-r) to identify which round to search.",
+    });
   }
 
   const client = new AflApiClient();

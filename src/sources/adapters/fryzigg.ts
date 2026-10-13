@@ -46,10 +46,11 @@ export class FryziggPlayerStatsSource implements PlayerStatsSource {
     // Its calendar-year column cannot supply season seven.
     if (competition === "AFLW" && query.season === "2022-S7")
       return err(
-        new UnsupportedSourceError(
-          "Fryzigg's January 2022 snapshot covers season six only; use afl-api for 2022-S7",
-          "fryzigg",
-        ),
+        new UnsupportedSourceError({
+          message:
+            "Fryzigg's January 2022 snapshot covers season six only; use afl-api for 2022-S7",
+          source: "fryzigg",
+        }),
       );
     const result = await this.client.fetchPlayerStats(competition);
 

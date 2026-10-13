@@ -12,15 +12,6 @@ import { err, ok, type Result } from "../lib/result";
 import { createSourceFetch, type SourceFetchOptions } from "../lib/source-fetch";
 import type { CoachesVote, CoachesVotesResult, CompetitionCode } from "../types";
 
-class AflCoachesHttpError extends ScrapeError {
-  constructor(
-    message: string,
-    readonly statusCode: number,
-  ) {
-    super(message, "afl-coaches");
-  }
-}
-
 /**
  * Final home-and-away round per AFLM season on aflcoaches.com.au.
  *
@@ -109,10 +100,11 @@ export class AflCoachesClient {
 
       if (!response.ok) {
         return err(
-          new AflCoachesHttpError(
-            `AFL Coaches request failed: ${response.status} (${url})`,
-            response.status,
-          ),
+          new ScrapeError({
+            message: `AFL Coaches request failed: ${response.status} (${url})`,
+            source: "afl-coaches",
+            statusCode: response.status,
+          }),
         );
       }
 
@@ -121,10 +113,10 @@ export class AflCoachesClient {
       return ok(html);
     } catch (cause) {
       return err(
-        new ScrapeError(
-          `AFL Coaches request failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-          "afl-coaches",
-        ),
+        new ScrapeError({
+          message: `AFL Coaches request failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+          source: "afl-coaches",
+        }),
       );
     }
   }
@@ -190,10 +182,10 @@ export class AflCoachesClient {
       return ok(votes);
     } catch (cause) {
       return err(
-        new ScrapeError(
-          `Failed to parse coaches votes: ${cause instanceof Error ? cause.message : String(cause)}`,
-          "afl-coaches",
-        ),
+        new ScrapeError({
+          message: `Failed to parse coaches votes: ${cause instanceof Error ? cause.message : String(cause)}`,
+          source: "afl-coaches",
+        }),
       );
     }
   }
@@ -225,10 +217,7 @@ export class AflCoachesClient {
     );
 
     const failedRounds = roundResults.flatMap((result, index) => {
-      if (
-        result.success ||
-        (result.error instanceof AflCoachesHttpError && result.error.statusCode === 404)
-      ) {
+      if (result.success || result.error.statusCode === 404) {
         return [];
       }
 
@@ -236,7 +225,12 @@ export class AflCoachesClient {
     });
 
     if (allVotes.length === 0) {
-      return err(new ScrapeError(`No coaches votes found for season ${season}`, "afl-coaches"));
+      return err(
+        new ScrapeError({
+          message: `No coaches votes found for season ${season}`,
+          source: "afl-coaches",
+        }),
+      );
     }
 
     return ok({ votes: allVotes, failedRounds });

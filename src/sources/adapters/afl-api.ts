@@ -101,9 +101,9 @@ export class AflApiPlayerStatsSource implements PlayerStatsSource {
 
       if (!member || (query.round !== undefined && member.round?.roundNumber !== query.round)) {
         return err(
-          new ValidationError(
-            `Match ${query.matchId} does not belong to ${competition} ${query.season} within the requested round`,
-          ),
+          new ValidationError({
+            message: `Match ${query.matchId} does not belong to ${competition} ${query.season} within the requested round`,
+          }),
         );
       }
 
@@ -261,7 +261,7 @@ export class AflApiSquadSource implements SquadSource {
     const match = teamsResult.data.find((t) => normaliseTeamName(t.name) === normalised);
 
     if (!match) {
-      return err(new ValidationError(`Team not found in ${competition}: ${teamName}`));
+      return err(new ValidationError({ message: `Team not found in ${competition}: ${teamName}` }));
     }
 
     return ok(match.id);
@@ -292,9 +292,9 @@ export class AflApiLineupSource implements LineupSource {
 
       if (!member || (query.round !== undefined && member.round?.roundNumber !== query.round)) {
         return err(
-          new ValidationError(
-            `Match ${query.matchId} does not belong to ${competition} ${query.season} within the requested round`,
-          ),
+          new ValidationError({
+            message: `Match ${query.matchId} does not belong to ${competition} ${query.season} within the requested round`,
+          }),
         );
       }
 
@@ -319,7 +319,7 @@ export class AflApiLineupSource implements LineupSource {
     if (!matchItems.success) return matchItems;
 
     if (matchItems.data.length === 0) {
-      return err(new AflApiError(`No matches found for round ${query.round}`));
+      return err(new AflApiError({ message: `No matches found for round ${query.round}` }));
     }
 
     const rosterResults = await batchedMap(matchItems.data, (item) =>
@@ -364,7 +364,9 @@ export class AflApiLadderSource implements LadderSource {
 
       if (!round) {
         return err(
-          new AflApiError(`Round ${query.round} was not found for the ${query.season} season`),
+          new AflApiError({
+            message: `Round ${query.round} was not found for the ${query.season} season`,
+          }),
         );
       }
 
