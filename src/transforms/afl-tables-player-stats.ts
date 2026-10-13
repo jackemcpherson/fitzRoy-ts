@@ -17,6 +17,7 @@ function parseName(raw: string): { givenName: string; surname: string; displayNa
   const parts = cleaned.split(",").map((s) => s.trim());
   const surname = parts[0] ?? "";
   const givenName = parts[1] ?? "";
+
   return {
     givenName,
     surname,
@@ -45,6 +46,7 @@ export function parseAflTablesGameStats(
     // Get team name from first header row
     const headerText = $(table).find("thead tr").first().text().trim();
     const teamMatch = /^(\w[\w\s]+?)\s+Match Statistics/i.exec(headerText);
+
     if (!teamMatch) return; // Skip non-stats tables (e.g. Player Details)
 
     const teamName = normaliseTeamName(teamMatch[1]?.trim() ?? "");
@@ -173,6 +175,7 @@ export function extractGameUrlsFromDoc($: cheerio.CheerioAPI): string[] {
 
   $("tr:nth-child(2) td:nth-child(4) a").each((_i, el) => {
     const href = $(el).attr("href");
+
     if (href) {
       urls.push(href.replace("..", "https://afltables.com/afl"));
     }

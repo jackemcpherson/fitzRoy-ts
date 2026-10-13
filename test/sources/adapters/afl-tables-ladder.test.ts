@@ -62,10 +62,12 @@ describe("AflTablesLadderSource.asOfMatch (#119)", () => {
       fakeMatch("AT_2", 1, "2024-03-16T03:00:00Z"),
       fakeMatch("AT_3", 2, "2024-03-22T09:30:00Z"),
     ];
+
     const source = new AflTablesLadderSource(clientStub(matches));
 
     const result = await source.fetchLadder({ source: "afl-tables", season: 2024 });
     expect(result.success).toBe(true);
+
     if (!result.success) return;
     expect(result.data.asOfMatch).toBe("AT_3");
     // Envelope stamps source consistently (#120).
@@ -78,10 +80,12 @@ describe("AflTablesLadderSource.asOfMatch (#119)", () => {
       fakeMatch("AT_2", 2, "2024-03-22T09:30:00Z"),
       fakeMatch("AT_3", 3, "2024-03-29T09:30:00Z"),
     ];
+
     const source = new AflTablesLadderSource(clientStub(matches));
 
     const result = await source.fetchLadder({ source: "afl-tables", season: 2024, round: 2 });
     expect(result.success).toBe(true);
+
     if (!result.success) return;
     expect(result.data.asOfMatch).toBe("AT_2");
   });
@@ -91,6 +95,7 @@ describe("AflTablesLadderSource.asOfMatch (#119)", () => {
 
     const result = await source.fetchLadder({ source: "afl-tables", season: 2024 });
     expect(result.success).toBe(true);
+
     if (!result.success) return;
     expect(result.data.asOfMatch).toBeNull();
   });

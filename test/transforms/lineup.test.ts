@@ -106,6 +106,7 @@ describe("transformMatchRoster", () => {
   it("recognises an explicit substitute designation", () => {
     const roster = makeRoster();
     const player = roster.teamPlayers[0]?.players[1];
+
     if (!player) throw new Error("Missing fixture participant");
     player.player.position = "SUB";
     const lineup = transformMatchRoster(roster, 2025, 1, "AFLM");
@@ -116,6 +117,7 @@ describe("transformMatchRoster", () => {
   it("identifies emergency positions", () => {
     const roster = makeRoster();
     const homeTeam = roster.teamPlayers[0];
+
     if (homeTeam) {
       homeTeam.players.push({
         player: {
@@ -128,6 +130,7 @@ describe("transformMatchRoster", () => {
         jumperNumber: 99,
       });
     }
+
     const lineup = transformMatchRoster(roster, 2025, 1, "AFLM");
     const emg = lineup.homePlayers[2];
 
@@ -148,9 +151,11 @@ describe("transformMatchRoster", () => {
   it("handles missing jumper number", () => {
     const roster = makeRoster();
     const homeTeam = roster.teamPlayers[0];
+
     if (homeTeam?.players[0]) {
       (homeTeam.players[0] as Record<string, unknown>).jumperNumber = undefined;
     }
+
     const lineup = transformMatchRoster(roster, 2025, 1, "AFLM");
 
     expect(lineup.homePlayers[0]?.jumperNumber).toBeNull();

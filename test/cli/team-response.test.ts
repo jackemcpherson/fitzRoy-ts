@@ -3,7 +3,13 @@ import { formatJson, formatOutput } from "../../src/cli/formatters/index";
 import type { Lineup, Squad, Team, TeamResponse } from "../../src/types";
 
 const sampleTeams: Team[] = [
-  { teamId: "1", name: "Sydney Swans", abbreviation: "SYD", competition: "AFLM", source: "afl-api" },
+  {
+    teamId: "1",
+    name: "Sydney Swans",
+    abbreviation: "SYD",
+    competition: "AFLM",
+    source: "afl-api",
+  },
   { teamId: "2", name: "Carlton", abbreviation: "CAR", competition: "AFLM", source: "afl-api" },
 ];
 

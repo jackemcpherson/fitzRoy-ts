@@ -9,6 +9,7 @@ const { fetchMatchesMock, fetchPlayerStatsMock } = vi.hoisted(() => ({
 }));
 
 vi.mock("../../src/api/match", () => ({ fetchMatches: fetchMatchesMock }));
+
 vi.mock("../../src/api/player-stats", () => ({ fetchPlayerStats: fetchPlayerStatsMock }));
 
 import { fetchAwards } from "../../src/api/awards";
@@ -21,6 +22,7 @@ function brownlowHtml(): string {
     ["Filler One", "Richmond", "0", "0", "0", "0", "1", "0", "0.00"],
     ["Filler Two", "Geelong", "0", "0", "0", "0", "1", "0", "0.00"],
   ];
+
   return `<table>${rows.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("")}</table>`;
 }
 
@@ -46,6 +48,7 @@ function risingStarHtml(): string {
     "X",
     "X",
   ];
+
   const player = [
     "1",
     "Blue Youngster",
@@ -63,6 +66,7 @@ function risingStarHtml(): string {
     "",
     "",
   ];
+
   const filler = Array.from({ length: 3 }, (_, i) => [
     String(i + 2),
     `Player ${i}`,
@@ -80,12 +84,14 @@ function risingStarHtml(): string {
     "",
     "",
   ]);
+
   return `<table>${[header, player, ...filler].map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("")}</table>`;
 }
 
 function stubFootyWire(body: string, status = 200): ReturnType<typeof vi.fn> {
   const fetchStub = vi.fn(() => Promise.resolve(new Response(body, { status })));
   vi.stubGlobal("fetch", fetchStub);
+
   return fetchStub;
 }
 
@@ -245,6 +251,7 @@ describe("fetchAwards FootyWire routing", () => {
     const result = await fetchAwards({ award, season: 2025 });
 
     expect(result.success).toBe(true);
+
     if (!result.success) return;
     expect(result.data.awards.some((entry) => "player" in entry && entry.player === player)).toBe(
       true,
@@ -272,6 +279,7 @@ describe("fetchAwards FootyWire routing", () => {
     const result = await fetchAwards({ award: "brownlow", season: 2025 });
 
     expect(result.success).toBe(false);
+
     if (!result.success) expect(result.error.message).toContain("503");
   });
 
@@ -281,6 +289,7 @@ describe("fetchAwards FootyWire routing", () => {
     const result = await fetchAwards({ award: "all-australian", season: 2025 });
 
     expect(result.success).toBe(false);
+
     if (!result.success) expect(result.error.message).toContain("No All-Australian data");
   });
 
@@ -290,6 +299,7 @@ describe("fetchAwards FootyWire routing", () => {
     const result = await fetchAwards({ award: "brownlow", season: 2025, team: "Blues", limit: 1 });
 
     expect(result.success).toBe(true);
+
     if (!result.success) return;
     expect(result.data.awards).toHaveLength(1);
     expect(result.data.awards[0]).toMatchObject({ player: "Blue Leader", team: "Carlton" });
@@ -342,6 +352,7 @@ describe("fetchAwards coaches filtering", () => {
     const result = await fetchAwards({ award: "coaches", season: 2025, team: "Blues", limit: 1 });
 
     expect(result.success).toBe(true);
+
     if (!result.success) return;
     expect(result.data.awards).toHaveLength(1);
     expect(result.data.awards[0]).toMatchObject({ player: "First Blue" });
@@ -368,6 +379,7 @@ describe("fetchAwards coaches filtering", () => {
     const result = await fetchAwards({ award: "coaches", season: 2025, round: 2 });
 
     expect(result.success).toBe(true);
+
     if (!result.success) return;
     expect(result.data.awards).toHaveLength(1);
     expect(result.data.failedRounds).toEqual([]);
@@ -390,6 +402,7 @@ describe("fetchAwards Coleman orchestration", () => {
     const result = await fetchAwards({ award: "coleman", season: 2025 });
 
     expect(result.success).toBe(true);
+
     if (!result.success) return;
     expect(result.data.awards.map((entry) => "player" in entry && entry.player)).toEqual([
       "Home Leader",
@@ -429,6 +442,7 @@ describe("fetchAwards Coleman orchestration", () => {
     });
 
     expect(result.success).toBe(true);
+
     if (!result.success) return;
     expect(result.data.awards).toHaveLength(1);
     expect(result.data.awards[0]).toMatchObject({ player: "First Blue", team: "Carlton" });
@@ -446,6 +460,7 @@ describe("fetchAwards Coleman orchestration", () => {
     const result = await fetchAwards({ award: "coleman", season: 2025 });
 
     expect(result.success).toBe(false);
+
     if (!result.success) expect(result.error).toBe(failure);
   });
 });

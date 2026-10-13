@@ -13,18 +13,21 @@ const seasons = CompseasonListSchema.parse(
     readFileSync(new URL("../fixtures/aflw-provider-seasons.json", import.meta.url), "utf8"),
   ),
 );
+
 const inventory = (key: string) =>
   MatchItemSchema.array().parse(
     JSON.parse(
       readFileSync(new URL(`../fixtures/aflw-${key}-matches.json`, import.meta.url), "utf8"),
     ),
   );
+
 afterEach(() => vi.restoreAllMocks());
 
 function client() {
   const api = new AflApiClient();
   vi.spyOn(api, "resolveCompetitionId").mockResolvedValue({ success: true, data: 3 });
   vi.spyOn(api, "fetchCompseasons").mockResolvedValue({ success: true, data: seasons.compSeasons });
+
   return api;
 }
 
@@ -58,14 +61,17 @@ describe("explicit competition seasons", () => {
   });
   it("rejects ambiguous public requests and invalid competition selectors before any fetch", async () => {
     const fetch = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("No network allowed"));
+
     for (const operation of [fetchMatches, fetchPlayerStats]) {
       const result = await operation({ source: "afl-api", competition: "AFLW", season: 2022 });
       expect(result.success).toBe(false);
+
       if (!result.success) {
         expect(result.error).toBeInstanceOf(AmbiguousSeasonError);
         expect(result.error).toMatchObject({ validSelectors: ["2022-S6", "2022-S7"] });
       }
     }
+
     expect(canonicalSeasonKey("AFLM", "2022-S6").success).toBe(false);
     expect(canonicalSeasonKey("AFLM", 2022)).toEqual({ success: true, data: "2022" });
     expect(fetch).not.toHaveBeenCalled();
@@ -77,18 +83,22 @@ describe("explicit competition seasons", () => {
       data: inventory(id === 41 ? "2022-S6" : "2022-S7"),
     }));
     const adapter = new AflApiMatchSource(api);
+
     const six = await adapter.fetchMatches({
       source: "afl-api",
       competition: "AFLW",
       season: "2022-S6",
     });
+
     const seven = await adapter.fetchMatches({
       source: "afl-api",
       competition: "AFLW",
       season: "2022-S7",
     });
+
     expect(six.success && six.data.length).toBe(75);
     expect(seven.success && seven.data.length).toBe(99);
+
     if (!six.success || !seven.success) return;
     const first = new Set(six.data.map((m) => m.matchId));
     expect(seven.data.every((m) => !first.has(m.matchId) && m.season === 2022)).toBe(true);
@@ -102,12 +112,14 @@ describe("explicit competition seasons", () => {
     const fetch = vi.spyOn(api, "fetchPlayerStats");
     const matchId = inventory("2022-S7")[0]?.match.matchId;
     expect(matchId).toBeDefined();
+
     const result = await new AflApiPlayerStatsSource(api).fetchPlayerStats({
       source: "afl-api",
       competition: "AFLW",
       season: "2022-S6",
       matchId,
     });
+
     expect(result.success).toBe(false);
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -128,12 +140,15 @@ describe("explicit competition seasons", () => {
 
 it("does not relabel the pinned January Fryzigg snapshot as AFLW season seven", async () => {
   const network = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("No network allowed"));
+
   const result = await fetchPlayerStats({
     source: "fryzigg",
     competition: "AFLW",
     season: "2022-S7",
   });
+
   expect(result.success).toBe(false);
+
   if (!result.success) expect(result.error.message).toContain("season six only");
   expect(network).not.toHaveBeenCalled();
 });

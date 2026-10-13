@@ -7,7 +7,9 @@ const COMPSEASONS = readFileSync(
   resolve(__dirname, "../fixtures/afl-api-compseasons-2024.json"),
   "utf-8",
 );
+
 const TEAMS = readFileSync(resolve(__dirname, "../fixtures/afl-api-teams-aflm.json"), "utf-8");
+
 const SQUAD = readFileSync(
   resolve(__dirname, "../fixtures/afl-api-squads-carlton-2024.json"),
   "utf-8",
@@ -22,15 +24,19 @@ const SQUAD = readFileSync(
 function squadFetch(): typeof fetch {
   return vi.fn((input: string | URL | Request) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+
     if (url.includes("compseasons?pageSize")) {
       return Promise.resolve(new Response(COMPSEASONS, { status: 200 }));
     }
+
     if (url.includes("/teams?")) {
       return Promise.resolve(new Response(TEAMS, { status: 200 }));
     }
+
     if (url.includes("/squads?")) {
       return Promise.resolve(new Response(SQUAD, { status: 200 }));
     }
+
     return Promise.reject(new Error(`Unexpected URL in squad test: ${url}`));
   }) as unknown as typeof fetch;
 }
@@ -46,6 +52,7 @@ describe("fetchSquad afl-api happy path", () => {
     const result = await fetchSquad({ team: "Carlton", season: 2024, source: "afl-api" });
 
     expect(result.success).toBe(true);
+
     if (!result.success) return;
 
     expect(result.data.teamName).toBe("Carlton");
@@ -76,7 +83,9 @@ describe("fetchSquad public API dispatch", () => {
       season: 2024,
       source: "squiggle",
     });
+
     expect(result.success).toBe(false);
+
     if (!result.success) {
       expect(result.error.message).toContain("squiggle does not provide squad");
     }
@@ -88,7 +97,9 @@ describe("fetchSquad public API dispatch", () => {
       season: 2024,
       source: "fryzigg",
     });
+
     expect(result.success).toBe(false);
+
     if (!result.success) {
       expect(result.error.message).toContain("fryzigg does not provide squad");
     }
@@ -100,7 +111,9 @@ describe("fetchSquad public API dispatch", () => {
       season: 2010,
       source: "afl-api",
     });
+
     expect(result.success).toBe(false);
+
     if (!result.success) {
       expect(result.error.message).toContain("2010");
     }

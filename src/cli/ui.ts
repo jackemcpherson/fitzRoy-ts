@@ -22,9 +22,11 @@ export async function withSpinner<T>(message: string, fn: () => Promise<T>): Pro
 
   const s = spinner();
   s.start(message);
+
   try {
     const result = await fn();
     s.stop(message);
+
     return result;
   } catch (error) {
     s.error("Failed");

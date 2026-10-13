@@ -55,22 +55,27 @@ export function applyStatsFilters(
   // When --match resolved to a known game, post-filter to its participants
   // so cross-source behaviour matches afl-api's per-match scoping.
   let data: PlayerStats[] = [...stats];
+
   if (participants) {
     const { homeTeam, awayTeam } = participants;
     data = data.filter(
       (entry) => teamNamesEqual(entry.team, homeTeam) || teamNamesEqual(entry.team, awayTeam),
     );
   }
+
   if (team) {
     data = data.filter((entry) => teamNamesEqual(entry.team, team));
   }
+
   if (player) {
     const playerMatches = fuzzySearch(player, data, (p) => p.displayName, {
       maxResults: 50,
       threshold: 0.4,
     });
+
     data = playerMatches.map((m) => m.item);
   }
+
   return data;
 }
 
@@ -80,5 +85,6 @@ export function filterTeamStats(
   team: string | undefined,
 ): TeamStatsEntry[] {
   if (team === undefined) return [...stats];
+
   return stats.filter((entry) => teamNamesEqual(entry.team, team));
 }

@@ -135,6 +135,7 @@ describe("computeLadder", () => {
 
     const sydney = ladder.find((e) => e.team === "Sydney");
     expect(sydney).toBeDefined();
+
     if (sydney) {
       const expected = Math.round((sydney.pointsFor / sydney.pointsAgainst) * 100 * 10) / 10;
       expect(sydney.percentage).toBe(expected);

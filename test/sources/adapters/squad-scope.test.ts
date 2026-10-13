@@ -30,6 +30,7 @@ describe("scraped squad scope", () => {
     });
 
     expect(result.success).toBe(true);
+
     if (!result.success) return;
     expect(result.data.scope).toBe("all-time");
     expect(result.data.season).toBe(2024);

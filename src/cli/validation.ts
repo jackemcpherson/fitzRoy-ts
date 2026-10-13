@@ -23,10 +23,15 @@ const VALID_SOURCES: readonly DataSource[] = [
   "squiggle",
   "fryzigg",
 ];
+
 const VALID_COMPETITIONS: readonly CompetitionCode[] = ["AFLM", "AFLW", "VFL", "VFLW"];
+
 const VALID_FORMATS = ["table", "json", "csv"] as const;
+
 type OutputFormat = (typeof VALID_FORMATS)[number];
+
 const VALID_SUMMARIES = ["totals", "averages"] as const;
+
 const VALID_AWARD_TYPES: readonly AwardType[] = [
   "brownlow",
   "all-australian",
@@ -34,6 +39,7 @@ const VALID_AWARD_TYPES: readonly AwardType[] = [
   "coleman",
   "coaches",
 ];
+
 const VALID_MATCH_STATUSES: readonly MatchStatus[] = [
   "Upcoming",
   "Live",
@@ -41,25 +47,31 @@ const VALID_MATCH_STATUSES: readonly MatchStatus[] = [
   "Postponed",
   "Cancelled",
 ];
+
 const VALID_GROUP_BY = ["player", "team"] as const;
+
 export type GroupBy = (typeof VALID_GROUP_BY)[number];
 
 /** Validate and parse a season year string. */
 export function validateSeason(raw: string): SeasonSelector {
   if (raw === "2022-S6" || raw === "2022-S7") return raw;
   const season = Number(raw);
+
   if (Number.isNaN(season) || !Number.isInteger(season)) {
     throw new Error(`Invalid season: "${raw}" — season must be a number (e.g. 2025)`);
   }
+
   if (season < 1897 || season > 2100) {
     throw new Error(`Invalid season: ${season} — must be between 1897 and 2100`);
   }
+
   return season;
 }
 
 /** Validate and parse an optional season year string. */
 export function validateOptionalSeason(raw: string | undefined): SeasonSelector | undefined {
   if (raw != null) return validateSeason(raw);
+
   return undefined;
 }
 
@@ -68,9 +80,11 @@ export { resolveDefaultSeason } from "../lib/date-utils";
 /** Validate and parse a round number string. */
 export function validateRound(raw: string): number {
   const round = Number(raw);
+
   if (Number.isNaN(round) || !Number.isInteger(round) || round < 0) {
     throw new Error(`Invalid round: "${raw}" — round must be a non-negative integer`);
   }
+
   return round;
 }
 
@@ -78,9 +92,11 @@ export function validateRound(raw: string): number {
 export function validateLimit(raw: string | undefined): number | undefined {
   if (raw == null) return undefined;
   const limit = Number(raw);
+
   if (Number.isNaN(limit) || !Number.isInteger(limit) || limit <= 0) {
     throw new Error(`Invalid limit: "${raw}" — must be a positive integer`);
   }
+
   return limit;
 }
 
@@ -88,18 +104,22 @@ export function validateLimit(raw: string | undefined): number | undefined {
 export function validateFormat(raw: string | undefined): OutputFormat | undefined {
   if (raw == null) return undefined;
   const lower = raw.toLowerCase();
+
   if (VALID_FORMATS.includes(lower as OutputFormat)) {
     return lower as OutputFormat;
   }
+
   throw new Error(`Invalid format: "${raw}" — valid formats are: ${VALID_FORMATS.join(", ")}`);
 }
 
 /** Validate a competition code string (case-insensitive). */
 export function validateCompetition(raw: string): CompetitionCode {
   const upper = raw.toUpperCase();
+
   if (upper === "AFLM" || upper === "AFLW" || upper === "VFL" || upper === "VFLW") {
     return upper;
   }
+
   throw new Error(
     `Invalid competition: "${raw}" — valid values are: ${VALID_COMPETITIONS.join(", ")}`,
   );
@@ -108,6 +128,7 @@ export function validateCompetition(raw: string): CompetitionCode {
 /** Validate a competition code string if provided, otherwise return undefined. */
 export function validateOptionalCompetition(raw: string | undefined): CompetitionCode | undefined {
   if (raw == null) return undefined;
+
   return validateCompetition(raw);
 }
 
@@ -116,6 +137,7 @@ export function validateSource(raw: string): DataSource {
   if (VALID_SOURCES.includes(raw as DataSource)) {
     return raw as DataSource;
   }
+
   throw new Error(`Invalid source: "${raw}" — valid sources are: ${VALID_SOURCES.join(", ")}`);
 }
 
@@ -128,6 +150,7 @@ export function validateMatchId(source: DataSource, raw: string): string {
     squiggle: /^SQ_\d+$/,
     fryzigg: /^\d+$/,
   };
+
   const examples: Partial<Record<DataSource, string>> = {
     "afl-api": "CD_M20250140101",
     footywire: "FW_11193 or FW_SYNTH_2025_R5_G1",
@@ -135,7 +158,9 @@ export function validateMatchId(source: DataSource, raw: string): string {
     squiggle: "SQ_12345",
     fryzigg: "10001",
   };
+
   const pattern = patterns[source];
+
   if (pattern?.test(raw)) return raw;
   const example = examples[source];
   throw new Error(
@@ -148,9 +173,11 @@ export function validateMatchId(source: DataSource, raw: string): string {
 /** Validate a summary type string (case-insensitive). */
 export function validateSummary(raw: string): TeamStatsSummaryType {
   const lower = raw.toLowerCase();
+
   if (VALID_SUMMARIES.includes(lower as TeamStatsSummaryType)) {
     return lower as TeamStatsSummaryType;
   }
+
   throw new Error(
     `Invalid summary type: "${raw}" — valid values are: ${VALID_SUMMARIES.join(", ")}`,
   );
@@ -159,9 +186,11 @@ export function validateSummary(raw: string): TeamStatsSummaryType {
 /** Validate an award type string (case-insensitive). */
 export function validateAwardType(raw: string): AwardType {
   const lower = raw.toLowerCase();
+
   if (VALID_AWARD_TYPES.includes(lower as AwardType)) {
     return lower as AwardType;
   }
+
   throw new Error(
     `Invalid award type: "${raw}" — valid values are: ${VALID_AWARD_TYPES.join(", ")}`,
   );
@@ -170,9 +199,11 @@ export function validateAwardType(raw: string): AwardType {
 /** Validate a match status string (case-insensitive). */
 export function validateMatchStatus(raw: string): MatchStatus {
   const lower = raw.toLowerCase();
+
   for (const valid of VALID_MATCH_STATUSES) {
     if (valid.toLowerCase() === lower) return valid;
   }
+
   throw new Error(
     `Invalid status: "${raw}" — valid values are: ${VALID_MATCH_STATUSES.join(", ")}`,
   );
@@ -181,9 +212,11 @@ export function validateMatchStatus(raw: string): MatchStatus {
 /** Validate a --by grouping flag. */
 export function validateGroupBy(raw: string): GroupBy {
   const lower = raw.toLowerCase();
+
   if (VALID_GROUP_BY.includes(lower as GroupBy)) {
     return lower as GroupBy;
   }
+
   throw new Error(`Invalid --by value: "${raw}" — valid values are: ${VALID_GROUP_BY.join(", ")}`);
 }
 
@@ -211,14 +244,17 @@ export function resolveTeamIdentifier(
   // Use the existing alias map to normalise abbreviations and common names
   const canonical = normaliseTeamName(trimmed);
   const byCanonical = teams.find((t) => t.name === canonical);
+
   if (byCanonical) return byCanonical.teamId;
 
   // Fallback: try case-insensitive match on team name and abbreviation
   const lower = trimmed.toLowerCase();
   const byName = teams.find((t) => t.name.toLowerCase() === lower);
+
   if (byName) return byName.teamId;
 
   const byAbbrev = teams.find((t) => t.abbreviation.toLowerCase() === lower);
+
   if (byAbbrev) return byAbbrev.teamId;
 
   const validNames = teams.map((t) => `${t.name} (${t.abbreviation})`).join(", ");
@@ -243,6 +279,7 @@ export function resolveMatchByTeam(teamSearch: string, matchItems: readonly Matc
   const matches = matchItems.filter((item) => {
     const home = item.match.homeTeam.name;
     const away = item.match.awayTeam.name;
+
     return (
       normaliseTeamName(home) === normalised ||
       normaliseTeamName(away) === normalised ||
@@ -252,6 +289,7 @@ export function resolveMatchByTeam(teamSearch: string, matchItems: readonly Matc
   });
 
   const singleMatch = matches[0];
+
   if (matches.length === 1 && singleMatch) {
     return singleMatch.match.matchId;
   }
@@ -263,6 +301,7 @@ export function resolveMatchByTeam(teamSearch: string, matchItems: readonly Matc
           `${normaliseTeamName(item.match.homeTeam.name)} vs ${normaliseTeamName(item.match.awayTeam.name)}`,
       )
       .join(", ");
+
     throw new Error(
       `No match found for "${teamSearch}" in this round. Available matches: ${available}`,
     );
@@ -274,6 +313,7 @@ export function resolveMatchByTeam(teamSearch: string, matchItems: readonly Matc
         `${normaliseTeamName(item.match.homeTeam.name)} vs ${normaliseTeamName(item.match.awayTeam.name)}`,
     )
     .join(", ");
+
   throw new Error(
     `Multiple matches found for "${teamSearch}": ${ambiguous}. Please be more specific.`,
   );

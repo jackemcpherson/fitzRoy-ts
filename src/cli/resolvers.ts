@@ -51,6 +51,7 @@ export async function resolveTeamOrPrompt(
   });
 
   const seen = new Set(matches.map((m) => m.item.teamId));
+
   for (const m of abbrevMatches) {
     if (!seen.has(m.item.teamId)) {
       matches.push(m);
@@ -111,6 +112,7 @@ export async function resolveTeamNameOrPrompt(
   }
 
   const items = candidates.map((name) => ({ name }));
+
   const matches = fuzzySearch(trimmed, items, (t) => t.name, {
     maxResults: 5,
     threshold: 0.4,
@@ -159,12 +161,14 @@ export async function resolveMatchOrPrompt(
     maxResults: 5,
     threshold: 0.4,
   });
+
   const awayMatches = fuzzySearch(query, matchItems, (i) => i.match.awayTeam.name, {
     maxResults: 5,
     threshold: 0.4,
   });
 
   const seen = new Set(matches.map((m) => m.item.item.match.matchId));
+
   for (const m of homeMatches) {
     if (!seen.has(m.item.match.matchId)) {
       const label = `${normaliseTeamName(m.item.match.homeTeam.name)} vs ${normaliseTeamName(m.item.match.awayTeam.name)}`;
@@ -172,6 +176,7 @@ export async function resolveMatchOrPrompt(
       seen.add(m.item.match.matchId);
     }
   }
+
   for (const m of awayMatches) {
     if (!seen.has(m.item.match.matchId)) {
       const label = `${normaliseTeamName(m.item.match.homeTeam.name)} vs ${normaliseTeamName(m.item.match.awayTeam.name)}`;
@@ -231,6 +236,7 @@ export async function disambiguate(
   isTTY = process.stdout.isTTY === true,
 ): Promise<string> {
   const best = options[0];
+
   if (!best) {
     throw new Error(
       `No ${entityName} found for "${query}". Valid options: ${allLabels.join(", ")}`,

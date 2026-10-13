@@ -40,10 +40,15 @@ import type {
 import type { CoverageMap } from "./coverage";
 
 const AFL_TABLES_MATCH_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 1897 }]]);
+
 const AFL_TABLES_PLAYER_STATS_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 1965 }]]);
+
 const AFL_TABLES_TEAM_STATS_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 1965 }]]);
+
 const AFL_TABLES_LADDER_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 1897 }]]);
+
 const AFL_TABLES_SQUAD_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 1897 }]]);
+
 const AFL_TABLES_MATCH_COACHES_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 1990 }]]);
 
 /** AFL Tables as the primary credited match-coach source (AFLM 1990+). */
@@ -55,13 +60,17 @@ export class AflTablesMatchCoachesSource implements MatchCoachesSource {
 
   async fetchMatchCoaches(query: MatchCoachesQuery): Promise<Result<MatchCoachesResult, Error>> {
     const result = await this.client.fetchAflTablesSeason(seasonYear(query.season), query.batch);
+
     if (!result.success) return result;
+
     const assignments: MatchCoachAssignment[] = result.data.assignments.filter(
       (assignment) =>
         query.team === undefined ||
         normaliseTeamName(assignment.team) === normaliseTeamName(query.team),
     );
+
     const failures = result.data.failures;
+
     return ok({
       assignments,
       completeness: { complete: failures.length === 0, failures },
@@ -79,9 +88,12 @@ export class AflTablesMatchSource implements MatchSource {
 
   async fetchMatches(query: MatchQuery): Promise<Result<Match[], Error>> {
     const result = await this.client.fetchSeasonResults(seasonYear(query.season));
+
     if (!result.success) return result;
+
     const filtered =
       query.round != null ? result.data.filter((m) => m.roundNumber === query.round) : result.data;
+
     return ok(filtered);
   }
 }
@@ -95,7 +107,9 @@ export class AflTablesPlayerStatsSource implements PlayerStatsSource {
 
   async fetchPlayerStats(query: PlayerStatsQuery): Promise<Result<SeasonPlayerStats, Error>> {
     const result = await this.client.fetchSeasonPlayerStats(seasonYear(query.season));
+
     if (!result.success) return result;
+
     if (query.round != null) {
       // failedMatchIds pass through unfiltered — a failed game's round is
       // unknown, so callers see every season-scrape failure regardless of
@@ -105,6 +119,7 @@ export class AflTablesPlayerStatsSource implements PlayerStatsSource {
         failedMatchIds: result.data.failedMatchIds,
       });
     }
+
     return result;
   }
 }
@@ -119,13 +134,16 @@ export class AflTablesTeamStatsSource implements TeamStatsSource {
   async fetchTeamStats(query: TeamStatsQuery): Promise<Result<TeamStatsEntry[], Error>> {
     const summaryType = query.summaryType ?? "totals";
     const statsResult = await this.client.fetchTeamStats(seasonYear(query.season));
+
     if (!statsResult.success) return statsResult;
 
     // The stats page lacks a GP column — derive from match results if needed.
     const needsGp = statsResult.data.some((entry) => entry.gamesPlayed === null);
     const gpMap = new Map<string, number>();
+
     if (needsGp) {
       const resultsResult = await this.client.fetchSeasonResults(seasonYear(query.season));
+
       if (resultsResult.success) {
         for (const m of resultsResult.data) {
           const home = normaliseTeamName(m.homeTeam);
@@ -145,6 +163,7 @@ export class AflTablesTeamStatsSource implements TeamStatsSource {
       const invalid = enriched.filter(
         (entry) => entry.gamesPlayed === null || entry.gamesPlayed <= 0,
       );
+
       if (invalid.length > 0) {
         return err(
           new ScrapeError(
@@ -153,8 +172,10 @@ export class AflTablesTeamStatsSource implements TeamStatsSource {
           ),
         );
       }
+
       return ok(enriched.map((entry) => averageMetrics(entry)));
     }
+
     return ok(enriched);
   }
 }
@@ -162,17 +183,23 @@ export class AflTablesTeamStatsSource implements TeamStatsSource {
 /** Convert a TeamStatsEntry's `for`/`against` totals into per-game averages. */
 function averageMetrics(entry: TeamStatsEntry): TeamStatsEntry {
   const gamesPlayed = entry.gamesPlayed;
+
   if (gamesPlayed === null || gamesPlayed <= 0) return entry;
+
   const divide = (set: TeamStatsEntry["for"]): TeamStatsEntry["for"] => {
     const out = { ...set };
+
     for (const key of Object.keys(out) as (keyof typeof out)[]) {
       const v = out[key];
+
       if (v != null) {
         out[key] = +(v / gamesPlayed).toFixed(1);
       }
     }
+
     return out;
   };
+
   return { ...entry, for: divide(entry.for), against: divide(entry.against) };
 }
 
@@ -197,6 +224,7 @@ export class AflTablesSquadSource implements SquadSource {
     const competition = query.competition ?? "AFLM";
     const teamName = normaliseTeamName(query.team);
     const result = await this.client.fetchPlayerList(teamName);
+
     if (!result.success) return result;
 
     const players: Player[] = result.data.map((p) => ({
@@ -249,16 +277,19 @@ export class AflTablesLadderSource implements LadderSource {
   async fetchLadder(query: LadderQuery): Promise<Result<Ladder, Error>> {
     const competition = query.competition ?? "AFLM";
     const resultsResult = await this.client.fetchSeasonResults(seasonYear(query.season));
+
     if (!resultsResult.success) return resultsResult;
 
     const entries = computeLadder(resultsResult.data, query.round ?? undefined);
     // Surface the most-recent completed match feeding the synthesised
     // ladder so mid-round snapshots are pinned to a specific cutoff (#119).
     const roundCutoff = query.round;
+
     const inScope =
       roundCutoff != null
         ? resultsResult.data.filter((m) => m.roundNumber <= roundCutoff)
         : resultsResult.data;
+
     const completed = inScope.filter((m) => m.status === "Complete");
     completed.sort((a, b) => b.date.getTime() - a.date.getTime());
     const asOfMatch = completed[0]?.matchId ?? null;

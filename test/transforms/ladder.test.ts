@@ -10,7 +10,9 @@ function loadEntries() {
   const raw = JSON.parse(readFileSync(fixturePath, "utf-8"));
   const response = LadderResponseSchema.parse(raw);
   const firstLadder = response.ladders[0];
+
   if (!firstLadder) throw new Error("No ladder in fixture");
+
   return transformLadderEntries(firstLadder.entries);
 }
 
@@ -22,6 +24,7 @@ describe("transformLadderEntries", () => {
 
     const first = entries[0];
     expect(first).toBeDefined();
+
     if (!first) return;
 
     // Position and team

@@ -20,6 +20,7 @@ describe("batchedMap", () => {
         maxConcurrent = Math.max(maxConcurrent, current);
         await new Promise((resolve) => setTimeout(resolve, 10));
         current--;
+
         return n;
       },
       { batchSize: 3 },
@@ -48,6 +49,7 @@ describe("batchedMap", () => {
       maxConcurrent = Math.max(maxConcurrent, current);
       await new Promise((resolve) => setTimeout(resolve, 10));
       current--;
+
       return n;
     });
 
@@ -69,6 +71,7 @@ describe("batchedMap", () => {
     await expect(
       batchedMap(items, async (n) => {
         if (n === 2) throw new Error("fail");
+
         return n;
       }),
     ).rejects.toThrow("fail");

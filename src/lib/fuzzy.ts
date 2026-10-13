@@ -34,6 +34,7 @@ export function levenshteinDistance(a: string, b: string): number {
   const lb = b.length;
 
   if (la === 0) return lb;
+
   if (lb === 0) return la;
 
   // Ensure `b` is the shorter string for space efficiency
@@ -43,15 +44,18 @@ export function levenshteinDistance(a: string, b: string): number {
 
   for (let i = 1; i <= la; i++) {
     let prev = i;
+
     for (let j = 1; j <= lb; j++) {
       const current = row[j - 1];
       const rowJ = row[j];
+
       if (current === undefined || rowJ === undefined) continue;
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
       const val = Math.min(rowJ + 1, prev + 1, current + cost);
       row[j - 1] = prev;
       prev = val;
     }
+
     row[lb] = prev;
   }
 
@@ -110,6 +114,7 @@ export function fuzzySearch<T>(
     }
 
     const maxLen = Math.max(lowerQuery.length, key.length);
+
     if (maxLen === 0) continue;
 
     const distance = levenshteinDistance(lowerQuery, key);
@@ -124,6 +129,7 @@ export function fuzzySearch<T>(
 
   results.sort((a, b) => {
     if (a.score !== b.score) return a.score - b.score;
+
     return keySelector(a.item).localeCompare(keySelector(b.item));
   });
 

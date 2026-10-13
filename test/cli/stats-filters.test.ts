@@ -96,6 +96,7 @@ describe("applyStatsFilters", () => {
       makeStats("Collingwood", "Nick Daicos"),
       makeStats("Carlton", "Charlie Curnow"),
     ];
+
     const result = applyStatsFilters(stats, {});
     expect(result).toEqual(stats);
   });
@@ -106,27 +107,33 @@ describe("applyStatsFilters", () => {
       makeStats("Collingwood", "Nick Daicos"),
       makeStats("Carlton", "Charlie Curnow"),
     ];
+
     const result = applyStatsFilters(stats, {
       participants: { homeTeam: "Richmond", awayTeam: "Collingwood" },
     });
+
     expect(result).toHaveLength(2);
     expect(result.map((r) => r.team)).toEqual(["Richmond", "Collingwood"]);
   });
 
   it("participants filter compares aliases and case canonically", () => {
     const stats = [makeStats("Carlton", "Patrick Cripps"), makeStats("Richmond", "Tom Lynch")];
+
     const result = applyStatsFilters(stats, {
       participants: { homeTeam: "blues", awayTeam: "RICHMOND" },
     });
+
     expect(result).toHaveLength(2);
   });
 
   it("team filter composes after participants — row in the match but wrong team is excluded", () => {
     const stats = [makeStats("Richmond", "Jack Riewoldt"), makeStats("Collingwood", "Nick Daicos")];
+
     const result = applyStatsFilters(stats, {
       participants: { homeTeam: "Richmond", awayTeam: "Collingwood" },
       team: "Richmond",
     });
+
     expect(result).toHaveLength(1);
     expect(result[0]?.team).toBe("Richmond");
   });

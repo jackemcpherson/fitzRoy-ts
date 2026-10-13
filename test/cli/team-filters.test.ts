@@ -54,6 +54,7 @@ describe("flattenLineups", () => {
       [makePlayer("Jack Riewoldt"), makePlayer("Dustin Martin")],
       [makePlayer("Nick Daicos"), makePlayer("Scott Pendlebury")],
     );
+
     const rows = flattenLineups([lineup]);
     expect(rows).toHaveLength(4);
     expect(rows.filter((r) => r.team === "Richmond")).toHaveLength(2);
@@ -69,6 +70,7 @@ describe("flattenLineups", () => {
       [makePlayer("Jack Riewoldt"), makePlayer("Dustin Martin")],
       [makePlayer("Nick Daicos"), makePlayer("Scott Pendlebury")],
     );
+
     const rows = flattenLineups([lineup], "Richmond");
     expect(rows).toHaveLength(2);
     expect(rows.every((r) => r.team === "Richmond")).toBe(true);
@@ -82,6 +84,7 @@ describe("flattenLineups", () => {
       [makePlayer("Patrick Cripps")],
       [makePlayer("Tom Lynch")],
     );
+
     const rows = flattenLineups([lineup], "blues");
     expect(rows.map((row) => row.team)).toEqual(["Carlton"]);
   });
@@ -94,6 +97,7 @@ describe("flattenLineups", () => {
       [makePlayer("Jack Riewoldt", { isEmergency: true })],
       [makePlayer("Nick Daicos", { isSubstitute: true })],
     );
+
     const rows = flattenLineups([lineup]);
     const richmondRow = rows.find((r) => r.team === "Richmond");
     const collingwoodRow = rows.find((r) => r.team === "Collingwood");
@@ -109,6 +113,7 @@ describe("filterLineupsByTeam", () => {
       makeLineup("CD_M002", "Carlton", "Essendon", [], []),
       makeLineup("CD_M003", "Richmond", "Geelong Cats", [], []),
     ];
+
     const result = filterLineupsByTeam(lineups, "Richmond");
     expect(result).toHaveLength(2);
     expect(result.every((l) => l.homeTeam === "Richmond" || l.awayTeam === "Richmond")).toBe(true);

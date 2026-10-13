@@ -18,6 +18,7 @@ import {
 } from "../lib/squiggle-validation";
 
 const SQUIGGLE_BASE = "https://api.squiggle.com.au/";
+
 const USER_AGENT = "fitzRoy-ts/1.0 (https://github.com/jackemcpherson/fitzRoy-ts)";
 
 /** Options for constructing a Squiggle client. */
@@ -42,6 +43,7 @@ export class SquiggleClient {
    */
   private async fetchJson(params: URLSearchParams): Promise<Result<unknown, ScrapeError>> {
     const url = `${SQUIGGLE_BASE}?${params.toString()}`;
+
     try {
       const response = await this.fetchFn(url, {
         headers: { "User-Agent": USER_AGENT },
@@ -54,6 +56,7 @@ export class SquiggleClient {
       }
 
       const json: unknown = await response.json();
+
       return ok(json);
     } catch (cause) {
       return err(
@@ -78,13 +81,17 @@ export class SquiggleClient {
     complete?: number,
   ): Promise<Result<SquiggleGamesResponse, ScrapeError>> {
     const params = new URLSearchParams({ q: "games", year: String(year) });
+
     if (round != null) params.set("round", String(round));
+
     if (complete != null) params.set("complete", String(complete));
 
     const result = await this.fetchJson(params);
+
     if (!result.success) return result;
 
     const parsed = SquiggleGamesResponseSchema.safeParse(result.data);
+
     if (!parsed.success) {
       return err(
         new ScrapeError(`Invalid Squiggle games response: ${parsed.error.message}`, "squiggle"),
@@ -105,12 +112,15 @@ export class SquiggleClient {
     round?: number,
   ): Promise<Result<SquiggleStandingsResponse, ScrapeError>> {
     const params = new URLSearchParams({ q: "standings", year: String(year) });
+
     if (round != null) params.set("round", String(round));
 
     const result = await this.fetchJson(params);
+
     if (!result.success) return result;
 
     const parsed = SquiggleStandingsResponseSchema.safeParse(result.data);
+
     if (!parsed.success) {
       return err(
         new ScrapeError(`Invalid Squiggle standings response: ${parsed.error.message}`, "squiggle"),

@@ -52,12 +52,14 @@ export function flattenLineups(
   teamFilter?: string,
 ): Record<string, unknown>[] {
   const rows: Record<string, unknown>[] = [];
+
   for (const lineup of lineups) {
     for (const { players, team } of [
       { players: lineup.homePlayers, team: lineup.homeTeam },
       { players: lineup.awayPlayers, team: lineup.awayTeam },
     ]) {
       if (teamFilter != null && !teamNamesEqual(team, teamFilter)) continue;
+
       for (const p of players) {
         rows.push({
           matchId: lineup.matchId,
@@ -71,6 +73,7 @@ export function flattenLineups(
       }
     }
   }
+
   return rows;
 }
 
@@ -91,16 +94,19 @@ export function flattenLineups(
  */
 export function filterTeamList(teams: readonly Team[], query: string): Team[] {
   const target = query.toLowerCase();
+
   const filtered = teams.filter(
     (t) =>
       t.name.toLowerCase() === target ||
       t.abbreviation.toLowerCase() === target ||
       t.teamId === query,
   );
+
   if (filtered.length === 0) {
     throw new Error(
       `No team matched "${query}". Available: ${teams.map((t) => `${t.name} (${t.abbreviation})`).join(", ")}`,
     );
   }
+
   return filtered;
 }

@@ -7,6 +7,7 @@ function clientSpy() {
     success: true as const,
     data: { games: [] },
   }));
+
   return { fetchGames, client: { fetchGames } as unknown as SquiggleClient };
 }
 

@@ -93,12 +93,15 @@ export const AFL_SENIOR_TEAMS: ReadonlySet<string> = new Set([
  */
 const ALIAS_MAP: ReadonlyMap<string, string> = (() => {
   const map = new Map<string, string>();
+
   for (const [canonical, ...aliases] of TEAM_ALIASES) {
     map.set(canonical.toLowerCase(), canonical);
+
     for (const alias of aliases) {
       map.set(alias.toLowerCase(), canonical);
     }
   }
+
   return map;
 })();
 
@@ -114,6 +117,7 @@ const ALIAS_MAP: ReadonlyMap<string, string> = (() => {
  */
 export function normaliseTeamName(raw: string): string {
   const trimmed = raw.trim();
+
   return ALIAS_MAP.get(trimmed.toLowerCase()) ?? trimmed;
 }
 

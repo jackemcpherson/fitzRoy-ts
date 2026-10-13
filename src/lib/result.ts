@@ -75,10 +75,12 @@ export const Result = {
    */
   all<T, E>(results: readonly Result<T, E>[]): Result<T[], E> {
     const data: T[] = [];
+
     for (const r of results) {
       if (!r.success) return r;
       data.push(r.data);
     }
+
     return ok(data);
   },
 

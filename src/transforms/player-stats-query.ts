@@ -14,6 +14,7 @@ export function filterSeasonPlayerStats(
   matchId: string | undefined,
 ): SeasonPlayerStats {
   if (matchId === undefined) return result;
+
   return {
     stats: result.stats.filter((entry) => entry.matchId === matchId),
     failedMatchIds: result.failedMatchIds.filter((failedMatchId) => failedMatchId === matchId),

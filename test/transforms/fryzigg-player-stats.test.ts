@@ -11,13 +11,16 @@ const fixtureBuffer = new Uint8Array(
 
 async function loadFixture(): Promise<DataFrame> {
   const result = await parseRds(fixtureBuffer);
+
   if (!isDataFrame(result)) throw new Error("Fixture is not a DataFrame");
+
   return result;
 }
 
 function frameWithoutRound(competition: "AFLM" | "AFLW"): DataFrame {
   const dateColumn = competition === "AFLW" ? "date" : "match_date";
   const teamColumn = competition === "AFLW" ? "team" : "player_team";
+
   return {
     names: ["match_id", dateColumn, "player_id", teamColumn],
     columns: [["1"], ["2024-03-15"], ["123"], ["Melbourne"]],
@@ -30,6 +33,7 @@ describe("transformFryziggPlayerStats", () => {
     const result = transformFryziggPlayerStats(frame, { competition: "AFLM" });
 
     expect(result.success).toBe(true);
+
     if (!result.success) return;
     expect(result.data.length).toBe(5);
   });
@@ -37,9 +41,13 @@ describe("transformFryziggPlayerStats", () => {
   it("maps column names correctly", async () => {
     const frame = await loadFixture();
     const result = transformFryziggPlayerStats(frame, { competition: "AFLM" });
+
     if (!result.success) return;
 
-    const first = result.data[0]!;
+    const first = result.data[0];
+    expect(first).toBeDefined();
+
+    if (!first) return;
     expect(first.matchId).toBe("10001");
     expect(first.playerId).toBe("12345");
     expect(first.givenName).toBe("Jack");
@@ -56,9 +64,13 @@ describe("transformFryziggPlayerStats", () => {
   it("maps core stats correctly", async () => {
     const frame = await loadFixture();
     const result = transformFryziggPlayerStats(frame, { competition: "AFLM" });
+
     if (!result.success) return;
 
-    const first = result.data[0]!;
+    const first = result.data[0];
+    expect(first).toBeDefined();
+
+    if (!first) return;
     expect(first.kicks).toBe(18);
     expect(first.handballs).toBe(12);
     expect(first.disposals).toBe(30);
@@ -77,10 +89,14 @@ describe("transformFryziggPlayerStats", () => {
   it("handles NA values as null", async () => {
     const frame = await loadFixture();
     const result = transformFryziggPlayerStats(frame, { competition: "AFLM" });
+
     if (!result.success) return;
 
     // Row 4 (index 3) is Lance Franklin — all stats are NA in fixture
-    const franklin = result.data[3]!;
+    const franklin = result.data[3];
+    expect(franklin).toBeDefined();
+
+    if (!franklin) return;
     expect(franklin.givenName).toBe("Lance");
     expect(franklin.kicks).toBeNull();
     expect(franklin.handballs).toBeNull();
@@ -92,15 +108,18 @@ describe("transformFryziggPlayerStats", () => {
 
   it("filters by season", async () => {
     const frame = await loadFixture();
+
     const result = transformFryziggPlayerStats(frame, {
       competition: "AFLM",
       season: 2024,
     });
 
     expect(result.success).toBe(true);
+
     if (!result.success) return;
     // 4 rows are 2024, 1 row is 2025
     expect(result.data.length).toBe(4);
+
     for (const stat of result.data) {
       expect(stat.season).toBe(2024);
     }
@@ -108,6 +127,7 @@ describe("transformFryziggPlayerStats", () => {
 
   it("filters by round", async () => {
     const frame = await loadFixture();
+
     const result = transformFryziggPlayerStats(frame, {
       competition: "AFLM",
       season: 2024,
@@ -115,8 +135,10 @@ describe("transformFryziggPlayerStats", () => {
     });
 
     expect(result.success).toBe(true);
+
     if (!result.success) return;
     expect(result.data.length).toBe(2);
+
     for (const stat of result.data) {
       expect(stat.roundNumber).toBe(1);
     }
@@ -124,12 +146,14 @@ describe("transformFryziggPlayerStats", () => {
 
   it("returns empty array when no rows match filters", async () => {
     const frame = await loadFixture();
+
     const result = transformFryziggPlayerStats(frame, {
       competition: "AFLM",
       season: 1900,
     });
 
     expect(result.success).toBe(true);
+
     if (!result.success) return;
     expect(result.data.length).toBe(0);
   });
@@ -137,6 +161,7 @@ describe("transformFryziggPlayerStats", () => {
   it("derives season from match_date", async () => {
     const frame = await loadFixture();
     const result = transformFryziggPlayerStats(frame, { competition: "AFLM" });
+
     if (!result.success) return;
 
     expect(result.data[0]?.season).toBe(2024);
@@ -146,6 +171,7 @@ describe("transformFryziggPlayerStats", () => {
   it("parses date as Date object", async () => {
     const frame = await loadFixture();
     const result = transformFryziggPlayerStats(frame, { competition: "AFLM" });
+
     if (!result.success) return;
 
     expect(result.data[0]?.date).toBeInstanceOf(Date);
@@ -154,9 +180,13 @@ describe("transformFryziggPlayerStats", () => {
   it("sets unmapped fields to null", async () => {
     const frame = await loadFixture();
     const result = transformFryziggPlayerStats(frame, { competition: "AFLM" });
+
     if (!result.success) return;
 
-    const first = result.data[0]!;
+    const first = result.data[0];
+    expect(first).toBeDefined();
+
+    if (!first) return;
     expect(first.goalAccuracy).toBeNull();
     expect(first.goalEfficiency).toBeNull();
     expect(first.shotEfficiency).toBeNull();
@@ -170,6 +200,7 @@ describe("transformFryziggPlayerStats", () => {
     const result = transformFryziggPlayerStats(badFrame, { competition: "AFLM" });
 
     expect(result.success).toBe(false);
+
     if (result.success) return;
     expect(result.error.message).toContain("missing required column");
   });
@@ -186,6 +217,7 @@ describe("transformFryziggPlayerStats", () => {
       });
 
       expect(result.success).toBe(false);
+
       if (result.success) return;
       expect(result.error.message).toContain(roundColumn);
     },
@@ -198,6 +230,7 @@ describe("transformFryziggPlayerStats", () => {
     });
 
     expect(result.success).toBe(true);
+
     if (!result.success) return;
     expect(result.data).toHaveLength(1);
   });
@@ -205,6 +238,7 @@ describe("transformFryziggPlayerStats", () => {
   it("sets competition from options", async () => {
     const frame = await loadFixture();
     const result = transformFryziggPlayerStats(frame, { competition: "AFLW" });
+
     if (!result.success) return;
 
     for (const stat of result.data) {

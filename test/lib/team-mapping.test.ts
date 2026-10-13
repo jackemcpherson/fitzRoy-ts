@@ -106,6 +106,7 @@ describe("normaliseTeamName", () => {
       "West Coast Eagles",
       "Western Bulldogs",
     ];
+
     for (const team of allTeams) {
       expect(normaliseTeamName(team)).toBe(team);
     }

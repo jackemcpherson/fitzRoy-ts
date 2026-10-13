@@ -73,14 +73,18 @@ export function goldenFetch(input: string | URL | Request): Promise<Response> {
   const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
   requested.push(url);
   const route = ROUTES.find(([pattern]) => pattern.test(url));
+
   if (!route) return Promise.resolve(new Response("not found", { status: 404 }));
+
   if (route[1] === "@token") {
     return Promise.resolve(
       new Response(JSON.stringify({ token: "golden-token" }), { status: 200 }),
     );
   }
+
   if (route[1] === "@rds") {
     return Promise.resolve(new Response(readFileSync(resolve(FIXTURES, "fryzigg-sample.rds"))));
   }
+
   return Promise.resolve(new Response(fixture(route[1]), { status: 200 }));
 }

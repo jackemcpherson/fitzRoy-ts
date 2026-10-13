@@ -37,6 +37,7 @@ describe("resolveMatchId", () => {
       season: 2025,
       round: 1,
     });
+
     expect(result).toEqual({ matchId: "CD_M20250140101" });
     expect(result?.participants).toBeUndefined();
   });
@@ -50,6 +51,7 @@ describe("resolveMatchId", () => {
       season: 2025,
       round: 1,
     });
+
     expect(result?.matchId).toBe("CD_M20250140102");
   });
 
@@ -82,6 +84,7 @@ describe("resolveMatchId", () => {
       season: 2025,
       round: 1,
     });
+
     expect(result).toBeUndefined();
   });
 
@@ -104,6 +107,7 @@ describe("resolveMatchId", () => {
       season: 2025,
       round: undefined,
     });
+
     expect(result).toBeUndefined();
   });
 });

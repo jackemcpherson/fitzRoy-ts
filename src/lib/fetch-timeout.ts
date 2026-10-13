@@ -39,12 +39,15 @@ export function withFetchTimeout(
 ): typeof fetch {
   const timeoutMs = options?.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS;
   const clientSignal = options?.signal;
+
   return (input, init?) => {
     if (init?.signal) {
       return fetchFn(input, init);
     }
+
     const timeout = AbortSignal.timeout(timeoutMs);
     const signal = clientSignal ? AbortSignal.any([clientSignal, timeout]) : timeout;
+
     return fetchFn(input, { ...init, signal });
   };
 }

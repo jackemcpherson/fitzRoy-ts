@@ -58,10 +58,12 @@ export function parseDate(
   // Unix timestamp (seconds) — Squiggle
   if (typeof raw === "number") {
     const date = new Date(raw * 1000);
+
     return Number.isNaN(date.getTime()) ? null : date;
   }
 
   const trimmed = raw.trim();
+
   if (trimmed === "") return null;
 
   // ISO 8601-ish — honour the supplied offset, or assume UTC if naive.
@@ -69,6 +71,7 @@ export function parseDate(
     const hasTime = trimmed.includes("T") || trimmed.includes(" ");
     const hasOffset = /[Zz]$|[+-]\d{2}:?\d{2}$/.test(trimmed);
     let isoInput: string;
+
     if (hasOffset) {
       // Already explicit; let the engine honour the offset.
       isoInput = trimmed;
@@ -76,7 +79,9 @@ export function parseDate(
       // Naive — treat as UTC (matches AFL API's `utcStartTime` convention).
       isoInput = hasTime ? `${trimmed}Z` : `${trimmed}T00:00:00Z`;
     }
+
     const date = new Date(isoInput);
+
     return Number.isNaN(date.getTime()) ? null : date;
   }
 
@@ -88,8 +93,10 @@ export function parseDate(
 
   // "DD MMM YYYY" — full date, midnight UTC
   const fullMatch = /^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/.exec(normalised);
+
   if (fullMatch) {
     const [, dayStr, monthStr, yearStr] = fullMatch;
+
     if (dayStr && monthStr && yearStr) {
       return buildUtcDate(Number.parseInt(yearStr, 10), monthStr, Number.parseInt(dayStr, 10));
     }
@@ -97,8 +104,10 @@ export function parseDate(
 
   // "MMM DD YYYY" — sometimes seen in AFL Tables
   const mdyMatch = /^([A-Za-z]+)\s+(\d{1,2})\s+(\d{4})$/.exec(normalised);
+
   if (mdyMatch) {
     const [, monthStr, dayStr, yearStr] = mdyMatch;
+
     if (dayStr && monthStr && yearStr) {
       return buildUtcDate(Number.parseInt(yearStr, 10), monthStr, Number.parseInt(dayStr, 10));
     }
@@ -106,11 +115,14 @@ export function parseDate(
 
   // "DD MMM [H:MMam/pm]" — short date with optional venue-local time
   const shortMatch = /^(\d{1,2})\s+([A-Za-z]+)(?:\s+(\d{1,2}):(\d{2})(am|pm))?$/i.exec(normalised);
+
   if (shortMatch && opts.defaultYear != null) {
     const [, dayStr, monthStr, hourStr, minStr, ampm] = shortMatch;
+
     if (!dayStr || !monthStr) return null;
 
     const monthIndex = MONTH_ABBREV_TO_INDEX.get(monthStr.toLowerCase());
+
     if (monthIndex === undefined) return null;
 
     const day = Number.parseInt(dayStr, 10);
@@ -121,11 +133,14 @@ export function parseDate(
 
     let hours = Number.parseInt(hourStr, 10);
     const minutes = Number.parseInt(minStr, 10);
+
     if (ampm.toLowerCase() === "pm" && hours < 12) hours += 12;
+
     if (ampm.toLowerCase() === "am" && hours === 12) hours = 0;
 
     const tz = resolveTimezone(opts);
     const result = localToUtc(tz, opts.defaultYear, monthIndex, day, hours, minutes);
+
     return result.success ? result.data : null;
   }
 
@@ -135,10 +150,13 @@ export function parseDate(
 /** Resolve the IANA tz to use for a venue-local parse. */
 function resolveTimezone(opts: ParseDateOptions): string {
   if (opts.timezone != null) return opts.timezone;
+
   if (opts.venue != null) {
     const canonical = normaliseVenueName(opts.venue);
+
     return resolveVenueTimezone(canonical) ?? DEFAULT_TIMEZONE;
   }
+
   return DEFAULT_TIMEZONE;
 }
 
@@ -175,6 +193,7 @@ export function toAestString(date: Date): string {
  */
 export function resolveDefaultSeason(competition: CompetitionCode = "AFLM"): number {
   const year = new Date().getFullYear();
+
   return competition === "AFLW" ? year - 1 : year;
 }
 
@@ -247,10 +266,12 @@ export function localToUtc(
     const candidate = new Date(
       Date.UTC(year, monthIndex, day, hours, minutes) + offsetMinutes * 60_000,
     );
+
     if (Number.isNaN(candidate.getTime())) continue;
     const parts = formatter.formatToParts(candidate);
     const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
     const renderedHours = get("hour") % 24;
+
     if (
       get("year") === year &&
       get("month") === monthIndex + 1 &&
@@ -283,16 +304,19 @@ function formatTimestamp(
   minutes: number,
 ): string {
   const pad = (n: number) => n.toString().padStart(2, "0");
+
   return `${year}-${pad(monthIndex + 1)}-${pad(day)} ${pad(hours)}:${pad(minutes)}`;
 }
 
 function buildUtcDate(year: number, monthStr: string, day: number): Date | null {
   const monthIndex = MONTH_ABBREV_TO_INDEX.get(monthStr.toLowerCase());
+
   if (monthIndex === undefined) {
     return null;
   }
 
   const date = new Date(Date.UTC(year, monthIndex, day));
+
   if (Number.isNaN(date.getTime())) {
     return null;
   }

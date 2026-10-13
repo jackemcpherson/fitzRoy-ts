@@ -142,6 +142,7 @@ function transformOne(item: PlayerStatsItem, ctx: TransformContext): PlayerStats
 export function transformPlayerStats(data: PlayerStatsList, ctx: TransformContext): PlayerStats[] {
   const home = (data.homeTeamPlayerStats ?? []).map((item) => transformOne(item, ctx));
   const away = (data.awayTeamPlayerStats ?? []).map((item) => transformOne(item, ctx));
+
   return [...home, ...away];
 }
 

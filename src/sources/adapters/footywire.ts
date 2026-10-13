@@ -36,9 +36,13 @@ import type {
 import type { CoverageMap } from "./coverage";
 
 const FOOTYWIRE_MATCH_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 2010 }]]);
+
 const FOOTYWIRE_PLAYER_STATS_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 2010 }]]);
+
 const FOOTYWIRE_TEAM_STATS_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 2010 }]]);
+
 const FOOTYWIRE_SQUAD_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 2010 }]]);
+
 // No season-wide coach-heading scope is registered until captured pages establish it.
 const FOOTYWIRE_MATCH_COACHES_COVERAGE: CoverageMap = new Map();
 
@@ -57,13 +61,16 @@ export class FootyWireMatchCoachesSource implements MatchCoachesSource {
       seasonYear(query.season),
       query.competition ?? "AFLM",
     );
+
     if (!matchesResult.success) return matchesResult;
     const records = await this.coachClient.fetchFootyWireMatches(matchesResult.data);
+
     const assignments: MatchCoachAssignment[] = records.assignments.filter(
       (assignment) =>
         query.team === undefined ||
         normaliseTeamName(assignment.team) === normaliseTeamName(query.team),
     );
+
     return ok({
       assignments,
       completeness: { complete: records.failures.length === 0, failures: records.failures },
@@ -86,9 +93,12 @@ export class FootyWireMatchSource implements MatchSource {
       seasonYear(query.season),
       query.competition ?? "AFLM",
     );
+
     if (!result.success) return result;
+
     const filtered =
       query.round != null ? result.data.filter((m) => m.roundNumber === query.round) : result.data;
+
     return ok(filtered);
   }
 }
@@ -109,6 +119,7 @@ export class FootyWirePlayerStatsSource implements PlayerStatsSource {
 
   async fetchPlayerStats(query: PlayerStatsQuery): Promise<Result<SeasonPlayerStats, Error>> {
     const idsResult = await this.client.fetchSeasonMatchIds(seasonYear(query.season));
+
     if (!idsResult.success) return idsResult;
 
     const entries =
@@ -126,15 +137,18 @@ export class FootyWirePlayerStatsSource implements PlayerStatsSource {
 
     const allStats: PlayerStats[] = [];
     const failedMatchIds: string[] = [];
+
     for (let i = 0; i < results.length; i++) {
       const result = results[i];
       const entry = entries[i];
+
       if (result?.success) {
         allStats.push(...result.data);
       } else if (entry) {
         failedMatchIds.push(`FW_${entry.matchId}`);
       }
     }
+
     return ok({ stats: allStats, failedMatchIds });
   }
 }
@@ -150,6 +164,7 @@ export class FootyWireSquadSource implements SquadSource {
     const competition = query.competition ?? "AFLM";
     const teamName = normaliseTeamName(query.team);
     const result = await this.client.fetchPlayerList(teamName);
+
     if (!result.success) return result;
 
     const players: Player[] = result.data.map((p) => ({
@@ -195,6 +210,7 @@ export class FootyWireTeamStatsSource implements TeamStatsSource {
 
   async fetchTeamStats(query: TeamStatsQuery): Promise<Result<TeamStatsEntry[], Error>> {
     const summaryType = query.summaryType ?? "totals";
+
     return this.client.fetchTeamStats(seasonYear(query.season), summaryType);
   }
 }

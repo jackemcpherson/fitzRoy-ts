@@ -115,9 +115,11 @@ export const awardsCommand = defineCommand({
     const result = await withSpinner("Fetching awards…", () =>
       fetchAwards({ award, season, round, competition, team, limit }),
     );
+
     if (!result.success) throw result.error;
 
     const { awards: data, failedRounds } = result.data;
+
     if (failedRounds.length > 0) {
       console.error(
         pc.yellow(
@@ -125,6 +127,7 @@ export const awardsCommand = defineCommand({
         ),
       );
     }
+
     showSummary(`Loaded ${data.length} ${award} entries for ${season}`);
 
     const formatOptions: FormatOptions = {
@@ -134,6 +137,7 @@ export const awardsCommand = defineCommand({
       full: args.full as boolean | undefined,
       columns: COLUMNS_BY_TYPE[award],
     };
+
     console.log(
       formatCompletenessOutput(
         { awards: data, failedRounds },

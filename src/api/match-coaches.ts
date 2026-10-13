@@ -22,5 +22,6 @@ export async function fetchMatchCoaches(
 ): Promise<import("../lib/result").Result<MatchCoachesResult, Error>> {
   const resolved = { ...query, source: query.source ?? "afl-tables" };
   const adapterR = dispatch(matchCoachesRegistry, "match coach", resolved);
+
   return Result.flatMapAsync(adapterR, (adapter) => adapter.fetchMatchCoaches(resolved));
 }

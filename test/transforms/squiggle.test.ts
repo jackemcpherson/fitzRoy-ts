@@ -28,6 +28,7 @@ describe("Squiggle transforms", () => {
 
       const first = results[0];
       expect(first).toBeDefined();
+
       if (!first) return;
 
       // Identity and metadata
@@ -47,6 +48,7 @@ describe("Squiggle transforms", () => {
       expect(homeBehinds).not.toBeNull();
       expect(awayGoals).not.toBeNull();
       expect(awayBehinds).not.toBeNull();
+
       if (
         homeGoals === null ||
         homeBehinds === null ||
@@ -57,6 +59,7 @@ describe("Squiggle transforms", () => {
       ) {
         return;
       }
+
       expect(first.margin).toBe(homePoints - awayPoints);
       expect(homeGoals * 6 + homeBehinds).toBe(homePoints);
       expect(awayGoals * 6 + awayBehinds).toBe(awayPoints);
@@ -77,6 +80,7 @@ describe("Squiggle transforms", () => {
 
       const first = fixtures[0];
       expect(first).toBeDefined();
+
       if (!first) return;
       expect(first.season).toBe(2024);
       expect(first.roundNumber).toBe(1);
@@ -96,6 +100,7 @@ describe("Squiggle transforms", () => {
 
       const first = entries[0];
       expect(first).toBeDefined();
+
       if (!first) return;
       expect(first.position).toBe(1);
       expect(first.team).toBeTruthy();
@@ -108,6 +113,7 @@ describe("Squiggle transforms", () => {
       for (let i = 1; i < entries.length; i++) {
         const current = entries[i];
         const previous = entries[i - 1];
+
         if (current && previous) {
           expect(current.position).toBeGreaterThan(previous.position);
         }

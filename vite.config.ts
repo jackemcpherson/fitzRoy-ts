@@ -17,11 +17,296 @@ const IGNORED = [
   "tools/oxlint/anti-slop/**",
 ];
 
+interface MigrationDebt {
+  /** The v7 migration phase (see ADR-0004) that rewrites these files. */
+  readonly phase: 2 | 4 | 5 | 6 | 7;
+  readonly files: string[];
+  readonly rules: string[];
+}
+
 /**
- * Files that still break an anti-slop rule. Each later v7 migration phase
- * removes its entries; the list must be empty before v7.0.0 ships.
+ * Files that still break a lint rule because they use the version 6 patterns
+ * (Zod, `Result`, `typeof` narrowing, fetch stubs). Each v7 migration phase
+ * deletes its entries. The list must be empty before v7.0.0 ships.
  */
-const MIGRATION_DEBT: ReadonlyArray<{ readonly files: string[]; readonly rules: string[] }> = [];
+const MIGRATION_DEBT: readonly MigrationDebt[] = [
+  {
+    phase: 2,
+    files: ["src/transforms/afl-tables-player-stats.ts"],
+    rules: ["anti-slop/no-known-value-widening"],
+  },
+  {
+    phase: 2,
+    files: ["src/transforms/awards.ts"],
+    rules: [
+      "anti-slop/no-known-value-widening",
+      "anti-slop/require-safety-comment-for-type-assertion",
+    ],
+  },
+  {
+    phase: 2,
+    files: ["src/transforms/footywire-player-stats.ts", "src/transforms/match-results.ts"],
+    rules: ["anti-slop/require-safety-comment-for-type-assertion"],
+  },
+  {
+    phase: 2,
+    files: ["src/transforms/fryzigg-player-stats.ts"],
+    rules: [
+      "anti-slop/no-runtime-typeof",
+      "anti-slop/require-safety-comment-for-type-assertion",
+      "typescript/no-base-to-string",
+    ],
+  },
+  {
+    phase: 4,
+    files: ["src/lib/date-utils.ts"],
+    rules: ["anti-slop/no-runtime-typeof"],
+  },
+  {
+    phase: 4,
+    files: ["src/sources/adapters/afl-tables.ts", "src/sources/fryzigg.ts"],
+    rules: ["anti-slop/require-safety-comment-for-type-assertion"],
+  },
+  {
+    phase: 4,
+    files: ["src/sources/afl-tables.ts", "src/sources/match-coaches.ts"],
+    rules: ["anti-slop/no-known-value-widening"],
+  },
+  {
+    phase: 4,
+    files: ["src/sources/footywire.ts"],
+    rules: [
+      "anti-slop/no-known-value-widening",
+      "anti-slop/require-safety-comment-for-type-assertion",
+    ],
+  },
+  {
+    phase: 5,
+    files: ["src/api/awards.ts"],
+    rules: ["anti-slop/require-safety-comment-for-type-assertion"],
+  },
+  {
+    phase: 6,
+    files: ["src/cli.ts", "src/cli/error-boundary.ts"],
+    rules: ["anti-slop/no-unknown-parameters"],
+  },
+  {
+    phase: 6,
+    files: ["src/cli/alias-resolution.ts"],
+    rules: ["anti-slop/no-known-value-widening"],
+  },
+  {
+    phase: 6,
+    files: ["src/cli/command-builder.ts", "src/cli/formatters/index.ts"],
+    rules: [
+      "anti-slop/no-unsafe-dictionary-type",
+      "anti-slop/require-safety-comment-for-type-assertion",
+    ],
+  },
+  {
+    phase: 6,
+    files: [
+      "src/cli/commands/awards.ts",
+      "src/cli/commands/ladder.ts",
+      "src/cli/commands/player.ts",
+      "src/cli/commands/stats.ts",
+      "src/cli/resolvers.ts",
+      "src/cli/validation.ts",
+    ],
+    rules: ["anti-slop/require-safety-comment-for-type-assertion"],
+  },
+  {
+    phase: 6,
+    files: ["src/cli/commands/match.ts", "src/cli/team-filters.ts"],
+    rules: ["anti-slop/no-unsafe-dictionary-type"],
+  },
+  {
+    phase: 6,
+    files: ["src/cli/completeness-output.ts"],
+    rules: ["anti-slop/no-object-parameters"],
+  },
+  {
+    phase: 6,
+    files: ["src/cli/formatters/csv.ts"],
+    rules: [
+      "anti-slop/no-known-value-widening",
+      "anti-slop/no-runtime-typeof",
+      "anti-slop/no-unknown-parameters",
+      "anti-slop/no-unsafe-dictionary-type",
+      "anti-slop/require-safety-comment-for-type-assertion",
+      "typescript/no-base-to-string",
+    ],
+  },
+  {
+    phase: 6,
+    files: ["src/cli/formatters/json.ts"],
+    rules: [
+      "anti-slop/no-known-value-widening",
+      "anti-slop/no-runtime-typeof",
+      "anti-slop/no-unknown-parameters",
+      "anti-slop/no-unknown-returns",
+      "anti-slop/no-unsafe-dictionary-type",
+      "anti-slop/require-safety-comment-for-type-assertion",
+    ],
+  },
+  {
+    phase: 6,
+    files: ["src/cli/formatters/table.ts"],
+    rules: [
+      "anti-slop/no-runtime-typeof",
+      "anti-slop/no-unknown-parameters",
+      "anti-slop/no-unknown-returns",
+      "anti-slop/no-unsafe-dictionary-type",
+      "anti-slop/require-safety-comment-for-type-assertion",
+      "typescript/no-base-to-string",
+    ],
+  },
+  {
+    phase: 7,
+    files: ["scripts/canary-baseline.ts"],
+    rules: ["anti-slop/no-runtime-typeof", "anti-slop/no-unknown-parameters"],
+  },
+  {
+    phase: 7,
+    files: [
+      "scripts/canary.ts",
+      "test/cli/completeness-output.test.ts",
+      "test/cli/ladder-envelope.test.ts",
+      "test/cli/stats-filters.test.ts",
+      "test/cli/team-response.test.ts",
+      "test/golden/cli-preload.ts",
+      "test/lib/result.test.ts",
+      "test/transforms/match-results.test.ts",
+      "test/transforms/player-stats-query.test.ts",
+    ],
+    rules: ["anti-slop/require-safety-comment-for-type-assertion"],
+  },
+  {
+    phase: 7,
+    files: ["test/api/ladder.test.ts", "test/api/player-details.test.ts", "test/api/squad.test.ts"],
+    rules: [
+      "anti-slop/no-chained-type-assertions",
+      "anti-slop/no-runtime-typeof",
+      "anti-slop/require-safety-comment-for-type-assertion",
+    ],
+  },
+  {
+    phase: 7,
+    files: ["test/api/lineup.test.ts", "test/api/teams.test.ts"],
+    rules: [
+      "anti-slop/no-chained-type-assertions",
+      "anti-slop/no-runtime-typeof",
+      "anti-slop/require-safety-comment-for-type-assertion",
+      "typescript/no-base-to-string",
+    ],
+  },
+  {
+    phase: 7,
+    files: [
+      "test/api/match-coaches.test.ts",
+      "test/sources/adapters/footywire.test.ts",
+      "test/sources/afl-tables.test.ts",
+      "test/sources/footywire.test.ts",
+    ],
+    rules: ["typescript/no-base-to-string"],
+  },
+  {
+    phase: 7,
+    files: ["test/api/team-stats.test.ts"],
+    rules: [
+      "anti-slop/no-chained-type-assertions",
+      "anti-slop/no-runtime-typeof",
+      "anti-slop/require-safety-comment-for-type-assertion",
+      "typescript/unbound-method",
+    ],
+  },
+  {
+    phase: 7,
+    files: ["test/cli/resolvers.test.ts"],
+    rules: [
+      "anti-slop/no-unknown-parameters",
+      "anti-slop/require-safety-comment-for-type-assertion",
+    ],
+  },
+  {
+    phase: 7,
+    files: ["test/golden/fixture-fetch.ts", "test/transforms/player-canonical.test.ts"],
+    rules: ["anti-slop/no-runtime-typeof"],
+  },
+  {
+    phase: 7,
+    files: ["test/golden/public-api.test.ts"],
+    rules: [
+      "anti-slop/no-known-value-widening",
+      "anti-slop/no-runtime-typeof",
+      "anti-slop/no-unknown-parameters",
+      "anti-slop/no-unknown-returns",
+      "anti-slop/no-unsafe-dictionary-type",
+      "anti-slop/require-safety-comment-for-type-assertion",
+    ],
+  },
+  {
+    phase: 7,
+    files: [
+      "test/lib/fetch-retry.test.ts",
+      "test/lib/fetch-timeout.test.ts",
+      "test/sources/adapters/afl-tables-ladder.test.ts",
+      "test/sources/adapters/squad-scope.test.ts",
+      "test/sources/adapters/squiggle.test.ts",
+    ],
+    rules: [
+      "anti-slop/no-chained-type-assertions",
+      "anti-slop/require-safety-comment-for-type-assertion",
+    ],
+  },
+  {
+    phase: 7,
+    files: ["test/sources/afl-api.test.ts"],
+    rules: [
+      "anti-slop/no-known-value-widening",
+      "anti-slop/no-runtime-typeof",
+      "anti-slop/no-unknown-parameters",
+      "anti-slop/require-safety-comment-for-type-assertion",
+    ],
+  },
+  {
+    phase: 7,
+    files: ["test/sources/afl-coaches.test.ts"],
+    rules: [
+      "anti-slop-effect/prefer-effect-match",
+      "anti-slop/no-chained-type-assertions",
+      "anti-slop/require-safety-comment-for-type-assertion",
+      "typescript/no-base-to-string",
+    ],
+  },
+  {
+    phase: 7,
+    files: ["test/sources/squiggle.test.ts"],
+    rules: [
+      "anti-slop/no-known-value-widening",
+      "anti-slop/require-safety-comment-for-type-assertion",
+      "typescript/no-base-to-string",
+    ],
+  },
+  {
+    phase: 7,
+    files: ["test/transforms/lineup.test.ts"],
+    rules: [
+      "anti-slop/no-unsafe-dictionary-type",
+      "anti-slop/require-safety-comment-for-type-assertion",
+    ],
+  },
+  {
+    phase: 7,
+    files: ["test/transforms/player-stats.test.ts"],
+    rules: ["anti-slop/no-unsafe-dictionary-type"],
+  },
+  {
+    phase: 7,
+    files: ["test/transforms/squiggle.test.ts"],
+    rules: ["anti-slop/no-unknown-returns"],
+  },
+];
 
 /**
  * `src/sources/adapters/index.ts` registers every source adapter as an import
@@ -46,6 +331,8 @@ export default defineConfig({
       typeAware: true,
       typeCheck: true,
     },
+    // Vendored from dmmulroy/anti-slop at c44ef22 (2026-09-10). Imports use
+    // `vite-plus/lint/plugins` so the plugin API matches the bundled Oxlint.
     jsPlugins: [
       { name: "anti-slop", specifier: "./tools/oxlint/anti-slop/index.ts" },
       { name: "anti-slop-effect", specifier: "./tools/oxlint/anti-slop/effect/index.ts" },

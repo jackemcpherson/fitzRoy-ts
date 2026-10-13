@@ -41,6 +41,7 @@ export class FryziggPlayerStatsSource implements PlayerStatsSource {
 
   async fetchPlayerStats(query: PlayerStatsQuery): Promise<Result<SeasonPlayerStats, Error>> {
     const competition = query.competition ?? "AFLM";
+
     // The pinned AFLW dump was last updated in January 2022, during season six.
     // Its calendar-year column cannot supply season seven.
     if (competition === "AFLW" && query.season === "2022-S7")
@@ -51,12 +52,15 @@ export class FryziggPlayerStatsSource implements PlayerStatsSource {
         ),
       );
     const result = await this.client.fetchPlayerStats(competition);
+
     if (!result.success) return result;
+
     const transformed = transformFryziggPlayerStats(result.data, {
       competition,
       season: seasonYear(query.season),
       round: query.round,
     });
+
     // Fryzigg is a single bulk download — there are no per-game fetches
     // that can partially fail, so failedMatchIds is always empty.
     return Result.map(transformed, (stats) => ({ stats, failedMatchIds: [] }));

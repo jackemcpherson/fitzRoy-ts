@@ -8,6 +8,7 @@ import {
 } from "../../src/sources/afl-tables";
 
 const FIXTURE_PATH = resolve(__dirname, "../fixtures/afl-tables-season.html");
+
 const fixtureHtml = readFileSync(FIXTURE_PATH, "utf-8");
 
 describe("parseSeasonPage", () => {
@@ -18,6 +19,7 @@ describe("parseSeasonPage", () => {
 
     const first = results[0];
     expect(first).toBeDefined();
+
     if (!first) return;
 
     // Teams and identity
@@ -40,11 +42,13 @@ describe("parseSeasonPage", () => {
     // quarters equals the total (#103).
     expect(first.q1Home).toEqual({ goals: 3, behinds: 3, points: 21 });
     expect(first.q1Away).toEqual({ goals: 1, behinds: 6, points: 12 });
+
     const homeTotalFromQuarters =
       (first.q1Home?.points ?? 0) +
       (first.q2Home?.points ?? 0) +
       (first.q3Home?.points ?? 0) +
       (first.q4Home?.points ?? 0);
+
     expect(homeTotalFromQuarters).toBe(first.homePoints);
 
     // Metadata
@@ -143,6 +147,7 @@ describe("parseSeasonPage", () => {
 <tr><td><a href="../teams/melbourne_idx.html">Melbourne</a></td><td><tt>1.6 2.8 7.8 9.10</tt></td><td> 64</td><td><b>Sydney</b> won by <b>22 pts </b></td></tr>
 </table>
 </body></html>`;
+
     const results = parseSeasonPage(html, 2024);
     expect(results).toHaveLength(1);
     expect(results[0]?.attendance).toBe(0);
@@ -164,6 +169,7 @@ const seasonWithTwoGameLinksHtml = `<html><body>
 </body></html>`;
 
 const GAME_STATS_FIXTURE = resolve(__dirname, "../fixtures/afltables-game-stats-2024-r1.html");
+
 const gameStatsHtml = readFileSync(GAME_STATS_FIXTURE, "utf-8");
 
 describe("AflTablesClient", () => {
@@ -174,6 +180,7 @@ describe("AflTablesClient", () => {
     const result = await client.fetchSeasonResults(2024);
 
     expect(result.success).toBe(true);
+
     if (result.success) {
       expect(result.data).toHaveLength(3);
     }
@@ -192,20 +199,25 @@ describe("AflTablesClient", () => {
     it("reports a failed game in failedMatchIds while the rest of the season survives", async () => {
       const fetchFn = vi.fn((input: RequestInfo | URL) => {
         const url = String(input);
+
         if (url.endsWith("/seas/2024.html")) {
           return Promise.resolve(new Response(seasonWithTwoGameLinksHtml, { status: 200 }));
         }
+
         if (url.includes("111620240307")) {
           return Promise.resolve(new Response(gameStatsHtml, { status: 200 }));
         }
+
         // Second game page 404s.
         return Promise.resolve(new Response("", { status: 404 }));
       });
+
       const client = new AflTablesClient({ fetchFn });
 
       const result = await client.fetchSeasonPlayerStats(2024);
 
       expect(result.success).toBe(true);
+
       if (!result.success) return;
       expect(result.data.stats.length).toBeGreaterThan(0);
       expect(result.data.stats[0]?.matchId).toBe("AT_111620240307");
@@ -218,19 +230,24 @@ describe("AflTablesClient", () => {
     it("reports a game whose fetch throws in failedMatchIds", async () => {
       const fetchFn = vi.fn((input: RequestInfo | URL) => {
         const url = String(input);
+
         if (url.endsWith("/seas/2024.html")) {
           return Promise.resolve(new Response(seasonWithTwoGameLinksHtml, { status: 200 }));
         }
+
         if (url.includes("111620240307")) {
           return Promise.resolve(new Response(gameStatsHtml, { status: 200 }));
         }
+
         return Promise.reject(new Error("Network error"));
       });
+
       const client = new AflTablesClient({ fetchFn });
 
       const result = await client.fetchSeasonPlayerStats(2024);
 
       expect(result.success).toBe(true);
+
       if (!result.success) return;
       expect(result.data.stats.length).toBeGreaterThan(0);
       expect(result.data.failedMatchIds).toEqual(["AT_031420240308"]);
@@ -239,16 +256,20 @@ describe("AflTablesClient", () => {
     it("returns empty failedMatchIds when every game succeeds", async () => {
       const fetchFn = vi.fn((input: RequestInfo | URL) => {
         const url = String(input);
+
         if (url.endsWith("/seas/2024.html")) {
           return Promise.resolve(new Response(seasonWithTwoGameLinksHtml, { status: 200 }));
         }
+
         return Promise.resolve(new Response(gameStatsHtml, { status: 200 }));
       });
+
       const client = new AflTablesClient({ fetchFn });
 
       const result = await client.fetchSeasonPlayerStats(2024);
 
       expect(result.success).toBe(true);
+
       if (!result.success) return;
       expect(result.data.stats.length).toBeGreaterThan(0);
       expect(result.data.failedMatchIds).toEqual([]);
@@ -283,16 +304,20 @@ describe("AflTablesClient", () => {
 
       const fetchFn = vi.fn((input: RequestInfo | URL) => {
         const url = String(input);
+
         if (url.endsWith("/seas/2023.html")) {
           return Promise.resolve(new Response(seasonWithSkippedRowHtml, { status: 200 }));
         }
+
         return Promise.resolve(new Response(gameStatsHtml, { status: 200 }));
       });
+
       const client = new AflTablesClient({ fetchFn });
 
       const result = await client.fetchSeasonPlayerStats(2023);
 
       expect(result.success).toBe(true);
+
       if (!result.success) return;
       const round2Stats = result.data.stats.filter((s) => s.matchId === "AT_031820230316");
       expect(round2Stats.length).toBeGreaterThan(0);

@@ -79,8 +79,11 @@ export function roundLabel(
   roundType: RoundType,
 ): string {
   if (roundName !== null) return roundName;
+
   if (roundNumber === 0) return "Opening Round";
+
   if (roundType === "Finals") return `Finals ${roundNumber}`;
+
   return `Round ${roundNumber}`;
 }
 
@@ -120,23 +123,30 @@ export function roundAbbreviation(
 ): string {
   if (roundName !== null) {
     const known = ROUND_ABBREV_MAP.get(roundName);
+
     if (known !== undefined) return known;
 
     const fwMatch = FINALS_WEEK_RE.exec(roundName);
+
     if (fwMatch !== null) {
       const n = fwMatch[1];
+
       if (n !== undefined) return `FW${n}`;
     }
 
     const rdMatch = /^Round (\d+)$/.exec(roundName);
+
     if (rdMatch !== null) {
       const n = rdMatch[1];
+
       if (n !== undefined) return `Rd ${n}`;
     }
   }
 
   if (roundNumber === 0) return "OR";
+
   if (roundType === "Finals") return `F${roundNumber}`;
+
   return `Rd ${roundNumber}`;
 }
 

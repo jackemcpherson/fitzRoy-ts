@@ -28,12 +28,16 @@ export interface FormatOptions {
  */
 export function resolveFormat(options: FormatOptions): OutputFormat {
   if (options.json) return "json";
+
   if (options.csv) return "csv";
+
   if (options.format === "json" || options.format === "csv" || options.format === "table") {
     return options.format;
   }
+
   // Non-TTY defaults to JSON for piping
   if (!process.stdout.isTTY) return "json";
+
   return "table";
 }
 
@@ -43,6 +47,7 @@ export function resolveFormat(options: FormatOptions): OutputFormat {
 export function formatOutput(data: readonly object[], options: FormatOptions): string {
   const rows = data as Record<string, unknown>[];
   const format = resolveFormat(options);
+
   switch (format) {
     case "json":
       return formatJson(rows);
@@ -57,5 +62,7 @@ export function formatOutput(data: readonly object[], options: FormatOptions): s
 }
 
 export { formatCsv } from "./csv";
+
 export { formatJson } from "./json";
+
 export { formatTable, type TableColumnConfig } from "./table";

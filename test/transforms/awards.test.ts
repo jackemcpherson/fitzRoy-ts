@@ -18,6 +18,7 @@ function tr(cells: readonly string[]): string {
 function aaCell(player: string | null, team: string | null): string {
   const link = player == null ? "" : `<a>${player}</a>`;
   const flag = team == null ? "" : `<span class="playerflag">${team}</span>`;
+
   return `${link}${flag}`;
 }
 
@@ -88,7 +89,9 @@ describe("parseAllAustralian", () => {
 function buildRisingStarHtml(headerFirstCell: string): string {
   const padTo15 = (cells: readonly string[]): string[] => {
     const out = [...cells];
+
     while (out.length < 15) out.push("");
+
     return out;
   };
 

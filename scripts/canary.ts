@@ -56,7 +56,9 @@ const checks: readonly CanaryCheck[] = [
     name: "afl-api",
     run: async () => {
       const result = await new AflApiClient().resolveCompSeason("AFLM", season);
+
       if (!result.success) throw result.error;
+
       // resolveCompSeason returns a single id; count is 1 when it resolves.
       return { summary: `resolved AFLM ${season} to compseason id ${result.data}`, count: 1 };
     },
@@ -65,8 +67,11 @@ const checks: readonly CanaryCheck[] = [
     name: "afl-tables",
     run: async () => {
       const result = await new AflTablesClient().fetchSeasonResults(season);
+
       if (!result.success) throw result.error;
+
       if (result.data.length === 0) throw new Error(`parsed 0 matches for ${season}`);
+
       return {
         summary: `parsed ${result.data.length} matches for ${season}`,
         count: result.data.length,
@@ -77,8 +82,11 @@ const checks: readonly CanaryCheck[] = [
     name: "footywire",
     run: async () => {
       const result = await new FootyWireClient().fetchSeasonResults(season);
+
       if (!result.success) throw result.error;
+
       if (result.data.length === 0) throw new Error(`parsed 0 matches for ${season}`);
+
       return {
         summary: `parsed ${result.data.length} matches for ${season}`,
         count: result.data.length,
@@ -89,8 +97,11 @@ const checks: readonly CanaryCheck[] = [
     name: "squiggle",
     run: async () => {
       const result = await new SquiggleClient().fetchGames(season, 1);
+
       if (!result.success) throw result.error;
+
       if (result.data.games.length === 0) throw new Error(`parsed 0 games for ${season} round 1`);
+
       return {
         summary: `parsed ${result.data.games.length} games for ${season} round 1`,
         count: result.data.games.length,
@@ -104,10 +115,13 @@ async function readBaseline(): Promise<Baseline> {
     const raw = await readFile(BASELINE_PATH, "utf8");
     const parsed: unknown = JSON.parse(raw);
     const baseline = validateBaseline(parsed);
+
     if (baseline === undefined) {
       console.warn(`warn: ${BASELINE_PATH} has an invalid shape; treating as empty`);
+
       return {};
     }
+
     return baseline;
   } catch (error) {
     if (
@@ -117,9 +131,11 @@ async function readBaseline(): Promise<Baseline> {
     ) {
       return {};
     }
+
     console.warn(
       `warn: failed to read ${BASELINE_PATH}: ${error instanceof Error ? error.message : String(error)}`,
     );
+
     return {};
   }
 }
@@ -127,22 +143,28 @@ async function readBaseline(): Promise<Baseline> {
 async function writeBaseline(baseline: Baseline): Promise<void> {
   // Stable key order for deterministic diffs.
   const sorted: Baseline = {};
+
   for (const key of Object.keys(baseline).sort()) {
     const value = baseline[key];
+
     if (value !== undefined) sorted[key] = value;
   }
+
   await writeFile(BASELINE_PATH, `${JSON.stringify(sorted, null, 2)}\n`, "utf8");
 }
 
 const previousBaseline = await readBaseline();
+
 const observedCounts: Baseline = {};
 
 let hasFailure = false;
+
 for (const check of checks) {
   try {
     const { summary, count } = await check.run();
     const previous = previousBaseline[check.name];
     const evaluation = evaluateCount(count, previous, DRIFT_THRESHOLD);
+
     switch (evaluation.status) {
       case "first-run":
         console.log(`ok   ${check.name}: ${summary} (first run, recording ${count})`);
@@ -156,6 +178,7 @@ for (const check of checks) {
           `FAIL ${check.name}: row-count drift — previous=${evaluation.previous}, new=${count} (below ${DRIFT_THRESHOLD * 100}% floor of ${evaluation.floor.toFixed(1)})`,
         );
     }
+
     observedCounts[check.name] = count;
   } catch (error) {
     hasFailure = true;

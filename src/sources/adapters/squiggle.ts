@@ -17,6 +17,7 @@ import type { LadderSource, MatchSource } from "./capabilities";
 import type { CoverageMap } from "./coverage";
 
 const SQUIGGLE_MATCH_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 2012 }]]);
+
 const SQUIGGLE_LADDER_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 2012 }]]);
 
 /** Squiggle as a MatchSource (AFLM only, 2012+). */
@@ -32,12 +33,15 @@ export class SquiggleMatchSource implements MatchSource {
     // []. For other statuses fetch everything and let the API layer's
     // filterMatches do the filtering.
     const complete = query.status === "Complete" ? 100 : undefined;
+
     const result = await this.client.fetchGames(
       seasonYear(query.season),
       query.round ?? undefined,
       complete,
     );
+
     if (!result.success) return result;
+
     return ok(transformSquiggleGamesToFixture(result.data.games, seasonYear(query.season)));
   }
 }
@@ -51,11 +55,14 @@ export class SquiggleLadderSource implements LadderSource {
 
   async fetchLadder(query: LadderQuery): Promise<Result<Ladder, Error>> {
     const competition = query.competition ?? "AFLM";
+
     const result = await this.client.fetchStandings(
       seasonYear(query.season),
       query.round ?? undefined,
     );
+
     if (!result.success) return result;
+
     return ok({
       season: seasonYear(query.season),
       roundNumber: query.round ?? null,

@@ -46,24 +46,30 @@ export function dispatch<I extends CapabilityAdapter>(
   query: DispatchQuery,
 ): Result<I, Error> {
   const adapter = registry.get(query.source);
+
   if (!adapter) {
     return err(unsupportedSourceForOperation(query.source, operation, registry.list()));
   }
 
   const competition = query.competition ?? "AFLM";
+
   const alternative = findAlternativeSource(registry.all(), {
     source: query.source,
     competition,
     season: seasonYear(query.season),
   });
+
   const suggestion = alternative ? `--source ${alternative}` : undefined;
+
   const coverage = checkCoverage(
     adapter.coverage,
     { source: query.source, operation, competition, season: seasonYear(query.season) },
     suggestion,
   );
+
   if (!coverage.success) return coverage;
   const identity = canonicalSeasonKey(competition, query.season);
+
   if (!identity.success) return identity;
 
   return ok(adapter);

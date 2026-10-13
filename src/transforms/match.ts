@@ -16,15 +16,19 @@ import type { Match, MatchQuery } from "../types";
  */
 export function filterMatches(matches: readonly Match[], query: MatchQuery): Match[] {
   let filtered: readonly Match[] = matches;
+
   if (query.matchId !== undefined) {
     filtered = filtered.filter((m) => m.matchId === query.matchId);
   }
+
   if (query.team !== undefined) {
     const target = normaliseTeamName(query.team);
     filtered = filtered.filter((m) => m.homeTeam === target || m.awayTeam === target);
   }
+
   if (query.status !== undefined) {
     filtered = filtered.filter((m) => m.status === query.status);
   }
+
   return [...filtered];
 }

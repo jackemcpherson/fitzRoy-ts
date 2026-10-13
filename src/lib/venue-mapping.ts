@@ -61,12 +61,15 @@ const VENUE_ALIASES: ReadonlyArray<readonly [canonical: string, ...aliases: stri
  */
 const VENUE_ALIAS_MAP: ReadonlyMap<string, string> = (() => {
   const map = new Map<string, string>();
+
   for (const [canonical, ...aliases] of VENUE_ALIASES) {
     map.set(canonical.toLowerCase(), canonical);
+
     for (const alias of aliases) {
       map.set(alias.toLowerCase(), canonical);
     }
   }
+
   return map;
 })();
 
@@ -82,5 +85,6 @@ const VENUE_ALIAS_MAP: ReadonlyMap<string, string> = (() => {
  */
 export function normaliseVenueName(raw: string): string {
   const trimmed = raw.trim();
+
   return VENUE_ALIAS_MAP.get(trimmed.toLowerCase()) ?? trimmed;
 }

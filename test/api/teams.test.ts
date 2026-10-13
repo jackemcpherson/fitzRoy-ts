@@ -10,9 +10,11 @@ import { fetchTeams } from "../../src/api/teams";
 function buildEmptyTeamsFetch(): typeof fetch {
   return vi.fn(async (input: RequestInfo | URL) => {
     const url = typeof input === "string" ? input : input.toString();
+
     if (url.includes("/teams")) {
       return new Response(JSON.stringify({ teams: [] }), { status: 200 });
     }
+
     return new Response("unexpected URL", { status: 500 });
   }) as unknown as typeof fetch;
 }
@@ -28,6 +30,7 @@ describe("fetchTeams public API", () => {
     const result = await fetchTeams({ competition: "AFLW" });
 
     expect(result.success).toBe(true);
+
     if (!result.success) return;
 
     const names = result.data.map((t) => t.name).sort();
@@ -52,6 +55,7 @@ describe("fetchTeams public API", () => {
     const result = await fetchTeams({ competition: "AFLM" });
 
     expect(result.success).toBe(true);
+
     if (!result.success) return;
     expect(result.data).toHaveLength(0);
   });
@@ -64,6 +68,7 @@ describe("fetchTeams public API", () => {
     const result = await fetchTeams();
 
     expect(result.success).toBe(true);
+
     if (!result.success) return;
     expect(result.data).toHaveLength(4);
     const competitions = new Set(result.data.map((t) => t.competition));

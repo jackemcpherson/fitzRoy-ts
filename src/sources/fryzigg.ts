@@ -72,9 +72,11 @@ export class FryziggClient {
    */
   async fetchPlayerStats(competition: CompetitionCode): Promise<Result<DataFrame, ScrapeError>> {
     const snapshot = FRYZIGG_SNAPSHOTS[competition as keyof typeof FRYZIGG_SNAPSHOTS];
+
     if (!snapshot) {
       return err(new ScrapeError(`Fryzigg does not publish ${competition} data`, "fryzigg"));
     }
+
     const expectedSha256 = this.sha256 === undefined ? snapshot.sha256 : this.sha256;
 
     try {
@@ -95,9 +97,11 @@ export class FryziggClient {
 
       if (expectedSha256 !== null) {
         const digest = await crypto.subtle.digest("SHA-256", buffer);
+
         const actual = Array.from(new Uint8Array(digest))
           .map((b) => b.toString(16).padStart(2, "0"))
           .join("");
+
         if (actual !== expectedSha256.toLowerCase()) {
           return err(
             new ScrapeError(`Fryzigg checksum mismatch for ${competition} snapshot`, "fryzigg"),
@@ -116,6 +120,7 @@ export class FryziggClient {
       if (cause instanceof RdsError) {
         return err(new ScrapeError(`Fryzigg RDS parse error: ${cause.message}`, "fryzigg"));
       }
+
       return err(
         new ScrapeError(
           `Fryzigg request failed: ${cause instanceof Error ? cause.message : String(cause)}`,

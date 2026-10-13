@@ -21,12 +21,15 @@ export function validateBaseline(value: unknown): Baseline | undefined {
   }
 
   const baseline: Baseline = {};
+
   for (const [key, count] of Object.entries(value)) {
     if (typeof count !== "number" || !Number.isFinite(count) || count < 0) {
       return undefined;
     }
+
     baseline[key] = count;
   }
+
   return baseline;
 }
 
@@ -41,6 +44,7 @@ export function evaluateCount(
   }
 
   const floor = previous * threshold;
+
   if (observed < floor) {
     return { status: "drift", observed, previous, floor };
   }

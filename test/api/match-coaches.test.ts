@@ -17,6 +17,7 @@ describe("fetchMatchCoaches", () => {
     vi.stubGlobal("fetch", async (input: RequestInfo | URL) => {
       const url = String(input);
       urls.push(url);
+
       return new Response(url.endsWith("coaches_idx.html") ? index : profile);
     });
     const result = await fetchMatchCoaches({ season: 2022, batch: { limit: 1 } });
@@ -25,6 +26,7 @@ describe("fetchMatchCoaches", () => {
       "https://afltables.com/afl/stats/coaches/coaches_idx.html",
       "https://afltables.com/afl/stats/coaches/Mick_Malthouse.html",
     ]);
+
     if (!result.success) return;
     expect(result.data.batch?.nextCursor).not.toContain("/adelaide.html");
     expect(result.data.batch?.nextCursor).toContain("Jock_McHale.html");
@@ -37,12 +39,14 @@ describe("fetchMatchCoaches", () => {
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
+
         return new Response(url.endsWith("coaches_idx.html") ? index : profile);
       }),
     );
 
     const result = await fetchMatchCoaches({ season: 2022 });
     expect(result.success).toBe(true);
+
     if (!result.success) return;
     expect(result.data.completeness).toEqual({ complete: true, failures: [] });
     expect(result.data.assignments).toEqual([
@@ -70,6 +74,7 @@ describe("fetchMatchCoaches", () => {
     );
     const result = await fetchMatchCoaches({ season: 2022 });
     expect(result.success).toBe(false);
+
     if (!result.success) expect(result.error.name).toBe("ScrapeError");
   });
 
@@ -85,6 +90,7 @@ describe("fetchMatchCoaches", () => {
     );
     const result = await fetchMatchCoaches({ season: 2022 });
     expect(result.success).toBe(true);
+
     if (!result.success) return;
     expect(result.data.assignments).toEqual([]);
     expect(result.data.completeness).toEqual({ complete: true, failures: [] });
@@ -93,6 +99,7 @@ describe("fetchMatchCoaches", () => {
   it("returns structured errors for unsupported sources and competitions", async () => {
     const unsupportedSource = await fetchMatchCoaches({ season: 2022, source: "afl-api" });
     expect(unsupportedSource.success).toBe(false);
+
     if (!unsupportedSource.success)
       expect(unsupportedSource.error.name).toBe("UnsupportedSourceError");
 
@@ -101,7 +108,9 @@ describe("fetchMatchCoaches", () => {
       source: "footywire",
       competition: "AFLW",
     });
+
     expect(sourceResult.success).toBe(false);
+
     if (sourceResult.success) return;
     expect(sourceResult.error.name).toBe("UnsupportedCompetitionError");
   });
@@ -115,9 +124,11 @@ describe("fetchMatchCoaches", () => {
 
   it("extracts explicit FootyWire match-page coach assignments", async () => {
     const page = await fixture("footywire-match.html");
+
     const client = new MatchCoachesClient({
       fetchFn: async () => new Response(page),
     });
+
     const result = await client.fetchFootyWireMatches([
       {
         competition: "AFLM",
@@ -131,6 +142,7 @@ describe("fetchMatchCoaches", () => {
         roundName: "Round 1",
       },
     ]);
+
     expect(result.failures).toEqual([]);
     expect(result.assignments).toEqual([
       expect.objectContaining({
@@ -150,6 +162,7 @@ describe("fetchMatchCoaches", () => {
           '<table><tr><td>Carlton Coach</td><td><a href="/afl/footy/cp-one">Coach A</a></td></tr></table>',
         ),
     });
+
     const result = await client.fetchFootyWireMatches([
       {
         competition: "AFLM",
@@ -163,6 +176,7 @@ describe("fetchMatchCoaches", () => {
         roundName: "Round 1",
       },
     ]);
+
     expect(result.assignments).toHaveLength(1);
     expect(result.failures).toHaveLength(1);
   });
@@ -188,6 +202,7 @@ describe("fetchMatchCoaches", () => {
     const profile = await fixture("afl-tables-hansen.html");
     vi.stubGlobal("fetch", async (input: RequestInfo | URL) => {
       urls.push(String(input));
+
       return new Response(
         String(input).endsWith("coaches_idx.html")
           ? '<a href="Ashley_Hansen.html">Ashley Hansen</a><a href="Other_Coach.html">Other Coach</a>'
@@ -198,14 +213,17 @@ describe("fetchMatchCoaches", () => {
     });
     const first = await fetchMatchCoaches({ season: 2022, batch: { limit: 1 } });
     expect(first.success).toBe(true);
+
     if (!first.success) return;
     expect(first.data.batch?.scope).toBe("pages");
     expect(first.data.batch?.nextCursor).toBeTruthy();
     expect(urls).toHaveLength(2);
     const nextCursor = first.data.batch?.nextCursor;
+
     if (!nextCursor) throw new Error("Expected a continuation cursor");
     const next = await fetchMatchCoaches({ season: 2022, batch: { limit: 1, cursor: nextCursor } });
     expect(next.success).toBe(true);
+
     if (!next.success) return;
     expect(next.data.batch?.nextCursor).toBeNull();
     expect(urls).toHaveLength(3);
@@ -254,6 +272,7 @@ describe("fetchMatchCoaches", () => {
       );
       const result = await fetchMatchCoaches({ season });
       expect(result.success).toBe(true);
+
       if (!result.success) return;
       expect(result.data.completeness).toEqual({ complete: true, failures: [] });
       expect(result.data.assignments.map((row) => [row.team, row.coachName, row.matchId])).toEqual(

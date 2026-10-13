@@ -16,6 +16,7 @@ export const statNum = z
     z.string().transform((s) => {
       if (s === "" || s === "-") return null;
       const n = Number(s);
+
       return Number.isNaN(n) ? null : n;
     }),
     z.boolean().transform((b) => (b ? 1 : 0)),

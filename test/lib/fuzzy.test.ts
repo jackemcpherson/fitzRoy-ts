@@ -45,6 +45,7 @@ describe("fuzzySearch", () => {
     { name: "St Kilda" },
     { name: "Sydney Swans" },
   ];
+
   const key = (t: { name: string }) => t.name;
 
   it("finds exact case-insensitive matches with score 0", () => {

@@ -10,24 +10,24 @@ fitzRoy-ts is a TypeScript port of the [fitzRoy R package](https://github.com/ji
 
 ```bash
 # Quality checks (run all before committing)
-npm run typecheck        # tsc --noEmit
-npm run check            # biome check . (lint + format)
-npm run test             # vitest
+npx vp check                 # Oxfmt + Oxlint (anti-slop) + tsgo type check
+npm run typecheck:portable   # library core compiles without Node types
+npx vp test                  # Vitest
 
-# Formatting
-npm run format           # biome format --write .
+# Apply formatting and lint autofixes
+npx vp check --fix
 
 # Single test file
-npx vitest run test/path/to/file.test.ts
+npx vp test run test/path/to/file.test.ts
 
 # Build (library + CLI)
-bun run build            # bunup → dist/index.js, dist/index.d.ts, dist/cli.js
+bun run build            # vp pack → dist/index.js, dist/schemas.js, .d.ts, dist/cli.js
 
 # Compiled standalone binary
 bun build --compile src/cli.ts --outfile fitzroy
 ```
 
-**Note:** There are no separate `lint` or `format:check` scripts. Use `npm run check` for both linting and format verification.
+**Note:** `vp check` covers formatting, linting, and type checking. All configuration lives in `vite.config.ts`. `MIGRATION_DEBT` in that file lists lint rules still disabled per file during the v7 migration (ADR-0004).
 
 ## Architecture
 
@@ -48,9 +48,9 @@ The codebase follows a "pure core, effectful shell" pattern:
 ## Key Constraints
 
 - **No Node.js built-ins in `src/`** — only Web Standard APIs (`fetch`, `Request`, `Response`, `URL`, `crypto`). Exception: `src/cli.ts` and `src/cli/` may use `process` for TTY detection and exit codes. No Bun-specific APIs (`Bun.file()`, `Bun.serve()`). Test files (`test/`) may use Node.js built-ins (`node:fs`, `node:path`) for loading fixtures.
-- **No `any`** — Biome enforces `noExplicitAny: "error"`. Use `unknown` and narrow with Zod.
+- **No `any`** — Oxlint enforces `typescript/no-explicit-any: "error"`. Use `unknown` and narrow with Zod.
 - **No `enum`** — use union types instead (e.g., `type RoundType = "HomeAndAway" | "Finals"`).
-- **No default exports** — Biome enforces `noDefaultExport: "error"`, with overrides only for `*.config.ts`.
+- **No default exports** — Oxlint enforces `import/no-default-export: "error"`, with overrides only for `*.config.ts`.
 - **Strict TypeScript** — `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noUnusedLocals`, `noUnusedParameters` are all enabled.
 - **Package manager** — bun (see `bun.lock`), but npm scripts work via `npm run`.
 
@@ -100,12 +100,11 @@ Full style guide at `docs/typescript-style-guide.md`. Key conventions:
 |------|---------|
 | Zod | Runtime validation of API/scraped data |
 | parse5 + cheerio/slim | HTML parsing for scraper sources (parse5 tree + cheerio selectors via `src/lib/parse-html.ts`; cheerio's full entry imports `node:stream` and breaks Workers) |
-| Biome | Lint + format (replaces ESLint + Prettier) |
+| Vite+ (`vp`) | Oxfmt formatting, Oxlint + vendored anti-slop linting, tsgo type checks, Vitest, tsdown packing |
 | Vitest | Test runner (globals enabled) |
 | Citty | CLI command framework (defineCommand, runMain) |
 | @clack/prompts | Terminal spinners and interactive feedback |
 | picocolors | Terminal colour output |
-| bunup | Build pipeline (ESM library + CLI bundles, .d.ts) |
 
 ## CLI Architecture
 
@@ -119,7 +118,7 @@ The CLI is a thin presentation layer over the library — no business logic. Eac
 
 **Error boundary:** `src/cli.ts` catches all errors at the top level and prints coloured messages (no stack traces). Exit code 1 on error, 0 on success.
 
-**Build:** Two-step build — bunup generates DTS only (`dtsOnly: true`), then `build.ts` uses esbuild to bundle both library (`src/index.ts`) and CLI (`src/cli.ts`) with `packages: "external"`. This avoids a bun bundler bug where barrel re-exports and dynamic imports are tree-shaken to empty stubs.
+**Build:** `vp pack` (tsdown) builds two configs from `vite.config.ts`: the neutral-platform library (`src/index.ts`, `src/schemas.ts`, with `.d.ts`) and the Node CLI (`src/cli.ts`, with `PACKAGE_VERSION` defined). Runtime `dependencies` stay external, and CLI-only devDependencies are bundled. `src/sources/adapters/index.ts` is marked as having side effects so its adapter registration survives tree-shaking. CI re-runs the CLI golden tests against `dist/cli.js` to catch bundling regressions.
 
 ## Ralph Workflow
 
@@ -132,7 +131,7 @@ This project uses Ralph — an autonomous iteration loop for completing user sto
 **Iteration process:**
 1. Pick highest-priority story where `passes: false`
 2. Implement the story
-3. Run quality checks: `npm run typecheck && npm run check && npm run test`
+3. Run quality checks: `npx vp check && npm run typecheck:portable && npx vp test`
 4. Fix failures and re-run (up to 3 attempts)
 5. Commit: `feat: [Story ID] - [Story Title]`
 6. Update the plan's status row in `plans/README.md` and append to PROGRESS.txt

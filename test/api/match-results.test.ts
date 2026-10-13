@@ -9,7 +9,9 @@ describe("public API source validation", () => {
       season: 2025,
       round: 1,
     });
+
     expect(result.success).toBe(false);
+
     if (!result.success) {
       expect(result.error.message).toContain("footywire does not provide lineup");
     }
@@ -20,7 +22,9 @@ describe("public API source validation", () => {
       source: "footywire",
       season: 2025,
     });
+
     expect(result.success).toBe(false);
+
     if (!result.success) {
       expect(result.error.message).toContain("footywire does not provide ladder");
     }
@@ -32,7 +36,9 @@ describe("public API source validation", () => {
       season: 2025,
       round: 1,
     });
+
     expect(result.success).toBe(false);
+
     if (!result.success) {
       expect(result.error.message).toContain("squiggle does not provide lineup");
     }

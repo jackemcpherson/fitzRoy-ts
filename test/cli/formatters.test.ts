@@ -25,6 +25,7 @@ describe("formatCsv", () => {
       { name: "Alice", score: 42 },
       { name: "Bob", score: 38 },
     ];
+
     const output = formatCsv(data);
     const lines = output.split("\n");
     expect(lines).toHaveLength(3); // header + 2 rows
@@ -191,6 +192,7 @@ describe("formatTable", () => {
       ],
       terminalWidth: 120,
     });
+
     expect(output).toContain("TEAM");
     expect(output).toContain("W");
     expect(output).not.toContain("LOSSES");
@@ -203,6 +205,7 @@ describe("formatTable", () => {
       full: true,
       terminalWidth: 200,
     });
+
     expect(output).toContain("NAME");
     expect(output).toContain("WINS");
     expect(output).toContain("LOSSES");
@@ -212,6 +215,7 @@ describe("formatTable", () => {
   it("truncates columns to fit terminal width", () => {
     const output = formatTable(sampleData, { terminalWidth: 30 });
     const lines = output.split("\n");
+
     for (const line of lines) {
       expect(line.trimEnd().length).toBeLessThanOrEqual(30);
     }
@@ -229,10 +233,12 @@ describe("formatTable", () => {
 
   it("truncates long values with ellipsis", () => {
     const data = [{ name: "A very long team name that exceeds max width" }];
+
     const output = formatTable(data, {
       columns: [{ key: "name", maxWidth: 10 }],
       terminalWidth: 120,
     });
+
     expect(output).toContain("…");
   });
 

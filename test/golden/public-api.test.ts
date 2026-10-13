@@ -29,9 +29,11 @@ import { goldenFetch, requested, resetRequested } from "./fixture-fetch";
 function describeError(error: unknown): unknown {
   if (!(error instanceof Error)) return { thrown: String(error) };
   const fields: Record<string, unknown> = {};
+
   for (const [key, value] of Object.entries(error)) {
     if (key !== "stack" && key !== "cause") fields[key] = value;
   }
+
   return { name: error.name, message: error.message, fields };
 }
 
@@ -45,15 +47,18 @@ const MAX_INLINE_ITEMS = 25;
 function summarise(value: unknown): unknown {
   if (Array.isArray(value)) {
     if (value.length <= MAX_INLINE_ITEMS) return value.map(summarise);
+
     return {
       count: value.length,
       head: value.slice(0, 3).map(summarise),
       sha256: createHash("sha256").update(JSON.stringify(value)).digest("hex"),
     };
   }
+
   if (value !== null && typeof value === "object") {
     return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, summarise(item)]));
   }
+
   return value;
 }
 
@@ -69,8 +74,10 @@ interface Outcome {
 
 async function run(call: () => Promise<unknown>): Promise<Outcome> {
   let outcome: unknown;
+
   try {
     const result = await call();
+
     if (result !== null && typeof result === "object" && "success" in result) {
       const settled = result as { success: boolean; data?: unknown; error?: unknown };
       outcome = settled.success
@@ -82,6 +89,7 @@ async function run(call: () => Promise<unknown>): Promise<Outcome> {
   } catch (error) {
     outcome = { threw: describeError(error) };
   }
+
   return { urls: [...new Set(requested.filter((url) => !isTokenRequest(url)))].sort(), outcome };
 }
 

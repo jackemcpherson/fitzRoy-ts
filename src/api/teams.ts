@@ -47,13 +47,15 @@ function toTeams(
     source: "afl-api",
   }));
 
-  let result = competition === "AFLM" ? mapped.filter((t) => AFL_SENIOR_TEAMS.has(t.name)) : mapped;
+  const result =
+    competition === "AFLM" ? mapped.filter((t) => AFL_SENIOR_TEAMS.has(t.name)) : mapped;
 
   if (competition === "AFLW") {
     const present = new Set(result.map((t) => t.name));
+
     for (const backfill of AFLW_TEAM_BACKFILL) {
       if (!present.has(backfill.name)) {
-        result = [...result, { ...backfill, teamId: backfill.id, competition, source: "afl-api" }];
+        result.push({ ...backfill, teamId: backfill.id, competition, source: "afl-api" });
       }
     }
   }
@@ -74,13 +76,16 @@ export async function fetchTeams(query?: TeamQuery): Promise<Result<Team[], Erro
       aflApiClient.fetchTeams("AFLM"),
       aflApiClient.fetchTeams("AFLW"),
     ]);
+
     if (!menResult.success) return menResult;
+
     if (!womenResult.success) return womenResult;
 
     return ok([...toTeams(menResult.data, "AFLM"), ...toTeams(womenResult.data, "AFLW")]);
   }
 
   const result = await aflApiClient.fetchTeams(query.competition);
+
   if (!result.success) return result;
 
   return ok(toTeams(result.data, query.competition));
@@ -96,11 +101,14 @@ export async function fetchTeams(query?: TeamQuery): Promise<Result<Team[], Erro
  */
 export async function fetchSquad(query: SquadQuery): Promise<Result<Squad, Error>> {
   const source = query.source ?? squadRegistry.defaultSource;
+
   const adapterR = dispatch(squadRegistry, "squad", {
     source,
     competition: query.competition,
     season: query.season,
   });
+
   const fetched = await Result.flatMapAsync(adapterR, (a) => a.fetchSquad({ ...query, source }));
+
   return Result.map(fetched, (row) => ({ ...row, seasonKey: String(query.season) }));
 }

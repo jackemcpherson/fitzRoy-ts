@@ -5,18 +5,22 @@ import { fetchLineup } from "../../src/api/lineup";
 import { aflApiClient } from "../../src/sources/adapters/index";
 
 const ROSTER_FIXTURE = resolve(__dirname, "../fixtures/afl-api-match-roster-2025.json");
+
 const rosterJson = readFileSync(ROSTER_FIXTURE, "utf-8");
 
 /** Build a fetch stub that answers the WMCTok POST + matchRoster GET. */
 function buildMockFetch(): typeof fetch {
   return vi.fn(async (input: RequestInfo | URL) => {
     const url = typeof input === "string" ? input : input.toString();
+
     if (url.includes("WMCTok")) {
       return new Response(JSON.stringify({ token: "test-token" }), { status: 200 });
     }
+
     if (url.includes("/matchRoster/full/")) {
       return new Response(rosterJson, { status: 200 });
     }
+
     return new Response("unexpected URL", { status: 500 });
   }) as unknown as typeof fetch;
 }
@@ -32,7 +36,12 @@ describe("fetchLineup public API", () => {
     vi.spyOn(aflApiClient, "resolveCompSeason").mockResolvedValue({ success: true, data: 73 });
     vi.spyOn(aflApiClient, "fetchSeasonMatchItems").mockResolvedValue({
       success: true,
-      data: [{ match: JSON.parse(rosterJson).match, round: { name: "Round 1", roundId: "CD_R202501401", roundNumber: 1 } }],
+      data: [
+        {
+          match: JSON.parse(rosterJson).match,
+          round: { name: "Round 1", roundId: "CD_R202501401", roundNumber: 1 },
+        },
+      ],
     });
 
     const result = await fetchLineup({
@@ -43,11 +52,13 @@ describe("fetchLineup public API", () => {
     });
 
     expect(result.success).toBe(true);
+
     if (!result.success) return;
 
     expect(result.data).toHaveLength(1);
     const lineup = result.data[0];
     expect(lineup).toBeDefined();
+
     if (!lineup) return;
     expect(lineup.matchId).toBe("CD_M20250140101");
     expect(lineup.season).toBe(2025);
@@ -66,7 +77,9 @@ describe("fetchLineup public API", () => {
       season: 2025,
       round: 1,
     });
+
     expect(result.success).toBe(false);
+
     if (!result.success) {
       expect(result.error.message).toContain("footywire does not provide lineup");
     }
@@ -78,7 +91,9 @@ describe("fetchLineup public API", () => {
       season: 2025,
       round: 1,
     });
+
     expect(result.success).toBe(false);
+
     if (!result.success) {
       expect(result.error.message).toContain("afl-tables does not provide lineup");
     }
@@ -90,7 +105,9 @@ describe("fetchLineup public API", () => {
       season: 2010,
       round: 1,
     });
+
     expect(result.success).toBe(false);
+
     if (!result.success) {
       expect(result.error.message).toContain("2010");
     }

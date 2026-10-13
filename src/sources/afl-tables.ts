@@ -58,6 +58,7 @@ export class AflTablesClient {
    */
   async fetchSeasonResults(year: number): Promise<Result<Match[], ScrapeError>> {
     const url = `${AFL_TABLES_BASE}/${year}.html`;
+
     try {
       const response = await this.fetchFn(url, {
         headers: { "User-Agent": "Mozilla/5.0" },
@@ -71,6 +72,7 @@ export class AflTablesClient {
 
       const html = await response.text();
       const results = parseSeasonPage(html, year);
+
       return ok(results);
     } catch (cause) {
       return err(
@@ -96,6 +98,7 @@ export class AflTablesClient {
    */
   async fetchSeasonPlayerStats(year: number): Promise<Result<SeasonPlayerStats, ScrapeError>> {
     const seasonUrl = `${AFL_TABLES_BASE}/${year}.html`;
+
     try {
       const seasonResponse = await this.fetchFn(seasonUrl, {
         headers: { "User-Agent": "Mozilla/5.0" },
@@ -124,6 +127,7 @@ export class AflTablesClient {
       // the season parse may skip a malformed row, and an index-based
       // alignment would then shift every later game's round (COR-10).
       const roundByGameId = new Map<string, number>();
+
       for (const game of parseSeasonPageGamesFromDoc($season, year)) {
         if (game.gameId != null) {
           roundByGameId.set(game.gameId, game.match.roundNumber);
@@ -131,6 +135,7 @@ export class AflTablesClient {
       }
 
       const indexedUrls = gameUrls.map((gameUrl, idx) => ({ gameUrl, idx }));
+
       const perGame = await batchedMap(
         indexedUrls,
         async ({
@@ -140,10 +145,12 @@ export class AflTablesClient {
           const urlMatch = /\/(\d+)\.html$/.exec(gameUrl);
           const gameId = urlMatch?.[1];
           const matchId = gameId ?? `${year}_${idx}`;
+
           try {
             const resp = await this.fetchFn(gameUrl, {
               headers: { "User-Agent": "Mozilla/5.0" },
             });
+
             if (!resp.ok) return { stats: [], failedMatchId: `AT_${matchId}` };
 
             const html = await resp.text();
@@ -184,6 +191,7 @@ export class AflTablesClient {
    */
   async fetchTeamStats(year: number): Promise<Result<TeamStatsEntry[], ScrapeError>> {
     const url = `https://afltables.com/afl/stats/${year}s.html`;
+
     try {
       const response = await this.fetchFn(url, {
         headers: { "User-Agent": "Mozilla/5.0" },
@@ -194,11 +202,13 @@ export class AflTablesClient {
           response.status === 404
             ? `AFL Tables has no team stats for ${year}`
             : `AFL Tables stats request failed: ${response.status}`;
+
         return err(new ScrapeError(friendly, "afl-tables"));
       }
 
       const html = await response.text();
       const entries = parseAflTablesTeamStats(html, year);
+
       return ok(entries);
     } catch (cause) {
       return err(
@@ -223,11 +233,13 @@ export class AflTablesClient {
     teamName: string,
   ): Promise<Result<Omit<PlayerDetails, "source" | "competition">[], ScrapeError>> {
     const slug = teamNameToAflTablesSlug(teamName);
+
     if (!slug) {
       return err(new ScrapeError(`No AFL Tables slug mapping for team: ${teamName}`, "afl-tables"));
     }
 
     const url = `https://afltables.com/afl/stats/alltime/${slug}.html`;
+
     try {
       const response = await this.fetchFn(url, {
         headers: { "User-Agent": "Mozilla/5.0" },
@@ -241,6 +253,7 @@ export class AflTablesClient {
 
       const html = await response.text();
       const players = parseAflTablesPlayerList(html, teamName);
+
       return ok(players);
     } catch (cause) {
       return err(
@@ -311,13 +324,16 @@ function parseSeasonPageGamesFromDoc($: cheerio.CheerioAPI, year: number): Seaso
     // Round headers are in tables with border=2 containing "Round N" text
     const border = $table.attr("border");
     const roundMatch = /^Round\s+(\d+)/i.exec(text);
+
     if (roundMatch?.[1] && border !== "1") {
       currentRound = Number.parseInt(roundMatch[1], 10);
       currentRoundType = inferRoundType(text);
       currentRoundName = text;
+
       if (currentRoundType === "HomeAndAway") {
         lastHARound = currentRound;
       }
+
       return;
     }
 
@@ -326,12 +342,14 @@ function parseSeasonPageGamesFromDoc($: cheerio.CheerioAPI, year: number): Seaso
       currentRoundType = "Finals";
       currentRoundName = text;
       currentRound = finalsRoundNumber(text, lastHARound);
+
       return;
     }
 
     // Match tables have border=1 and contain exactly 2 rows
     if (border !== "1") return;
     const rows = $table.find("tr");
+
     if (rows.length !== 2) return;
 
     const homeRow = $(rows[0]);
@@ -339,11 +357,13 @@ function parseSeasonPageGamesFromDoc($: cheerio.CheerioAPI, year: number): Seaso
 
     const homeCells = homeRow.find("td");
     const awayCells = awayRow.find("td");
+
     if (homeCells.length < 4 || awayCells.length < 3) return;
 
     // Team names are in the first cell as links
     const homeTeam = normaliseTeamName($(homeCells[0]).find("a").text().trim());
     const awayTeam = normaliseTeamName($(awayCells[0]).find("a").text().trim());
+
     if (!homeTeam || !awayTeam) return;
 
     // Quarter scores in second cell (format: "3.3  4.3  7.10 12.14")
@@ -449,9 +469,11 @@ function remapOpeningRound(matches: readonly Match[], year: number): Match[] {
 
   // Count games in the lowest-numbered H&A round.
   const haRounds = matches.filter((m) => m.roundType === "HomeAndAway");
+
   if (haRounds.length === 0) return [...matches];
   const minRound = Math.min(...haRounds.map((m) => m.roundNumber));
   const firstRoundGames = haRounds.filter((m) => m.roundNumber === minRound).length;
+
   if (firstRoundGames >= 9) return [...matches];
 
   // Opening Round detected — shift all H&A rounds down by 1.
@@ -479,11 +501,13 @@ function toPerQuarter(
   let prevGoals = 0;
   let prevBehinds = 0;
   let prevPoints = 0;
+
   for (const q of cumulative) {
     if (q == null) {
       out.push(undefined);
       continue;
     }
+
     out.push({
       goals: q.goals - prevGoals,
       behinds: q.behinds - prevBehinds,
@@ -493,12 +517,13 @@ function toPerQuarter(
     prevBehinds = q.behinds;
     prevPoints = q.points;
   }
+
   return out;
 }
 
 /**
  * Strip AFL Tables' attendance/footnote suffix from a round-header label.
- * Input: `"Round 1 * see notes Rnd Att: 116,700 (29,175) Tot Att: ..."`
+ * Input: `"Round 1 * see notes\u00a0Rnd Att: 116,700 (29,175) Tot Att: ..."`
  * Output: `"Round 1"`. Also handles bare finals labels ("Qualifying Final",
  * "Grand Final", etc.) by truncating at the first asterisk or the "Att:"
  * marker, whichever comes first.
@@ -506,14 +531,17 @@ function toPerQuarter(
 function cleanRoundLabel(raw: string): string {
   if (!raw) return "";
   const collapsed = raw.replace(/ /g, " ").replace(/\s+/g, " ").trim();
+
   // Match leading "Round N" or a finals label.
   const finalsMatch =
     /^(Round\s+\d+|Opening\s+Round|Qualifying\s+Final|Elimination\s+Final|Semi[- ]?Final|Preliminary\s+Final|Grand\s+Final)/i.exec(
       collapsed,
     );
+
   if (finalsMatch?.[1]) return finalsMatch[1];
   // Fallback: strip everything from the first asterisk or "Att:" onward.
   const cut = collapsed.search(/\s*\*|\s+(?:Rnd|Tot)\s+Att:/i);
+
   return cut >= 0 ? collapsed.slice(0, cut).trim() : collapsed;
 }
 
@@ -529,6 +557,7 @@ function parseQuarterScores(text: string): (QuarterScore | undefined)[] {
   return matches.map((m) => {
     const goals = Number.parseInt(m[1] ?? "0", 10);
     const behinds = Number.parseInt(m[2] ?? "0", 10);
+
     return { goals, behinds, points: goals * 6 + behinds };
   });
 }
@@ -541,8 +570,10 @@ function parseQuarterScores(text: string): (QuarterScore | undefined)[] {
  */
 function parseDateFromInfo(text: string, year: number, venueTimezone: string | null): Date {
   const m = /(\d{1,2})-([A-Z][a-z]{2})-(\d{4})(?:\s+(\d{1,2}):(\d{2})\s*([AaPp][Mm]))?/.exec(text);
+
   if (!m) {
     const parsed = parseDate(text);
+
     if (parsed) return parsed;
     throw new Error(`Unable to parse required AFL Tables match date: ${JSON.stringify(text)}`);
   }
@@ -550,6 +581,7 @@ function parseDateFromInfo(text: string, year: number, venueTimezone: string | n
   const day = Number.parseInt(m[1] ?? "0", 10);
   const monthStr = (m[2] ?? "").toLowerCase();
   const yearN = Number.parseInt(m[3] ?? `${year}`, 10);
+
   const months: Readonly<Record<string, number>> = {
     jan: 0,
     feb: 1,
@@ -564,9 +596,12 @@ function parseDateFromInfo(text: string, year: number, venueTimezone: string | n
     nov: 10,
     dec: 11,
   };
+
   const monthIndex = months[monthStr];
+
   if (monthIndex == null) {
     const parsed = parseDate(text);
+
     if (parsed) return parsed;
     throw new Error(`Unable to parse required AFL Tables match date: ${JSON.stringify(text)}`);
   }
@@ -579,19 +614,25 @@ function parseDateFromInfo(text: string, year: number, venueTimezone: string | n
   let hours = Number.parseInt(m[4], 10);
   const minutes = Number.parseInt(m[5], 10);
   const ampm = m[6].toLowerCase();
+
   if (ampm === "pm" && hours < 12) hours += 12;
+
   if (ampm === "am" && hours === 12) hours = 0;
 
   const tz = venueTimezone ?? "Australia/Melbourne";
   const result = localToUtc(tz, yearN, monthIndex, day, hours, minutes);
+
   if (result.success) return result.data;
+
   // DST spring-forward gap: the wall-clock time literally doesn't exist
   // in this tz. Roll forward by one hour (the "spring forward" direction
   // venues actually move through). See DstGapError in src/lib/errors.ts.
   if (result.error instanceof DstGapError && hours < 23) {
     const retry = localToUtc(tz, yearN, monthIndex, day, hours + 1, minutes);
+
     if (retry.success) return retry.data;
   }
+
   return new Date(Date.UTC(yearN, monthIndex, day));
 }
 
@@ -599,18 +640,23 @@ function parseDateFromInfo(text: string, year: number, venueTimezone: string | n
 function parseVenueFromInfo(html: string): string {
   const $ = parseHtml(html);
   const venueLink = $("a[href*='venues']");
+
   if (venueLink.length > 0) {
     return venueLink.text().trim();
   }
+
   // Fallback: look for "Venue: " text
   const venueMatch = /Venue:\s*(.+?)(?:<|$)/i.exec(html);
+
   return venueMatch?.[1]?.trim() ?? "";
 }
 
 /** Parse attendance from the info cell text. */
 function parseAttendanceFromInfo(text: string): number | null {
   const match = /Att:\s*([\d,]+)/i.exec(text);
+
   if (!match?.[1]) return null;
+
   return safeInt(match[1]);
 }
 
@@ -674,6 +720,7 @@ export function parseAflTablesTeamStats(html: string, year: number): TeamStatsEn
     if (tableIdx >= tables.length) return;
     const $table = $(tables[tableIdx]);
     const rows = $table.find("tr");
+
     if (rows.length < 2) return;
 
     // First row is headers
@@ -689,12 +736,15 @@ export function parseAflTablesTeamStats(html: string, year: number): TeamStatsEn
 
     for (let ri = 1; ri < rows.length; ri++) {
       const cells = $(rows[ri]).find("td");
+
       if (cells.length < 3) continue;
 
       const teamText = $(cells[0]).text().trim();
+
       if (teamText === "Totals" || !teamText) continue;
 
       const teamName = normaliseTeamName(teamText);
+
       if (!teamName) continue;
 
       if (!teamMap.has(teamName)) {
@@ -704,7 +754,9 @@ export function parseAflTablesTeamStats(html: string, year: number): TeamStatsEn
           againstMetrics: emptyMetricSet(),
         });
       }
+
       const entry = teamMap.get(teamName);
+
       if (!entry) continue;
 
       if (gpColIdx >= 0 && direction === "for") {
@@ -713,12 +765,15 @@ export function parseAflTablesTeamStats(html: string, year: number): TeamStatsEn
       }
 
       const target = direction === "for" ? entry.forMetrics : entry.againstMetrics;
+
       for (let ci = 1; ci < cells.length; ci++) {
         if (ci === gpColIdx) continue;
 
         const header = headers[ci];
+
         if (!header) continue;
         const canonical = AFL_TABLES_TEAM_METRIC_MAP[header];
+
         if (canonical == null) continue; // unknown header — skip
         const value = Number.parseFloat($(cells[ci]).text().trim().replace(/,/g, "")) || 0;
         target[canonical] = value;
@@ -731,6 +786,7 @@ export function parseAflTablesTeamStats(html: string, year: number): TeamStatsEn
   parseTable(2, "against");
 
   const entries: TeamStatsEntry[] = [];
+
   for (const [team, data] of teamMap) {
     entries.push({
       season: year,
@@ -805,6 +861,7 @@ function parseAflTablesPlayerList(
 
   // Use the first sortable table (matches R package's pluck(1))
   const table = $("table.sortable").first();
+
   if (table.length === 0) return players;
 
   const rows = table.find("tbody tr");
@@ -813,10 +870,12 @@ function parseAflTablesPlayerList(
 
   rows.each((_ri, row) => {
     const cells = $(row).find("td");
+
     if (cells.length < 8) return;
 
     const jumperText = $(cells[1]).text().trim();
     const playerText = $(cells[2]).text().trim();
+
     if (!playerText) return;
 
     // Player name is "Surname, FirstName"

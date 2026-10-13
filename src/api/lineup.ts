@@ -18,6 +18,7 @@ import type { Lineup, LineupQuery } from "../types";
 export async function fetchLineup(query: LineupQuery): Promise<Result<Lineup[], Error>> {
   const adapterR = dispatch(lineupRegistry, "lineup", query);
   const fetched = await Result.flatMapAsync(adapterR, (a) => a.fetchLineup(query));
+
   return Result.map(fetched, (rows) =>
     rows.map((row) => ({ ...row, seasonKey: String(query.season) })),
   );

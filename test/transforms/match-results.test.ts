@@ -48,6 +48,7 @@ function makeMatchItem(overrides?: Partial<MatchItem>): MatchItem {
 /** Helper to get first result or fail test. */
 function first<T>(arr: T[]): T {
   expect(arr.length).toBeGreaterThanOrEqual(1);
+
   return arr[0] as T;
 }
 
@@ -106,6 +107,7 @@ describe("transformMatchItems", () => {
     expect(concluded.livePeriodStatus).toBe("CONCLUDED");
 
     const liveItem = makeMatchItem();
+
     if (liveItem.score) liveItem.score.status = "QTR_TIME";
     const live = first(transformMatchItems([liveItem], 2025, "AFLM"));
     expect(live.livePeriodStatus).toBe("QTR_TIME");
@@ -113,6 +115,7 @@ describe("transformMatchItems", () => {
 
   it("surfaces matchClock.periods and derives completedQuarter (#145)", () => {
     const item = makeMatchItem();
+
     if (item.score) {
       item.score.matchClock = {
         periods: [
@@ -140,6 +143,7 @@ describe("transformMatchItems", () => {
         ],
       };
     }
+
     const r = first(transformMatchItems([item], 2026, "AFLM"));
     expect(r.matchClockPeriods).not.toBeNull();
     expect(r.matchClockPeriods).toHaveLength(3);
@@ -156,6 +160,7 @@ describe("transformMatchItems", () => {
 
   it("completedQuarter is 0 when no period has completed yet", () => {
     const item = makeMatchItem();
+
     if (item.score) {
       item.score.matchClock = {
         periods: [
@@ -169,12 +174,14 @@ describe("transformMatchItems", () => {
         ],
       };
     }
+
     const r = first(transformMatchItems([item], 2026, "AFLM"));
     expect(r.completedQuarter).toBe(0);
   });
 
   it("completedQuarter ignores period gaps and returns the highest completed periodNumber", () => {
     const item = makeMatchItem();
+
     if (item.score) {
       item.score.matchClock = {
         periods: [
@@ -202,6 +209,7 @@ describe("transformMatchItems", () => {
         ],
       };
     }
+
     const r = first(transformMatchItems([item], 2026, "AFLM"));
     expect(r.matchClockPeriods).toHaveLength(3);
     expect(r.completedQuarter).toBe(3);
@@ -209,6 +217,7 @@ describe("transformMatchItems", () => {
 
   it("completedQuarter is capped at 4 when periodNumber exceeds 4 (overtime)", () => {
     const item = makeMatchItem();
+
     if (item.score) {
       item.score.matchClock = {
         periods: [
@@ -250,15 +259,18 @@ describe("transformMatchItems", () => {
         ],
       };
     }
+
     const r = first(transformMatchItems([item], 2026, "AFLM"));
     expect(r.completedQuarter).toBe(4);
   });
 
   it("completedQuarter is 0 when the periods array is empty", () => {
     const item = makeMatchItem();
+
     if (item.score) {
       item.score.matchClock = { periods: [] };
     }
+
     const r = first(transformMatchItems([item], 2026, "AFLM"));
     expect(r.matchClockPeriods).toHaveLength(0);
     expect(r.completedQuarter).toBe(0);
@@ -266,6 +278,7 @@ describe("transformMatchItems", () => {
 
   it("completedQuarter is order-independent across the periods array", () => {
     const item = makeMatchItem();
+
     if (item.score) {
       item.score.matchClock = {
         periods: [
@@ -286,6 +299,7 @@ describe("transformMatchItems", () => {
         ],
       };
     }
+
     const r = first(transformMatchItems([item], 2026, "AFLM"));
     expect(r.completedQuarter).toBe(3);
   });
@@ -303,6 +317,7 @@ describe("transformMatchItems", () => {
         },
       },
     });
+
     const r = first(transformMatchItems([item], 2025, "AFLM"));
 
     expect(r.homePoints).toBe(50);
@@ -338,6 +353,7 @@ describe("transformMatchItems", () => {
     // upcoming games invisible to status-filtered consumers (footyBot
     // missed live coverage on 2026-06-11).
     const statuses = ["UNCONFIRMED_TEAMS", "CONFIRMED_TEAMS", "PLACEHOLDER"];
+
     for (const status of statuses) {
       const item = makeMatchItem();
       item.match.status = status;
@@ -374,6 +390,7 @@ describe("transformMatchItems", () => {
   it("transforms multiple items", () => {
     const items = [makeMatchItem(), makeMatchItem()];
     const second = items[1];
+
     if (second) second.match.matchId = "CD_M2";
     const results = transformMatchItems(items, 2025, "AFLM");
     expect(results).toHaveLength(2);
@@ -395,6 +412,7 @@ describe("transformMatchItems — Sir Doug Nicholls Round canonicalisation", () 
     expect(results).toHaveLength(9);
 
     const teams = new Set<string>();
+
     for (const m of results) {
       teams.add(m.homeTeam);
       teams.add(m.awayTeam);

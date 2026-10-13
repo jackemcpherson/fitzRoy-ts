@@ -10,6 +10,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 
 const ROOT = resolve(__dirname, "../..");
+
 const PRELOAD = resolve(__dirname, "cli-preload.ts");
 
 /**
@@ -23,6 +24,7 @@ const MAX_OUTPUT_CHARS = 6000;
 
 function bound(output: string): string {
   if (output.length <= MAX_OUTPUT_CHARS) return output;
+
   return `${output.slice(0, MAX_OUTPUT_CHARS)}\n…[${output.length - MAX_OUTPUT_CHARS} more chars]`;
 }
 
@@ -44,6 +46,7 @@ function runCli(args: readonly string[]) {
       timeout: 60_000,
     },
   );
+
   return {
     status: result.status,
     stdout: bound(result.stdout),

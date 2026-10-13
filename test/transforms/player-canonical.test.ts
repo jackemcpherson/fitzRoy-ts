@@ -38,6 +38,7 @@ describe("canonical Player (#96)", () => {
   it("Squad.players is the Player canonical shape", () => {
     const first = sampleSquad.players[0];
     expect(first).toBeDefined();
+
     if (!first) return;
     // Per-row stamped provenance
     expect(first.team).toBe("Sydney Swans");

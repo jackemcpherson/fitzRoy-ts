@@ -42,6 +42,7 @@ export async function fetchPlayerDetails(
   // Resolve once, preserving an explicit competition season. A failed lookup
   // remains an error rather than substituting a calendar-year approximation.
   let season = query.season;
+
   if (season === undefined) {
     try {
       season = await resolveDefaultSeasonForCompetition(competition);
@@ -59,6 +60,7 @@ export async function fetchPlayerDetails(
     competition,
     season,
   });
+
   if (!dispatchResult.success) return err(dispatchResult.error);
 
   if (query.team) {
@@ -68,7 +70,9 @@ export async function fetchPlayerDetails(
       source: query.source,
       competition,
     });
+
     if (!squadR.success) return squadR;
+
     return ok({
       players: squadToPlayerDetails(squadR.data, query.source),
       failedTeams: [],
@@ -77,6 +81,7 @@ export async function fetchPlayerDetails(
   }
 
   const teamNames = [...AFL_SENIOR_TEAMS];
+
   const results = await batchedMap(teamNames, async (team) => ({
     team,
     result: await fetchSquad({
@@ -88,14 +93,17 @@ export async function fetchPlayerDetails(
   }));
 
   const failures = results.flatMap(({ result }) => (result.success ? [] : [result.error]));
+
   if (failures.length === results.length && results.length > 0) {
     const first = failures[0];
+
     if (!first) {
       // Unreachable: failures.length > 0 guarantees an element exists.
       return err(
         new Error(`All team squad fetches failed for season ${season} (source: ${query.source})`),
       );
     }
+
     return err(
       new Error(
         `All ${results.length} team squad fetches failed for season ${season} (source: ${query.source}); first error: ${first.message}`,
@@ -107,6 +115,7 @@ export async function fetchPlayerDetails(
   const allPlayers: PlayerDetails[] = [];
   const failedTeams: string[] = [];
   let scope: PlayerDetailsResult["scope"] | undefined;
+
   for (const { team, result } of results) {
     if (result.success) {
       allPlayers.push(...squadToPlayerDetails(result.data, query.source));
@@ -115,8 +124,10 @@ export async function fetchPlayerDetails(
       failedTeams.push(team);
     }
   }
+
   if (scope === undefined) {
     return err(new Error(`No player details found for season ${season} (source: ${query.source})`));
   }
+
   return ok({ players: allPlayers, failedTeams, scope });
 }
