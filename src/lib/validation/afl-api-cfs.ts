@@ -1,158 +1,142 @@
 /**
- * Zod schemas for the AFL API /cfs/ match surface.
+ * Effect schemas for the AFL API /cfs/ match surface.
  *
  * Covers the match-level endpoints behind `api.afl.com.au/cfs/` —
  * match items (round results) and the nested venue / weather /
  * match-clock objects they share. Player-level schemas (stats, roster)
  * live in `./afl-api-players`.
  *
- * Schemas use `.passthrough()` to tolerate extra fields the API may add
+ * Schemas use `open()` to tolerate extra fields the API may add
  * without breaking validation.
  */
 
-import { z } from "zod/v4";
-import { TeamScoreSchema } from "./shared";
+import { Schema } from "effect";
+import { open, TeamScoreSchema } from "./shared";
 
 // ---------------------------------------------------------------------------
 // /cfs/ match team schema (nested within match items)
 // ---------------------------------------------------------------------------
 
 /** Schema for a team entry within a /cfs/ match object. */
-export const CfsMatchTeamSchema = z
-  .object({
-    name: z.string(),
-    teamId: z.string(),
-    abbr: z.string().optional(),
-    nickname: z.string().optional(),
-  })
-  .passthrough();
+export const CfsMatchTeamSchema = open({
+  name: Schema.String,
+  teamId: Schema.String,
+  abbr: Schema.optional(Schema.String),
+  nickname: Schema.optional(Schema.String),
+});
 
 /** Inferred type for a /cfs/ match team. */
-export type CfsMatchTeam = z.infer<typeof CfsMatchTeamSchema>;
+export type CfsMatchTeam = typeof CfsMatchTeamSchema.Type;
 
 // ---------------------------------------------------------------------------
 // /cfs/ match inner object (nested within match items)
 // ---------------------------------------------------------------------------
 
 /** Schema for the inner match object within a /cfs/ match item. */
-export const CfsMatchSchema = z
-  .object({
-    matchId: z.string(),
-    name: z.string().optional(),
-    status: z.string(),
-    utcStartTime: z.string(),
-    /** Wall-clock start at the venue (no offset) — captured for #109. */
-    venueLocalStartTime: z.string().nullish(),
-    homeTeamId: z.string(),
-    awayTeamId: z.string(),
-    homeTeam: CfsMatchTeamSchema,
-    awayTeam: CfsMatchTeamSchema,
-    round: z.string().optional(),
-    abbr: z.string().optional(),
-  })
-  .passthrough();
+export const CfsMatchSchema = open({
+  matchId: Schema.String,
+  name: Schema.optional(Schema.String),
+  status: Schema.String,
+  utcStartTime: Schema.String,
+  /** Wall-clock start at the venue (no offset) — captured for #109. */
+  venueLocalStartTime: Schema.optional(Schema.NullOr(Schema.String)),
+  homeTeamId: Schema.String,
+  awayTeamId: Schema.String,
+  homeTeam: CfsMatchTeamSchema,
+  awayTeam: CfsMatchTeamSchema,
+  round: Schema.optional(Schema.String),
+  abbr: Schema.optional(Schema.String),
+});
 
 /** Inferred type for a /cfs/ match. */
-export type CfsMatch = z.infer<typeof CfsMatchSchema>;
+export type CfsMatch = typeof CfsMatchSchema.Type;
 
 // ---------------------------------------------------------------------------
 // /cfs/ score wrapper (nested within match items)
 // ---------------------------------------------------------------------------
 
 /** Schema for a single quarter in the /cfs/ match-clock period list (#145). */
-export const CfsMatchClockPeriodSchema = z
-  .object({
-    periodNumber: z.number(),
-    periodSeconds: z.number().nullish(),
-    periodCompleted: z.boolean(),
-    periodStart: z.string().nullish(),
-    nextPeriodStart: z.string().nullish(),
-  })
-  .passthrough();
+export const CfsMatchClockPeriodSchema = open({
+  periodNumber: Schema.Number,
+  periodSeconds: Schema.optional(Schema.NullOr(Schema.Number)),
+  periodCompleted: Schema.Boolean,
+  periodStart: Schema.optional(Schema.NullOr(Schema.String)),
+  nextPeriodStart: Schema.optional(Schema.NullOr(Schema.String)),
+});
 
 /** Schema for the score wrapper within a /cfs/ match item. */
-export const CfsScoreSchema = z
-  .object({
-    status: z.string(),
-    matchId: z.string(),
-    homeTeamScore: TeamScoreSchema,
-    awayTeamScore: TeamScoreSchema,
-    matchClock: z
-      .object({
-        periods: z.array(CfsMatchClockPeriodSchema),
-      })
-      .passthrough()
-      .nullish(),
-  })
-  .passthrough();
+export const CfsScoreSchema = open({
+  status: Schema.String,
+  matchId: Schema.String,
+  homeTeamScore: TeamScoreSchema,
+  awayTeamScore: TeamScoreSchema,
+  matchClock: Schema.optional(
+    Schema.NullOr(
+      open({
+        periods: Schema.Array(CfsMatchClockPeriodSchema),
+      }),
+    ),
+  ),
+});
 
 /** Inferred type for a /cfs/ score wrapper. */
-export type CfsScore = z.infer<typeof CfsScoreSchema>;
+export type CfsScore = typeof CfsScoreSchema.Type;
 
 /** Inferred type for a /cfs/ match-clock period. */
-export type CfsMatchClockPeriod = z.infer<typeof CfsMatchClockPeriodSchema>;
+export type CfsMatchClockPeriod = typeof CfsMatchClockPeriodSchema.Type;
 
 // ---------------------------------------------------------------------------
 // /cfs/ venue schema
 // ---------------------------------------------------------------------------
 
 /** Schema for venue info in /cfs/ responses. */
-export const CfsVenueSchema = z
-  .object({
-    name: z.string(),
-    venueId: z.string().nullish(),
-    state: z.string().nullish(),
-    timeZone: z.string().nullish(),
-  })
-  .passthrough();
+export const CfsVenueSchema = open({
+  name: Schema.String,
+  venueId: Schema.optional(Schema.NullOr(Schema.String)),
+  state: Schema.optional(Schema.NullOr(Schema.String)),
+  timeZone: Schema.optional(Schema.NullOr(Schema.String)),
+});
 
 /** Inferred type for a /cfs/ venue. */
-export type CfsVenue = z.infer<typeof CfsVenueSchema>;
+export type CfsVenue = typeof CfsVenueSchema.Type;
 
 // ---------------------------------------------------------------------------
 // Match items — round results (/cfs/afl/matchItems/round/{roundProviderId})
 // ---------------------------------------------------------------------------
 
 /** Schema for weather info in /cfs/ match items. */
-export const CfsWeatherSchema = z
-  .object({
-    tempInCelsius: z.number().nullable().optional(),
-    weatherType: z.string().nullable().optional(),
-  })
-  .passthrough();
+export const CfsWeatherSchema = open({
+  tempInCelsius: Schema.optional(Schema.NullOr(Schema.Number)),
+  weatherType: Schema.optional(Schema.NullOr(Schema.String)),
+});
 
 /** Inferred type for /cfs/ weather. */
-export type CfsWeather = z.infer<typeof CfsWeatherSchema>;
+export type CfsWeather = typeof CfsWeatherSchema.Type;
 
 /** Schema for a single match item in round results. */
-export const MatchItemSchema = z
-  .object({
-    match: CfsMatchSchema,
-    score: CfsScoreSchema.nullish(),
-    venue: CfsVenueSchema.optional(),
-    round: z
-      .object({
-        name: z.string(),
-        roundId: z.string(),
-        roundNumber: z.number(),
-      })
-      .passthrough()
-      .optional(),
-    attendance: z.number().nullable().optional(),
-    weather: CfsWeatherSchema.nullable().optional(),
-  })
-  .passthrough();
+export const MatchItemSchema = open({
+  match: CfsMatchSchema,
+  score: Schema.optional(Schema.NullOr(CfsScoreSchema)),
+  venue: Schema.optional(CfsVenueSchema),
+  round: Schema.optional(
+    open({
+      name: Schema.String,
+      roundId: Schema.String,
+      roundNumber: Schema.Number,
+    }),
+  ),
+  attendance: Schema.optional(Schema.NullOr(Schema.Number)),
+  weather: Schema.optional(Schema.NullOr(CfsWeatherSchema)),
+});
 
 /** Schema for the match items (round results) response. */
-export const MatchItemListSchema = z
-  .object({
-    roundId: z.string().optional(),
-    items: z.array(MatchItemSchema),
-  })
-  .passthrough();
+export const MatchItemListSchema = open({
+  roundId: Schema.optional(Schema.String),
+  items: Schema.Array(MatchItemSchema),
+});
 
 /** Inferred type for a single match item. */
-export type MatchItem = z.infer<typeof MatchItemSchema>;
+export type MatchItem = typeof MatchItemSchema.Type;
 
 /** Inferred type for the match items list response. */
-export type MatchItemList = z.infer<typeof MatchItemListSchema>;
+export type MatchItemList = typeof MatchItemListSchema.Type;

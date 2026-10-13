@@ -31,31 +31,10 @@ interface MigrationDebt {
  */
 const MIGRATION_DEBT: readonly MigrationDebt[] = [
   {
-    phase: 2,
-    files: ["src/transforms/afl-tables-player-stats.ts"],
-    rules: ["anti-slop/no-known-value-widening"],
-  },
-  {
-    phase: 2,
-    files: ["src/transforms/awards.ts"],
-    rules: [
-      "anti-slop/no-known-value-widening",
-      "anti-slop/require-safety-comment-for-type-assertion",
-    ],
-  },
-  {
-    phase: 2,
-    files: ["src/transforms/footywire-player-stats.ts", "src/transforms/match-results.ts"],
-    rules: ["anti-slop/require-safety-comment-for-type-assertion"],
-  },
-  {
-    phase: 2,
-    files: ["src/transforms/fryzigg-player-stats.ts"],
-    rules: [
-      "anti-slop/no-runtime-typeof",
-      "anti-slop/require-safety-comment-for-type-assertion",
-      "typescript/no-base-to-string",
-    ],
+    // The parsing boundary itself; phase 4 decodes inside the HTTP service.
+    phase: 4,
+    files: ["src/lib/decode.ts"],
+    rules: ["anti-slop/no-unknown-parameters"],
   },
   {
     phase: 4,

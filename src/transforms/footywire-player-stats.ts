@@ -143,7 +143,9 @@ function parseStatsTable<T>(
     if (headerCells[0] !== "Player" || headerCells.length < expectedCols.length) return;
 
     // Verify at least some key column names match
-    if (!headerCells.includes(expectedCols[1] as string)) return;
+    const keyColumn = expectedCols[1];
+
+    if (keyColumn === undefined || !headerCells.includes(keyColumn)) return;
 
     // Extract team name from parent container
     let teamName = "";

@@ -1,7 +1,7 @@
 /**
  * Raw upstream response schemas — the `fitzroy/schemas` subpath export.
  *
- * These Zod schemas mirror the AFL API and Squiggle wire formats
+ * These Effect schemas mirror the AFL API and Squiggle wire formats
  * verbatim, so they change whenever the upstreams do. They moved out of
  * the package root in v3 so that upstream drift no longer forces a
  * major release of the core API; depend on this subpath only if you
@@ -14,11 +14,12 @@
  *
  * @example
  * ```typescript
+ * import { Result, Schema } from "effect";
  * import { MatchItemListSchema } from "fitzroy/schemas";
  *
- * const result = MatchItemListSchema.safeParse(rawJson);
- * if (!result.success) {
- *   console.error("Upstream shape changed:", result.error.issues);
+ * const result = Schema.decodeUnknownResult(MatchItemListSchema)(rawJson);
+ * if (Result.isFailure(result)) {
+ *   console.error("Upstream shape changed:", result.failure.message);
  * }
  * ```
  *

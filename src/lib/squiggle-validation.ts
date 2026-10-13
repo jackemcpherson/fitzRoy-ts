@@ -1,74 +1,74 @@
 /**
- * Zod schemas for Squiggle API responses.
+ * Effect schemas for Squiggle API responses.
  *
  * @see https://api.squiggle.com.au/
  */
 
-import { z } from "zod";
+import { Schema } from "effect";
 
 /** A single game from the Squiggle API. */
-export const SquiggleGameSchema = z.object({
-  id: z.number(),
-  year: z.number(),
-  round: z.number(),
-  roundname: z.string(),
-  hteam: z.string(),
-  ateam: z.string(),
-  hteamid: z.number(),
-  ateamid: z.number(),
-  hscore: z.number().nullable(),
-  ascore: z.number().nullable(),
-  hgoals: z.number().nullable(),
-  agoals: z.number().nullable(),
-  hbehinds: z.number().nullable(),
-  abehinds: z.number().nullable(),
-  winner: z.string().nullable(),
-  winnerteamid: z.number().nullable(),
-  venue: z.string(),
-  date: z.string(),
-  localtime: z.string(),
-  tz: z.string(),
-  unixtime: z.number(),
-  timestr: z.string().nullable(),
-  complete: z.number(),
-  is_final: z.number(),
-  is_grand_final: z.number(),
-  updated: z.string(),
+export const SquiggleGameSchema = Schema.Struct({
+  id: Schema.Number,
+  year: Schema.Number,
+  round: Schema.Number,
+  roundname: Schema.String,
+  hteam: Schema.String,
+  ateam: Schema.String,
+  hteamid: Schema.Number,
+  ateamid: Schema.Number,
+  hscore: Schema.NullOr(Schema.Number),
+  ascore: Schema.NullOr(Schema.Number),
+  hgoals: Schema.NullOr(Schema.Number),
+  agoals: Schema.NullOr(Schema.Number),
+  hbehinds: Schema.NullOr(Schema.Number),
+  abehinds: Schema.NullOr(Schema.Number),
+  winner: Schema.NullOr(Schema.String),
+  winnerteamid: Schema.NullOr(Schema.Number),
+  venue: Schema.String,
+  date: Schema.String,
+  localtime: Schema.String,
+  tz: Schema.String,
+  unixtime: Schema.Number,
+  timestr: Schema.NullOr(Schema.String),
+  complete: Schema.Number,
+  is_final: Schema.Number,
+  is_grand_final: Schema.Number,
+  updated: Schema.String,
 });
 
-export type SquiggleGame = z.infer<typeof SquiggleGameSchema>;
+export type SquiggleGame = typeof SquiggleGameSchema.Type;
 
 /** Response wrapper for Squiggle games query. */
-export const SquiggleGamesResponseSchema = z.object({
-  games: z.array(SquiggleGameSchema),
+export const SquiggleGamesResponseSchema = Schema.Struct({
+  games: Schema.Array(SquiggleGameSchema),
 });
 
-export type SquiggleGamesResponse = z.infer<typeof SquiggleGamesResponseSchema>;
+export type SquiggleGamesResponse = typeof SquiggleGamesResponseSchema.Type;
 
 /** A single standing from the Squiggle API. */
-export const SquiggleStandingSchema = z.object({
-  id: z.number(),
-  name: z.string(),
-  rank: z.number(),
-  played: z.number(),
-  wins: z.number(),
-  losses: z.number(),
-  draws: z.number(),
-  pts: z.number(),
-  for: z.number(),
-  against: z.number(),
-  percentage: z.number(),
-  goals_for: z.number(),
-  goals_against: z.number(),
-  behinds_for: z.number(),
-  behinds_against: z.number(),
+export const SquiggleStandingSchema = Schema.Struct({
+  id: Schema.Number,
+  name: Schema.String,
+  rank: Schema.Number,
+  played: Schema.Number,
+  wins: Schema.Number,
+  losses: Schema.Number,
+  draws: Schema.Number,
+  pts: Schema.Number,
+  for: Schema.Number,
+  against: Schema.Number,
+  percentage: Schema.Number,
+  goals_for: Schema.Number,
+  goals_against: Schema.Number,
+  behinds_for: Schema.Number,
+  behinds_against: Schema.Number,
 });
 
-export type SquiggleStanding = z.infer<typeof SquiggleStandingSchema>;
+export type SquiggleStanding = typeof SquiggleStandingSchema.Type;
 
 /** Response wrapper for Squiggle standings query. */
-export const SquiggleStandingsResponseSchema = z.object({
-  standings: z.array(SquiggleStandingSchema),
+export const SquiggleStandingsResponseSchema = Schema.Struct({
+  standings: Schema.Array(SquiggleStandingSchema),
 });
 
-export type SquiggleStandingsResponse = z.infer<typeof SquiggleStandingsResponseSchema>;
+export type SquiggleStandingsResponse = typeof SquiggleStandingsResponseSchema.Type;

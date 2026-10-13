@@ -1,7 +1,8 @@
 /** Source-grounded match coach readers. */
 
-import { z } from "zod";
+import { Schema } from "effect";
 import { batchedMap } from "../lib/concurrency";
+import { decodeWith } from "../lib/decode";
 import { ScrapeError } from "../lib/errors";
 import { parseHtml } from "../lib/parse-html";
 import { err, ok, type Result } from "../lib/result";
@@ -57,24 +58,14 @@ export class MatchCoachesClient {
   > {
     const coaches = new Map<string, { name: string; url: string }>();
 
-    const cursorSchema = z.object({
-      season: z.literal(season),
-      pages: z
-        .array(
-          z.object({
-            name: z.string().min(1),
-            url: z.url().refine((url) => {
-              const parsed = new URL(url);
-
-              return (
-                parsed.origin === AFL_TABLES_ORIGIN &&
-                /^\/afl\/stats\/coaches\/[\w-]+_[\w-]+\.html$/.test(parsed.pathname) &&
-                !parsed.pathname.endsWith("coaches_idx.html")
-              );
-            }),
-          }),
-        )
-        .max(1000),
+    const cursorSchema = Schema.Struct({
+      season: Schema.Literal(season),
+      pages: Schema.Array(
+        Schema.Struct({
+          name: NonEmptyString,
+          url: UrlString.check(Schema.makeFilter(isAflTablesCoachProfileUrl)),
+        }),
+      ).check(Schema.isMaxLength(1000)),
     });
 
     if (
@@ -87,7 +78,7 @@ export class MatchCoachesClient {
 
     if (batch?.cursor) {
       try {
-        const cursor = cursorSchema.parse(JSON.parse(batch.cursor));
+        const cursor = Schema.decodeUnknownSync(cursorSchema)(JSON.parse(batch.cursor));
 
         for (const page of cursor.pages) coaches.set(page.url, page);
       } catch {
@@ -253,7 +244,7 @@ export class MatchCoachesClient {
         if (!team) return;
         seen.add(href);
 
-        const parsed = AssignmentSchema.safeParse({
+        const parsed = decodeAssignment({
           competition: match.competition,
           season: match.season,
           team,
@@ -324,38 +315,71 @@ export class MatchCoachesClient {
   }
 }
 
-const CoachTeamSchema = z
-  .string()
-  .refine((team) => AFL_SENIOR_TEAMS.has(team) || team === "Brisbane Bears" || team === "Fitzroy");
+/** True when a URL is an AFL Tables coach profile page (not the index). */
+function isAflTablesCoachProfileUrl(url: string): boolean {
+  const parsed = new URL(url);
 
-const AssignmentSchema = z
-  .object({
-    competition: z.literal("AFLM"),
-    season: z.number().int().min(1990),
-    team: CoachTeamSchema,
-    coachId: z.string().min(1),
-    coachName: z.string().min(1),
-    coachUrl: z.url(),
-    matchId: z.string().min(1),
-    matchUrl: z.url(),
-    date: z.iso.date().nullable(),
-    homeTeam: CoachTeamSchema.nullable(),
-    awayTeam: CoachTeamSchema.nullable(),
-    homePoints: z.number().int().nonnegative().nullable(),
-    awayPoints: z.number().int().nonnegative().nullable(),
-    roundName: z.string().min(1).nullable(),
-    source: z.enum(["afl-tables", "footywire"]),
-  })
-  .refine(
+  return (
+    parsed.origin === AFL_TABLES_ORIGIN &&
+    /^\/afl\/stats\/coaches\/[\w-]+_[\w-]+\.html$/.test(parsed.pathname) &&
+    !parsed.pathname.endsWith("coaches_idx.html")
+  );
+}
+
+/** True when a `YYYY-MM-DD` string names a real calendar date. */
+function isCalendarDate(value: string): boolean {
+  const date = new Date(`${value}T00:00:00Z`);
+
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+const NonEmptyString = Schema.String.check(Schema.isMinLength(1));
+
+const UrlString = Schema.String.check(Schema.makeFilter((url: string) => URL.canParse(url)));
+
+const IsoDateString = Schema.String.check(
+  Schema.isPattern(/^\d{4}-\d{2}-\d{2}$/),
+  Schema.makeFilter(isCalendarDate),
+);
+
+const Points = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
+
+const CoachTeamSchema = Schema.String.check(
+  Schema.makeFilter(
+    (team: string) => AFL_SENIOR_TEAMS.has(team) || team === "Brisbane Bears" || team === "Fitzroy",
+  ),
+);
+
+const AssignmentSchema = Schema.Struct({
+  competition: Schema.Literal("AFLM"),
+  season: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1990)),
+  team: CoachTeamSchema,
+  coachId: NonEmptyString,
+  coachName: NonEmptyString,
+  coachUrl: UrlString,
+  matchId: NonEmptyString,
+  matchUrl: UrlString,
+  date: Schema.NullOr(IsoDateString),
+  homeTeam: Schema.NullOr(CoachTeamSchema),
+  awayTeam: Schema.NullOr(CoachTeamSchema),
+  homePoints: Schema.NullOr(Points),
+  awayPoints: Schema.NullOr(Points),
+  roundName: Schema.NullOr(NonEmptyString),
+  source: Schema.Literals(["afl-tables", "footywire"]),
+}).check(
+  Schema.makeFilter(
     (row) =>
       row.homeTeam !== row.awayTeam && (row.team === row.homeTeam || row.team === row.awayTeam),
-    "Invalid participants",
-  )
-  .refine((row) => {
+    { message: "Invalid participants" },
+  ),
+  Schema.makeFilter((row) => {
     const origin = row.source === "afl-tables" ? AFL_TABLES_ORIGIN : FOOTYWIRE_ORIGIN;
 
     return new URL(row.coachUrl).origin === origin && new URL(row.matchUrl).origin === origin;
-  });
+  }),
+);
+
+const decodeAssignment = decodeWith(AssignmentSchema);
 
 function parseAflTablesCoachProfile(
   html: string,
@@ -400,7 +424,7 @@ function parseAflTablesCoachProfile(
     const team = normaliseTeamName(text(3));
     const opponent = normaliseTeamName(text(6));
 
-    const parsed = AssignmentSchema.safeParse({
+    const parsed = decodeAssignment({
       competition: "AFLM",
       season,
       team,

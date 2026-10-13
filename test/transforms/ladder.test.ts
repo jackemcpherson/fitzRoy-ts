@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { LadderResponseSchema } from "../../src/lib/validation";
 import { transformLadderEntries } from "../../src/transforms/ladder";
@@ -8,7 +9,7 @@ const fixturePath = join(__dirname, "../fixtures/afl-api-ladder-2024-r10.json");
 
 function loadEntries() {
   const raw = JSON.parse(readFileSync(fixturePath, "utf-8"));
-  const response = LadderResponseSchema.parse(raw);
+  const response = Schema.decodeUnknownSync(LadderResponseSchema)(raw);
   const firstLadder = response.ladders[0];
 
   if (!firstLadder) throw new Error("No ladder in fixture");

@@ -12,6 +12,7 @@
  */
 
 import type { DataFrame } from "@jackemcpherson/rds-js";
+import { Schema } from "effect";
 
 import { parseDate } from "../lib/date-utils";
 import { ScrapeError } from "../lib/errors";
@@ -90,72 +91,97 @@ const AFLW_COLUMNS = {
 } as const;
 
 /** All pre-resolved column arrays needed for row mapping. */
+/**
+ * One decoded data-frame column.
+ *
+ * R atomic vectors are homogeneous, and rds-js maps `NA` to `null`. A column
+ * is therefore all strings, all numbers, or neither (logical vectors and
+ * all-`NA` columns), plus `null` entries.
+ */
+type Column =
+  | { readonly kind: "text"; readonly values: ReadonlyArray<string | null> }
+  | { readonly kind: "number"; readonly values: ReadonlyArray<number | null> }
+  | { readonly kind: "other"; readonly length: number };
+
+const isTextColumn = Schema.is(Schema.Array(Schema.NullOr(Schema.String)));
+
+const isNumberColumn = Schema.is(Schema.Array(Schema.NullOr(Schema.Number)));
+
+/** Decode a raw data-frame column at the RDS boundary. */
+function decodeColumn(values: readonly unknown[]): Column {
+  if (isTextColumn(values)) return { kind: "text", values };
+
+  if (isNumberColumn(values)) return { kind: "number", values };
+
+  return { kind: "other", length: values.length };
+}
+
 interface ResolvedColumns {
-  readonly matchId: unknown[] | undefined;
-  readonly date: unknown[] | undefined;
-  readonly homeTeam: unknown[] | undefined;
-  readonly awayTeam: unknown[] | undefined;
-  readonly team: unknown[] | undefined;
-  readonly round: unknown[] | undefined;
-  readonly jumperNumber: unknown[] | undefined;
-  readonly playerId: unknown[] | undefined;
-  readonly firstName: unknown[] | undefined;
-  readonly lastName: unknown[] | undefined;
-  readonly playerName: unknown[] | undefined;
-  readonly kicks: unknown[] | undefined;
-  readonly handballs: unknown[] | undefined;
-  readonly disposals: unknown[] | undefined;
-  readonly marks: unknown[] | undefined;
-  readonly goals: unknown[] | undefined;
-  readonly behinds: unknown[] | undefined;
-  readonly tackles: unknown[] | undefined;
-  readonly hitouts: unknown[] | undefined;
-  readonly freesFor: unknown[] | undefined;
-  readonly freesAgainst: unknown[] | undefined;
-  readonly contestedPossessions: unknown[] | undefined;
-  readonly uncontestedPossessions: unknown[] | undefined;
-  readonly contestedMarks: unknown[] | undefined;
-  readonly intercepts: unknown[] | undefined;
-  readonly centreClearances: unknown[] | undefined;
-  readonly stoppageClearances: unknown[] | undefined;
-  readonly totalClearances: unknown[] | undefined;
-  readonly inside50s: unknown[] | undefined;
-  readonly rebound50s: unknown[] | undefined;
-  readonly clangers: unknown[] | undefined;
-  readonly turnovers: unknown[] | undefined;
-  readonly onePercenters: unknown[] | undefined;
-  readonly bounces: unknown[] | undefined;
-  readonly goalAssists: unknown[] | undefined;
-  readonly disposalEfficiency: unknown[] | undefined;
-  readonly metresGained: unknown[] | undefined;
-  readonly marksInside50: unknown[] | undefined;
-  readonly tacklesInside50: unknown[] | undefined;
-  readonly shotsAtGoal: unknown[] | undefined;
-  readonly scoreInvolvements: unknown[] | undefined;
-  readonly totalPossessions: unknown[] | undefined;
-  readonly timeOnGround: unknown[] | undefined;
-  readonly ratingPoints: unknown[] | undefined;
-  readonly position: unknown[] | undefined;
-  readonly brownlowVotes: unknown[] | undefined;
-  readonly supercoachScore: unknown[] | undefined;
-  readonly dreamTeamPoints: unknown[] | undefined;
-  readonly effectiveDisposals: unknown[] | undefined;
-  readonly effectiveKicks: unknown[] | undefined;
-  readonly pressureActs: unknown[] | undefined;
-  readonly defHalfPressureActs: unknown[] | undefined;
-  readonly spoils: unknown[] | undefined;
-  readonly hitoutsToAdvantage: unknown[] | undefined;
-  readonly hitoutWinPercentage: unknown[] | undefined;
-  readonly groundBallGets: unknown[] | undefined;
-  readonly f50GroundBallGets: unknown[] | undefined;
-  readonly interceptMarks: unknown[] | undefined;
-  readonly marksOnLead: unknown[] | undefined;
-  readonly contestOffOneOnOnes: unknown[] | undefined;
-  readonly contestOffWins: unknown[] | undefined;
-  readonly contestDefOneOnOnes: unknown[] | undefined;
-  readonly contestDefLosses: unknown[] | undefined;
-  readonly ruckContests: unknown[] | undefined;
-  readonly scoreLaunches: unknown[] | undefined;
+  readonly matchId: Column | undefined;
+  readonly date: Column | undefined;
+  readonly homeTeam: Column | undefined;
+  readonly awayTeam: Column | undefined;
+  readonly team: Column | undefined;
+  readonly round: Column | undefined;
+  readonly jumperNumber: Column | undefined;
+  readonly playerId: Column | undefined;
+  readonly firstName: Column | undefined;
+  readonly lastName: Column | undefined;
+  readonly playerName: Column | undefined;
+  readonly kicks: Column | undefined;
+  readonly handballs: Column | undefined;
+  readonly disposals: Column | undefined;
+  readonly marks: Column | undefined;
+  readonly goals: Column | undefined;
+  readonly behinds: Column | undefined;
+  readonly tackles: Column | undefined;
+  readonly hitouts: Column | undefined;
+  readonly freesFor: Column | undefined;
+  readonly freesAgainst: Column | undefined;
+  readonly contestedPossessions: Column | undefined;
+  readonly uncontestedPossessions: Column | undefined;
+  readonly contestedMarks: Column | undefined;
+  readonly intercepts: Column | undefined;
+  readonly centreClearances: Column | undefined;
+  readonly stoppageClearances: Column | undefined;
+  readonly totalClearances: Column | undefined;
+  readonly inside50s: Column | undefined;
+  readonly rebound50s: Column | undefined;
+  readonly clangers: Column | undefined;
+  readonly turnovers: Column | undefined;
+  readonly onePercenters: Column | undefined;
+  readonly bounces: Column | undefined;
+  readonly goalAssists: Column | undefined;
+  readonly disposalEfficiency: Column | undefined;
+  readonly metresGained: Column | undefined;
+  readonly marksInside50: Column | undefined;
+  readonly tacklesInside50: Column | undefined;
+  readonly shotsAtGoal: Column | undefined;
+  readonly scoreInvolvements: Column | undefined;
+  readonly totalPossessions: Column | undefined;
+  readonly timeOnGround: Column | undefined;
+  readonly ratingPoints: Column | undefined;
+  readonly position: Column | undefined;
+  readonly brownlowVotes: Column | undefined;
+  readonly supercoachScore: Column | undefined;
+  readonly dreamTeamPoints: Column | undefined;
+  readonly effectiveDisposals: Column | undefined;
+  readonly effectiveKicks: Column | undefined;
+  readonly pressureActs: Column | undefined;
+  readonly defHalfPressureActs: Column | undefined;
+  readonly spoils: Column | undefined;
+  readonly hitoutsToAdvantage: Column | undefined;
+  readonly hitoutWinPercentage: Column | undefined;
+  readonly groundBallGets: Column | undefined;
+  readonly f50GroundBallGets: Column | undefined;
+  readonly interceptMarks: Column | undefined;
+  readonly marksOnLead: Column | undefined;
+  readonly contestOffOneOnOnes: Column | undefined;
+  readonly contestOffWins: Column | undefined;
+  readonly contestDefOneOnOnes: Column | undefined;
+  readonly contestDefLosses: Column | undefined;
+  readonly ruckContests: Column | undefined;
+  readonly scoreLaunches: Column | undefined;
 }
 
 /**
@@ -191,13 +217,14 @@ export function transformFryziggPlayerStats(
   }
 
   // Resolve column by name (single lookup, used during column resolution phase only)
-  const getCol = (name: string | undefined): unknown[] | undefined => {
+  const getCol = (name: string | undefined): Column | undefined => {
     if (name === undefined) return undefined;
     const idx = colIndex.get(name);
 
     if (idx === undefined) return undefined;
+    const values = frame.columns[idx];
 
-    return frame.columns[idx] as unknown[] | undefined;
+    return values ? decodeColumn(values) : undefined;
   };
 
   const isAflw = options.competition === "AFLW";
@@ -280,7 +307,7 @@ export function transformFryziggPlayerStats(
 
   const dateCol = cols.date;
   const roundCol = cols.round;
-  const nRows = dateCol ? dateCol.length : 0;
+  const nRows = dateCol ? columnLength(dateCol) : 0;
   const hasFilters = options.season !== undefined || options.round !== undefined;
 
   // Build matching row indices, or iterate all rows when no filters are active
@@ -291,19 +318,16 @@ export function transformFryziggPlayerStats(
 
     for (let i = 0; i < nRows; i++) {
       if (options.season !== undefined) {
-        const dateStr = dateCol?.[i];
+        const dateStr = strAt(dateCol, i);
 
-        if (typeof dateStr !== "string") continue;
+        if (dateStr === null) continue;
         const year = Number(dateStr.slice(0, 4));
 
         if (year !== options.season) continue;
       }
 
       if (options.round !== undefined && roundCol) {
-        const roundVal = roundCol[i];
-        const roundNum = typeof roundVal === "string" ? Number(roundVal) : roundVal;
-
-        if (roundNum !== options.round) continue;
+        if (roundFilterAt(roundCol, i) !== options.round) continue;
       }
 
       matching.push(i);
@@ -318,36 +342,46 @@ export function transformFryziggPlayerStats(
   return ok(stats);
 }
 
-/** Extract a numeric value from a column at the given row index. */
-function numAt(column: unknown[] | undefined, i: number): number | null {
-  if (!column) return null;
-  const v = column[i];
+/** Number of rows in a decoded column. */
+function columnLength(column: Column): number {
+  return column.kind === "other" ? column.length : column.values.length;
+}
 
-  return typeof v === "number" ? v : null;
+/** Extract a numeric value from a column at the given row index. */
+function numAt(column: Column | undefined, i: number): number | null {
+  return column?.kind === "number" ? (column.values[i] ?? null) : null;
 }
 
 /** Extract a string value from a column at the given row index. */
-function strAt(column: unknown[] | undefined, i: number): string | null {
-  if (!column) return null;
-  const v = column[i];
+function strAt(column: Column | undefined, i: number): string | null {
+  return column?.kind === "text" ? (column.values[i] ?? null) : null;
+}
 
-  return typeof v === "string" ? v : null;
+/** Render an identifier cell (text or numeric) as a string; missing is `""`. */
+function idAt(column: Column | undefined, i: number): string {
+  const value = column?.kind === "text" || column?.kind === "number" ? column.values[i] : null;
+
+  return value === null || value === undefined ? "" : String(value);
+}
+
+/** Round value for filtering: numeric strings convert, missing is `null`. */
+function roundFilterAt(column: Column, i: number): number | null {
+  if (column.kind === "number") return column.values[i] ?? null;
+
+  if (column.kind === "text") {
+    const value = column.values[i];
+
+    return value === null || value === undefined ? null : Number(value);
+  }
+
+  return null;
 }
 
 /** Parse round number, returning 0 for non-numeric values (e.g. "Semi Final"). */
-function roundAt(column: unknown[] | undefined, i: number): number {
-  if (!column) return 0;
-  const v = column[i];
+function roundAt(column: Column | undefined, i: number): number {
+  const value = column === undefined ? null : roundFilterAt(column, i);
 
-  if (typeof v === "number") return v;
-
-  if (typeof v === "string") {
-    const n = Number(v);
-
-    return Number.isNaN(n) ? 0 : n;
-  }
-
-  return 0;
+  return value === null || Number.isNaN(value) ? 0 : value;
 }
 
 /** Map a single row from pre-resolved column arrays to a PlayerStats object. */
@@ -378,7 +412,7 @@ function mapRow(
   const awayTeam = strAt(c.awayTeam, i);
 
   return {
-    matchId: String(c.matchId?.[i] ?? ""),
+    matchId: idAt(c.matchId, i),
     season: dateStr ? Number(dateStr.slice(0, 4)) : 0,
     roundNumber: roundAt(c.round, i),
     team: normaliseTeamName(team),
@@ -387,7 +421,7 @@ function mapRow(
     homeTeam: homeTeam ? normaliseTeamName(homeTeam) : null,
     awayTeam: awayTeam ? normaliseTeamName(awayTeam) : null,
 
-    playerId: String(c.playerId?.[i] ?? ""),
+    playerId: idAt(c.playerId, i),
     givenName: firstName,
     surname: lastName,
     displayName: `${firstName} ${lastName}`.trim(),

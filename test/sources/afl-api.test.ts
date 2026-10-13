@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, type Mock, vi } from "vite-plus/test";
-import { z } from "zod/v4";
+import { Schema } from "effect";
 import { AflApiError, ValidationError } from "../../src/lib/errors";
 import { AflApiLineupSource, AflApiPlayerStatsSource } from "../../src/sources/adapters/afl-api";
 import { AflApiClient } from "../../src/sources/afl-api";
@@ -214,7 +214,7 @@ describe("AflApiClient", () => {
   });
 
   describe("fetchJson", () => {
-    const TestSchema = z.object({ value: z.number() });
+    const TestSchema = Schema.Struct({ value: Schema.Number });
 
     it("fetches, parses, and validates JSON against a Zod schema", async () => {
       const fetchFn = vi

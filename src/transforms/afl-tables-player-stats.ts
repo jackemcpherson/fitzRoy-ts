@@ -12,7 +12,14 @@ import { normaliseTeamName } from "../lib/team-mapping";
 import type { PlayerStats } from "../types";
 
 /** Clean player name: "Surname, First" → { givenName, surname, displayName }. */
-function parseName(raw: string): { givenName: string; surname: string; displayName: string } {
+/** A player name split into its display parts. */
+interface ParsedName {
+  readonly givenName: string;
+  readonly surname: string;
+  readonly displayName: string;
+}
+
+function parseName(raw: string): ParsedName {
   const cleaned = raw.replace(/[↑↓]/g, "").trim();
   const parts = cleaned.split(",").map((s) => s.trim());
   const surname = parts[0] ?? "";

@@ -7,6 +7,7 @@
  * @see https://api.squiggle.com.au/
  */
 
+import { decodeWith } from "../lib/decode";
 import { ScrapeError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
 import { createSourceFetch, type SourceFetchOptions } from "../lib/source-fetch";
@@ -16,6 +17,10 @@ import {
   type SquiggleStandingsResponse,
   SquiggleStandingsResponseSchema,
 } from "../lib/squiggle-validation";
+
+const decodeGames = decodeWith(SquiggleGamesResponseSchema);
+
+const decodeStandings = decodeWith(SquiggleStandingsResponseSchema);
 
 const SQUIGGLE_BASE = "https://api.squiggle.com.au/";
 
@@ -29,7 +34,7 @@ export interface SquiggleClientOptions extends SourceFetchOptions {
 /**
  * Squiggle API client.
  *
- * Wraps the Squiggle JSON API with typed responses validated via Zod.
+ * Wraps the Squiggle JSON API with typed responses validated via Effect Schema.
  */
 export class SquiggleClient {
   private readonly fetchFn: typeof fetch;
@@ -90,12 +95,10 @@ export class SquiggleClient {
 
     if (!result.success) return result;
 
-    const parsed = SquiggleGamesResponseSchema.safeParse(result.data);
+    const parsed = decodeGames(result.data);
 
     if (!parsed.success) {
-      return err(
-        new ScrapeError(`Invalid Squiggle games response: ${parsed.error.message}`, "squiggle"),
-      );
+      return err(new ScrapeError(`Invalid Squiggle games response: ${parsed.error}`, "squiggle"));
     }
 
     return ok(parsed.data);
@@ -119,11 +122,11 @@ export class SquiggleClient {
 
     if (!result.success) return result;
 
-    const parsed = SquiggleStandingsResponseSchema.safeParse(result.data);
+    const parsed = decodeStandings(result.data);
 
     if (!parsed.success) {
       return err(
-        new ScrapeError(`Invalid Squiggle standings response: ${parsed.error.message}`, "squiggle"),
+        new ScrapeError(`Invalid Squiggle standings response: ${parsed.error}`, "squiggle"),
       );
     }
 

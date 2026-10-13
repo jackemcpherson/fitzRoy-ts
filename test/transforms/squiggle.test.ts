@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import {
   SquiggleGamesResponseSchema,
@@ -21,7 +22,7 @@ describe("Squiggle transforms", () => {
   describe("transformSquiggleGamesToResults", () => {
     it("transforms completed games with all fields", () => {
       const raw = loadJson("squiggle-games-2024-r1.json");
-      const parsed = SquiggleGamesResponseSchema.parse(raw);
+      const parsed = Schema.decodeUnknownSync(SquiggleGamesResponseSchema)(raw);
       const results = transformSquiggleGamesToResults(parsed.games, 2024);
 
       expect(results.length).toBeGreaterThan(0);
@@ -73,7 +74,7 @@ describe("Squiggle transforms", () => {
   describe("transformSquiggleGamesToFixture", () => {
     it("transforms games into Fixture objects", () => {
       const raw = loadJson("squiggle-games-2024-r1.json");
-      const parsed = SquiggleGamesResponseSchema.parse(raw);
+      const parsed = Schema.decodeUnknownSync(SquiggleGamesResponseSchema)(raw);
       const fixtures = transformSquiggleGamesToFixture(parsed.games, 2024);
 
       expect(fixtures.length).toBeGreaterThan(0);
@@ -93,7 +94,7 @@ describe("Squiggle transforms", () => {
   describe("transformSquiggleStandings", () => {
     it("transforms standings into 18 ranked LadderEntry objects", () => {
       const raw = loadJson("squiggle-standings-2024-r10.json");
-      const parsed = SquiggleStandingsResponseSchema.parse(raw);
+      const parsed = Schema.decodeUnknownSync(SquiggleStandingsResponseSchema)(raw);
       const entries = transformSquiggleStandings(parsed.standings);
 
       expect(entries).toHaveLength(18);

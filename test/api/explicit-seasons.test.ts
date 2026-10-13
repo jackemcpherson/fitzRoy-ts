@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { Schema } from "effect";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { fetchMatches } from "../../src/api/match";
 import { fetchPlayerStats } from "../../src/api/player-stats";
@@ -8,14 +9,14 @@ import { CompseasonListSchema, MatchItemSchema } from "../../src/lib/validation"
 import { AflApiMatchSource, AflApiPlayerStatsSource } from "../../src/sources/adapters/afl-api";
 import { AflApiClient } from "../../src/sources/afl-api";
 
-const seasons = CompseasonListSchema.parse(
+const seasons = Schema.decodeUnknownSync(CompseasonListSchema)(
   JSON.parse(
     readFileSync(new URL("../fixtures/aflw-provider-seasons.json", import.meta.url), "utf8"),
   ),
 );
 
 const inventory = (key: string) =>
-  MatchItemSchema.array().parse(
+  Schema.decodeUnknownSync(Schema.Array(MatchItemSchema))(
     JSON.parse(
       readFileSync(new URL(`../fixtures/aflw-${key}-matches.json`, import.meta.url), "utf8"),
     ),

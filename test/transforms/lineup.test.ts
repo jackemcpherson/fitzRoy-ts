@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 import type { MatchRoster } from "../../src/lib/validation";
 import { transformMatchRoster } from "../../src/transforms/lineup";
+import type { DeepMutable } from "../support/mutable";
 import capturedRoster from "../fixtures/grand-final-2026-roster.json";
 
-function makeRoster(overrides?: Partial<MatchRoster>): MatchRoster {
+function makeRoster(overrides?: Partial<DeepMutable<MatchRoster>>): DeepMutable<MatchRoster> {
   return {
     match: {
       matchId: "CD_M1",

@@ -5,12 +5,13 @@ import type { CompetitionSeason, SeasonSelector } from "../types";
  * AFL API client with token authentication and typed fetch helpers.
  *
  * The client handles WMCTok token authentication, automatic 401 retry
- * with re-authentication, and Zod-validated JSON responses.
+ * with re-authentication, and Effect Schema-validated JSON responses.
  *
  * Accepts an injectable `fetch` function for testability.
  */
 
-import type { z } from "zod/v4";
+import type { Schema } from "effect";
+import { decodeWith } from "../lib/decode";
 import { batchedMap } from "../lib/concurrency";
 import { AflApiError, ValidationError } from "../lib/errors";
 import { err, ok, type Result } from "../lib/result";
@@ -37,6 +38,8 @@ import {
 import type { CompetitionCode } from "../types";
 
 /** User-Agent sent with all AFL API requests. Required by the CFS endpoints. */
+const decodeToken = decodeWith(AflApiTokenSchema);
+
 const USER_AGENT = "fitzroy/2 (https://github.com/jackemcpherson/fitzRoy-ts)";
 
 /** WMCTok token endpoint used by the AFL website. */
@@ -165,7 +168,7 @@ export class AflApiClient {
       }
 
       const json: unknown = await response.json();
-      const parsed = AflApiTokenSchema.safeParse(json);
+      const parsed = decodeToken(json);
 
       if (!parsed.success) {
         return err(new AflApiError("Invalid token response format"));
@@ -258,16 +261,16 @@ export class AflApiClient {
   }
 
   /**
-   * Fetch JSON from a URL, validate with a Zod schema, and return a typed Result.
+   * Fetch JSON from a URL, validate with an Effect schema, and return a typed Result.
    *
    * @param url - The URL to fetch.
-   * @param schema - Zod schema to validate the response against.
+   * @param schema - Effect schema to validate the response against.
    * @returns Validated data on success, or an error Result.
    */
-  async fetchJson<T>(
+  async fetchJson<S extends Schema.ConstraintDecoder<unknown>>(
     url: string,
-    schema: z.ZodType<T>,
-  ): Promise<Result<T, AflApiError | ValidationError>> {
+    schema: S,
+  ): Promise<Result<S["Type"], AflApiError | ValidationError>> {
     const isPublic = url.startsWith(API_BASE);
 
     let response: Response;
@@ -303,13 +306,11 @@ export class AflApiClient {
 
     try {
       const json: unknown = await response.json();
-      const parsed = schema.safeParse(json);
+      const parsed = decodeWith(schema)(json);
 
       if (!parsed.success) {
         return err(
-          new ValidationError("Response validation failed", [
-            { path: url, message: String(parsed.error) },
-          ]),
+          new ValidationError("Response validation failed", [{ path: url, message: parsed.error }]),
         );
       }
 
@@ -352,7 +353,7 @@ export class AflApiClient {
    */
   async fetchCompseasons(
     competitionId: number,
-  ): Promise<Result<Compseason[], AflApiError | ValidationError>> {
+  ): Promise<Result<readonly Compseason[], AflApiError | ValidationError>> {
     const result = await this.fetchJson(
       `${API_BASE}/competitions/${competitionId}/compseasons?pageSize=100`,
       CompseasonListSchema,
@@ -540,7 +541,9 @@ export class AflApiClient {
    * @param seasonId - The compseason ID (from {@link resolveSeasonId}).
    * @returns Array of round objects on success.
    */
-  async resolveRounds(seasonId: number): Promise<Result<Round[], AflApiError | ValidationError>> {
+  async resolveRounds(
+    seasonId: number,
+  ): Promise<Result<readonly Round[], AflApiError | ValidationError>> {
     const result = await this.fetchJson(
       `${API_BASE}/compseasons/${seasonId}/rounds?pageSize=50`,
       RoundListSchema,
@@ -561,7 +564,7 @@ export class AflApiClient {
    */
   async fetchRoundMatchItems(
     roundProviderId: string,
-  ): Promise<Result<MatchItem[], AflApiError | ValidationError>> {
+  ): Promise<Result<readonly MatchItem[], AflApiError | ValidationError>> {
     const result = await this.fetchJson(
       `${CFS_BASE}/matchItems/round/${roundProviderId}`,
       MatchItemListSchema,
@@ -584,7 +587,7 @@ export class AflApiClient {
   async fetchRoundMatchItemsByNumber(
     seasonId: number,
     roundNumber: number,
-  ): Promise<Result<MatchItem[], AflApiError | ValidationError>> {
+  ): Promise<Result<readonly MatchItem[], AflApiError | ValidationError>> {
     const roundsResult = await this.resolveRounds(seasonId);
 
     if (!roundsResult.success) {
@@ -609,7 +612,7 @@ export class AflApiClient {
   async fetchSeasonMatchItems(
     seasonId: number,
     options?: { includeUpcoming?: boolean },
-  ): Promise<Result<MatchItem[], AflApiError | ValidationError>> {
+  ): Promise<Result<readonly MatchItem[], AflApiError | ValidationError>> {
     const roundsResult = await this.resolveRounds(seasonId);
 
     if (!roundsResult.success) {
@@ -678,7 +681,7 @@ export class AflApiClient {
    */
   async fetchTeams(
     competition?: CompetitionCode,
-  ): Promise<Result<TeamItem[], AflApiError | ValidationError>> {
+  ): Promise<Result<readonly TeamItem[], AflApiError | ValidationError>> {
     const result = await this.fetchJson(`${API_BASE}/teams?pageSize=500`, TeamListSchema);
 
     if (!result.success) {

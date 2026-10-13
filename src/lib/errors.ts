@@ -4,7 +4,7 @@
  * Each error class represents a distinct failure domain:
  * - {@link AflApiError} — failures when communicating with the AFL API
  * - {@link ScrapeError} — failures when scraping HTML sources (FootyWire, AFL Tables)
- * - {@link ValidationError} — failures when validating data against Zod schemas
+ * - {@link ValidationError} — failures when validating data against Effect schemas
  * - {@link UnsupportedSourceError} — when a data source doesn't support the requested operation
  */
 
@@ -94,7 +94,7 @@ export class OutOfRangeError extends Error {
   }
 }
 
-/** Error when data fails Zod schema validation. */
+/** Error when data fails Effect Schema validation. */
 export class ValidationError extends Error {
   override readonly name = "ValidationError";
 
