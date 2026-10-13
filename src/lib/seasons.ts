@@ -1,6 +1,6 @@
 import type { CompetitionCode, SeasonSelector } from "../types";
 import { AmbiguousSeasonError, ValidationError } from "./errors";
-import { err, ok, type Result } from "./result";
+import { Result } from "effect";
 
 /** Calendar year of a validated season selector. */
 export function seasonYear(season: SeasonSelector): number {
@@ -16,20 +16,20 @@ export function seasonYear(season: SeasonSelector): number {
 export function canonicalSeasonKey(
   competition: CompetitionCode,
   selector: SeasonSelector,
-): Result<string, Error> {
+): Result.Result<string, ValidationError | AmbiguousSeasonError> {
   const key = String(selector);
 
   if (!/^\d{4}(?:-S[67])?$/.test(key))
-    return err(new ValidationError({ message: `Invalid season selector: ${key}` }));
+    return Result.fail(new ValidationError({ message: `Invalid season selector: ${key}` }));
 
   if (competition === "AFLW" && key === "2022")
-    return err(
+    return Result.fail(
       new AmbiguousSeasonError({ competition, year: 2022, validSelectors: ["2022-S6", "2022-S7"] }),
     );
 
   if (key.includes("-S") && (competition !== "AFLW" || !["2022-S6", "2022-S7"].includes(key))) {
-    return err(new ValidationError({ message: `Season ${key} does not belong to ${competition}` }));
+    return Result.fail(new ValidationError({ message: `Season ${key} does not belong to ${competition}` }));
   }
 
-  return ok(key);
+  return Result.succeed(key);
 }

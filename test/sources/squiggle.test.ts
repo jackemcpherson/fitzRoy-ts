@@ -1,6 +1,8 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "@effect/vitest";
+import { Effect, Layer } from "effect";
 import { ScrapeError } from "../../src/lib/errors";
-import { SquiggleClient } from "../../src/sources/squiggle";
+import { Squiggle, SquiggleLive } from "../../src/sources/squiggle";
+import { fixtureHttp, type RequestLog, requestLog, type RouteAnswer } from "../support/http";
 
 // Minimal valid game payload derived from test/fixtures/squiggle-games-2024-r1.json
 const VALID_GAME = {
@@ -51,140 +53,115 @@ const VALID_STANDING = {
   behinds_against: 114,
 };
 
-function clientWith(response: Response | Error): { client: SquiggleClient; calls: string[] } {
-  const calls: string[] = [];
-
-  const fetchFn: typeof fetch = async (input, _init) => {
-    calls.push(String(input));
-
-    if (response instanceof Error) throw response;
-
-    return response;
-  };
-
-  return { client: new SquiggleClient({ fetchFn }), calls };
+/** The live Squiggle client answering every request with `answer`. */
+function squiggleWith(answer: RouteAnswer, log?: RequestLog) {
+  return SquiggleLive.pipe(
+    Layer.provide(fixtureHttp([["api.squiggle.com.au", answer]], log ? { log } : undefined)),
+  );
 }
 
-describe("SquiggleClient.fetchGames", () => {
-  it("builds the correct URL and includes fitzRoy-ts User-Agent header", async () => {
-    const capturedInits: (RequestInit | undefined)[] = [];
-    const capturedUrls: string[] = [];
+describe("Squiggle.fetchGames", () => {
+  it.effect("builds the correct URL and includes fitzRoy-ts User-Agent header", () => {
+    const log = requestLog();
 
-    const fetchFn: typeof fetch = async (input, init) => {
-      capturedUrls.push(String(input));
-      capturedInits.push(init);
+    return Effect.gen(function* () {
+      const squiggle = yield* Squiggle;
 
-      return new Response(JSON.stringify({ games: [VALID_GAME] }), { status: 200 });
-    };
-
-    const client = new SquiggleClient({ fetchFn });
-
-    const result = await client.fetchGames(2025, 3);
-
-    expect(result.success).toBe(true);
-    expect(capturedUrls).toHaveLength(1);
-    const url = capturedUrls[0] ?? "";
-    expect(url).toContain("q=games");
-    expect(url).toContain("year=2025");
-    expect(url).toContain("round=3");
-
-    const init = capturedInits[0];
-    const headers = init?.headers as Record<string, string> | undefined;
-    const userAgent = headers?.["User-Agent"] ?? "";
-    expect(userAgent).toContain("fitzRoy-ts");
+      yield* squiggle.fetchGames(2025, 3);
+      expect(log.urls).toHaveLength(1);
+      const url = log.urls[0] ?? "";
+      expect(url).toContain("q=games");
+      expect(url).toContain("year=2025");
+      expect(url).toContain("round=3");
+      const headers = new Headers(log.inits[0]?.headers);
+      expect(headers.get("User-Agent") ?? "").toContain("fitzRoy-ts");
+    }).pipe(Effect.provide(squiggleWith({ body: JSON.stringify({ games: [VALID_GAME] }) }, log)));
   });
 
-  it("returns parsed games on a valid response", async () => {
-    const { client } = clientWith(
-      new Response(JSON.stringify({ games: [VALID_GAME] }), { status: 200 }),
-    );
+  it.effect("returns parsed games on a valid response", () =>
+    Effect.gen(function* () {
+      const data = yield* Squiggle.use((squiggle) => squiggle.fetchGames(2024, 1));
 
-    const result = await client.fetchGames(2024, 1);
+      expect(data.games).toHaveLength(1);
+      expect(data.games[0]?.hteam).toBe("Carlton");
+    }).pipe(Effect.provide(squiggleWith({ body: JSON.stringify({ games: [VALID_GAME] }) }))),
+  );
 
-    expect(result.success).toBe(true);
+  it.effect("fails with a ScrapeError containing the status code on a non-ok response", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(Squiggle.use((squiggle) => squiggle.fetchGames(2024, 1)));
 
-    if (!result.success) return;
-    expect(result.data.games).toHaveLength(1);
-    expect(result.data.games[0]?.hteam).toBe("Carlton");
-  });
+      expect(error).toBeInstanceOf(ScrapeError);
+      expect(error.message).toContain("500");
+    }).pipe(Effect.provide(squiggleWith({ body: "Internal Server Error", status: 500 }))),
+  );
 
-  it("returns a ScrapeError containing the status code on a non-ok response", async () => {
-    const { client } = clientWith(new Response("Internal Server Error", { status: 500 }));
+  it.effect("fails with a ScrapeError containing the cause message when fetch rejects", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(Squiggle.use((squiggle) => squiggle.fetchGames(2024, 1)));
 
-    const result = await client.fetchGames(2024, 1);
+      expect(error).toBeInstanceOf(ScrapeError);
+      expect(error.message).toContain("ECONNRESET");
+    }).pipe(
+      Effect.provide(
+        squiggleWith({
+          respond: () => {
+            throw new Error("ECONNRESET");
+          },
+        }),
+      ),
+    ),
+  );
 
-    expect(result.success).toBe(false);
+  it.effect("fails with a ScrapeError when the response shape fails schema validation", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(Squiggle.use((squiggle) => squiggle.fetchGames(2024, 1)));
 
-    if (result.success) return;
-    expect(result.error).toBeInstanceOf(ScrapeError);
-    expect(result.error.message).toContain("500");
-  });
-
-  it("returns a ScrapeError containing the cause message when fetch throws", async () => {
-    const { client } = clientWith(new Error("ECONNRESET"));
-
-    const result = await client.fetchGames(2024, 1);
-
-    expect(result.success).toBe(false);
-
-    if (result.success) return;
-    expect(result.error).toBeInstanceOf(ScrapeError);
-    expect(result.error.message).toContain("ECONNRESET");
-  });
-
-  it("returns a ScrapeError when the response shape fails schema validation", async () => {
-    // id must be a number — passing a string breaks the schema
-    const invalidPayload = { games: [{ ...VALID_GAME, id: "not-a-number" }] };
-    const { client } = clientWith(new Response(JSON.stringify(invalidPayload), { status: 200 }));
-
-    const result = await client.fetchGames(2024, 1);
-
-    expect(result.success).toBe(false);
-
-    if (result.success) return;
-    expect(result.error).toBeInstanceOf(ScrapeError);
-    expect(result.error.message).toMatch(/^Invalid Squiggle games response/);
-  });
+      expect(error).toBeInstanceOf(ScrapeError);
+      expect(error.message).toMatch(/^Invalid Squiggle games response/);
+    }).pipe(
+      // id must be a number — passing a string breaks the schema
+      Effect.provide(
+        squiggleWith({ body: JSON.stringify({ games: [{ ...VALID_GAME, id: "not-a-number" }] }) }),
+      ),
+    ),
+  );
 });
 
-describe("SquiggleClient.fetchStandings", () => {
-  it("returns parsed standings on a valid response", async () => {
-    const { client } = clientWith(
-      new Response(JSON.stringify({ standings: [VALID_STANDING] }), { status: 200 }),
-    );
+describe("Squiggle.fetchStandings", () => {
+  it.effect("returns parsed standings on a valid response", () =>
+    Effect.gen(function* () {
+      const data = yield* Squiggle.use((squiggle) => squiggle.fetchStandings(2024));
 
-    const result = await client.fetchStandings(2024);
+      expect(data.standings).toHaveLength(1);
+      expect(data.standings[0]?.name).toBe("Sydney");
+    }).pipe(
+      Effect.provide(squiggleWith({ body: JSON.stringify({ standings: [VALID_STANDING] }) })),
+    ),
+  );
 
-    expect(result.success).toBe(true);
+  it.effect("fails with a ScrapeError on a non-ok response", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(Squiggle.use((squiggle) => squiggle.fetchStandings(2024)));
 
-    if (!result.success) return;
-    expect(result.data.standings).toHaveLength(1);
-    expect(result.data.standings[0]?.name).toBe("Sydney");
-  });
+      expect(error).toBeInstanceOf(ScrapeError);
+      expect(error.message).toContain("404");
+    }).pipe(Effect.provide(squiggleWith({ body: "Not Found", status: 404 }))),
+  );
 
-  it("returns a ScrapeError on a non-ok response", async () => {
-    const { client } = clientWith(new Response("Not Found", { status: 404 }));
+  it.effect("fails with a ScrapeError when the standings shape fails schema validation", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(Squiggle.use((squiggle) => squiggle.fetchStandings(2024)));
 
-    const result = await client.fetchStandings(2024);
-
-    expect(result.success).toBe(false);
-
-    if (result.success) return;
-    expect(result.error).toBeInstanceOf(ScrapeError);
-    expect(result.error.message).toContain("404");
-  });
-
-  it("returns a ScrapeError when the standings shape fails schema validation", async () => {
-    // rank must be a number — passing a string breaks the schema
-    const invalidPayload = { standings: [{ ...VALID_STANDING, rank: "first" }] };
-    const { client } = clientWith(new Response(JSON.stringify(invalidPayload), { status: 200 }));
-
-    const result = await client.fetchStandings(2024);
-
-    expect(result.success).toBe(false);
-
-    if (result.success) return;
-    expect(result.error).toBeInstanceOf(ScrapeError);
-    expect(result.error.message).toMatch(/^Invalid Squiggle standings response/);
-  });
+      expect(error).toBeInstanceOf(ScrapeError);
+      expect(error.message).toMatch(/^Invalid Squiggle standings response/);
+    }).pipe(
+      // rank must be a number — passing a string breaks the schema
+      Effect.provide(
+        squiggleWith({
+          body: JSON.stringify({ standings: [{ ...VALID_STANDING, rank: "first" }] }),
+        }),
+      ),
+    ),
+  );
 });

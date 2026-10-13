@@ -12,7 +12,14 @@
  * the api/* files.
  */
 
-import { err, ok, type Result } from "../../lib/result";
+import { Effect, Result } from "effect";
+import type {
+  AmbiguousSeasonError,
+  OutOfRangeError,
+  UnsupportedCompetitionError,
+  UnsupportedSourceError,
+  ValidationError,
+} from "../../lib/errors";
 import { canonicalSeasonKey, seasonYear } from "../../lib/seasons";
 import type { CompetitionCode, DataSource, SeasonSelector } from "../../types";
 import type { CapabilityAdapter } from "./capabilities";
@@ -34,7 +41,7 @@ export interface DispatchQuery {
  * 2. Source is registered but doesn't cover the requested
  *    (competition, season) → `OutOfRangeError` / `UnsupportedCompetitionError`,
  *    with a `--source X` suggestion if any other registered adapter does.
- * 3. Adapter is found and coverage is satisfied → `ok(adapter)`.
+ * 3. Adapter is found and coverage is satisfied → succeeds with the adapter.
  *
  * The competition default (`AFLM`) is applied here so callers don't have
  * to repeat it. `operation` is the human-readable label used in error
@@ -44,11 +51,18 @@ export function dispatch<I extends CapabilityAdapter>(
   registry: CapabilityRegistry<I>,
   operation: string,
   query: DispatchQuery,
-): Result<I, Error> {
+): Effect.Effect<
+  I,
+  | UnsupportedSourceError
+  | UnsupportedCompetitionError
+  | OutOfRangeError
+  | AmbiguousSeasonError
+  | ValidationError
+> {
   const adapter = registry.get(query.source);
 
   if (!adapter) {
-    return err(unsupportedSourceForOperation(query.source, operation, registry.list()));
+    return Effect.fail(unsupportedSourceForOperation(query.source, operation, registry.list()));
   }
 
   const competition = query.competition ?? "AFLM";
@@ -67,10 +81,11 @@ export function dispatch<I extends CapabilityAdapter>(
     suggestion,
   );
 
-  if (!coverage.success) return coverage;
+  if (Result.isFailure(coverage)) return Effect.fail(coverage.failure);
+
   const identity = canonicalSeasonKey(competition, query.season);
 
-  if (!identity.success) return identity;
+  if (Result.isFailure(identity)) return Effect.fail(identity.failure);
 
-  return ok(adapter);
+  return Effect.succeed(adapter);
 }

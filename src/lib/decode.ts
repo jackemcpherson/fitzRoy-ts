@@ -1,30 +1,25 @@
 /**
  * Boundary decoding with Effect Schema.
  *
- * Every upstream payload passes through {@link decodeWith} once at the source
- * boundary. Domain code then trusts the decoded types.
+ * Every upstream JSON payload passes through {@link decodeJson} once at the
+ * source boundary. Domain code then trusts the decoded types.
  */
 
-import { Result as EffectResult, Schema } from "effect";
-import { err, ok, type Result } from "./result";
+import { Effect, Schema } from "effect";
 
 /**
- * Build a decoder for an upstream payload.
+ * Build a decoder for an upstream JSON payload.
  *
- * The decoder reports every issue (`errors: "all"`) and returns the formatted
- * Schema error message on failure.
+ * The decoder reports every issue (`errors: "all"`) and fails with the
+ * formatted Schema error message.
  *
  * @param schema - The schema that describes the payload.
- * @returns A function that decodes an unknown value into the schema's type.
+ * @returns A function that decodes parsed JSON into the schema's type.
  */
-export function decodeWith<S extends Schema.ConstraintDecoder<unknown>>(
+export function decodeJson<S extends Schema.ConstraintDecoder<unknown>>(
   schema: S,
-): (input: unknown) => Result<S["Type"], string> {
-  const decode = Schema.decodeUnknownResult(schema, { errors: "all" });
+): (json: Schema.Json) => Effect.Effect<S["Type"], string> {
+  const decode = Schema.decodeUnknownEffect(schema, { errors: "all" });
 
-  return (input) => {
-    const decoded = decode(input);
-
-    return EffectResult.isSuccess(decoded) ? ok(decoded.success) : err(decoded.failure.message);
-  };
+  return (json) => decode(json).pipe(Effect.mapError((error) => error.message));
 }

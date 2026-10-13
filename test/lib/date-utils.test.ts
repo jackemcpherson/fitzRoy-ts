@@ -1,3 +1,4 @@
+import { Result } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { localToUtc, parseDate, toAestString } from "../../src/lib/date-utils";
 import { DstGapError } from "../../src/lib/errors";
@@ -196,42 +197,42 @@ describe("parseDate — ISO offsets honoured (#105 latent variant)", () => {
 describe("localToUtc (#110)", () => {
   it("converts a regular Melbourne time during AEST", () => {
     const r = localToUtc("Australia/Melbourne", 2024, 6, 13, 19, 30);
-    expect(r.success).toBe(true);
+    expect(Result.isSuccess(r)).toBe(true);
 
-    if (r.success) expect(r.data.toISOString()).toBe("2024-07-13T09:30:00.000Z");
+    if (Result.isSuccess(r)) expect(r.success.toISOString()).toBe("2024-07-13T09:30:00.000Z");
   });
 
   it("converts a regular Melbourne time during AEDT", () => {
     const r = localToUtc("Australia/Melbourne", 2024, 2, 13, 19, 30);
-    expect(r.success).toBe(true);
+    expect(Result.isSuccess(r)).toBe(true);
 
-    if (r.success) expect(r.data.toISOString()).toBe("2024-03-13T08:30:00.000Z");
+    if (Result.isSuccess(r)) expect(r.success.toISOString()).toBe("2024-03-13T08:30:00.000Z");
   });
 
   it("returns DstGapError for a non-existent local time during spring-forward", () => {
     // 2024-10-06 02:30 in Australia/Melbourne — DST started at 02:00,
     // jumping to 03:00, so 02:30 doesn't exist.
     const r = localToUtc("Australia/Melbourne", 2024, 9, 6, 2, 30);
-    expect(r.success).toBe(false);
+    expect(Result.isFailure(r)).toBe(true);
 
-    if (!r.success) {
-      expect(r.error).toBeInstanceOf(DstGapError);
-      expect(r.error.timezone).toBe("Australia/Melbourne");
+    if (Result.isFailure(r)) {
+      expect(r.failure).toBeInstanceOf(DstGapError);
+      expect(r.failure.timezone).toBe("Australia/Melbourne");
     }
   });
 
   it("converts Perth (AWST, no DST) correctly", () => {
     const r = localToUtc("Australia/Perth", 2024, 6, 13, 19, 30);
-    expect(r.success).toBe(true);
+    expect(Result.isSuccess(r)).toBe(true);
 
-    if (r.success) expect(r.data.toISOString()).toBe("2024-07-13T11:30:00.000Z");
+    if (Result.isSuccess(r)) expect(r.success.toISOString()).toBe("2024-07-13T11:30:00.000Z");
   });
 
   it("converts Adelaide (ACDT half-hour) correctly", () => {
     const r = localToUtc("Australia/Adelaide", 2024, 2, 15, 16, 10);
-    expect(r.success).toBe(true);
+    expect(Result.isSuccess(r)).toBe(true);
 
-    if (r.success) expect(r.data.toISOString()).toBe("2024-03-15T05:40:00.000Z");
+    if (Result.isSuccess(r)) expect(r.success.toISOString()).toBe("2024-03-15T05:40:00.000Z");
   });
 });
 

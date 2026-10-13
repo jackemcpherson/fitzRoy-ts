@@ -105,3 +105,13 @@ export class AmbiguousSeasonError extends Schema.TaggedError<AmbiguousSeasonErro
     return `Ambiguous ${this.competition} season ${this.year}; choose ${this.validSelectors.join(" or ")}`;
   }
 }
+
+/** Every expected failure a data source can report. */
+export type SourceError =
+  | AflApiError
+  | ScrapeError
+  | ValidationError
+  | UnsupportedSourceError
+  | UnsupportedCompetitionError
+  | OutOfRangeError
+  | AmbiguousSeasonError;

@@ -14,8 +14,7 @@ import {
   UnsupportedCompetitionError,
   UnsupportedSourceError,
 } from "../../lib/errors";
-import type { Result } from "../../lib/result";
-import { err, ok } from "../../lib/result";
+import { Result } from "effect";
 import type { CompetitionCode, DataSource } from "../../types";
 
 /** A range of seasons that an adapter supports for a given competition. */
@@ -45,11 +44,11 @@ export function checkCoverage(
   coverage: CoverageMap,
   request: CoverageRequest,
   suggestion?: string,
-): Result<undefined, UnsupportedCompetitionError | OutOfRangeError> {
+): Result.Result<undefined, UnsupportedCompetitionError | OutOfRangeError> {
   const range = coverage.get(request.competition);
 
   if (!range) {
-    return err(
+    return Result.fail(
       new UnsupportedCompetitionError({
         message: `${request.source} does not provide ${request.operation} data for ${request.competition}`,
         source: request.source,
@@ -60,7 +59,7 @@ export function checkCoverage(
   }
 
   if (request.season < range.minSeason) {
-    return err(
+    return Result.fail(
       new OutOfRangeError({
         message: `${request.source} only covers ${request.competition} ${request.operation} from ${range.minSeason}; you asked for ${request.season}`,
         source: request.source,
@@ -72,7 +71,7 @@ export function checkCoverage(
   }
 
   if (range.maxSeason != null && request.season > range.maxSeason) {
-    return err(
+    return Result.fail(
       new OutOfRangeError({
         message: `${request.source} only covers ${request.competition} ${request.operation} up to ${range.maxSeason}; you asked for ${request.season}`,
         source: request.source,
@@ -83,7 +82,7 @@ export function checkCoverage(
     );
   }
 
-  return ok(undefined);
+  return Result.succeed(undefined);
 }
 
 /** Convenience helper for the "wrong source ID entirely" case. */

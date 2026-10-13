@@ -7,9 +7,10 @@
  * @module
  */
 
+import { Result } from "effect";
 import type { CompetitionCode } from "../types";
 import { DstGapError } from "./errors";
-import { err, ok, type Result } from "./result";
+
 import { normaliseVenueName } from "./venue-mapping";
 import { resolveVenueTimezone } from "./venue-timezones";
 
@@ -141,7 +142,7 @@ export function parseDate(
     const tz = resolveTimezone(opts);
     const result = localToUtc(tz, opts.defaultYear, monthIndex, day, hours, minutes);
 
-    return result.success ? result.data : null;
+    return Result.isSuccess(result) ? result.success : null;
   }
 
   return null;
@@ -231,7 +232,7 @@ const MONTH_ABBREV_TO_INDEX: ReadonlyMap<string, number> = new Map([
 /**
  * Convert a wall-clock time in any IANA timezone to a UTC Date.
  *
- * Returns `Result.err(DstGapError)` when the given local time is in a
+ * Returns a failed `Result` with `DstGapError` when the given local time is in a
  * spring-forward gap (e.g. 02:30 in `Australia/Melbourne` on the morning
  * the clocks jumped from 02:00 → 03:00). Callers can then choose to
  * skip, escalate, or roll forward — the previous behaviour silently
@@ -249,7 +250,7 @@ export function localToUtc(
   day: number,
   hours: number,
   minutes: number,
-): Result<Date, DstGapError> {
+): Result.Result<Date, DstGapError> {
   const formatter = new Intl.DateTimeFormat("en-GB", {
     timeZone: timezone,
     year: "numeric",
@@ -279,11 +280,11 @@ export function localToUtc(
       renderedHours === hours % 24 &&
       get("minute") === minutes
     ) {
-      return ok(candidate);
+      return Result.succeed(candidate);
     }
   }
 
-  return err(
+  return Result.fail(
     new DstGapError({
       message: `Local time ${formatTimestamp(year, monthIndex, day, hours, minutes)} does not exist in ${timezone} (DST spring-forward gap).`,
       timezone,

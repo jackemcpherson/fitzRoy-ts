@@ -12,11 +12,11 @@
  */
 
 import type { DataFrame } from "@jackemcpherson/rds-js";
-import { Schema } from "effect";
+import { Result, Schema } from "effect";
 
 import { parseDate } from "../lib/date-utils";
 import { ScrapeError } from "../lib/errors";
-import { err, ok, type Result } from "../lib/result";
+
 import { normaliseTeamName } from "../lib/team-mapping";
 import type { CompetitionCode, PlayerStats } from "../types";
 
@@ -194,7 +194,7 @@ interface ResolvedColumns {
 export function transformFryziggPlayerStats(
   frame: DataFrame,
   options: FryziggTransformOptions,
-): Result<PlayerStats[], ScrapeError> {
+): Result.Result<PlayerStats[], ScrapeError> {
   const colIndex = new Map<string, number>();
 
   for (let i = 0; i < frame.names.length; i++) {
@@ -207,7 +207,7 @@ export function transformFryziggPlayerStats(
 
   for (const group of REQUIRED_COLUMN_GROUPS) {
     if (!group.some((name) => colIndex.has(name))) {
-      return err(
+      return Result.fail(
         new ScrapeError({
           message: `Fryzigg data frame missing required column: "${group.join('" or "')}"`,
           source: "fryzigg",
@@ -300,7 +300,7 @@ export function transformFryziggPlayerStats(
   };
 
   if (options.round !== undefined && cols.round === undefined) {
-    return err(
+    return Result.fail(
       new ScrapeError({
         message: `Fryzigg data frame missing required column: "${mapping.round}"`,
         source: "fryzigg",
@@ -342,7 +342,7 @@ export function transformFryziggPlayerStats(
   const indices = rowIndices ?? Array.from({ length: nRows }, (_, j) => j);
   const stats: PlayerStats[] = indices.map((i) => mapRow(i, cols, isAflw, options.competition));
 
-  return ok(stats);
+  return Result.succeed(stats);
 }
 
 /** Number of rows in a decoded column. */

@@ -6,11 +6,12 @@
  * `--source` is omitted (and that the public API names in suggestion
  * messages, per ADR-0001).
  *
- * Adapters call `register()` at module load time from
- * `src/sources/adapters/index.ts`; the public API never registers
+ * `SourceRegistryLive` in `src/sources/adapters/index.ts` builds every
+ * registry from the source services; the public API never registers
  * anything itself.
  */
 
+import { Context } from "effect";
 import type { DataSource } from "../../types";
 import type {
   CapabilityAdapter,
@@ -26,16 +27,17 @@ import type {
 /**
  * Generic per-capability registry.
  *
- * Holds a `Map<DataSource, I>` plus the default source for this
- * capability. Instantiated once per capability interface.
+ * Holds the adapters for one capability, in registration order, plus the
+ * default source for that capability.
  */
 export class CapabilityRegistry<I extends CapabilityAdapter> {
-  private readonly adapters = new Map<DataSource, I>();
+  private readonly adapters: ReadonlyMap<DataSource, I>;
 
-  constructor(readonly defaultSource: DataSource) {}
-
-  register(adapter: I): void {
-    this.adapters.set(adapter.id, adapter);
+  constructor(
+    readonly defaultSource: DataSource,
+    adapters: readonly I[],
+  ) {
+    this.adapters = new Map(adapters.map((adapter) => [adapter.id, adapter]));
   }
 
   get(id: DataSource): I | undefined {
@@ -52,20 +54,19 @@ export class CapabilityRegistry<I extends CapabilityAdapter> {
 }
 
 /**
- * One registry per capability. Defaults follow CONTEXT.md "Source coverage" —
+ * Every capability registry. Defaults follow CONTEXT.md "Source coverage" —
  * AFL API is the senior source for everything except team stats (no AFL API
- * endpoint; afl-tables is the senior fallback).
+ * endpoint; afl-tables is the senior fallback) and match coaches.
  */
-export const matchRegistry = new CapabilityRegistry<MatchSource>("afl-api");
-
-export const matchCoachesRegistry = new CapabilityRegistry<MatchCoachesSource>("afl-tables");
-
-export const playerStatsRegistry = new CapabilityRegistry<PlayerStatsSource>("afl-api");
-
-export const teamStatsRegistry = new CapabilityRegistry<TeamStatsSource>("afl-tables");
-
-export const squadRegistry = new CapabilityRegistry<SquadSource>("afl-api");
-
-export const lineupRegistry = new CapabilityRegistry<LineupSource>("afl-api");
-
-export const ladderRegistry = new CapabilityRegistry<LadderSource>("afl-api");
+export class SourceRegistry extends Context.Service<
+  SourceRegistry,
+  {
+    readonly match: CapabilityRegistry<MatchSource>;
+    readonly matchCoaches: CapabilityRegistry<MatchCoachesSource>;
+    readonly playerStats: CapabilityRegistry<PlayerStatsSource>;
+    readonly teamStats: CapabilityRegistry<TeamStatsSource>;
+    readonly squad: CapabilityRegistry<SquadSource>;
+    readonly lineup: CapabilityRegistry<LineupSource>;
+    readonly ladder: CapabilityRegistry<LadderSource>;
+  }
+>()("fitzroy/SourceRegistry") {}

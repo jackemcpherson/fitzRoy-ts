@@ -1,44 +1,59 @@
-import { describe, expect, it, vi } from "vite-plus/test";
-import { SquiggleMatchSource } from "../../../src/sources/adapters/squiggle";
-import type { SquiggleClient } from "../../../src/sources/squiggle";
+import { describe, expect, it } from "@effect/vitest";
+import { Effect, Layer } from "effect";
+import { squiggleMatchSource } from "../../../src/sources/adapters/squiggle";
+import { Squiggle } from "../../../src/sources/squiggle";
 
-function clientSpy() {
-  const fetchGames = vi.fn(async () => ({
-    success: true as const,
-    data: { games: [] },
-  }));
+type GamesCall = readonly [year: number, round: number | undefined, complete: number | undefined];
 
-  return { fetchGames, client: { fetchGames } as unknown as SquiggleClient };
+/** A Squiggle service that records `fetchGames` calls and returns no games. */
+function recordingSquiggle(calls: GamesCall[]) {
+  return Layer.succeed(Squiggle, {
+    fetchGames: (year, round, complete) => {
+      calls.push([year, round, complete]);
+
+      return Effect.succeed({ games: [] });
+    },
+    fetchStandings: () => Effect.succeed({ standings: [] }),
+  });
 }
 
-describe("SquiggleMatchSource status handling (COR-02)", () => {
-  it("omits the complete filter for Upcoming queries so fixtures can return", async () => {
-    const { fetchGames, client } = clientSpy();
-    const source = new SquiggleMatchSource(client);
+describe("squiggleMatchSource status handling (COR-02)", () => {
+  it.effect("omits the complete filter for Upcoming queries so fixtures can return", () => {
+    const calls: GamesCall[] = [];
 
-    const result = await source.fetchMatches({
-      source: "squiggle",
-      season: 2026,
-      status: "Upcoming",
-    });
+    return Effect.gen(function* () {
+      const source = yield* squiggleMatchSource;
 
-    expect(result.success).toBe(true);
-    expect(fetchGames).toHaveBeenCalledWith(2026, undefined, undefined);
+      const matches = yield* source.fetchMatches({
+        source: "squiggle",
+        season: 2026,
+        status: "Upcoming",
+      });
+
+      expect(matches).toEqual([]);
+      expect(calls).toEqual([[2026, undefined, undefined]]);
+    }).pipe(Effect.provide(recordingSquiggle(calls)));
   });
 
-  it("omits the complete filter when no status is requested", async () => {
-    const { fetchGames, client } = clientSpy();
-    const source = new SquiggleMatchSource(client);
+  it.effect("omits the complete filter when no status is requested", () => {
+    const calls: GamesCall[] = [];
 
-    await source.fetchMatches({ source: "squiggle", season: 2026 });
-    expect(fetchGames).toHaveBeenCalledWith(2026, undefined, undefined);
+    return Effect.gen(function* () {
+      const source = yield* squiggleMatchSource;
+
+      yield* source.fetchMatches({ source: "squiggle", season: 2026 });
+      expect(calls).toEqual([[2026, undefined, undefined]]);
+    }).pipe(Effect.provide(recordingSquiggle(calls)));
   });
 
-  it("passes complete=100 only for Complete queries", async () => {
-    const { fetchGames, client } = clientSpy();
-    const source = new SquiggleMatchSource(client);
+  it.effect("passes complete=100 only for Complete queries", () => {
+    const calls: GamesCall[] = [];
 
-    await source.fetchMatches({ source: "squiggle", season: 2026, status: "Complete" });
-    expect(fetchGames).toHaveBeenCalledWith(2026, undefined, 100);
+    return Effect.gen(function* () {
+      const source = yield* squiggleMatchSource;
+
+      yield* source.fetchMatches({ source: "squiggle", season: 2026, status: "Complete" });
+      expect(calls).toEqual([[2026, undefined, 100]]);
+    }).pipe(Effect.provide(recordingSquiggle(calls)));
   });
 });

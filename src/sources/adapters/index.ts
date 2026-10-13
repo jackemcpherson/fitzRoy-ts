@@ -1,114 +1,85 @@
 /**
  * Source-adapter bootstrap and public surface.
  *
- * This module:
- *   1. Imports each per-source adapter class
- *   2. Instantiates a default adapter for each (source × capability) cell
- *   3. Registers them in the per-capability registries
- *   4. Re-exports the registries and supporting types
- *
- * Public API functions (`src/api/*`) import the registries from this
- * module, which guarantees that adapter registration has run before any
- * lookup. The bundler can't tree-shake the registrations away because
- * this module *is* what gets imported.
+ * `SourceRegistryLive` yields each per-source adapter (an Effect that reads
+ * its client service) and builds the per-capability registries. Public API
+ * functions (`src/api/*`) read the registries from the `SourceRegistry`
+ * service, so there is no import-time registration to tree-shake away.
  */
 
-import { AflApiClient } from "../afl-api";
+import { Effect, Layer } from "effect";
 import {
-  AflApiLadderSource,
-  AflApiLineupSource,
-  AflApiMatchSource,
-  AflApiPlayerStatsSource,
-  AflApiSquadSource,
+  aflApiLadderSource,
+  aflApiLineupSource,
+  aflApiMatchSource,
+  aflApiPlayerStatsSource,
+  aflApiSquadSource,
 } from "./afl-api";
 import {
-  AflTablesLadderSource,
-  AflTablesMatchCoachesSource,
-  AflTablesMatchSource,
-  AflTablesPlayerStatsSource,
-  AflTablesSquadSource,
-  AflTablesTeamStatsSource,
+  aflTablesLadderSource,
+  aflTablesMatchCoachesSource,
+  aflTablesMatchSource,
+  aflTablesPlayerStatsSource,
+  aflTablesSquadSource,
+  aflTablesTeamStatsSource,
 } from "./afl-tables";
 import {
-  FootyWireMatchCoachesSource,
-  FootyWireMatchSource,
-  FootyWirePlayerStatsSource,
-  FootyWireSquadSource,
-  FootyWireTeamStatsSource,
+  footyWireMatchCoachesSource,
+  footyWireMatchSource,
+  footyWirePlayerStatsSource,
+  footyWireSquadSource,
+  footyWireTeamStatsSource,
 } from "./footywire";
-import { FryziggPlayerStatsSource } from "./fryzigg";
-import {
-  ladderRegistry,
-  lineupRegistry,
-  matchCoachesRegistry,
-  matchRegistry,
-  playerStatsRegistry,
-  squadRegistry,
-  teamStatsRegistry,
-} from "./registry";
-import { SquiggleLadderSource, SquiggleMatchSource } from "./squiggle";
+import { fryziggPlayerStatsSource } from "./fryzigg";
+import { CapabilityRegistry, SourceRegistry } from "./registry";
+import { squiggleLadderSource, squiggleMatchSource } from "./squiggle";
 
-// ---------------------------------------------------------------------------
-// Shared AFL API client — one instance reused across every AFL API adapter
-// registration so that authentication (token POST) happens once per session.
-// ---------------------------------------------------------------------------
-const aflApiClient = new AflApiClient();
-
-// ---------------------------------------------------------------------------
-// Match
-// ---------------------------------------------------------------------------
-matchRegistry.register(new AflApiMatchSource(aflApiClient));
-
-matchRegistry.register(new FootyWireMatchSource());
-
-matchRegistry.register(new AflTablesMatchSource());
-
-matchRegistry.register(new SquiggleMatchSource());
-
-matchCoachesRegistry.register(new AflTablesMatchCoachesSource());
-
-matchCoachesRegistry.register(new FootyWireMatchCoachesSource());
-
-// ---------------------------------------------------------------------------
-// PlayerStats
-// ---------------------------------------------------------------------------
-playerStatsRegistry.register(new AflApiPlayerStatsSource(aflApiClient));
-
-playerStatsRegistry.register(new FootyWirePlayerStatsSource());
-
-playerStatsRegistry.register(new AflTablesPlayerStatsSource());
-
-playerStatsRegistry.register(new FryziggPlayerStatsSource());
-
-// ---------------------------------------------------------------------------
-// TeamStats (no AFL API endpoint — afl-tables is the senior fallback)
-// ---------------------------------------------------------------------------
-teamStatsRegistry.register(new FootyWireTeamStatsSource());
-
-teamStatsRegistry.register(new AflTablesTeamStatsSource());
-
-// ---------------------------------------------------------------------------
-// Squad — AFL API (all comps), FootyWire and AFL Tables (AFLM only).
-// ---------------------------------------------------------------------------
-squadRegistry.register(new AflApiSquadSource(aflApiClient));
-
-squadRegistry.register(new FootyWireSquadSource());
-
-squadRegistry.register(new AflTablesSquadSource());
-
-// ---------------------------------------------------------------------------
-// Lineup (AFL API only)
-// ---------------------------------------------------------------------------
-lineupRegistry.register(new AflApiLineupSource(aflApiClient));
-
-// ---------------------------------------------------------------------------
-// Ladder
-// ---------------------------------------------------------------------------
-ladderRegistry.register(new AflApiLadderSource(aflApiClient));
-
-ladderRegistry.register(new AflTablesLadderSource());
-
-ladderRegistry.register(new SquiggleLadderSource());
+/**
+ * Build every capability registry from the source services.
+ *
+ * Registration order is significant: it is the order of the "Supported
+ * sources" list in errors and of the alternative-source search (ADR-0001).
+ */
+export const SourceRegistryLive = Layer.effect(
+  SourceRegistry,
+  Effect.gen(function* () {
+    return {
+      match: new CapabilityRegistry("afl-api", [
+        yield* aflApiMatchSource,
+        yield* footyWireMatchSource,
+        yield* aflTablesMatchSource,
+        yield* squiggleMatchSource,
+      ]),
+      matchCoaches: new CapabilityRegistry("afl-tables", [
+        yield* aflTablesMatchCoachesSource,
+        yield* footyWireMatchCoachesSource,
+      ]),
+      playerStats: new CapabilityRegistry("afl-api", [
+        yield* aflApiPlayerStatsSource,
+        yield* footyWirePlayerStatsSource,
+        yield* aflTablesPlayerStatsSource,
+        yield* fryziggPlayerStatsSource,
+      ]),
+      // No AFL API endpoint — afl-tables is the senior fallback.
+      teamStats: new CapabilityRegistry("afl-tables", [
+        yield* footyWireTeamStatsSource,
+        yield* aflTablesTeamStatsSource,
+      ]),
+      // AFL API (all comps), FootyWire and AFL Tables (AFLM only).
+      squad: new CapabilityRegistry("afl-api", [
+        yield* aflApiSquadSource,
+        yield* footyWireSquadSource,
+        yield* aflTablesSquadSource,
+      ]),
+      lineup: new CapabilityRegistry("afl-api", [yield* aflApiLineupSource]),
+      ladder: new CapabilityRegistry("afl-api", [
+        yield* aflApiLadderSource,
+        yield* aflTablesLadderSource,
+        yield* squiggleLadderSource,
+      ]),
+    };
+  }),
+);
 
 export type {
   CapabilityAdapter,
@@ -132,18 +103,4 @@ export {
 
 export { type DispatchQuery, dispatch } from "./dispatch";
 
-export {
-  CapabilityRegistry,
-  ladderRegistry,
-  lineupRegistry,
-  matchCoachesRegistry,
-  matchRegistry,
-  playerStatsRegistry,
-  squadRegistry,
-  teamStatsRegistry,
-} from "./registry";
-
-// ---------------------------------------------------------------------------
-// Re-exports — public surface for src/api/*
-// ---------------------------------------------------------------------------
-export { aflApiClient };
+export { CapabilityRegistry, SourceRegistry } from "./registry";
