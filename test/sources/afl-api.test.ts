@@ -1,8 +1,11 @@
-import { afterEach, describe, expect, it, type Mock, vi } from "vite-plus/test";
-import { Schema } from "effect";
+import { afterEach, describe, expect, it, vi } from "@effect/vitest";
+import { Effect, Layer, Schema } from "effect";
+import { TestClock } from "effect/testing";
 import { AflApiError, ValidationError } from "../../src/lib/errors";
-import { AflApiLineupSource, AflApiPlayerStatsSource } from "../../src/sources/adapters/afl-api";
-import { AflApiClient } from "../../src/sources/afl-api";
+import type { MatchItem } from "../../src/lib/validation";
+import { aflApiLineupSource, aflApiPlayerStatsSource } from "../../src/sources/adapters/afl-api";
+import { AflApi, AflApiLive } from "../../src/sources/afl-api";
+import { fixtureHttp, type RequestLog, requestLog, type Route } from "../support/http";
 
 /** Helper to create a mock Response. */
 function mockResponse(body: unknown, init?: ResponseInit): Response {
@@ -17,455 +20,586 @@ function mockResponse(body: unknown, init?: ResponseInit): Response {
   });
 }
 
+/** Answer successive requests with successive responses; an `Error` rejects the fetch. */
+function sequence(...answers: ReadonlyArray<Response | Error>): Route {
+  const queue = [...answers];
+
+  return [
+    /./,
+    {
+      respond: () => {
+        const next = queue.shift();
+
+        if (next === undefined) return new Response("exhausted", { status: 404 });
+
+        return next instanceof Error ? Promise.reject(next) : next;
+      },
+    },
+  ];
+}
+
+/** Answer each request from a URL-dispatching function. */
+function byUrl(respond: (url: string) => Response | Promise<Response>): Route {
+  return [/./, { respond }];
+}
+
+/** The live AFL API client over fixture routes. */
+function aflApiWith(routes: readonly Route[], log?: RequestLog) {
+  return AflApiLive.pipe(Layer.provide(fixtureHttp(routes, log ? { log } : undefined)));
+}
+
 /** Standard valid token response. */
 const VALID_TOKEN = {
   token: "test-token-123",
   disclaimer: "Test disclaimer",
 };
 
-describe("AflApiClient", () => {
+describe("AflApi", () => {
   describe("authenticate", () => {
-    it("returns access token on success", async () => {
-      const fetchFn = vi.fn().mockResolvedValue(mockResponse(VALID_TOKEN));
-      const client = new AflApiClient({ fetchFn });
+    it.effect("returns access token on success", () => {
+      const log = requestLog();
 
-      const result = await client.authenticate();
+      return Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      expect(result.success).toBe(true);
+        const token = yield* client.authenticate;
 
-      if (result.success) {
-        expect(result.data).toBe("test-token-123");
-      }
-
-      expect(fetchFn).toHaveBeenCalledOnce();
-      expect(fetchFn.mock.calls[0]).toBeDefined();
-      const [url, init] = fetchFn.mock.calls[0] ?? [];
-      expect(url).toBe("https://api.afl.com.au/cfs/afl/WMCTok");
-      expect(init.method).toBe("POST");
-      const headers = new Headers(init.headers);
-      expect(headers.get("Content-Length")).toBe("0");
-      expect(headers.get("User-Agent")).toContain("fitzroy");
+        expect(token).toBe("test-token-123");
+        expect(log.urls).toHaveLength(1);
+        expect(log.urls[0]).toBe("https://api.afl.com.au/cfs/afl/WMCTok");
+        expect(log.inits[0]?.method).toBe("POST");
+        const headers = new Headers(log.inits[0]?.headers);
+        expect(headers.get("Content-Length")).toBe("0");
+        expect(headers.get("User-Agent")).toContain("fitzroy");
+      }).pipe(Effect.provide(aflApiWith([sequence(mockResponse(VALID_TOKEN))], log)));
     });
 
-    it("caches the token so isAuthenticated returns true", async () => {
-      const fetchFn = vi.fn().mockResolvedValue(mockResponse(VALID_TOKEN));
-      const client = new AflApiClient({ fetchFn });
+    it.effect("caches the token so isAuthenticated returns true", () =>
+      Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      expect(client.isAuthenticated).toBe(false);
-      await client.authenticate();
-      expect(client.isAuthenticated).toBe(true);
+        expect(yield* client.isAuthenticated).toBe(false);
+        yield* client.authenticate;
+        expect(yield* client.isAuthenticated).toBe(true);
+      }).pipe(Effect.provide(aflApiWith([sequence(mockResponse(VALID_TOKEN))]))),
+    );
+
+    it.effect("fails on non-OK response", () =>
+      Effect.gen(function* () {
+        const client = yield* AflApi;
+
+        const error = yield* Effect.flip(client.authenticate);
+
+        expect(error).toBeInstanceOf(AflApiError);
+        expect(error.statusCode).toBe(500);
+        expect(error.message).toBe("Token request failed: 500");
+      }).pipe(
+        Effect.provide(
+          aflApiWith([
+            sequence(mockResponse({}, { status: 500, statusText: "Internal Server Error" })),
+          ]),
+        ),
+      ),
+    );
+
+    it.effect("fails on invalid token format", () =>
+      Effect.gen(function* () {
+        const client = yield* AflApi;
+
+        const error = yield* Effect.flip(client.authenticate);
+
+        expect(error).toBeInstanceOf(AflApiError);
+        expect(error.message).toContain("Invalid token response format");
+      }).pipe(Effect.provide(aflApiWith([sequence(mockResponse({ invalid: true }))]))),
+    );
+
+    it.effect("fails on network failure", () =>
+      Effect.gen(function* () {
+        const client = yield* AflApi;
+
+        const error = yield* Effect.flip(client.authenticate);
+
+        expect(error.message).toBe("Token request failed: Network unreachable");
+      }).pipe(Effect.provide(aflApiWith([sequence(new Error("Network unreachable"))]))),
+    );
+
+    it.effect("shares one in-flight token request between concurrent callers", () => {
+      const log = requestLog();
+
+      return Effect.gen(function* () {
+        const client = yield* AflApi;
+
+        const tokens = yield* Effect.all(
+          [
+            client.fetchJson("https://api.afl.com.au/a", Schema.Struct({})),
+            client.fetchJson("https://api.afl.com.au/b", Schema.Struct({})),
+            client.fetchJson("https://api.afl.com.au/c", Schema.Struct({})),
+          ],
+          { concurrency: "unbounded" },
+        );
+
+        expect(tokens).toHaveLength(3);
+        expect(log.urls.filter((url) => url.includes("WMCTok"))).toHaveLength(1);
+      }).pipe(
+        Effect.provide(
+          aflApiWith(
+            [
+              byUrl((url) =>
+                url.includes("WMCTok") ? mockResponse(VALID_TOKEN) : mockResponse({}),
+              ),
+            ],
+            log,
+          ),
+        ),
+      );
     });
 
-    it("returns error on non-OK response", async () => {
-      const fetchFn = vi
-        .fn()
-        .mockResolvedValue(mockResponse({}, { status: 500, statusText: "Internal Server Error" }));
+    it.effect("reuses the token for 30 minutes, then fetches a new one", () => {
+      const log = requestLog();
 
-      const client = new AflApiClient({ fetchFn });
+      return Effect.gen(function* () {
+        const client = yield* AflApi;
+        const schema = Schema.Struct({});
 
-      const result = await client.authenticate();
+        yield* client.fetchJson("https://api.afl.com.au/a", schema);
+        yield* TestClock.adjust("29 minutes");
+        yield* client.fetchJson("https://api.afl.com.au/b", schema);
+        expect(log.urls.filter((url) => url.includes("WMCTok"))).toHaveLength(1);
 
-      expect(result.success).toBe(false);
-
-      if (!result.success) {
-        expect(result.error).toBeInstanceOf(AflApiError);
-        expect(result.error.statusCode).toBe(500);
-      }
+        yield* TestClock.adjust("2 minutes");
+        expect(yield* client.isAuthenticated).toBe(false);
+        yield* client.fetchJson("https://api.afl.com.au/c", schema);
+        expect(log.urls.filter((url) => url.includes("WMCTok"))).toHaveLength(2);
+      }).pipe(
+        Effect.provide(
+          aflApiWith(
+            [
+              byUrl((url) =>
+                url.includes("WMCTok") ? mockResponse(VALID_TOKEN) : mockResponse({}),
+              ),
+            ],
+            log,
+          ),
+        ),
+      );
     });
 
-    it("returns error on invalid token format", async () => {
-      const fetchFn = vi.fn().mockResolvedValue(mockResponse({ invalid: true }));
-      const client = new AflApiClient({ fetchFn });
+    it.effect("does not cache a failed token request", () =>
+      Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      const result = await client.authenticate();
+        yield* Effect.flip(client.authedFetch("https://api.afl.com.au/test"));
+        const response = yield* client.authedFetch("https://api.afl.com.au/test");
 
-      expect(result.success).toBe(false);
-
-      if (!result.success) {
-        expect(result.error).toBeInstanceOf(AflApiError);
-        expect(result.error.message).toContain("Invalid token response format");
-      }
-    });
-
-    it("returns error on network failure", async () => {
-      const fetchFn = vi.fn().mockRejectedValue(new Error("Network unreachable"));
-      const client = new AflApiClient({ fetchFn });
-
-      const result = await client.authenticate();
-
-      expect(result.success).toBe(false);
-
-      if (!result.success) {
-        expect(result.error.message).toContain("Network unreachable");
-      }
-    });
-
-    it("uses custom tokenUrl when provided", async () => {
-      const fetchFn = vi.fn().mockResolvedValue(mockResponse(VALID_TOKEN));
-      const client = new AflApiClient({ fetchFn, tokenUrl: "https://custom.token/endpoint" });
-
-      await client.authenticate();
-
-      expect(fetchFn).toHaveBeenCalledOnce();
-      expect(fetchFn.mock.calls[0]).toBeDefined();
-      const [url] = fetchFn.mock.calls[0] ?? [];
-      expect(url).toBe("https://custom.token/endpoint");
-    });
+        expect(response.status).toBe(200);
+      }).pipe(
+        Effect.provide(
+          aflApiWith([
+            sequence(
+              mockResponse({}, { status: 500, statusText: "Internal Server Error" }),
+              mockResponse(VALID_TOKEN),
+              mockResponse({ data: "test" }),
+            ),
+          ]),
+        ),
+      ),
+    );
   });
 
   describe("authedFetch", () => {
-    it("authenticates automatically if not already authenticated", async () => {
-      const fetchFn = vi
-        .fn()
-        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
-        .mockResolvedValueOnce(mockResponse({ data: "test" }));
+    it.effect("authenticates automatically if not already authenticated", () => {
+      const log = requestLog();
 
-      const client = new AflApiClient({ fetchFn });
+      return Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      const result = await client.authedFetch("https://api.afl.com.au/test");
+        yield* client.authedFetch("https://api.afl.com.au/test");
 
-      expect(result.success).toBe(true);
-      expect(fetchFn).toHaveBeenCalledTimes(2);
+        expect(log.urls).toHaveLength(2);
+      }).pipe(
+        Effect.provide(
+          aflApiWith([sequence(mockResponse(VALID_TOKEN), mockResponse({ data: "test" }))], log),
+        ),
+      );
     });
 
-    it("adds x-media-mis-token header to request", async () => {
-      const fetchFn = vi
-        .fn()
-        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
-        .mockResolvedValueOnce(mockResponse({ data: "test" }));
+    it.effect("adds x-media-mis-token header to request", () => {
+      const log = requestLog();
 
-      const client = new AflApiClient({ fetchFn });
+      return Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      await client.authedFetch("https://api.afl.com.au/test");
+        yield* client.authedFetch("https://api.afl.com.au/test");
 
-      const secondCall = fetchFn.mock.calls[1];
-      const headers = secondCall?.[1]?.headers as Headers;
-      expect(headers.get("x-media-mis-token")).toBe("test-token-123");
+        const headers = new Headers(log.inits[1]?.headers);
+        expect(headers.get("x-media-mis-token")).toBe("test-token-123");
+        expect(headers.get("User-Agent")).toContain("fitzroy");
+      }).pipe(
+        Effect.provide(
+          aflApiWith([sequence(mockResponse(VALID_TOKEN), mockResponse({ data: "test" }))], log),
+        ),
+      );
     });
 
-    it("retries once on 401 by re-authenticating", async () => {
+    it.effect("retries once on 401 by re-authenticating", () => {
+      const log = requestLog();
       const freshToken = { ...VALID_TOKEN, token: "refreshed-token" };
 
-      const fetchFn = vi
-        .fn()
-        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
-        .mockResolvedValueOnce(mockResponse({}, { status: 401, statusText: "Unauthorized" }))
-        .mockResolvedValueOnce(mockResponse(freshToken))
-        .mockResolvedValueOnce(mockResponse({ data: "success" }));
+      return Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      const client = new AflApiClient({ fetchFn });
+        yield* client.authedFetch("https://api.afl.com.au/test");
 
-      const result = await client.authedFetch("https://api.afl.com.au/test");
-
-      expect(result.success).toBe(true);
-      expect(fetchFn).toHaveBeenCalledTimes(4);
+        expect(log.urls).toHaveLength(4);
+        expect(new Headers(log.inits[3]?.headers).get("x-media-mis-token")).toBe("refreshed-token");
+      }).pipe(
+        Effect.provide(
+          aflApiWith(
+            [
+              sequence(
+                mockResponse(VALID_TOKEN),
+                mockResponse({}, { status: 401, statusText: "Unauthorized" }),
+                mockResponse(freshToken),
+                mockResponse({ data: "success" }),
+              ),
+            ],
+            log,
+          ),
+        ),
+      );
     });
 
-    it("returns error if re-authentication on 401 fails", async () => {
-      const fetchFn = vi
-        .fn()
-        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
-        .mockResolvedValueOnce(mockResponse({}, { status: 401, statusText: "Unauthorized" }))
-        .mockResolvedValueOnce(
-          mockResponse({}, { status: 500, statusText: "Internal Server Error" }),
-        );
+    it.effect("fails if re-authentication on 401 fails", () =>
+      Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      const client = new AflApiClient({ fetchFn });
+        const error = yield* Effect.flip(client.authedFetch("https://api.afl.com.au/test"));
 
-      const result = await client.authedFetch("https://api.afl.com.au/test");
+        expect(error.message).toBe("Token request failed: 500");
+      }).pipe(
+        Effect.provide(
+          aflApiWith([
+            sequence(
+              mockResponse(VALID_TOKEN),
+              mockResponse({}, { status: 401, statusText: "Unauthorized" }),
+              mockResponse({}, { status: 500, statusText: "Internal Server Error" }),
+            ),
+          ]),
+        ),
+      ),
+    );
 
-      expect(result.success).toBe(false);
-    });
+    it.effect("fails on non-OK response that is not 401", () =>
+      Effect.gen(function* () {
+        const client = yield* AflApi;
 
-    it("returns error on non-OK response that is not 401", async () => {
-      const fetchFn = vi
-        .fn()
-        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
-        .mockResolvedValueOnce(mockResponse({}, { status: 404, statusText: "Not Found" }));
+        const error = yield* Effect.flip(client.authedFetch("https://api.afl.com.au/test"));
 
-      const client = new AflApiClient({ fetchFn });
+        expect(error).toBeInstanceOf(AflApiError);
+        expect(error.statusCode).toBe(404);
+        expect(error.message).toBe("Request failed: 404 Not Found");
+      }).pipe(
+        Effect.provide(
+          aflApiWith([
+            sequence(
+              mockResponse(VALID_TOKEN),
+              mockResponse({}, { status: 404, statusText: "Not Found" }),
+            ),
+          ]),
+        ),
+      ),
+    );
 
-      const result = await client.authedFetch("https://api.afl.com.au/test");
+    it.effect("fails on network failure during fetch", () =>
+      Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      expect(result.success).toBe(false);
+        const error = yield* Effect.flip(client.authedFetch("https://api.afl.com.au/test"));
 
-      if (!result.success) {
-        expect(result.error).toBeInstanceOf(AflApiError);
-        expect(result.error.statusCode).toBe(404);
-      }
-    });
-
-    it("returns error on network failure during fetch", async () => {
-      const fetchFn = vi
-        .fn()
-        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
-        .mockRejectedValueOnce(new Error("Connection reset"));
-
-      const client = new AflApiClient({ fetchFn });
-
-      const result = await client.authedFetch("https://api.afl.com.au/test");
-
-      expect(result.success).toBe(false);
-
-      if (!result.success) {
-        expect(result.error.message).toContain("Connection reset");
-      }
-    });
+        expect(error.message).toBe("Request failed: Connection reset");
+      }).pipe(
+        Effect.provide(
+          aflApiWith([sequence(mockResponse(VALID_TOKEN), new Error("Connection reset"))]),
+        ),
+      ),
+    );
   });
 
   describe("fetchJson", () => {
     const TestSchema = Schema.Struct({ value: Schema.Number });
 
-    it("fetches, parses, and validates JSON against a Zod schema", async () => {
-      const fetchFn = vi
-        .fn()
-        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
-        .mockResolvedValueOnce(mockResponse({ value: 42 }));
+    it.effect("fetches, parses, and validates JSON against a schema", () =>
+      Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      const client = new AflApiClient({ fetchFn });
+        const data = yield* client.fetchJson("https://api.afl.com.au/test", TestSchema);
 
-      const result = await client.fetchJson("https://api.afl.com.au/test", TestSchema);
+        expect(data).toEqual({ value: 42 });
+      }).pipe(
+        Effect.provide(
+          aflApiWith([sequence(mockResponse(VALID_TOKEN), mockResponse({ value: 42 }))]),
+        ),
+      ),
+    );
 
-      expect(result.success).toBe(true);
+    it.effect("fails with ValidationError when response does not match schema", () =>
+      Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      if (result.success) {
-        expect(result.data).toEqual({ value: 42 });
-      }
-    });
-
-    it("returns ValidationError when response does not match schema", async () => {
-      const fetchFn = vi
-        .fn()
-        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
-        .mockResolvedValueOnce(mockResponse({ wrong: "shape" }));
-
-      const client = new AflApiClient({ fetchFn });
-
-      const result = await client.fetchJson("https://api.afl.com.au/test", TestSchema);
-
-      expect(result.success).toBe(false);
-
-      if (!result.success) {
-        expect(result.error).toBeInstanceOf(ValidationError);
-      }
-    });
-
-    it("returns AflApiError when fetch fails", async () => {
-      const fetchFn = vi
-        .fn()
-        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
-        .mockResolvedValueOnce(
-          mockResponse({}, { status: 500, statusText: "Internal Server Error" }),
+        const error = yield* Effect.flip(
+          client.fetchJson("https://api.afl.com.au/test", TestSchema),
         );
 
-      const client = new AflApiClient({ fetchFn });
+        expect(error).toBeInstanceOf(ValidationError);
+        expect(error.message).toBe("Response validation failed");
+        expect(error instanceof ValidationError && error.issues?.[0]?.path).toBe(
+          "https://api.afl.com.au/test",
+        );
+      }).pipe(
+        Effect.provide(
+          aflApiWith([sequence(mockResponse(VALID_TOKEN), mockResponse({ wrong: "shape" }))]),
+        ),
+      ),
+    );
 
-      const result = await client.fetchJson("https://api.afl.com.au/test", TestSchema);
+    it.effect("fails with AflApiError when fetch fails", () =>
+      Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      expect(result.success).toBe(false);
-
-      if (!result.success) {
-        expect(result.error).toBeInstanceOf(AflApiError);
-      }
-    });
-
-    it("returns AflApiError when response is not valid JSON", async () => {
-      const fetchFn = vi
-        .fn()
-        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
-        .mockResolvedValueOnce(
-          new Response("not json", { status: 200, headers: { "Content-Type": "text/plain" } }),
+        const error = yield* Effect.flip(
+          client.fetchJson("https://api.afl.com.au/test", TestSchema),
         );
 
-      const client = new AflApiClient({ fetchFn });
+        expect(error).toBeInstanceOf(AflApiError);
+      }).pipe(
+        Effect.provide(
+          aflApiWith([
+            sequence(
+              mockResponse(VALID_TOKEN),
+              mockResponse({}, { status: 500, statusText: "Internal Server Error" }),
+            ),
+          ]),
+        ),
+      ),
+    );
 
-      const result = await client.fetchJson("https://api.afl.com.au/test", TestSchema);
+    it.effect("fails with AflApiError when response is not valid JSON", () =>
+      Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      expect(result.success).toBe(false);
+        const error = yield* Effect.flip(
+          client.fetchJson("https://api.afl.com.au/test", TestSchema),
+        );
 
-      if (!result.success) {
-        expect(result.error).toBeInstanceOf(AflApiError);
-        expect(result.error.message).toContain("JSON parse failed");
-      }
+        expect(error).toBeInstanceOf(AflApiError);
+        expect(error.message).toContain("JSON parse failed");
+      }).pipe(
+        Effect.provide(
+          aflApiWith([
+            sequence(
+              mockResponse(VALID_TOKEN),
+              new Response("not json", { status: 200, headers: { "Content-Type": "text/plain" } }),
+            ),
+          ]),
+        ),
+      ),
+    );
+
+    it.effect("skips authentication for public aflapi.afl.com.au/afl/v2 URLs", () => {
+      const log = requestLog();
+
+      return Effect.gen(function* () {
+        const client = yield* AflApi;
+
+        yield* client.fetchJson("https://aflapi.afl.com.au/afl/v2/test", TestSchema);
+
+        expect(log.urls).toEqual(["https://aflapi.afl.com.au/afl/v2/test"]);
+        const headers = new Headers(log.inits[0]?.headers);
+        expect(headers.get("x-media-mis-token")).toBeNull();
+        expect(headers.get("User-Agent")).toContain("fitzroy");
+      }).pipe(Effect.provide(aflApiWith([sequence(mockResponse({ value: 1 }))], log)));
     });
   });
 
   describe("resolveCompetitionId", () => {
-    it("returns the hardcoded competition ID for each competition", async () => {
-      const fetchFn = vi.fn();
-      const client = new AflApiClient({ fetchFn });
+    it.effect("returns the hardcoded competition ID for each competition", () => {
+      const log = requestLog();
 
-      const aflm = await client.resolveCompetitionId("AFLM");
-      const aflw = await client.resolveCompetitionId("AFLW");
-      const vfl = await client.resolveCompetitionId("VFL");
-      const vflw = await client.resolveCompetitionId("VFLW");
+      return Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      expect(aflm.success && aflm.data).toBe(1);
-      expect(aflw.success && aflw.data).toBe(3);
-      expect(vfl.success && vfl.data).toBe(7);
-      expect(vflw.success && vflw.data).toBe(11);
-      // Hardcoded map — never hits the network.
-      expect(fetchFn).not.toHaveBeenCalled();
+        expect(yield* client.resolveCompetitionId("AFLM")).toBe(1);
+        expect(yield* client.resolveCompetitionId("AFLW")).toBe(3);
+        expect(yield* client.resolveCompetitionId("VFL")).toBe(7);
+        expect(yield* client.resolveCompetitionId("VFLW")).toBe(11);
+        // Hardcoded map — never hits the network.
+        expect(log.urls).toHaveLength(0);
+      }).pipe(Effect.provide(aflApiWith([], log)));
     });
   });
 
   describe("resolveSeasonId", () => {
-    it("returns the season ID matching by name containing year", async () => {
-      const compseasons = {
-        compSeasons: [
-          { id: 52, name: "2023 Toyota AFL Premiership" },
-          { id: 62, name: "2024 Toyota AFL Premiership" },
-        ],
-      };
+    it.effect("returns the season ID matching by name containing year", () =>
+      Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      const fetchFn = vi.fn().mockResolvedValueOnce(mockResponse(compseasons));
-      const client = new AflApiClient({ fetchFn });
+        expect(yield* client.resolveSeasonId(1, 2024)).toBe(62);
+      }).pipe(
+        Effect.provide(
+          aflApiWith([
+            sequence(
+              mockResponse({
+                compSeasons: [
+                  { id: 52, name: "2023 Toyota AFL Premiership" },
+                  { id: 62, name: "2024 Toyota AFL Premiership" },
+                ],
+              }),
+            ),
+          ]),
+        ),
+      ),
+    );
 
-      const result = await client.resolveSeasonId(1, 2024);
+    it.effect("anchors the year — does not match a year embedded in a longer number (COR-10)", () =>
+      Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      expect(result.success).toBe(true);
+        expect(yield* client.resolveSeasonId(1, 2024)).toBe(62);
+      }).pipe(
+        Effect.provide(
+          aflApiWith([
+            sequence(
+              mockResponse({
+                compSeasons: [
+                  { id: 52, name: "Festival Cup 12024" },
+                  { id: 62, name: "2024 Toyota AFL Premiership" },
+                ],
+              }),
+            ),
+          ]),
+        ),
+      ),
+    );
 
-      if (result.success) {
-        expect(result.data).toBe(62);
-      }
-    });
+    it.effect("fails when season year is not found", () =>
+      Effect.gen(function* () {
+        const client = yield* AflApi;
 
-    it("anchors the year — does not match a year embedded in a longer number (COR-10)", async () => {
-      const compseasons = {
-        compSeasons: [
-          { id: 52, name: "Festival Cup 12024" },
-          { id: 62, name: "2024 Toyota AFL Premiership" },
-        ],
-      };
+        const error = yield* Effect.flip(client.resolveSeasonId(1, 2024));
 
-      const fetchFn = vi.fn().mockResolvedValueOnce(mockResponse(compseasons));
-      const client = new AflApiClient({ fetchFn });
+        expect(error).toBeInstanceOf(AflApiError);
+        expect(error.message).toContain("2024");
+      }).pipe(
+        Effect.provide(
+          aflApiWith([
+            sequence(
+              mockResponse({ compSeasons: [{ id: 52, name: "2023 Toyota AFL Premiership" }] }),
+            ),
+          ]),
+        ),
+      ),
+    );
 
-      const result = await client.resolveSeasonId(1, 2024);
+    it.effect("propagates fetch errors", () =>
+      Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      expect(result.success).toBe(true);
+        const error = yield* Effect.flip(client.resolveSeasonId(1, 2024));
 
-      if (result.success) {
-        expect(result.data).toBe(62);
-      }
-    });
-
-    it("returns error when season year is not found", async () => {
-      const compseasons = {
-        compSeasons: [{ id: 52, name: "2023 Toyota AFL Premiership" }],
-      };
-
-      const fetchFn = vi.fn().mockResolvedValueOnce(mockResponse(compseasons));
-      const client = new AflApiClient({ fetchFn });
-
-      const result = await client.resolveSeasonId(1, 2024);
-
-      expect(result.success).toBe(false);
-
-      if (!result.success) {
-        expect(result.error).toBeInstanceOf(AflApiError);
-        expect(result.error.message).toContain("2024");
-      }
-    });
-
-    it("propagates fetch errors", async () => {
-      const fetchFn = vi
-        .fn()
-        .mockResolvedValueOnce(mockResponse({}, { status: 500, statusText: "Server Error" }));
-
-      const client = new AflApiClient({ fetchFn });
-
-      const result = await client.resolveSeasonId(1, 2024);
-
-      expect(result.success).toBe(false);
-    });
+        expect(error.message).toBe("Request failed: 500 Server Error");
+      }).pipe(
+        Effect.provide(
+          aflApiWith([sequence(mockResponse({}, { status: 500, statusText: "Server Error" }))]),
+        ),
+      ),
+    );
   });
 
   describe("resolveRounds", () => {
-    it("returns all rounds for a season", async () => {
-      const rounds = {
-        rounds: [
-          {
-            id: 1146,
-            name: "Round 1",
-            roundNumber: 1,
-            utcStartTime: "2024-03-14T06:20:00.000Z",
-          },
-          {
-            id: 1147,
-            name: "Round 2",
-            roundNumber: 2,
-            utcStartTime: "2024-03-21T06:20:00.000Z",
-          },
-        ],
-      };
+    it.effect("returns all rounds for a season", () =>
+      Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      const fetchFn = vi.fn().mockResolvedValueOnce(mockResponse(rounds));
-      const client = new AflApiClient({ fetchFn });
+        const rounds = yield* client.resolveRounds(73);
 
-      const result = await client.resolveRounds(73);
+        expect(rounds).toHaveLength(2);
+        expect(rounds[0]?.roundNumber).toBe(1);
+        expect(rounds[1]?.roundNumber).toBe(2);
+      }).pipe(
+        Effect.provide(
+          aflApiWith([
+            sequence(
+              mockResponse({
+                rounds: [
+                  {
+                    id: 1146,
+                    name: "Round 1",
+                    roundNumber: 1,
+                    utcStartTime: "2024-03-14T06:20:00.000Z",
+                  },
+                  {
+                    id: 1147,
+                    name: "Round 2",
+                    roundNumber: 2,
+                    utcStartTime: "2024-03-21T06:20:00.000Z",
+                  },
+                ],
+              }),
+            ),
+          ]),
+        ),
+      ),
+    );
 
-      expect(result.success).toBe(true);
+    it.effect("returns empty array when no rounds exist", () =>
+      Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      if (result.success) {
-        expect(result.data).toHaveLength(2);
-        expect(result.data[0]?.roundNumber).toBe(1);
-        expect(result.data[1]?.roundNumber).toBe(2);
-      }
-    });
+        expect(yield* client.resolveRounds(73)).toHaveLength(0);
+      }).pipe(Effect.provide(aflApiWith([sequence(mockResponse({ rounds: [] }))]))),
+    );
 
-    it("returns empty array when no rounds exist", async () => {
-      const rounds = { rounds: [] };
-      const fetchFn = vi.fn().mockResolvedValueOnce(mockResponse(rounds));
-      const client = new AflApiClient({ fetchFn });
+    it.effect("propagates fetch errors", () =>
+      Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      const result = await client.resolveRounds(73);
+        const error = yield* Effect.flip(client.resolveRounds(73));
 
-      expect(result.success).toBe(true);
-
-      if (result.success) {
-        expect(result.data).toHaveLength(0);
-      }
-    });
-
-    it("propagates fetch errors", async () => {
-      const fetchFn = vi
-        .fn()
-        .mockResolvedValueOnce(mockResponse({}, { status: 500, statusText: "Server Error" }));
-
-      const client = new AflApiClient({ fetchFn });
-
-      const result = await client.resolveRounds(73);
-
-      expect(result.success).toBe(false);
-    });
+        expect(error).toBeInstanceOf(AflApiError);
+      }).pipe(
+        Effect.provide(
+          aflApiWith([sequence(mockResponse({}, { status: 500, statusText: "Server Error" }))]),
+        ),
+      ),
+    );
   });
 
   describe("resolveCurrentSeason", () => {
     // Earliest round start is the season's start instant. "Now" is controlled
-    // with fake timers so these tests never depend on the real clock.
+    // by faking only `Date` so these tests never depend on the real clock.
     afterEach(() => {
       vi.useRealTimers();
     });
 
-    /** Builds a fetch stub that serves the compseasons list then a rounds list. */
-    function seasonFetch(compseasons: unknown, rounds: unknown): Mock<typeof fetch> {
-      return vi.fn<typeof fetch>((url) => {
-        if (typeof url === "string" && url.includes("compseasons") && url.includes("/rounds")) {
-          return Promise.resolve(mockResponse(rounds));
-        }
+    /** Fake the wall clock without touching the scheduler's timers. */
+    function setNow(iso: string): void {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date(iso));
+    }
 
-        if (typeof url === "string" && url.includes("compseasons")) {
-          return Promise.resolve(mockResponse(compseasons));
-        }
+    /** Routes that serve the compseasons list then a rounds list. */
+    function seasonRoutes(compseasons: unknown, rounds: unknown): Route {
+      return byUrl((url) => {
+        if (url.includes("compseasons") && url.includes("/rounds")) return mockResponse(rounds);
 
-        return Promise.resolve(mockResponse({}, { status: 404 }));
+        if (url.includes("compseasons")) return mockResponse(compseasons);
+
+        return mockResponse({}, { status: 404 });
       });
     }
 
-    it("returns the newest year when its earliest round has already started", async () => {
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date("2025-06-15T00:00:00.000Z"));
+    it.effect("returns the newest year when its earliest round has already started", () => {
+      setNow("2025-06-15T00:00:00.000Z");
 
       const compseasons = {
         compSeasons: [
@@ -481,20 +615,16 @@ describe("AflApiClient", () => {
         ],
       };
 
-      const client = new AflApiClient({ fetchFn: seasonFetch(compseasons, rounds) });
+      return Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      const result = await client.resolveCurrentSeason("AFLM");
-
-      expect(result.success).toBe(true);
-
-      if (result.success) {
-        expect(result.data).toBe(2025);
-      }
+        expect(yield* client.resolveCurrentSeason("AFLM")).toBe(2025);
+      }).pipe(Effect.provide(aflApiWith([seasonRoutes(compseasons, rounds)])));
     });
 
-    it("skips every pre-created future season using each season's start", async () => {
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date("2025-06-15T00:00:00.000Z"));
+    it.effect("skips every pre-created future season using each season's start", () => {
+      setNow("2025-06-15T00:00:00.000Z");
+      const log = requestLog();
 
       const starts: Record<string, string> = {
         "90": "2024-08-14T08:30:00.000Z",
@@ -502,35 +632,33 @@ describe("AflApiClient", () => {
         "92": "2026-08-14T08:30:00.000Z",
       };
 
-      const fetchFn = vi.fn().mockImplementation((url: string) => {
+      const route = byUrl((url) => {
         const seasonId = /compseasons\/(\d+)\/rounds/.exec(url)?.[1];
 
         if (seasonId)
-          return Promise.resolve(
-            mockResponse({
-              rounds: [{ id: 1, name: "Round 1", roundNumber: 1, utcStartTime: starts[seasonId] }],
-            }),
-          );
+          return mockResponse({
+            rounds: [{ id: 1, name: "Round 1", roundNumber: 1, utcStartTime: starts[seasonId] }],
+          });
 
-        return Promise.resolve(
-          mockResponse({
-            compSeasons: [
-              { id: 91, name: "2025 NAB AFLW Season" },
-              { id: 90, name: "2024 NAB AFLW Season" },
-              { id: 92, name: "2026 NAB AFLW Season" },
-            ],
-          }),
-        );
+        return mockResponse({
+          compSeasons: [
+            { id: 91, name: "2025 NAB AFLW Season" },
+            { id: 90, name: "2024 NAB AFLW Season" },
+            { id: 92, name: "2026 NAB AFLW Season" },
+          ],
+        });
       });
 
-      const client = new AflApiClient({ fetchFn });
-      expect(await client.resolveCurrentSeason("AFLW")).toEqual({ success: true, data: 2024 });
-      expect(fetchFn).toHaveBeenCalledTimes(4);
+      return Effect.gen(function* () {
+        const client = yield* AflApi;
+
+        expect(yield* client.resolveCurrentSeason("AFLW")).toBe(2024);
+        expect(log.urls).toHaveLength(4);
+      }).pipe(Effect.provide(aflApiWith([route], log)));
     });
 
-    it("returns a Result error when no round carries utcStartTime (indeterminate)", async () => {
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date("2025-06-15T00:00:00.000Z"));
+    it.effect("fails when no round carries utcStartTime (indeterminate)", () => {
+      setNow("2025-06-15T00:00:00.000Z");
 
       const compseasons = {
         compSeasons: [
@@ -546,30 +674,33 @@ describe("AflApiClient", () => {
         ],
       };
 
-      const client = new AflApiClient({ fetchFn: seasonFetch(compseasons, rounds) });
+      return Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      const result = await client.resolveCurrentSeason("AFLM");
+        const error = yield* Effect.flip(client.resolveCurrentSeason("AFLM"));
 
-      expect(result.success).toBe(false);
-
-      if (!result.success) {
-        expect(result.error).toBeInstanceOf(AflApiError);
-      }
+        expect(error).toBeInstanceOf(AflApiError);
+        expect(error.message).toBe(
+          "Cannot determine season start: no round has utcStartTime (AFLM)",
+        );
+      }).pipe(Effect.provide(aflApiWith([seasonRoutes(compseasons, rounds)])));
     });
 
-    it("returns a Result error when the compseasons fetch fails", async () => {
-      const fetchFn = vi
-        .fn()
-        .mockResolvedValueOnce(mockResponse({}, { status: 500, statusText: "Server Error" }));
+    it.effect("fails when the compseasons fetch fails", () =>
+      Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      const client = new AflApiClient({ fetchFn });
+        const error = yield* Effect.flip(client.resolveCurrentSeason("AFLM"));
 
-      const result = await client.resolveCurrentSeason("AFLM");
+        expect(error).toBeInstanceOf(AflApiError);
+      }).pipe(
+        Effect.provide(
+          aflApiWith([sequence(mockResponse({}, { status: 500, statusText: "Server Error" }))]),
+        ),
+      ),
+    );
 
-      expect(result.success).toBe(false);
-    });
-
-    it("returns a Result error when the rounds fetch fails", async () => {
+    it.effect("fails when the rounds fetch fails", () => {
       const compseasons = {
         compSeasons: [
           { id: 70, name: "2024 Toyota AFL Premiership" },
@@ -577,23 +708,23 @@ describe("AflApiClient", () => {
         ],
       };
 
-      const fetchFn = vi.fn().mockImplementation((url: string) => {
-        if (typeof url === "string" && url.includes("compseasons") && url.includes("/rounds")) {
-          return Promise.resolve(mockResponse({}, { status: 500, statusText: "Server Error" }));
+      const route = byUrl((url) => {
+        if (url.includes("compseasons") && url.includes("/rounds")) {
+          return mockResponse({}, { status: 500, statusText: "Server Error" });
         }
 
-        if (typeof url === "string" && url.includes("compseasons")) {
-          return Promise.resolve(mockResponse(compseasons));
-        }
+        if (url.includes("compseasons")) return mockResponse(compseasons);
 
-        return Promise.resolve(mockResponse({}, { status: 404 }));
+        return mockResponse({}, { status: 404 });
       });
 
-      const client = new AflApiClient({ fetchFn });
+      return Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      const result = await client.resolveCurrentSeason("AFLM");
+        const error = yield* Effect.flip(client.resolveCurrentSeason("AFLM"));
 
-      expect(result.success).toBe(false);
+        expect(error).toBeInstanceOf(AflApiError);
+      }).pipe(Effect.provide(aflApiWith([route])));
     });
   });
 
@@ -622,40 +753,43 @@ describe("AflApiClient", () => {
       ],
     };
 
-    it("returns match items for a round", async () => {
-      const fetchFn = vi
-        .fn()
-        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
-        .mockResolvedValueOnce(mockResponse(matchItemsResponse));
+    it.effect("returns match items for a round", () =>
+      Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      const client = new AflApiClient({ fetchFn });
+        const items = yield* client.fetchRoundMatchItems("CD_R202501401");
 
-      const result = await client.fetchRoundMatchItems("CD_R202501401");
+        expect(items).toHaveLength(1);
+        expect(items[0]?.match.matchId).toBe("CD_M20250140101");
+      }).pipe(
+        Effect.provide(
+          aflApiWith([sequence(mockResponse(VALID_TOKEN), mockResponse(matchItemsResponse))]),
+        ),
+      ),
+    );
 
-      expect(result.success).toBe(true);
+    it.effect("propagates fetch errors", () =>
+      Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      if (result.success) {
-        expect(result.data).toHaveLength(1);
-        expect(result.data[0]?.match.matchId).toBe("CD_M20250140101");
-      }
-    });
+        const error = yield* Effect.flip(client.fetchRoundMatchItems("invalid"));
 
-    it("propagates fetch errors", async () => {
-      const fetchFn = vi
-        .fn()
-        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
-        .mockResolvedValueOnce(mockResponse({}, { status: 400, statusText: "Bad Request" }));
-
-      const client = new AflApiClient({ fetchFn });
-
-      const result = await client.fetchRoundMatchItems("invalid");
-
-      expect(result.success).toBe(false);
-    });
+        expect(error.message).toBe("Request failed: 400 Bad Request");
+      }).pipe(
+        Effect.provide(
+          aflApiWith([
+            sequence(
+              mockResponse(VALID_TOKEN),
+              mockResponse({}, { status: 400, statusText: "Bad Request" }),
+            ),
+          ]),
+        ),
+      ),
+    );
   });
 
   describe("fetchRoundMatchItemsByNumber", () => {
-    it("resolves round providerId and fetches match items", async () => {
+    it.effect("resolves round providerId and fetches match items", () => {
       const rounds = {
         rounds: [{ id: 1147, providerId: "CD_R202501401", name: "Round 1", roundNumber: 1 }],
       };
@@ -677,39 +811,42 @@ describe("AflApiClient", () => {
         ],
       };
 
-      const fetchFn = vi
-        .fn()
-        .mockResolvedValueOnce(mockResponse(rounds))
-        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
-        .mockResolvedValueOnce(mockResponse(matchItems));
+      return Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      const client = new AflApiClient({ fetchFn });
-
-      const result = await client.fetchRoundMatchItemsByNumber(73, 1);
-
-      expect(result.success).toBe(true);
-
-      if (result.success) {
-        expect(result.data).toHaveLength(1);
-      }
+        expect(yield* client.fetchRoundMatchItemsByNumber(73, 1)).toHaveLength(1);
+      }).pipe(
+        Effect.provide(
+          aflApiWith([
+            sequence(mockResponse(rounds), mockResponse(VALID_TOKEN), mockResponse(matchItems)),
+          ]),
+        ),
+      );
     });
 
-    it("returns error when round not found", async () => {
-      const rounds = {
-        rounds: [{ id: 1147, providerId: "CD_R1", name: "Round 1", roundNumber: 1 }],
-      };
+    it.effect("fails when round not found", () =>
+      Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      const fetchFn = vi.fn().mockResolvedValueOnce(mockResponse(rounds));
-      const client = new AflApiClient({ fetchFn });
+        const error = yield* Effect.flip(client.fetchRoundMatchItemsByNumber(73, 99));
 
-      const result = await client.fetchRoundMatchItemsByNumber(73, 99);
-
-      expect(result.success).toBe(false);
-    });
+        expect(error.message).toBe("Round not found or missing providerId: round 99");
+      }).pipe(
+        Effect.provide(
+          aflApiWith([
+            sequence(
+              mockResponse({
+                rounds: [{ id: 1147, providerId: "CD_R1", name: "Round 1", roundNumber: 1 }],
+              }),
+            ),
+          ]),
+        ),
+      ),
+    );
   });
 
   describe("fetchSeasonMatchItems", () => {
-    it("aggregates concluded matches from all rounds", async () => {
+    it.effect("aggregates concluded matches from all rounds", () => {
       const rounds = {
         rounds: [
           { id: 1146, providerId: "CD_R1", name: "Round 1", roundNumber: 1 },
@@ -749,41 +886,31 @@ describe("AflApiClient", () => {
         ],
       };
 
-      const fetchFn = vi.fn().mockImplementation((url: string) => {
-        if (typeof url === "string" && url.includes("compseasons")) {
-          return Promise.resolve(mockResponse(rounds));
-        }
+      const route = byUrl((url) => {
+        if (url.includes("compseasons")) return mockResponse(rounds);
 
-        if (typeof url === "string" && url.includes("WMCTok")) {
-          return Promise.resolve(mockResponse(VALID_TOKEN));
-        }
+        if (url.includes("WMCTok")) return mockResponse(VALID_TOKEN);
 
-        if (typeof url === "string" && url.includes("CD_R1")) {
-          return Promise.resolve(mockResponse(round1Items));
-        }
+        if (url.includes("CD_R1")) return mockResponse(round1Items);
 
-        if (typeof url === "string" && url.includes("CD_R2")) {
-          return Promise.resolve(mockResponse(round2Items));
-        }
+        if (url.includes("CD_R2")) return mockResponse(round2Items);
 
-        return Promise.resolve(mockResponse({}, { status: 404 }));
+        return mockResponse({}, { status: 404 });
       });
 
-      const client = new AflApiClient({ fetchFn });
+      return Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      const result = await client.fetchSeasonMatchItems(73);
+        const items = yield* client.fetchSeasonMatchItems(73);
 
-      expect(result.success).toBe(true);
-
-      if (result.success) {
-        expect(result.data).toHaveLength(1);
-        expect(result.data[0]?.match.matchId).toBe("CD_M1");
-      }
+        expect(items).toHaveLength(1);
+        expect(items[0]?.match.matchId).toBe("CD_M1");
+      }).pipe(Effect.provide(aflApiWith([route])));
     });
   });
 
   describe("fetchPlayerStats", () => {
-    it("returns player stats for a match", async () => {
+    it.effect("returns player stats for a match", () => {
       const playerStats = {
         homeTeamPlayerStats: [
           {
@@ -804,26 +931,23 @@ describe("AflApiClient", () => {
         awayTeamPlayerStats: [],
       };
 
-      const fetchFn = vi
-        .fn()
-        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
-        .mockResolvedValueOnce(mockResponse(playerStats));
+      return Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      const client = new AflApiClient({ fetchFn });
+        const stats = yield* client.fetchPlayerStats("CD_M1");
 
-      const result = await client.fetchPlayerStats("CD_M1");
-
-      expect(result.success).toBe(true);
-
-      if (result.success) {
-        expect(result.data.homeTeamPlayerStats).toHaveLength(1);
-        expect(result.data.awayTeamPlayerStats).toHaveLength(0);
-      }
+        expect(stats.homeTeamPlayerStats).toHaveLength(1);
+        expect(stats.awayTeamPlayerStats).toHaveLength(0);
+      }).pipe(
+        Effect.provide(
+          aflApiWith([sequence(mockResponse(VALID_TOKEN), mockResponse(playerStats))]),
+        ),
+      );
     });
   });
 
   describe("fetchMatchRoster", () => {
-    it("returns match roster for a match", async () => {
+    it.effect("returns match roster for a match", () => {
       const roster = {
         match: {
           matchId: "CD_M1",
@@ -840,121 +964,122 @@ describe("AflApiClient", () => {
         ],
       };
 
-      const fetchFn = vi
-        .fn()
-        .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
-        .mockResolvedValueOnce(mockResponse(roster));
+      return Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      const client = new AflApiClient({ fetchFn });
+        const result = yield* client.fetchMatchRoster("CD_M1");
 
-      const result = await client.fetchMatchRoster("CD_M1");
-
-      expect(result.success).toBe(true);
-
-      if (result.success) {
-        expect(result.data.teamPlayers).toHaveLength(2);
-      }
+        expect(result.teamPlayers).toHaveLength(2);
+      }).pipe(
+        Effect.provide(aflApiWith([sequence(mockResponse(VALID_TOKEN), mockResponse(roster))])),
+      );
     });
   });
 
   describe("fetchTeams", () => {
-    it("returns all teams when no filter provided", async () => {
-      const teams = {
-        teams: [
-          { id: 1, name: "Adelaide Crows", teamType: "MEN" },
-          { id: 2, name: "Adelaide Crows W", teamType: "WOMEN" },
-        ],
-      };
+    it.effect("returns all teams when no filter provided", () =>
+      Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      const fetchFn = vi.fn().mockResolvedValueOnce(mockResponse(teams));
-      const client = new AflApiClient({ fetchFn });
+        expect(yield* client.fetchTeams()).toHaveLength(2);
+      }).pipe(
+        Effect.provide(
+          aflApiWith([
+            sequence(
+              mockResponse({
+                teams: [
+                  { id: 1, name: "Adelaide Crows", teamType: "MEN" },
+                  { id: 2, name: "Adelaide Crows W", teamType: "WOMEN" },
+                ],
+              }),
+            ),
+          ]),
+        ),
+      ),
+    );
 
-      const result = await client.fetchTeams();
+    it.effect("filters by competition when provided", () =>
+      Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      expect(result.success).toBe(true);
+        const teams = yield* client.fetchTeams("AFLM");
 
-      if (result.success) {
-        expect(result.data).toHaveLength(2);
-      }
-    });
+        expect(teams).toHaveLength(1);
+        expect(teams[0]?.name).toBe("Adelaide Crows");
+      }).pipe(
+        Effect.provide(
+          aflApiWith([
+            sequence(
+              mockResponse({
+                teams: [
+                  { id: 1, name: "Adelaide Crows", teamType: "MEN" },
+                  { id: 2, name: "Adelaide Crows W", teamType: "WOMEN" },
+                  { id: 3, name: "Footscray Bulldogs", teamType: "VFL_MEN" },
+                ],
+              }),
+            ),
+          ]),
+        ),
+      ),
+    );
 
-    it("filters by competition when provided", async () => {
-      const teams = {
-        teams: [
-          { id: 1, name: "Adelaide Crows", teamType: "MEN" },
-          { id: 2, name: "Adelaide Crows W", teamType: "WOMEN" },
-          { id: 3, name: "Footscray Bulldogs", teamType: "VFL_MEN" },
-        ],
-      };
+    it.effect("scopes to VFL teams when given VFL", () =>
+      Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      const fetchFn = vi.fn().mockResolvedValueOnce(mockResponse(teams));
-      const client = new AflApiClient({ fetchFn });
+        const teams = yield* client.fetchTeams("VFL");
 
-      const result = await client.fetchTeams("AFLM");
-
-      expect(result.success).toBe(true);
-
-      if (result.success) {
-        expect(result.data).toHaveLength(1);
-        expect(result.data[0]?.name).toBe("Adelaide Crows");
-      }
-    });
-
-    it("scopes to VFL teams when given VFL", async () => {
-      const teams = {
-        teams: [
-          { id: 1, name: "Adelaide Crows", teamType: "MEN" },
-          { id: 3, name: "Footscray Bulldogs", teamType: "VFL_MEN" },
-        ],
-      };
-
-      const fetchFn = vi.fn().mockResolvedValueOnce(mockResponse(teams));
-      const client = new AflApiClient({ fetchFn });
-
-      const result = await client.fetchTeams("VFL");
-
-      expect(result.success).toBe(true);
-
-      if (result.success) {
-        expect(result.data).toHaveLength(1);
-        expect(result.data[0]?.name).toBe("Footscray Bulldogs");
-      }
-    });
+        expect(teams).toHaveLength(1);
+        expect(teams[0]?.name).toBe("Footscray Bulldogs");
+      }).pipe(
+        Effect.provide(
+          aflApiWith([
+            sequence(
+              mockResponse({
+                teams: [
+                  { id: 1, name: "Adelaide Crows", teamType: "MEN" },
+                  { id: 3, name: "Footscray Bulldogs", teamType: "VFL_MEN" },
+                ],
+              }),
+            ),
+          ]),
+        ),
+      ),
+    );
   });
 
   describe("fetchSquad", () => {
-    it("returns squad for a team and season", async () => {
-      const squad = {
-        squad: {
-          players: [
-            {
-              player: {
-                id: 1910,
-                firstName: "Chris",
-                surname: "Burgess",
-              },
-              jumperNumber: 21,
-              position: "KEY_FORWARD",
-            },
-          ],
-        },
-      };
+    it.effect("returns squad for a team and season", () =>
+      Effect.gen(function* () {
+        const client = yield* AflApi;
 
-      const fetchFn = vi.fn().mockResolvedValueOnce(mockResponse(squad));
-      const client = new AflApiClient({ fetchFn });
+        const squad = yield* client.fetchSquad(1, 73);
 
-      const result = await client.fetchSquad(1, 73);
-
-      expect(result.success).toBe(true);
-
-      if (result.success) {
-        expect(result.data.squad.players).toHaveLength(1);
-      }
-    });
+        expect(squad.squad.players).toHaveLength(1);
+      }).pipe(
+        Effect.provide(
+          aflApiWith([
+            sequence(
+              mockResponse({
+                squad: {
+                  players: [
+                    {
+                      player: { id: 1910, firstName: "Chris", surname: "Burgess" },
+                      jumperNumber: 21,
+                      position: "KEY_FORWARD",
+                    },
+                  ],
+                },
+              }),
+            ),
+          ]),
+        ),
+      ),
+    );
   });
 
   describe("shared client across adapters", () => {
-    it("shares one token across adapter registrations", async () => {
+    it.effect("shares one token across adapter registrations", () => {
       // Minimal valid fixtures for the schemas the adapters parse.
       const playerStatsResponse = {
         homeTeamPlayerStats: [],
@@ -977,62 +1102,62 @@ describe("AflApiClient", () => {
         ],
       };
 
-      // Count token POSTs by URL. The adapters call multiple authed endpoints,
-      // each of which will trigger authentication on the *first* call only —
-      // shared cachedToken means subsequent calls re-use the token without
-      // POSTing again.
-      let tokenPosts = 0;
+      const inventory: readonly MatchItem[] = [
+        {
+          match: rosterResponse.match,
+          round: { name: "Round 1", roundId: "CD_R202501401", roundNumber: 1 },
+        },
+      ];
 
-      const fetchFn = vi.fn().mockImplementation((url: string) => {
-        if (typeof url === "string" && url.includes("WMCTok")) {
-          tokenPosts += 1;
+      // The adapters call multiple authed endpoints; only the first triggers
+      // authentication, because every adapter reads the one AflApi service.
+      const log = requestLog();
 
-          return Promise.resolve(mockResponse(VALID_TOKEN));
-        }
+      const route = byUrl((url) => {
+        if (url.includes("WMCTok")) return mockResponse(VALID_TOKEN);
 
-        if (typeof url === "string" && url.includes("matchRoster")) {
-          return Promise.resolve(mockResponse(rosterResponse));
-        }
+        if (url.includes("matchRoster")) return mockResponse(rosterResponse);
 
-        if (typeof url === "string" && url.includes("playerStats")) {
-          return Promise.resolve(mockResponse(playerStatsResponse));
-        }
+        if (url.includes("playerStats")) return mockResponse(playerStatsResponse);
 
-        return Promise.resolve(mockResponse({}, { status: 404 }));
+        return mockResponse({}, { status: 404 });
       });
 
-      const sharedClient = new AflApiClient({ fetchFn });
-      vi.spyOn(sharedClient, "resolveCompSeason").mockResolvedValue({ success: true, data: 73 });
-      vi.spyOn(sharedClient, "fetchSeasonMatchItems").mockResolvedValue({
-        success: true,
-        data: [
-          {
-            match: rosterResponse.match,
-            round: { name: "Round 1", roundId: "CD_R202501401", roundNumber: 1 },
-          },
-        ],
-      });
-      const playerStatsAdapter = new AflApiPlayerStatsSource(sharedClient);
-      const lineupAdapter = new AflApiLineupSource(sharedClient);
+      // The live client with season resolution stubbed to a fixed inventory.
+      const sharedClient = Layer.effect(
+        AflApi,
+        Effect.gen(function* () {
+          const live = yield* AflApi;
 
-      const playerStatsResult = await playerStatsAdapter.fetchPlayerStats({
-        source: "afl-api",
-        season: 2025,
-        matchId: "CD_M1",
-      });
+          return {
+            ...live,
+            resolveCompSeason: () => Effect.succeed(73),
+            fetchSeasonMatchItems: () => Effect.succeed(inventory),
+          };
+        }),
+      ).pipe(Layer.provide(aflApiWith([route], log)));
 
-      const lineupResult = await lineupAdapter.fetchLineup({
-        source: "afl-api",
-        season: 2025,
-        round: 1,
-        matchId: "CD_M1",
-      });
+      return Effect.gen(function* () {
+        const playerStatsAdapter = yield* aflApiPlayerStatsSource;
+        const lineupAdapter = yield* aflApiLineupSource;
 
-      expect(playerStatsResult.success).toBe(true);
-      expect(lineupResult.success).toBe(true);
-      // Exactly one token POST across both adapters, proving the cached token
-      // on the shared client is reused.
-      expect(tokenPosts).toBe(1);
+        yield* playerStatsAdapter.fetchPlayerStats({
+          source: "afl-api",
+          season: 2025,
+          matchId: "CD_M1",
+        });
+
+        yield* lineupAdapter.fetchLineup({
+          source: "afl-api",
+          season: 2025,
+          round: 1,
+          matchId: "CD_M1",
+        });
+
+        // Exactly one token POST across both adapters, proving the cached
+        // token on the shared client is reused.
+        expect(log.urls.filter((url) => url.includes("WMCTok"))).toHaveLength(1);
+      }).pipe(Effect.provide(sharedClient));
     });
   });
 });

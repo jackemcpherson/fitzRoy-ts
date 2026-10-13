@@ -5475,7 +5475,7 @@ exports[`public API golden outcomes > keeps the fetchTeams AFLM outcome 1`] = `
 exports[`public API golden outcomes > keeps the resolveDefaultSeasonForCompetition AFLM outcome 1`] = `
 {
   "outcome": {
-    "value": 2024,
+    "ok": 2024,
   },
   "urls": [
     "https://aflapi.afl.com.au/afl/v2/competitions/1/compseasons?pageSize=100",
