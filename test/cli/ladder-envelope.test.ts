@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { formatJson, formatOutput, type TableColumnConfig } from "../../src/cli/formatters/index";
 import type { Ladder } from "../../src/types";
 

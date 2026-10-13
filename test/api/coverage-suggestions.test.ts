@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { fetchLadder } from "../../src/api/ladder";
 import { fetchMatches } from "../../src/api/match";
 import { fetchPlayerStats } from "../../src/api/player-stats";

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { squadToPlayerDetails } from "../../src/transforms/player-details";
 import type { Player, Squad } from "../../src/types";
 
@@ -28,8 +28,10 @@ const sampleSquad: Squad = {
   teamId: "1",
   teamName: "Sydney Swans",
   season: 2024,
+  scope: "season",
   competition: "AFLM",
   players: [samplePlayer],
+  source: "afl-api",
 };
 
 describe("canonical Player (#96)", () => {

@@ -6,7 +6,7 @@
  * pure-function error assertions.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { disambiguate, resolveTeamNameOrPrompt } from "../../src/cli/resolvers";
 
 const ALL_LABELS = ["Carlton", "Richmond", "Collingwood"];

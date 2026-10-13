@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { fetchTeamStats } from "../../src/api/team-stats";
 import { err, ok } from "../../src/lib/result";
 import { AflTablesTeamStatsSource } from "../../src/sources/adapters/afl-tables";

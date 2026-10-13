@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { ok } from "../../../src/lib/result";
 import { AflTablesSquadSource } from "../../../src/sources/adapters/afl-tables";
 import { FootyWireSquadSource } from "../../../src/sources/adapters/footywire";

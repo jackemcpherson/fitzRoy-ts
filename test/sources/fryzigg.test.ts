@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 vi.mock("@jackemcpherson/rds-js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@jackemcpherson/rds-js")>();
@@ -101,7 +101,11 @@ describe("FryziggClient", () => {
   it("rejects modified bytes before parsing", async () => {
     vi.mocked(parseRds).mockClear();
     const modified = fixtureBuffer.slice();
-    modified[modified.length - 1] ^= 0x01;
+    const lastIndex = modified.length - 1;
+    const lastByte = modified[lastIndex];
+    expect(lastByte).toBeDefined();
+    if (lastByte === undefined) return;
+    modified[lastIndex] = lastByte ^ 0x01;
     const client = new FryziggClient({
       fetchFn: vi.fn().mockResolvedValue(new Response(modified, { status: 200 })),
       sha256: FIXTURE_SHA256,

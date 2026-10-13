@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, type Mock, vi } from "vite-plus/test";
 import { z } from "zod/v4";
 import { AflApiError, ValidationError } from "../../src/lib/errors";
 import { AflApiLineupSource, AflApiPlayerStatsSource } from "../../src/sources/adapters/afl-api";
@@ -32,7 +32,8 @@ describe("AflApiClient", () => {
         expect(result.data).toBe("test-token-123");
       }
       expect(fetchFn).toHaveBeenCalledOnce();
-      const [url, init] = fetchFn.mock.calls[0];
+      expect(fetchFn.mock.calls[0]).toBeDefined();
+      const [url, init] = fetchFn.mock.calls[0] ?? [];
       expect(url).toBe("https://api.afl.com.au/cfs/afl/WMCTok");
       expect(init.method).toBe("POST");
       const headers = new Headers(init.headers);
@@ -96,7 +97,8 @@ describe("AflApiClient", () => {
       await client.authenticate();
 
       expect(fetchFn).toHaveBeenCalledOnce();
-      const [url] = fetchFn.mock.calls[0];
+      expect(fetchFn.mock.calls[0]).toBeDefined();
+      const [url] = fetchFn.mock.calls[0] ?? [];
       expect(url).toBe("https://custom.token/endpoint");
     });
   });
@@ -409,8 +411,8 @@ describe("AflApiClient", () => {
     });
 
     /** Builds a fetch stub that serves the compseasons list then a rounds list. */
-    function seasonFetch(compseasons: unknown, rounds: unknown): ReturnType<typeof vi.fn> {
-      return vi.fn().mockImplementation((url: string) => {
+    function seasonFetch(compseasons: unknown, rounds: unknown): Mock<typeof fetch> {
+      return vi.fn<typeof fetch>((url) => {
         if (typeof url === "string" && url.includes("compseasons") && url.includes("/rounds")) {
           return Promise.resolve(mockResponse(rounds));
         }
@@ -910,7 +912,7 @@ describe("AflApiClient", () => {
       vi.spyOn(sharedClient, "resolveCompSeason").mockResolvedValue({ success: true, data: 73 });
       vi.spyOn(sharedClient, "fetchSeasonMatchItems").mockResolvedValue({
         success: true,
-        data: [{ match: rosterResponse.match, round: { roundNumber: 1 } }],
+        data: [{ match: rosterResponse.match, round: { name: "Round 1", roundId: "CD_R202501401", roundNumber: 1 } }],
       });
       const playerStatsAdapter = new AflApiPlayerStatsSource(sharedClient);
       const lineupAdapter = new AflApiLineupSource(sharedClient);

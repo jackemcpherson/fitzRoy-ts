@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import type { MatchRoster } from "../../src/lib/validation";
 import { transformMatchRoster } from "../../src/transforms/lineup";
 import capturedRoster from "../fixtures/grand-final-2026-roster.json";

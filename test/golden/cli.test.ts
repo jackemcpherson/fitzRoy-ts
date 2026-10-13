@@ -7,10 +7,16 @@
  */
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 const ROOT = resolve(__dirname, "../..");
 const PRELOAD = resolve(__dirname, "cli-preload.ts");
+
+/**
+ * The entry point under test. CI sets `FITZROY_CLI_ENTRY=dist/cli.js` after
+ * the build so the bundled CLI must produce the same snapshots as the source.
+ */
+const ENTRY = process.env["FITZROY_CLI_ENTRY"] ?? "src/cli.ts";
 
 /** Keep JSON snapshots reviewable by bounding very long output. */
 const MAX_OUTPUT_CHARS = 6000;
@@ -28,7 +34,7 @@ function runCli(args: readonly string[]) {
       PRELOAD,
       "--define",
       `PACKAGE_VERSION=${JSON.stringify("0.0.0-golden")}`,
-      "src/cli.ts",
+      ENTRY,
       ...args,
     ],
     {

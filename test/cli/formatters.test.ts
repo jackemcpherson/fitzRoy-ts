@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { formatCsv } from "../../src/cli/formatters/csv";
 import { formatJson } from "../../src/cli/formatters/json";
 import { formatTable } from "../../src/cli/formatters/table";

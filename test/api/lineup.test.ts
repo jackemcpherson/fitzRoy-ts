@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { fetchLineup } from "../../src/api/lineup";
 import { aflApiClient } from "../../src/sources/adapters/index";
 
@@ -32,7 +32,7 @@ describe("fetchLineup public API", () => {
     vi.spyOn(aflApiClient, "resolveCompSeason").mockResolvedValue({ success: true, data: 73 });
     vi.spyOn(aflApiClient, "fetchSeasonMatchItems").mockResolvedValue({
       success: true,
-      data: [{ match: JSON.parse(rosterJson).match, round: { roundNumber: 1 } }],
+      data: [{ match: JSON.parse(rosterJson).match, round: { name: "Round 1", roundId: "CD_R202501401", roundNumber: 1 } }],
     });
 
     const result = await fetchLineup({

@@ -41,11 +41,7 @@ export {
 export type { FetchRetryOptions } from "./lib/fetch-retry";
 export type { FetchTimeoutOptions } from "./lib/fetch-timeout";
 export { type Err, err, type Ok, ok, Result } from "./lib/result";
-export {
-  roundAbbreviation,
-  roundLabel,
-  roundTypeLabel,
-} from "./lib/round-labels";
+export { roundAbbreviation, roundLabel, roundTypeLabel } from "./lib/round-labels";
 export type { SourceFetchOptions } from "./lib/source-fetch";
 export { normaliseTeamName } from "./lib/team-mapping";
 export { normaliseVenueName } from "./lib/venue-mapping";

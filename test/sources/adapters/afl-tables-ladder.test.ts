@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { AflTablesLadderSource } from "../../../src/sources/adapters/afl-tables";
 import type { AflTablesClient } from "../../../src/sources/afl-tables";
 import type { Match } from "../../../src/types";
@@ -31,12 +31,15 @@ function fakeMatch(matchId: string, round: number, dateIso: string): Match {
     q4Away: null,
     status: "Complete",
     livePeriodStatus: null,
+    matchClockPeriods: null,
+    completedQuarter: null,
     attendance: null,
     weatherTempCelsius: null,
     weatherType: null,
     roundCode: `R${round}`,
     venueState: "VIC",
     venueTimezone: "Australia/Melbourne",
+    venueLocalDate: null,
     homeRushedBehinds: null,
     awayRushedBehinds: null,
     homeMinutesInFront: null,

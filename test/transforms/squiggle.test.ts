@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import {
   SquiggleGamesResponseSchema,
   SquiggleStandingsResponseSchema,
@@ -40,11 +40,26 @@ describe("Squiggle transforms", () => {
       expect(first.awayTeam).toBeTruthy();
 
       // Scores and derived fields
-      expect(first.homePoints).toBeGreaterThan(0);
-      expect(first.awayPoints).toBeGreaterThan(0);
-      expect(first.margin).toBe(first.homePoints - first.awayPoints);
-      expect(first.homeGoals * 6 + first.homeBehinds).toBe(first.homePoints);
-      expect(first.awayGoals * 6 + first.awayBehinds).toBe(first.awayPoints);
+      const { homeGoals, homeBehinds, homePoints, awayGoals, awayBehinds, awayPoints } = first;
+      expect(homePoints).toBeGreaterThan(0);
+      expect(awayPoints).toBeGreaterThan(0);
+      expect(homeGoals).not.toBeNull();
+      expect(homeBehinds).not.toBeNull();
+      expect(awayGoals).not.toBeNull();
+      expect(awayBehinds).not.toBeNull();
+      if (
+        homeGoals === null ||
+        homeBehinds === null ||
+        homePoints === null ||
+        awayGoals === null ||
+        awayBehinds === null ||
+        awayPoints === null
+      ) {
+        return;
+      }
+      expect(first.margin).toBe(homePoints - awayPoints);
+      expect(homeGoals * 6 + homeBehinds).toBe(homePoints);
+      expect(awayGoals * 6 + awayBehinds).toBe(awayPoints);
 
       // Quarter scores not provided by Squiggle
       expect(first.q1Home).toBeNull();

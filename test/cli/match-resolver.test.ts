@@ -3,7 +3,7 @@
  * that the team and stats CLI commands previously inlined.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { matchIdForPlayerStatsSource, resolveMatchId } from "../../src/cli/match-resolver";
 
 describe("matchIdForPlayerStatsSource", () => {

@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { fetchMatchCoaches } from "../../src/api/match-coaches";
 import { MatchCoachesClient } from "../../src/sources/match-coaches";
 

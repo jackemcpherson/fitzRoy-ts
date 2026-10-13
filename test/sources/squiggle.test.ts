@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { ScrapeError } from "../../src/lib/errors";
 import { SquiggleClient } from "../../src/sources/squiggle";
 

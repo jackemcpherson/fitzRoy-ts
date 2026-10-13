@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import type { PlayerStatsList } from "../../src/lib/validation";
 import { transformPlayerStats } from "../../src/transforms/player-stats";
 

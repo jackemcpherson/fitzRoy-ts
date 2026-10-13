@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { AFL_SENIOR_TEAMS } from "../../src/lib/team-mapping";
 import { type MatchItem, MatchItemListSchema } from "../../src/lib/validation";
 import { transformMatchItems } from "../../src/transforms/match-results";

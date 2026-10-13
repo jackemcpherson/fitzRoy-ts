@@ -8,7 +8,7 @@
  * from the result envelope, so data and error behaviour cannot drift.
  */
 import { createHash } from "node:crypto";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import {
   fetchAwards,
   fetchLadder,

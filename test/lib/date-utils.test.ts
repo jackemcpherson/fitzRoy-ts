@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { localToUtc, parseDate, toAestString } from "../../src/lib/date-utils";
 import { DstGapError } from "../../src/lib/errors";
 

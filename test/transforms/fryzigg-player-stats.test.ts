@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { DataFrame } from "@jackemcpherson/rds-js";
 import { isDataFrame, parseRds } from "@jackemcpherson/rds-js";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { transformFryziggPlayerStats } from "../../src/transforms/fryzigg-player-stats";
 
 const fixtureBuffer = new Uint8Array(

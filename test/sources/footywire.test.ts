@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { FootyWireClient, parseFixtureList, parseMatchList } from "../../src/sources/footywire";
 
 const FIXTURE_PATH = resolve(__dirname, "../fixtures/footywire-match-list.html");

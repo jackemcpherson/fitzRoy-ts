@@ -2,7 +2,7 @@
  * Tests for Result composition combinators.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { err, ok, Result } from "../../src/lib/result";
 
 describe("Result.map", () => {

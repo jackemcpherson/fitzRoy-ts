@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 // `fetchSquad` is wrapped as a spy that calls through to the real
 // implementation by default, so the happy-path test below still exercises the

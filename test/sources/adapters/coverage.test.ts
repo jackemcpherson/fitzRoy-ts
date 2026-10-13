@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { OutOfRangeError, UnsupportedCompetitionError } from "../../../src/lib/errors";
 import {
   type CoverageMap,

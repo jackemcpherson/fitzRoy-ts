@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { err, ok } from "../../src/lib/result";
 import { AflCoachesClient } from "../../src/sources/afl-coaches";
 import type { Match, PlayerStats } from "../../src/types";
@@ -116,8 +116,22 @@ function match(matchId: string, roundType: Match["roundType"]): Match {
     q3Away: null,
     q4Away: null,
     status: "Complete",
+    livePeriodStatus: null,
+    matchClockPeriods: null,
+    completedQuarter: null,
     attendance: null,
+    weatherTempCelsius: null,
+    weatherType: null,
+    roundCode: roundType === "HomeAndAway" ? "R1" : "QF",
+    venueState: "VIC",
+    venueTimezone: "Australia/Melbourne",
+    venueLocalDate: "2025-03-14T19:40:00",
+    homeRushedBehinds: null,
+    awayRushedBehinds: null,
+    homeMinutesInFront: null,
+    awayMinutesInFront: null,
     source: "afl-api",
+    competition: "AFLM",
   };
 }
 

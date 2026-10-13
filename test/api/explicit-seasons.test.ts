@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { fetchMatches } from "../../src/api/match";
 import { fetchPlayerStats } from "../../src/api/player-stats";
 import { AmbiguousSeasonError } from "../../src/lib/errors";

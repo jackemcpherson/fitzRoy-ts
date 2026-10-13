@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { applyStatsFilters, filterTeamStats } from "../../src/cli/stats-filters";
 import type { PlayerStats, TeamStatsEntry } from "../../src/types";
 

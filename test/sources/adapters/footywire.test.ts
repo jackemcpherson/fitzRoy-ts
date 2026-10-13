@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { FootyWirePlayerStatsSource } from "../../../src/sources/adapters/footywire";
 import { FootyWireClient } from "../../../src/sources/footywire";
 
