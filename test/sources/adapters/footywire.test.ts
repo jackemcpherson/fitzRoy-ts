@@ -1,86 +1,70 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { describe, expect, it, vi } from "vite-plus/test";
-import { FootyWirePlayerStatsSource } from "../../../src/sources/adapters/footywire";
-import { FootyWireClient } from "../../../src/sources/footywire";
+import { describe, expect, it } from "@effect/vitest";
+import { Effect, Layer } from "effect";
+import { ScrapeError } from "../../../src/lib/errors";
+import { footyWirePlayerStatsSource } from "../../../src/sources/adapters/footywire";
+import { FootyWireLive } from "../../../src/sources/footywire";
+import { fixtureHttp, fixtureText, type Route } from "../../support/http";
 
-const matchListHtml = readFileSync(
-  resolve(__dirname, "../../fixtures/footywire-match-list.html"),
-  "utf-8",
-);
+const matchListHtml = fixtureText("footywire-match-list.html");
 
-const basicStatsHtml = readFileSync(
-  resolve(__dirname, "../../fixtures/footywire-match-stats-basic-11174.html"),
-  "utf-8",
-);
+const basicStatsHtml = fixtureText("footywire-match-stats-basic-11174.html");
 
-const advancedStatsHtml = readFileSync(
-  resolve(__dirname, "../../fixtures/footywire-match-stats-advanced-11174.html"),
-  "utf-8",
-);
+const advancedStatsHtml = fixtureText("footywire-match-stats-advanced-11174.html");
 
 /**
- * Build a fetch mock that serves the season match list and per-match stats
- * pages, failing the stats pages for the given match IDs.
+ * The live FootyWire client serving the season match list and per-match
+ * stats pages, failing the stats pages for the given match IDs.
  */
-function buildFetchFn(failingMids: readonly string[]) {
-  return vi.fn((input: RequestInfo | URL) => {
-    const url = String(input);
+function footyWireServing(failingMids: readonly string[]) {
+  const routes: Route[] = [
+    ["ft_match_list", { body: matchListHtml }],
+    ...failingMids.map((mid): Route => [`mid=${mid}`, { status: 404 }]),
+    ["advv=Y", { body: advancedStatsHtml }],
+    ["ft_match_statistics", { body: basicStatsHtml }],
+  ];
 
-    if (url.includes("ft_match_list")) {
-      return Promise.resolve(new Response(matchListHtml, { status: 200 }));
-    }
-
-    if (failingMids.some((mid) => url.includes(`mid=${mid}`))) {
-      return Promise.resolve(new Response("", { status: 404 }));
-    }
-
-    if (url.includes("advv=Y")) {
-      return Promise.resolve(new Response(advancedStatsHtml, { status: 200 }));
-    }
-
-    return Promise.resolve(new Response(basicStatsHtml, { status: 200 }));
-  });
+  return FootyWireLive.pipe(Layer.provide(fixtureHttp(routes)));
 }
 
-describe("FootyWirePlayerStatsSource (COR-03 partial-result envelope)", () => {
-  it("reports a failed match in failedMatchIds while the rest of the season survives", async () => {
-    const client = new FootyWireClient({ fetchFn: buildFetchFn(["11194"]) });
-    const source = new FootyWirePlayerStatsSource(client);
+describe("footyWirePlayerStatsSource (COR-03 partial-result envelope)", () => {
+  it.effect("reports a failed match in failedMatchIds while the rest of the season survives", () =>
+    Effect.gen(function* () {
+      const source = yield* footyWirePlayerStatsSource;
+      const data = yield* source.fetchPlayerStats({ source: "footywire", season: 2025 });
 
-    const result = await source.fetchPlayerStats({ source: "footywire", season: 2025 });
+      expect(data.stats.length).toBeGreaterThan(0);
+      expect(data.failedMatchIds).toEqual(["FW_11194"]);
 
-    expect(result.success).toBe(true);
+      // Surviving matches still contribute stat rows.
+      const matchIds = new Set(data.stats.map((s) => s.matchId));
+      expect(matchIds.has("FW_11193")).toBe(true);
+      expect(matchIds.has("FW_11194")).toBe(false);
+    }).pipe(Effect.provide(footyWireServing(["11194"]))),
+  );
 
-    if (!result.success) return;
-    expect(result.data.stats.length).toBeGreaterThan(0);
-    expect(result.data.failedMatchIds).toEqual(["FW_11194"]);
-    // Surviving matches still contribute stat rows.
-    const matchIds = new Set(result.data.stats.map((s) => s.matchId));
-    expect(matchIds.has("FW_11193")).toBe(true);
-    expect(matchIds.has("FW_11194")).toBe(false);
-  });
+  it.effect("returns empty failedMatchIds when every match succeeds", () =>
+    Effect.gen(function* () {
+      const source = yield* footyWirePlayerStatsSource;
+      const data = yield* source.fetchPlayerStats({ source: "footywire", season: 2025 });
 
-  it("returns empty failedMatchIds when every match succeeds", async () => {
-    const client = new FootyWireClient({ fetchFn: buildFetchFn([]) });
-    const source = new FootyWirePlayerStatsSource(client);
+      expect(data.stats.length).toBeGreaterThan(0);
+      expect(data.failedMatchIds).toEqual([]);
+    }).pipe(Effect.provide(footyWireServing([]))),
+  );
 
-    const result = await source.fetchPlayerStats({ source: "footywire", season: 2025 });
+  it.effect("still fails when the match-list page itself fails", () =>
+    Effect.gen(function* () {
+      const source = yield* footyWirePlayerStatsSource;
 
-    expect(result.success).toBe(true);
+      const error = yield* Effect.flip(
+        source.fetchPlayerStats({ source: "footywire", season: 2025 }),
+      );
 
-    if (!result.success) return;
-    expect(result.data.stats.length).toBeGreaterThan(0);
-    expect(result.data.failedMatchIds).toEqual([]);
-  });
-
-  it("still returns total err when the match-list page itself fails", async () => {
-    const fetchFn = vi.fn().mockResolvedValue(new Response("", { status: 503 }));
-    const client = new FootyWireClient({ fetchFn });
-    const source = new FootyWirePlayerStatsSource(client);
-
-    const result = await source.fetchPlayerStats({ source: "footywire", season: 2025 });
-
-    expect(result.success).toBe(false);
-  });
+      expect(error).toBeInstanceOf(ScrapeError);
+    }).pipe(
+      Effect.provide(
+        FootyWireLive.pipe(Layer.provide(fixtureHttp([["footywire.com", { status: 503 }]]))),
+      ),
+    ),
+  );
 });

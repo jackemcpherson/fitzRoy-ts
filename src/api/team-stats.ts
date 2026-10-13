@@ -8,9 +8,9 @@
  * the suggestion target) is `afl-tables` (see `teamStatsRegistry.defaultSource`).
  */
 
-import { ScrapeError } from "../lib/errors";
-import { err, ok, Result } from "../lib/result";
-import { dispatch, teamStatsRegistry } from "../sources/adapters/index";
+import { Effect } from "effect";
+import { ScrapeError, type SourceError } from "../lib/errors";
+import { dispatch, SourceRegistry } from "../sources/adapters/index";
 import type { TeamStatsEntry, TeamStatsQuery } from "../types";
 
 /**
@@ -26,30 +26,25 @@ import type { TeamStatsEntry, TeamStatsQuery } from "../types";
  * const result = await fetchTeamStats({ source: "footywire", season: 2024 });
  * ```
  */
-export async function fetchTeamStats(
+export function fetchTeamStats(
   query: TeamStatsQuery,
-): Promise<Result<TeamStatsEntry[], Error>> {
-  const adapterR = dispatch(teamStatsRegistry, "team stats", query);
+): Effect.Effect<TeamStatsEntry[], SourceError, SourceRegistry> {
+  return Effect.gen(function* () {
+    const registry = yield* SourceRegistry;
+    const adapter = yield* dispatch(registry.teamStats, "team stats", query);
+    const fetched = yield* adapter.fetchTeamStats(query);
+    const entries = fetched.map((entry) => ({ ...entry, seasonKey: String(query.season) }));
 
-  const fetched = Result.map(
-    await Result.flatMapAsync(adapterR, (a) => a.fetchTeamStats(query)),
-    (entries) => entries.map((entry) => ({ ...entry, seasonKey: String(query.season) })),
-  );
-
-  if (query.summaryType !== "averages") return fetched;
-
-  return Result.flatMap(fetched, (entries) => {
+    if (query.summaryType !== "averages") return entries;
     const invalid = entries.filter((entry) => entry.gamesPlayed === null || entry.gamesPlayed <= 0);
 
     if (invalid.length > 0) {
-      return err(
-        new ScrapeError({
-          message: `Cannot return team-stat averages because games played is missing or non-positive for: ${invalid.map((entry) => entry.team).join(", ")}`,
-          source: query.source,
-        }),
-      );
+      return yield* new ScrapeError({
+        message: `Cannot return team-stat averages because games played is missing or non-positive for: ${invalid.map((entry) => entry.team).join(", ")}`,
+        source: query.source,
+      });
     }
 
-    return ok(entries);
+    return entries;
   });
 }

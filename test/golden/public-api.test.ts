@@ -6,8 +6,13 @@
  * URLs plus either the returned data or the failure's name, message, and
  * fields. The v7 Effect migration must keep these snapshots unchanged apart
  * from the result envelope, so data and error behaviour cannot drift.
+ *
+ * Each Effect runs against `FitzroyLive` with `FetchHttpClient.Fetch`
+ * replaced by the fixture router, so no global `fetch` is stubbed.
  */
 import { createHash } from "node:crypto";
+import { Cause, Effect, Exit, type Layer } from "effect";
+import { FetchHttpClient } from "effect/http";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import {
   fetchAwards,
@@ -21,7 +26,9 @@ import {
   fetchSquad,
   fetchTeamStats,
   fetchTeams,
+  FitzroyLive,
   resolveDefaultSeasonForCompetition,
+  type SourceError,
 } from "../../src/index";
 import { goldenFetch, requested, resetRequested } from "./fixture-fetch";
 
@@ -72,28 +79,29 @@ interface Outcome {
   readonly outcome: unknown;
 }
 
-async function run(call: () => Promise<unknown>): Promise<Outcome> {
-  let outcome: unknown;
+/** Services `FitzroyLive` provides. */
+type FitzroyServices = Layer.Success<typeof FitzroyLive>;
 
-  try {
-    const result = await call();
+/** One public API call, as an Effect over the library services. */
+type Call = () => Effect.Effect<unknown, SourceError, FitzroyServices>;
 
-    if (result !== null && typeof result === "object" && "success" in result) {
-      const settled = result as { success: boolean; data?: unknown; error?: unknown };
-      outcome = settled.success
-        ? { ok: summarise(JSON.parse(JSON.stringify(settled.data))) }
-        : { err: describeError(settled.error) };
-    } else {
-      outcome = { value: summarise(JSON.parse(JSON.stringify(result ?? null))) };
-    }
-  } catch (error) {
-    outcome = { threw: describeError(error) };
-  }
+async function run(call: Call): Promise<Outcome> {
+  const exit = await Effect.runPromiseExit(
+    call().pipe(
+      Effect.provide(FitzroyLive),
+      Effect.provideService(FetchHttpClient.Fetch, goldenFetch),
+    ),
+  );
+  const outcome = Exit.isSuccess(exit)
+    ? { ok: summarise(JSON.parse(JSON.stringify(exit.value ?? null))) }
+    : Cause.hasFails(exit.cause)
+      ? { err: describeError(Cause.squash(exit.cause)) }
+      : { threw: describeError(Cause.squash(exit.cause)) };
 
   return { urls: [...new Set(requested.filter((url) => !isTokenRequest(url)))].sort(), outcome };
 }
 
-const CASES: ReadonlyArray<readonly [string, () => Promise<unknown>]> = [
+const CASES: ReadonlyArray<readonly [string, Call]> = [
   [
     "fetchMatches afl-api 2025 r1",
     () => fetchMatches({ source: "afl-api", season: 2025, round: 1 }),
@@ -166,11 +174,9 @@ describe("public API golden outcomes", () => {
   beforeEach(() => {
     resetRequested();
     vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-10-13T00:00:00Z") });
-    vi.stubGlobal("fetch", goldenFetch);
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
     vi.useRealTimers();
   });
 

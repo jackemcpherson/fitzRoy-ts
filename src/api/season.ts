@@ -8,7 +8,9 @@
  * callers must choose an explicit season.
  */
 
-import { aflApiClient } from "../sources/adapters/index";
+import { Effect } from "effect";
+import type { SourceError } from "../lib/errors";
+import { AflApi } from "../sources/afl-api";
 import type { CompetitionCode, CompetitionSeason, SeasonSelector } from "../types";
 
 /**
@@ -16,38 +18,32 @@ import type { CompetitionCode, CompetitionSeason, SeasonSelector } from "../type
  * preserving the canonical selector and failing when chronology is unavailable.
  *
  * @param competition - The competition code (defaults to "AFLM").
- * @returns The season selector established by provider chronology.
- * @throws The provider error if the season cannot be established.
+ * @returns The season selector established by provider chronology, failing
+ *   with the provider error when the season cannot be established.
  *
  * @example
  * ```ts
- * const season = await resolveDefaultSeasonForCompetition("AFLW");
+ * const season = yield* resolveDefaultSeasonForCompetition("AFLW");
  * ```
  */
-export async function resolveDefaultSeasonForCompetition(
+export function resolveDefaultSeasonForCompetition(
   competition: CompetitionCode = "AFLM",
-): Promise<SeasonSelector> {
-  const result = await aflApiClient.resolveCurrentSeason(competition);
-
-  if (result.success) {
-    return result.data;
-  }
-
-  throw result.error;
+): Effect.Effect<SeasonSelector, SourceError, AflApi> {
+  return AflApi.use((aflApi) => aflApi.resolveCurrentSeason(competition));
 }
 
 /**
  * Discover canonical competition seasons and their provider mappings.
  * @param competition - Competition whose provider season list should be read.
  * @returns Season keys, calendar years, display names and provider season IDs,
- * or an error Result when discovery or identity validation fails.
+ * failing when discovery or identity validation fails.
  * @example
  * ```ts
- * const seasons = await fetchSeasons("AFLW");
+ * const seasons = yield* fetchSeasons("AFLW");
  * ```
  */
-export async function fetchSeasons(
+export function fetchSeasons(
   competition: CompetitionCode,
-): Promise<import("../lib/result").Result<CompetitionSeason[], Error>> {
-  return aflApiClient.fetchSeasons(competition);
+): Effect.Effect<CompetitionSeason[], SourceError, AflApi> {
+  return AflApi.use((aflApi) => aflApi.fetchSeasons(competition));
 }

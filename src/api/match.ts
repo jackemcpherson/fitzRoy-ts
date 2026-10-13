@@ -8,8 +8,9 @@
  * each adapter (see `src/sources/adapters/`).
  */
 
-import { Result } from "../lib/result";
-import { dispatch, matchRegistry } from "../sources/adapters/index";
+import { Effect } from "effect";
+import type { SourceError } from "../lib/errors";
+import { dispatch, SourceRegistry } from "../sources/adapters/index";
 import { filterMatches } from "../transforms/match";
 import type { Match, MatchQuery } from "../types";
 
@@ -28,11 +29,17 @@ import type { Match, MatchQuery } from "../types";
  * await fetchMatches({ source: "afl-api", season: 2025, matchId: "CD_M..." });
  * ```
  */
-export async function fetchMatches(query: MatchQuery): Promise<Result<Match[], Error>> {
-  const adapterR = dispatch(matchRegistry, "match", query);
-  const fetchedR = await Result.flatMapAsync(adapterR, (a) => a.fetchMatches(query));
+export function fetchMatches(
+  query: MatchQuery,
+): Effect.Effect<Match[], SourceError, SourceRegistry> {
+  return Effect.gen(function* () {
+    const registry = yield* SourceRegistry;
+    const adapter = yield* dispatch(registry.match, "match", query);
+    const matches = yield* adapter.fetchMatches(query);
 
-  return Result.map(fetchedR, (matches) =>
-    filterMatches(matches, query).map((match) => ({ ...match, seasonKey: String(query.season) })),
-  );
+    return filterMatches(matches, query).map((match) => ({
+      ...match,
+      seasonKey: String(query.season),
+    }));
+  });
 }

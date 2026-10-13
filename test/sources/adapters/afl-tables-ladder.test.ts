@@ -1,6 +1,8 @@
-import { describe, expect, it, vi } from "vite-plus/test";
-import { AflTablesLadderSource } from "../../../src/sources/adapters/afl-tables";
-import type { AflTablesClient } from "../../../src/sources/afl-tables";
+import { describe, expect, it } from "@effect/vitest";
+import { Effect, Layer } from "effect";
+import { ScrapeError } from "../../../src/lib/errors";
+import { aflTablesLadderSource } from "../../../src/sources/adapters/afl-tables";
+import { AflTables } from "../../../src/sources/afl-tables";
 import type { Match } from "../../../src/types";
 
 function fakeMatch(matchId: string, round: number, dateIso: string): Match {
@@ -49,54 +51,63 @@ function fakeMatch(matchId: string, round: number, dateIso: string): Match {
   };
 }
 
-describe("AflTablesLadderSource.asOfMatch (#119)", () => {
-  function clientStub(matches: Match[]): AflTablesClient {
-    return {
-      fetchSeasonResults: vi.fn(async () => ({ success: true as const, data: matches })),
-    } as unknown as AflTablesClient;
-  }
+/** An AFL Tables service whose season results are `matches`. */
+function aflTablesWith(matches: Match[]) {
+  const unused = Effect.fail(new ScrapeError({ message: "not used", source: "afl-tables" }));
 
-  it("populates asOfMatch with the most recent completed match in scope", async () => {
+  return Layer.succeed(AflTables, {
+    fetchSeasonResults: () => Effect.succeed(matches),
+    fetchSeasonPlayerStats: () => unused,
+    fetchTeamStats: () => unused,
+    fetchPlayerList: () => unused,
+  });
+}
+
+describe("aflTablesLadderSource.asOfMatch (#119)", () => {
+  it.effect("populates asOfMatch with the most recent completed match in scope", () => {
     const matches = [
       fakeMatch("AT_1", 1, "2024-03-15T09:30:00Z"),
       fakeMatch("AT_2", 1, "2024-03-16T03:00:00Z"),
       fakeMatch("AT_3", 2, "2024-03-22T09:30:00Z"),
     ];
 
-    const source = new AflTablesLadderSource(clientStub(matches));
+    return Effect.gen(function* () {
+      const source = yield* aflTablesLadderSource;
 
-    const result = await source.fetchLadder({ source: "afl-tables", season: 2024 });
-    expect(result.success).toBe(true);
+      const ladder = yield* source.fetchLadder({ source: "afl-tables", season: 2024 });
 
-    if (!result.success) return;
-    expect(result.data.asOfMatch).toBe("AT_3");
-    // Envelope stamps source consistently (#120).
-    expect(result.data.source).toBe("afl-tables");
+      expect(ladder.asOfMatch).toBe("AT_3");
+      // Envelope stamps source consistently (#120).
+      expect(ladder.source).toBe("afl-tables");
+    }).pipe(Effect.provide(aflTablesWith(matches)));
   });
 
-  it("when --round is passed, asOfMatch reflects the latest match at-or-before that round", async () => {
-    const matches = [
-      fakeMatch("AT_1", 1, "2024-03-15T09:30:00Z"),
-      fakeMatch("AT_2", 2, "2024-03-22T09:30:00Z"),
-      fakeMatch("AT_3", 3, "2024-03-29T09:30:00Z"),
-    ];
+  it.effect(
+    "when --round is passed, asOfMatch reflects the latest match at-or-before that round",
+    () => {
+      const matches = [
+        fakeMatch("AT_1", 1, "2024-03-15T09:30:00Z"),
+        fakeMatch("AT_2", 2, "2024-03-22T09:30:00Z"),
+        fakeMatch("AT_3", 3, "2024-03-29T09:30:00Z"),
+      ];
 
-    const source = new AflTablesLadderSource(clientStub(matches));
+      return Effect.gen(function* () {
+        const source = yield* aflTablesLadderSource;
 
-    const result = await source.fetchLadder({ source: "afl-tables", season: 2024, round: 2 });
-    expect(result.success).toBe(true);
+        const ladder = yield* source.fetchLadder({ source: "afl-tables", season: 2024, round: 2 });
 
-    if (!result.success) return;
-    expect(result.data.asOfMatch).toBe("AT_2");
-  });
+        expect(ladder.asOfMatch).toBe("AT_2");
+      }).pipe(Effect.provide(aflTablesWith(matches)));
+    },
+  );
 
-  it("asOfMatch is null when no completed match is in scope", async () => {
-    const source = new AflTablesLadderSource(clientStub([]));
+  it.effect("asOfMatch is null when no completed match is in scope", () =>
+    Effect.gen(function* () {
+      const source = yield* aflTablesLadderSource;
 
-    const result = await source.fetchLadder({ source: "afl-tables", season: 2024 });
-    expect(result.success).toBe(true);
+      const ladder = yield* source.fetchLadder({ source: "afl-tables", season: 2024 });
 
-    if (!result.success) return;
-    expect(result.data.asOfMatch).toBeNull();
-  });
+      expect(ladder.asOfMatch).toBeNull();
+    }).pipe(Effect.provide(aflTablesWith([]))),
+  );
 });

@@ -1,39 +1,27 @@
-import { seasonYear } from "../../lib/seasons";
 /**
  * AFL API source adapters.
  *
- * One class per capability (Match, PlayerStats, Squad, Lineup, Ladder)
+ * One adapter per capability (Match, PlayerStats, Squad, Lineup, Ladder)
  * because each capability has its own coverage map. AFL API supports the
  * same season ranges across all of its operations, but per-capability
- * classes keep the design uniform with sources whose coverage *does* vary
+ * adapters keep the design uniform with sources whose coverage *does* vary
  * per operation (e.g., AFL Tables: matches from 1897, stats from ~1965).
  */
 
-import { batchedMap } from "../../lib/concurrency";
+import { Effect, Result } from "effect";
+import { batched } from "../../lib/batched";
 import { parseDate } from "../../lib/date-utils";
 import { AflApiError, ValidationError } from "../../lib/errors";
 import { safeInt } from "../../lib/parse-utils";
-import { err, ok, type Result } from "../../lib/result";
+import { seasonYear } from "../../lib/seasons";
 import { AFL_API_TEAM_IDS, normaliseTeamName } from "../../lib/team-mapping";
+import type { MatchItem } from "../../lib/validation";
 import { transformLadderEntries } from "../../transforms/ladder";
 import { transformMatchRoster } from "../../transforms/lineup";
 import { inferRoundType, transformMatchItems } from "../../transforms/match-results";
 import { transformPlayerStats } from "../../transforms/player-stats";
-import type {
-  Ladder,
-  LadderQuery,
-  Lineup,
-  LineupQuery,
-  Match,
-  MatchQuery,
-  Player,
-  PlayerStats,
-  PlayerStatsQuery,
-  SeasonPlayerStats,
-  Squad,
-  SquadQuery,
-} from "../../types";
-import { AflApiClient } from "../afl-api";
+import type { CompetitionCode, Lineup, Player, PlayerStats, SeasonSelector } from "../../types";
+import { AflApi } from "../afl-api";
 import type {
   LadderSource,
   LineupSource,
@@ -51,368 +39,368 @@ const AFL_API_COVERAGE: CoverageMap = new Map([
   ["VFLW", { minSeason: 2021 }],
 ]);
 
-/** AFL API as a MatchSource. */
-export class AflApiMatchSource implements MatchSource {
-  readonly id = "afl-api" as const;
-  readonly coverage = AFL_API_COVERAGE;
+/**
+ * Find a match in its season's full inventory, failing when it is not in
+ * the competition season or not in the requested round.
+ */
+function findSeasonMember(
+  client: AflApi["Service"],
+  query: {
+    readonly competition: CompetitionCode;
+    readonly season: SeasonSelector;
+    readonly round?: number | undefined;
+    readonly matchId: string;
+  },
+) {
+  return Effect.gen(function* () {
+    const scope = yield* client.resolveCompSeason(query.competition, query.season);
+    const inventory = yield* client.fetchSeasonMatchItems(scope, { includeUpcoming: true });
+    const member = inventory.find((item) => item.match.matchId === query.matchId);
 
-  constructor(private readonly client: AflApiClient = new AflApiClient()) {}
+    if (!member || (query.round !== undefined && member.round?.roundNumber !== query.round)) {
+      return yield* Effect.fail(
+        new ValidationError({
+          message: `Match ${query.matchId} does not belong to ${query.competition} ${query.season} within the requested round`,
+        }),
+      );
+    }
 
-  async fetchMatches(query: MatchQuery): Promise<Result<Match[], Error>> {
-    const competition = query.competition ?? "AFLM";
-    const seasonResult = await this.client.resolveCompSeason(competition, query.season);
-
-    if (!seasonResult.success) return seasonResult;
-
-    const includeUpcoming = query.status !== "Complete";
-
-    const itemsResult =
-      query.round != null
-        ? await this.client.fetchRoundMatchItemsByNumber(seasonResult.data, query.round)
-        : await this.client.fetchSeasonMatchItems(seasonResult.data, { includeUpcoming });
-
-    if (!itemsResult.success) return itemsResult;
-
-    return ok(transformMatchItems(itemsResult.data, seasonYear(query.season), competition));
-  }
+    return member;
+  });
 }
+
+/** AFL API as a MatchSource. */
+export const aflApiMatchSource: Effect.Effect<MatchSource, never, AflApi> = Effect.gen(
+  function* () {
+    const client = yield* AflApi;
+
+    return {
+      id: "afl-api",
+      coverage: AFL_API_COVERAGE,
+      fetchMatches: (query) =>
+        Effect.gen(function* () {
+          const competition = query.competition ?? "AFLM";
+          const seasonId = yield* client.resolveCompSeason(competition, query.season);
+          const includeUpcoming = query.status !== "Complete";
+
+          const items =
+            query.round != null
+              ? yield* client.fetchRoundMatchItemsByNumber(seasonId, query.round)
+              : yield* client.fetchSeasonMatchItems(seasonId, { includeUpcoming });
+
+          return transformMatchItems(items, seasonYear(query.season), competition);
+        }),
+    };
+  },
+);
 
 /** AFL API as a PlayerStatsSource. */
-export class AflApiPlayerStatsSource implements PlayerStatsSource {
-  readonly id = "afl-api" as const;
-  readonly coverage = AFL_API_COVERAGE;
+export const aflApiPlayerStatsSource: Effect.Effect<PlayerStatsSource, never, AflApi> = Effect.gen(
+  function* () {
+    const client = yield* AflApi;
 
-  constructor(private readonly client: AflApiClient = new AflApiClient()) {}
+    return {
+      id: "afl-api",
+      coverage: AFL_API_COVERAGE,
+      fetchPlayerStats: (query) =>
+        Effect.gen(function* () {
+          const competition = query.competition ?? "AFLM";
 
-  async fetchPlayerStats(query: PlayerStatsQuery): Promise<Result<SeasonPlayerStats, Error>> {
-    const competition = query.competition ?? "AFLM";
+          if (query.matchId) {
+            const matchId = query.matchId;
 
-    if (query.matchId) {
-      const scope = await this.client.resolveCompSeason(competition, query.season);
+            const member = yield* findSeasonMember(client, {
+              competition,
+              season: query.season,
+              round: query.round,
+              matchId,
+            });
 
-      if (!scope.success) return scope;
+            const [rosterResult, statsResult] = yield* Effect.all(
+              [
+                Effect.result(client.fetchMatchRoster(matchId)),
+                Effect.result(client.fetchPlayerStats(matchId)),
+              ],
+              { concurrency: "unbounded" },
+            );
 
-      const inventory = await this.client.fetchSeasonMatchItems(scope.data, {
-        includeUpcoming: true,
-      });
+            if (Result.isFailure(statsResult)) return yield* Effect.fail(statsResult.failure);
 
-      if (!inventory.success) return inventory;
-      const member = inventory.data.find((item) => item.match.matchId === query.matchId);
+            const teamIdMap = new Map<string, string>(AFL_API_TEAM_IDS);
 
-      if (!member || (query.round !== undefined && member.round?.roundNumber !== query.round)) {
-        return err(
-          new ValidationError({
-            message: `Match ${query.matchId} does not belong to ${competition} ${query.season} within the requested round`,
-          }),
-        );
-      }
+            if (Result.isSuccess(rosterResult)) {
+              const match = rosterResult.success.match;
+              teamIdMap.set(match.homeTeamId, normaliseTeamName(match.homeTeam.name));
+              teamIdMap.set(match.awayTeamId, normaliseTeamName(match.awayTeam.name));
+            }
 
-      const [rosterResult, statsResult] = await Promise.all([
-        this.client.fetchMatchRoster(query.matchId),
-        this.client.fetchPlayerStats(query.matchId),
-      ]);
+            return {
+              stats: transformPlayerStats(statsResult.success, {
+                matchId,
+                season: seasonYear(query.season),
+                roundNumber: member.round?.roundNumber ?? 0,
+                competition,
+                source: "afl-api",
+                teamIdMap,
+              }),
+              failedMatchIds: [],
+            };
+          }
 
-      if (!statsResult.success) return statsResult;
+          const seasonId = yield* client.resolveCompSeason(competition, query.season);
 
-      const teamIdMap = new Map<string, string>(AFL_API_TEAM_IDS);
+          const matchItems: readonly MatchItem[] =
+            query.round != null
+              ? yield* client.fetchRoundMatchItemsByNumber(seasonId, query.round)
+              : yield* client.fetchSeasonMatchItems(seasonId);
 
-      if (rosterResult.success) {
-        const match = rosterResult.data.match;
-        teamIdMap.set(match.homeTeamId, normaliseTeamName(match.homeTeam.name));
-        teamIdMap.set(match.awayTeamId, normaliseTeamName(match.awayTeam.name));
-      }
+          const teamIdMap = new Map<string, string>();
 
-      return ok({
-        stats: transformPlayerStats(statsResult.data, {
-          matchId: query.matchId,
-          season: seasonYear(query.season),
-          roundNumber: member.round?.roundNumber ?? 0,
-          competition,
-          source: "afl-api",
-          teamIdMap,
+          for (const item of matchItems) {
+            teamIdMap.set(item.match.homeTeamId, item.match.homeTeam.name);
+            teamIdMap.set(item.match.awayTeamId, item.match.awayTeam.name);
+          }
+
+          const statsResults = yield* batched(matchItems, (item) =>
+            Effect.result(client.fetchPlayerStats(item.match.matchId)),
+          );
+
+          // Isolate failed matches and preserve every successful provider response.
+          const allStats: PlayerStats[] = [];
+          const failedMatchIds: string[] = [];
+
+          for (const [i, statsResult] of statsResults.entries()) {
+            const item = matchItems[i];
+
+            if (!item) continue;
+
+            if (Result.isFailure(statsResult)) {
+              failedMatchIds.push(item.match.matchId);
+              continue;
+            }
+
+            allStats.push(
+              ...transformPlayerStats(statsResult.success, {
+                matchId: item.match.matchId,
+                season: seasonYear(query.season),
+                roundNumber: item.round?.roundNumber ?? query.round ?? 0,
+                competition,
+                source: "afl-api",
+                teamIdMap,
+                date: parseDate(item.match.utcStartTime) ?? new Date(item.match.utcStartTime),
+                homeTeam: normaliseTeamName(item.match.homeTeam.name),
+                awayTeam: normaliseTeamName(item.match.awayTeam.name),
+              }),
+            );
+          }
+
+          return { stats: allStats, failedMatchIds };
         }),
-        failedMatchIds: [],
-      });
-    }
-
-    const seasonResult = await this.client.resolveCompSeason(competition, query.season);
-
-    if (!seasonResult.success) return seasonResult;
-
-    const matchItemsResult =
-      query.round != null
-        ? await this.client.fetchRoundMatchItemsByNumber(seasonResult.data, query.round)
-        : await this.client.fetchSeasonMatchItems(seasonResult.data);
-
-    if (!matchItemsResult.success) return matchItemsResult;
-
-    const teamIdMap = new Map<string, string>();
-
-    for (const item of matchItemsResult.data) {
-      teamIdMap.set(item.match.homeTeamId, item.match.homeTeam.name);
-      teamIdMap.set(item.match.awayTeamId, item.match.awayTeam.name);
-    }
-
-    const statsResults = await batchedMap(matchItemsResult.data, (item) =>
-      this.client.fetchPlayerStats(item.match.matchId),
-    );
-
-    // Isolate failed matches and preserve every successful provider response.
-    const allStats: PlayerStats[] = [];
-    const failedMatchIds: string[] = [];
-
-    for (let i = 0; i < statsResults.length; i++) {
-      const statsResult = statsResults[i];
-      const item = matchItemsResult.data[i];
-
-      if (!item) continue;
-
-      if (!statsResult?.success) {
-        failedMatchIds.push(item.match.matchId);
-        continue;
-      }
-
-      allStats.push(
-        ...transformPlayerStats(statsResult.data, {
-          matchId: item.match.matchId,
-          season: seasonYear(query.season),
-          roundNumber: item.round?.roundNumber ?? query.round ?? 0,
-          competition,
-          source: "afl-api",
-          teamIdMap,
-          date: parseDate(item.match.utcStartTime) ?? new Date(item.match.utcStartTime),
-          homeTeam: normaliseTeamName(item.match.homeTeam.name),
-          awayTeam: normaliseTeamName(item.match.awayTeam.name),
-        }),
-      );
-    }
-
-    return ok({ stats: allStats, failedMatchIds });
-  }
-}
+    };
+  },
+);
 
 /** AFL API as a SquadSource. */
-export class AflApiSquadSource implements SquadSource {
-  readonly id = "afl-api" as const;
-  readonly coverage = AFL_API_COVERAGE;
+export const aflApiSquadSource: Effect.Effect<SquadSource, never, AflApi> = Effect.gen(
+  function* () {
+    const client = yield* AflApi;
 
-  constructor(private readonly client: AflApiClient = new AflApiClient()) {}
+    /** Resolve a canonical team name to the AFL API's numeric team ID. */
+    const resolveTeamId = (teamName: string, competition: CompetitionCode) =>
+      Effect.gen(function* () {
+        const teams = yield* client.fetchTeams(competition);
+        const normalised = normaliseTeamName(teamName);
+        const match = teams.find((t) => normaliseTeamName(t.name) === normalised);
 
-  async fetchSquad(query: SquadQuery): Promise<Result<Squad, Error>> {
-    const competition = query.competition ?? "AFLM";
-    const seasonResult = await this.client.resolveCompSeason(competition, query.season);
+        if (!match) {
+          return yield* Effect.fail(
+            new ValidationError({ message: `Team not found in ${competition}: ${teamName}` }),
+          );
+        }
 
-    if (!seasonResult.success) return seasonResult;
+        return match.id;
+      });
 
-    const teamIdResult = await this.resolveTeamId(query.team, competition);
+    return {
+      id: "afl-api",
+      coverage: AFL_API_COVERAGE,
+      fetchSquad: (query) =>
+        Effect.gen(function* () {
+          const competition = query.competition ?? "AFLM";
+          const seasonId = yield* client.resolveCompSeason(competition, query.season);
+          const teamId = yield* resolveTeamId(query.team, competition);
+          const squad = yield* client.fetchSquad(teamId, seasonId);
 
-    if (!teamIdResult.success) return teamIdResult;
+          const teamName = normaliseTeamName(squad.squad.team?.name ?? query.team);
 
-    const squadResult = await this.client.fetchSquad(teamIdResult.data, seasonResult.data);
+          const players: Player[] = squad.squad.players.map((p) => ({
+            playerId: p.player.providerId ?? String(p.player.id),
+            givenName: p.player.firstName,
+            surname: p.player.surname,
+            displayName: `${p.player.firstName} ${p.player.surname}`,
+            jumperNumber: p.jumperNumber ?? null,
+            position: p.position ?? null,
+            dateOfBirth: p.player.dateOfBirth ?? null,
+            heightCm: p.player.heightInCm || null,
+            weightKg: p.player.weightInKg || null,
+            draftYear: safeInt(p.player.draftYear ?? ""),
+            draftPosition: safeInt(p.player.draftPosition ?? ""),
+            draftType: p.player.draftType ?? null,
+            debutYear: safeInt(p.player.debutYear ?? ""),
+            recruitedFrom: p.player.recruitedFrom ?? null,
+            // AFL API squad endpoint doesn't carry career counters
+            gamesPlayed: null,
+            goals: null,
+            team: teamName,
+            source: "afl-api",
+            competition,
+          }));
 
-    if (!squadResult.success) return squadResult;
-
-    const teamName = normaliseTeamName(squadResult.data.squad.team?.name ?? query.team);
-
-    const players: Player[] = squadResult.data.squad.players.map((p) => ({
-      playerId: p.player.providerId ?? String(p.player.id),
-      givenName: p.player.firstName,
-      surname: p.player.surname,
-      displayName: `${p.player.firstName} ${p.player.surname}`,
-      jumperNumber: p.jumperNumber ?? null,
-      position: p.position ?? null,
-      dateOfBirth: p.player.dateOfBirth ?? null,
-      heightCm: p.player.heightInCm || null,
-      weightKg: p.player.weightInKg || null,
-      draftYear: safeInt(p.player.draftYear ?? ""),
-      draftPosition: safeInt(p.player.draftPosition ?? ""),
-      draftType: p.player.draftType ?? null,
-      debutYear: safeInt(p.player.debutYear ?? ""),
-      recruitedFrom: p.player.recruitedFrom ?? null,
-      // AFL API squad endpoint doesn't carry career counters
-      gamesPlayed: null,
-      goals: null,
-      team: teamName,
-      source: "afl-api",
-      competition,
-    }));
-
-    return ok({
-      teamId: String(teamIdResult.data),
-      teamName,
-      season: seasonYear(query.season),
-      scope: "season",
-      players,
-      competition,
-      source: "afl-api" as const,
-    });
-  }
-
-  /** Resolve a canonical team name to the AFL API's numeric team ID. */
-  private async resolveTeamId(
-    teamName: string,
-    competition: "AFLM" | "AFLW" | "VFL" | "VFLW",
-  ): Promise<Result<number, Error>> {
-    const teamsResult = await this.client.fetchTeams(competition);
-
-    if (!teamsResult.success) return teamsResult;
-
-    const normalised = normaliseTeamName(teamName);
-    const match = teamsResult.data.find((t) => normaliseTeamName(t.name) === normalised);
-
-    if (!match) {
-      return err(new ValidationError({ message: `Team not found in ${competition}: ${teamName}` }));
-    }
-
-    return ok(match.id);
-  }
-}
+          return {
+            teamId: String(teamId),
+            teamName,
+            season: seasonYear(query.season),
+            scope: "season" as const,
+            players,
+            competition,
+            source: "afl-api" as const,
+          };
+        }),
+    };
+  },
+);
 
 /** AFL API as a LineupSource. */
-export class AflApiLineupSource implements LineupSource {
-  readonly id = "afl-api" as const;
-  readonly coverage = AFL_API_COVERAGE;
+export const aflApiLineupSource: Effect.Effect<LineupSource, never, AflApi> = Effect.gen(
+  function* () {
+    const client = yield* AflApi;
 
-  constructor(private readonly client: AflApiClient = new AflApiClient()) {}
+    return {
+      id: "afl-api",
+      coverage: AFL_API_COVERAGE,
+      fetchLineup: (query) =>
+        Effect.gen(function* () {
+          const competition = query.competition ?? "AFLM";
 
-  async fetchLineup(query: LineupQuery): Promise<Result<Lineup[], Error>> {
-    const competition = query.competition ?? "AFLM";
+          if (query.matchId) {
+            yield* findSeasonMember(client, {
+              competition,
+              season: query.season,
+              round: query.round,
+              matchId: query.matchId,
+            });
 
-    if (query.matchId) {
-      const scope = await this.client.resolveCompSeason(competition, query.season);
+            const roster = yield* client.fetchMatchRoster(query.matchId);
 
-      if (!scope.success) return scope;
+            return [
+              transformMatchRoster(roster, seasonYear(query.season), query.round, competition),
+            ];
+          }
 
-      const inventory = await this.client.fetchSeasonMatchItems(scope.data, {
-        includeUpcoming: true,
-      });
+          const seasonId = yield* client.resolveCompSeason(competition, query.season);
+          const matchItems = yield* client.fetchRoundMatchItemsByNumber(seasonId, query.round);
 
-      if (!inventory.success) return inventory;
-      const member = inventory.data.find((item) => item.match.matchId === query.matchId);
+          if (matchItems.length === 0) {
+            return yield* Effect.fail(
+              new AflApiError({ message: `No matches found for round ${query.round}` }),
+            );
+          }
 
-      if (!member || (query.round !== undefined && member.round?.roundNumber !== query.round)) {
-        return err(
-          new ValidationError({
-            message: `Match ${query.matchId} does not belong to ${competition} ${query.season} within the requested round`,
-          }),
-        );
-      }
+          // Every roster is fetched; the first failure in match order is reported.
+          const rosterResults = yield* batched(matchItems, (item) =>
+            Effect.result(client.fetchMatchRoster(item.match.matchId)),
+          );
 
-      const rosterResult = await this.client.fetchMatchRoster(query.matchId);
+          const lineups: Lineup[] = [];
 
-      if (!rosterResult.success) return rosterResult;
+          for (const rosterResult of rosterResults) {
+            if (Result.isFailure(rosterResult)) return yield* Effect.fail(rosterResult.failure);
+            lineups.push(
+              transformMatchRoster(
+                rosterResult.success,
+                seasonYear(query.season),
+                query.round,
+                competition,
+              ),
+            );
+          }
 
-      return ok([
-        transformMatchRoster(rosterResult.data, seasonYear(query.season), query.round, competition),
-      ]);
-    }
-
-    const seasonResult = await this.client.resolveCompSeason(competition, query.season);
-
-    if (!seasonResult.success) return seasonResult;
-
-    const matchItems = await this.client.fetchRoundMatchItemsByNumber(
-      seasonResult.data,
-      query.round,
-    );
-
-    if (!matchItems.success) return matchItems;
-
-    if (matchItems.data.length === 0) {
-      return err(new AflApiError({ message: `No matches found for round ${query.round}` }));
-    }
-
-    const rosterResults = await batchedMap(matchItems.data, (item) =>
-      this.client.fetchMatchRoster(item.match.matchId),
-    );
-
-    const lineups: Lineup[] = [];
-
-    for (const rosterResult of rosterResults) {
-      if (!rosterResult.success) return rosterResult;
-      lineups.push(
-        transformMatchRoster(rosterResult.data, seasonYear(query.season), query.round, competition),
-      );
-    }
-
-    return ok(lineups);
-  }
-}
+          return lineups;
+        }),
+    };
+  },
+);
 
 /** AFL API as a LadderSource. */
-export class AflApiLadderSource implements LadderSource {
-  readonly id = "afl-api" as const;
-  readonly coverage = AFL_API_COVERAGE;
+export const aflApiLadderSource: Effect.Effect<LadderSource, never, AflApi> = Effect.gen(
+  function* () {
+    const client = yield* AflApi;
 
-  constructor(private readonly client: AflApiClient = new AflApiClient()) {}
+    return {
+      id: "afl-api",
+      coverage: AFL_API_COVERAGE,
+      fetchLadder: (query) =>
+        Effect.gen(function* () {
+          const competition = query.competition ?? "AFLM";
+          const seasonId = yield* client.resolveCompSeason(competition, query.season);
+          const rounds = yield* client.resolveRounds(seasonId);
 
-  async fetchLadder(query: LadderQuery): Promise<Result<Ladder, Error>> {
-    const competition = query.competition ?? "AFLM";
-    const seasonResult = await this.client.resolveCompSeason(competition, query.season);
+          let roundId: number | undefined;
 
-    if (!seasonResult.success) return seasonResult;
+          if (query.round != null) {
+            // Honour an explicit round number.
+            const round = rounds.find((r) => r.roundNumber === query.round);
 
-    const roundsResult = await this.client.resolveRounds(seasonResult.data);
+            if (!round) {
+              return yield* Effect.fail(
+                new AflApiError({
+                  message: `Round ${query.round} was not found for the ${query.season} season`,
+                }),
+              );
+            }
 
-    if (!roundsResult.success) return roundsResult;
+            roundId = round.id;
+          } else {
+            // No explicit round — resolve to the latest *completed* H&A round.
+            // Finals don't alter the ladder (it's a Home & Away artefact only),
+            // so we always anchor the default to H&A. Without this, the AFL API
+            // returns a stale early-season snapshot for completed seasons (#90).
+            const haRounds = rounds.filter((r) => inferRoundType(r.name) === "HomeAndAway");
+            const now = Date.now();
 
-    let roundId: number | undefined;
+            const completedHa = haRounds.filter((r) => {
+              if (r.utcEndTime == null) return false;
+              const end = new Date(r.utcEndTime).getTime();
 
-    if (query.round != null) {
-      // Honour an explicit round number.
-      const round = roundsResult.data.find((r) => r.roundNumber === query.round);
+              return Number.isFinite(end) && end <= now;
+            });
 
-      if (!round) {
-        return err(
-          new AflApiError({
-            message: `Round ${query.round} was not found for the ${query.season} season`,
-          }),
-        );
-      }
+            // Sort by roundNumber descending — pick the latest. If no round has
+            // ended yet (very early in a season), pass through with no roundId
+            // so the API returns whatever it considers current.
+            const latest = completedHa.sort((a, b) => b.roundNumber - a.roundNumber)[0];
 
-      roundId = round.id;
-    } else {
-      // No explicit round — resolve to the latest *completed* H&A round.
-      // Finals don't alter the ladder (it's a Home & Away artefact only),
-      // so we always anchor the default to H&A. Without this, the AFL API
-      // returns a stale early-season snapshot for completed seasons (#90).
-      const haRounds = roundsResult.data.filter((r) => inferRoundType(r.name) === "HomeAndAway");
-      const now = Date.now();
+            if (latest) {
+              roundId = latest.id;
+            }
+          }
 
-      const completedHa = haRounds.filter((r) => {
-        if (r.utcEndTime == null) return false;
-        const end = new Date(r.utcEndTime).getTime();
+          const ladder = yield* client.fetchLadder(seasonId, roundId);
+          const firstLadder = ladder.ladders[0];
+          const entries = firstLadder ? transformLadderEntries(firstLadder.entries) : [];
 
-        return Number.isFinite(end) && end <= now;
-      });
-
-      // Sort by roundNumber descending — pick the latest. If no round has
-      // ended yet (very early in a season), pass through with no roundId
-      // so the API returns whatever it considers current.
-      const latest = completedHa.sort((a, b) => b.roundNumber - a.roundNumber)[0];
-
-      if (latest) {
-        roundId = latest.id;
-      }
-    }
-
-    const ladderResult = await this.client.fetchLadder(seasonResult.data, roundId);
-
-    if (!ladderResult.success) return ladderResult;
-
-    const firstLadder = ladderResult.data.ladders[0];
-    const entries = firstLadder ? transformLadderEntries(firstLadder.entries) : [];
-
-    return ok({
-      season: seasonYear(query.season),
-      roundNumber: ladderResult.data.round?.roundNumber ?? null,
-      entries,
-      competition,
-      source: "afl-api" as const,
-      // AFL API's ladder response doesn't include the most-recent-match id
-      // on its current schema (#119); leave null. Sources that synthesise
-      // the ladder from match results (afl-tables) populate it.
-      asOfMatch: null,
-    });
-  }
-}
+          return {
+            season: seasonYear(query.season),
+            roundNumber: ladder.round?.roundNumber ?? null,
+            entries,
+            competition,
+            source: "afl-api" as const,
+            // AFL API's ladder response doesn't include the most-recent-match id
+            // on its current schema (#119); leave null. Sources that synthesise
+            // the ladder from match results (afl-tables) populate it.
+            asOfMatch: null,
+          };
+        }),
+    };
+  },
+);

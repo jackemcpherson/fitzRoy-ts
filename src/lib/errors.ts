@@ -106,6 +106,16 @@ export class AmbiguousSeasonError extends Schema.TaggedError<AmbiguousSeasonErro
   }
 }
 
+/** A multi-request operation produced no usable data (every part failed). */
+export class IncompleteDataError extends Schema.TaggedError<IncompleteDataError>()(
+  "IncompleteDataError",
+  {
+    message: Schema.String,
+    /** The first underlying failure, when one exists. */
+    cause: Schema.optional(Schema.Unknown),
+  },
+) {}
+
 /** Every expected failure a data source can report. */
 export type SourceError =
   | AflApiError
@@ -114,4 +124,5 @@ export type SourceError =
   | UnsupportedSourceError
   | UnsupportedCompetitionError
   | OutOfRangeError
-  | AmbiguousSeasonError;
+  | AmbiguousSeasonError
+  | IncompleteDataError;

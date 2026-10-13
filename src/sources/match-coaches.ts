@@ -1,12 +1,10 @@
 /** Source-grounded match coach readers. */
 
-import { Schema } from "effect";
-import { batchedMap } from "../lib/concurrency";
-import { decodeWith } from "../lib/decode";
+import { Context, Effect, Layer, Result, Schema } from "effect";
+import { batched } from "../lib/batched";
 import { ScrapeError } from "../lib/errors";
+import { readText, SourceHttp } from "../lib/http";
 import { parseHtml } from "../lib/parse-html";
-import { err, ok, type Result } from "../lib/result";
-import { createSourceFetch, type SourceFetchOptions } from "../lib/source-fetch";
 import { AFL_SENIOR_TEAMS, normaliseTeamName } from "../lib/team-mapping";
 import type {
   CompetitionCode,
@@ -22,7 +20,8 @@ const AFL_TABLES_ORIGIN = "https://afltables.com";
 
 const FOOTYWIRE_ORIGIN = "https://www.footywire.com";
 
-interface FootyWireCoachMatch {
+/** A FootyWire match whose page names both coaches. */
+export interface FootyWireCoachMatch {
   readonly competition: CompetitionCode;
   readonly season: number;
   readonly matchId: string;
@@ -34,305 +33,323 @@ interface FootyWireCoachMatch {
   readonly roundName: string | null;
 }
 
+/** Coach-profile pages selected for a season, keyed by URL. */
+interface CoachPage {
+  readonly name: string;
+  readonly url: string;
+}
+
 /** Fetch and parse match-coach assignments from AFL Tables or FootyWire. */
-export class MatchCoachesClient {
-  private readonly fetchFn: typeof fetch;
-
-  constructor(options?: SourceFetchOptions) {
-    this.fetchFn = createSourceFetch(options);
-  }
-
-  /** Fetch AFL Tables coach profile records and retain per-profile failures. */
-  async fetchAflTablesSeason(
-    season: number,
-    batch?: MatchCoachesQuery["batch"],
-  ): Promise<
-    Result<
+export class MatchCoaches extends Context.Service<
+  MatchCoaches,
+  {
+    /** Fetch AFL Tables coach profile records and retain per-profile failures. */
+    readonly fetchAflTablesSeason: (
+      season: number,
+      batch?: MatchCoachesQuery["batch"],
+    ) => Effect.Effect<
       {
         assignments: MatchCoachAssignment[];
         failures: MatchCoachFailure[];
         batch?: MatchCoachesResult["batch"];
       },
       ScrapeError
-    >
-  > {
-    const coaches = new Map<string, { name: string; url: string }>();
+    >;
+    /** Read coach headings from FootyWire match pages for a season. */
+    readonly fetchFootyWireMatches: (matches: readonly FootyWireCoachMatch[]) => Effect.Effect<{
+      assignments: MatchCoachAssignment[];
+      failures: MatchCoachFailure[];
+    }>;
+  }
+>()("fitzroy/MatchCoaches") {}
 
-    const cursorSchema = Schema.Struct({
-      season: Schema.Literal(season),
-      pages: Schema.Array(
-        Schema.Struct({
-          name: NonEmptyString,
-          url: UrlString.check(Schema.makeFilter(isAflTablesCoachProfileUrl)),
-        }),
-      ).check(Schema.isMaxLength(1000)),
-    });
+/** The live match-coach reader over {@link SourceHttp}. */
+export const MatchCoachesLive = Layer.effect(
+  MatchCoaches,
+  Effect.gen(function* () {
+    const http = yield* SourceHttp;
 
-    if (
-      batch?.limit !== undefined &&
-      (!Number.isInteger(batch.limit) || batch.limit < 1 || batch.limit > 5)
-    )
-      return err(
-        new ScrapeError({
-          message: "Batch limit must be between one and five profiles",
-          source: "afl-tables",
-        }),
+    /** Read a page under the shared source request policy. */
+    const readPage = (url: string, source: "afl-tables" | "footywire") =>
+      Effect.gen(function* () {
+        const response = yield* http.request(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+
+        if (!response.ok)
+          return yield* Effect.fail(
+            new ScrapeError({
+              message: `${source} request failed: ${response.status} (${url})`,
+              source,
+            }),
+          );
+
+        return yield* readText(response);
+      }).pipe(
+        Effect.catchTag("RequestError", (error) =>
+          Effect.fail(
+            new ScrapeError({ message: `${source} request failed: ${error.message}`, source }),
+          ),
+        ),
       );
 
-    if (batch?.cursor) {
-      try {
-        const cursor = Schema.decodeUnknownSync(cursorSchema)(JSON.parse(batch.cursor));
+    return {
+      fetchAflTablesSeason: (season, batch) =>
+        Effect.gen(function* () {
+          if (
+            batch?.limit !== undefined &&
+            (!Number.isInteger(batch.limit) || batch.limit < 1 || batch.limit > 5)
+          )
+            return yield* Effect.fail(
+              new ScrapeError({
+                message: "Batch limit must be between one and five profiles",
+                source: "afl-tables",
+              }),
+            );
 
-        for (const page of cursor.pages) coaches.set(page.url, page);
-      } catch {
-        return err(
-          new ScrapeError({
-            message: "Invalid season-specific coaching cursor",
-            source: "afl-tables",
-          }),
-        );
-      }
-    } else {
-      const index = await this.readPage(INDEX_URL, "afl-tables");
+          const coaches = new Map<string, CoachPage>();
 
-      if (!index.success) return index;
-      const $ = parseHtml(index.data);
-      $("a[href]").each((_index, element) => {
-        const href = $(element).attr("href");
-        const name = $(element).text().trim();
+          if (batch?.cursor) {
+            const cursor = decodeCursor(batch.cursor, season);
 
-        if (!href || !name) return;
+            if (Result.isFailure(cursor))
+              return yield* Effect.fail(
+                new ScrapeError({
+                  message: "Invalid season-specific coaching cursor",
+                  source: "afl-tables",
+                }),
+              );
 
-        try {
-          const url = new URL(href, INDEX_URL);
+            for (const page of cursor.success.pages) coaches.set(page.url, page);
+          } else {
+            const index = yield* readPage(INDEX_URL, "afl-tables");
+
+            for (const page of parseAflTablesCoachIndex(index)) coaches.set(page.url, page);
+
+            if (coaches.size === 0)
+              return yield* Effect.fail(
+                new ScrapeError({
+                  message: "AFL Tables coach index contained no coach profiles",
+                  source: "afl-tables",
+                }),
+              );
+          }
+
+          const selected = batch
+            ? [...coaches.values()].slice(0, batch.limit ?? 5)
+            : [...coaches.values()];
+
+          const profiles = yield* batched(
+            selected,
+            (coach) =>
+              Effect.result(readPage(coach.url, "afl-tables")).pipe(
+                Effect.map((page) => ({ coach, page })),
+              ),
+            { batchSize: 5 },
+          );
+
+          const assignments: MatchCoachAssignment[] = [];
+          const failures: MatchCoachFailure[] = [];
+
+          for (const { coach, page } of profiles) {
+            if (Result.isFailure(page)) {
+              failures.push({
+                url: coach.url,
+                reason: page.failure.message,
+                scope: `coach:${coach.name}`,
+              });
+              continue;
+            }
+
+            const parsed = parseAflTablesCoachProfile(page.success, coach, season);
+            assignments.push(...parsed.assignments);
+
+            if (parsed.malformed)
+              failures.push({
+                url: coach.url,
+                reason: "Coach profile has no usable Games Coached rows",
+                scope: `coach:${coach.name}`,
+                coachId: `afl-tables:${coach.url}`,
+              });
+          }
 
           if (
-            url.origin === AFL_TABLES_ORIGIN &&
-            // The captured index also links club pages in this directory.
-            // Coach profile filenames contain both names separated by an underscore.
-            /^\/afl\/stats\/coaches\/[\w-]+_[\w-]+\.html$/.test(url.pathname) &&
-            !url.pathname.endsWith("coaches_idx.html")
+            !batch &&
+            profiles.length > 0 &&
+            assignments.length === 0 &&
+            failures.length === profiles.length
           )
-            coaches.set(url.href, { name, url: url.href });
-        } catch {
-          /* Non-profile navigation links are outside the request scope. */
-        }
-      });
+            return yield* Effect.fail(
+              new ScrapeError({
+                message: "Every AFL Tables coach profile failed",
+                source: "afl-tables",
+              }),
+            );
 
-      if (coaches.size === 0)
-        return err(
-          new ScrapeError({
-            message: "AFL Tables coach index contained no coach profiles",
-            source: "afl-tables",
-          }),
-        );
-    }
+          if (batch) {
+            const failed = new Set(failures.map((failure) => failure.url));
 
-    const selected = batch
-      ? [...coaches.values()].slice(0, batch.limit ?? 5)
-      : [...coaches.values()];
+            const remaining = [...coaches.values()]
+              .slice(selected.length)
+              .concat(selected.filter((page) => failed.has(page.url)));
 
-    const profiles = await batchedMap(
-      selected,
-      async (coach) => {
-        const page = await this.readPage(coach.url, "afl-tables");
+            return {
+              assignments,
+              failures,
+              batch: {
+                scope: "pages",
+                nextCursor: remaining.length ? JSON.stringify({ season, pages: remaining }) : null,
+                completedCoachIds: selected
+                  .filter((page) => !failed.has(page.url))
+                  .map((page) => `afl-tables:${page.url}`),
+              },
+            };
+          }
 
-        return { coach, page };
-      },
-      { batchSize: 5 },
-    );
+          return { assignments, failures };
+        }),
 
-    const assignments: MatchCoachAssignment[] = [];
-    const failures: MatchCoachFailure[] = [];
+      fetchFootyWireMatches: (matches) =>
+        Effect.gen(function* () {
+          const pages = yield* batched(
+            matches,
+            (match) => {
+              const providerId = match.matchId.replace(/^FW_/, "");
+              const url = footyWireMatchUrl(providerId);
 
-    for (const { coach, page } of profiles) {
-      if (!page.success) {
-        failures.push({ url: coach.url, reason: page.error.message, scope: `coach:${coach.name}` });
-        continue;
-      }
+              return Effect.result(readPage(url, "footywire")).pipe(
+                Effect.map((page) => ({ match, url, page })),
+              );
+            },
+            { batchSize: 5 },
+          );
 
-      const parsed = parseAflTablesCoachProfile(page.data, coach, season);
-      assignments.push(...parsed.assignments);
+          const assignments: MatchCoachAssignment[] = [];
+          const failures: MatchCoachFailure[] = [];
 
-      if (parsed.malformed)
-        failures.push({
-          url: coach.url,
-          reason: "Coach profile has no usable Games Coached rows",
-          scope: `coach:${coach.name}`,
-          coachId: `afl-tables:${coach.url}`,
-        });
-    }
+          for (const { match, url, page } of pages) {
+            if (Result.isFailure(page)) {
+              failures.push({
+                url,
+                reason: page.failure.message,
+                scope: `match:${match.matchId}`,
+                matchId: `footywire:${match.matchId}`,
+              });
+              continue;
+            }
+
+            const parsed = parseFootyWireMatchCoaches(page.success, match, url);
+            assignments.push(...parsed.assignments);
+
+            if (parsed.incomplete)
+              failures.push({
+                url,
+                reason: "Missing or ambiguous coach attribution for one or both participants",
+                scope: `match:${match.matchId}`,
+                matchId: `footywire:${match.matchId}`,
+              });
+          }
+
+          return { assignments, failures };
+        }),
+    };
+  }),
+);
+
+/** Coach profile links from the AFL Tables coach index, in page order. */
+function parseAflTablesCoachIndex(html: string): CoachPage[] {
+  const $ = parseHtml(html);
+  const pages: CoachPage[] = [];
+  $("a[href]").each((_index, element) => {
+    const href = $(element).attr("href");
+    const name = $(element).text().trim();
+
+    // Non-profile navigation links are outside the request scope.
+    if (!href || !name || !URL.canParse(href, INDEX_URL)) return;
+    const url = new URL(href, INDEX_URL);
 
     if (
-      !batch &&
-      profiles.length > 0 &&
-      assignments.length === 0 &&
-      failures.length === profiles.length
+      url.origin === AFL_TABLES_ORIGIN &&
+      // The captured index also links club pages in this directory.
+      // Coach profile filenames contain both names separated by an underscore.
+      /^\/afl\/stats\/coaches\/[\w-]+_[\w-]+\.html$/.test(url.pathname) &&
+      !url.pathname.endsWith("coaches_idx.html")
     )
-      return err(
-        new ScrapeError({ message: "Every AFL Tables coach profile failed", source: "afl-tables" }),
-      );
+      pages.push({ name, url: url.href });
+  });
 
-    if (batch) {
-      const failed = new Set(failures.map((failure) => failure.url));
+  return pages;
+}
 
-      const remaining = [...coaches.values()]
-        .slice(selected.length)
-        .concat(selected.filter((page) => failed.has(page.url)));
+/**
+ * Coach assignments credited on one FootyWire match page.
+ *
+ * `incomplete` is true unless exactly one coach is credited to each
+ * participant; a team credited twice is ambiguous and keeps no assignment.
+ */
+function parseFootyWireMatchCoaches(
+  html: string,
+  match: FootyWireCoachMatch,
+  url: string,
+): { assignments: MatchCoachAssignment[]; incomplete: boolean } {
+  const $ = parseHtml(html);
+  const seen = new Set<string>();
+  const assignments: MatchCoachAssignment[] = [];
+  const creditedTeams = new Set<string>();
+  const ambiguousTeams = new Set<string>();
+  $("a[href*='/cp-']").each((_index, anchor) => {
+    const coachName = $(anchor).text().trim();
+    const href = $(anchor).attr("href");
 
-      return ok({
-        assignments,
-        failures,
-        batch: {
-          scope: "pages",
-          nextCursor: remaining.length ? JSON.stringify({ season, pages: remaining }) : null,
-          completedCoachIds: selected
-            .filter((page) => !failed.has(page.url))
-            .map((page) => `afl-tables:${page.url}`),
-        },
-      });
-    }
+    if (!coachName || !href || seen.has(href) || !URL.canParse(href, FOOTYWIRE_ORIGIN)) return;
+    const coachUrl = new URL(href, FOOTYWIRE_ORIGIN).href;
 
-    return ok({ assignments, failures });
-  }
+    let team = "";
+    const row = $(anchor).closest("tr");
+    const rowText = row.text().replace(/\s+/g, " ").trim().toLowerCase();
 
-  /** Read coach headings from FootyWire match pages for a season. */
-  async fetchFootyWireMatches(matches: readonly FootyWireCoachMatch[]): Promise<{
-    assignments: MatchCoachAssignment[];
-    failures: MatchCoachFailure[];
-  }> {
-    const pages = await batchedMap(
-      matches,
-      async (match) => {
-        const providerId = match.matchId.replace(/^FW_/, "");
-        const url = footyWireMatchUrl(providerId);
-
-        return { match, url, page: await this.readPage(url, "footywire") };
-      },
-      { batchSize: 5 },
+    const participants = [match.homeTeam, match.awayTeam].filter((name) =>
+      rowText.includes(name.toLowerCase()),
     );
 
-    const assignments: MatchCoachAssignment[] = [];
-    const failures: MatchCoachFailure[] = [];
+    if (participants.length === 1) team = participants[0] ?? "";
 
-    for (const { match, url, page } of pages) {
-      if (!page.success) {
-        failures.push({
-          url,
-          reason: page.error.message,
-          scope: `match:${match.matchId}`,
-          matchId: `footywire:${match.matchId}`,
-        });
-        continue;
-      }
+    if (!team) return;
+    seen.add(href);
 
-      const $ = parseHtml(page.data);
-      const seen = new Set<string>();
-      const firstAssignment = assignments.length;
-      const creditedTeams = new Set<string>();
-      const ambiguousTeams = new Set<string>();
-      $("a[href*='/cp-']").each((_index, anchor) => {
-        const coachName = $(anchor).text().trim();
-        const href = $(anchor).attr("href");
+    const parsed = decodeAssignment({
+      competition: match.competition,
+      season: match.season,
+      team,
+      coachId: `footywire:${coachUrl}`,
+      coachName,
+      coachUrl,
+      matchId: `footywire:${match.matchId}`,
+      matchUrl: url,
+      date: match.date.toISOString().slice(0, 10),
+      homeTeam: match.homeTeam,
+      awayTeam: match.awayTeam,
+      homePoints: match.homePoints,
+      awayPoints: match.awayPoints,
+      roundName: match.roundName,
+      source: "footywire",
+    });
 
-        if (!coachName || !href || seen.has(href)) return;
-        let coachUrl: string;
+    if (Result.isSuccess(parsed) && creditedTeams.has(team)) ambiguousTeams.add(team);
 
-        try {
-          coachUrl = new URL(href, FOOTYWIRE_ORIGIN).href;
-        } catch {
-          return;
-        }
-
-        let team = "";
-        const row = $(anchor).closest("tr");
-        const rowText = row.text().replace(/\s+/g, " ").trim().toLowerCase();
-
-        const participants = [match.homeTeam, match.awayTeam].filter((name) =>
-          rowText.includes(name.toLowerCase()),
-        );
-
-        if (participants.length === 1) team = participants[0] ?? "";
-
-        if (!team) return;
-        seen.add(href);
-
-        const parsed = decodeAssignment({
-          competition: match.competition,
-          season: match.season,
-          team,
-          coachId: `footywire:${coachUrl}`,
-          coachName,
-          coachUrl,
-          matchId: `footywire:${match.matchId}`,
-          matchUrl: url,
-          date: match.date.toISOString().slice(0, 10),
-          homeTeam: match.homeTeam,
-          awayTeam: match.awayTeam,
-          homePoints: match.homePoints,
-          awayPoints: match.awayPoints,
-          roundName: match.roundName,
-          source: "footywire",
-        });
-
-        if (parsed.success && creditedTeams.has(team)) ambiguousTeams.add(team);
-
-        if (parsed.success && !creditedTeams.has(team)) {
-          assignments.push(parsed.data);
-          creditedTeams.add(team);
-        }
-      });
-
-      if (ambiguousTeams.size > 0) {
-        const good = assignments
-          .slice(firstAssignment)
-          .filter((assignment) => !ambiguousTeams.has(assignment.team));
-
-        assignments.splice(firstAssignment, assignments.length - firstAssignment, ...good);
-      }
-
-      if (creditedTeams.size !== 2 || ambiguousTeams.size > 0)
-        failures.push({
-          url,
-          reason: "Missing or ambiguous coach attribution for one or both participants",
-          scope: `match:${match.matchId}`,
-          matchId: `footywire:${match.matchId}`,
-        });
+    if (Result.isSuccess(parsed) && !creditedTeams.has(team)) {
+      assignments.push(parsed.success);
+      creditedTeams.add(team);
     }
+  });
 
-    return { assignments, failures };
-  }
-
-  /** Read a page using the same timeout/retry/fetch injection as other sources. */
-  async readPage(
-    url: string,
-    source: "afl-tables" | "footywire",
-  ): Promise<Result<string, ScrapeError>> {
-    try {
-      const response = await this.fetchFn(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-
-      if (!response.ok)
-        return err(
-          new ScrapeError({
-            message: `${source} request failed: ${response.status} (${url})`,
-            source,
-          }),
-        );
-
-      return ok(await response.text());
-    } catch (cause) {
-      return err(
-        new ScrapeError({
-          message: `${source} request failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-          source,
-        }),
-      );
-    }
-  }
+  return {
+    assignments: assignments.filter((assignment) => !ambiguousTeams.has(assignment.team)),
+    incomplete: creditedTeams.size !== 2 || ambiguousTeams.size > 0,
+  };
 }
 
 /** True when a URL is an AFL Tables coach profile page (not the index). */
 function isAflTablesCoachProfileUrl(url: string): boolean {
+  if (!URL.canParse(url)) return false;
   const parsed = new URL(url);
 
   return (
@@ -395,7 +412,22 @@ const AssignmentSchema = Schema.Struct({
   }),
 );
 
-const decodeAssignment = decodeWith(AssignmentSchema);
+const decodeAssignment = Schema.decodeUnknownResult(AssignmentSchema);
+
+/** Decode a season-specific batch cursor without throwing. */
+function decodeCursor(cursor: string, season: number) {
+  const CursorSchema = Schema.Struct({
+    season: Schema.Literal(season),
+    pages: Schema.Array(
+      Schema.Struct({
+        name: NonEmptyString,
+        url: UrlString.check(Schema.makeFilter(isAflTablesCoachProfileUrl)),
+      }),
+    ).check(Schema.isMaxLength(1000)),
+  });
+
+  return Schema.decodeUnknownResult(Schema.fromJsonString(CursorSchema))(cursor);
+}
 
 function parseAflTablesCoachProfile(
   html: string,
@@ -412,15 +444,14 @@ function parseAflTablesCoachProfile(
 
     if (!href) return;
     hadGameRows = true;
-    let matchUrl: URL;
 
-    try {
-      matchUrl = new URL(href, coach.url);
-    } catch {
+    if (!URL.canParse(href, coach.url)) {
       malformed = true;
 
       return;
     }
+
+    const matchUrl = new URL(href, coach.url);
 
     const game = /\/stats\/games\/(\d{4})\/\d{4}(\d{4})(\d{2})(\d{2})\.html$/.exec(
       matchUrl.pathname,
@@ -458,13 +489,13 @@ function parseAflTablesCoachProfile(
       source: "afl-tables",
     });
 
-    if (!parsed.success || game[1] !== game[2]) {
+    if (Result.isFailure(parsed) || game[1] !== game[2]) {
       malformed = true;
 
       return;
     }
 
-    assignments.push(parsed.data);
+    assignments.push(parsed.success);
   });
 
   return { assignments, malformed: malformed || !hadGameRows };

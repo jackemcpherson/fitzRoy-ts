@@ -1,21 +1,18 @@
-import { AmbiguousSeasonError } from "../lib/errors";
-import { canonicalSeasonKey, seasonYear } from "../lib/seasons";
-import type { CompetitionSeason, SeasonSelector } from "../types";
 /**
  * AFL API client with token authentication and typed fetch helpers.
  *
  * The client handles WMCTok token authentication, automatic 401 retry
  * with re-authentication, and Effect Schema-validated JSON responses.
- *
- * Accepts an injectable `fetch` function for testability.
+ * Requests go through {@link SourceHttp}, so tests supply fixtures through
+ * layers instead of an injected `fetch`.
  */
 
-import type { Schema } from "effect";
-import { decodeWith } from "../lib/decode";
-import { batchedMap } from "../lib/concurrency";
-import { AflApiError, ValidationError } from "../lib/errors";
-import { err, ok, type Result } from "../lib/result";
-import { createSourceFetch, type SourceFetchOptions } from "../lib/source-fetch";
+import { Clock, Context, Effect, Exit, Layer, Ref, Result, type Schema } from "effect";
+import { batched } from "../lib/batched";
+import { decodeJson } from "../lib/decode";
+import { AflApiError, AmbiguousSeasonError, ValidationError } from "../lib/errors";
+import { readJson, type RequestError, SourceHttp, type SourceRequestInit } from "../lib/http";
+import { canonicalSeasonKey, seasonYear } from "../lib/seasons";
 import {
   AflApiTokenSchema,
   type Compseason,
@@ -35,11 +32,11 @@ import {
   type TeamItem,
   TeamListSchema,
 } from "../lib/validation";
-import type { CompetitionCode } from "../types";
+import type { CompetitionCode, CompetitionSeason, SeasonSelector } from "../types";
+
+const decodeToken = decodeJson(AflApiTokenSchema);
 
 /** User-Agent sent with all AFL API requests. Required by the CFS endpoints. */
-const decodeToken = decodeWith(AflApiTokenSchema);
-
 const USER_AGENT = "fitzroy/2 (https://github.com/jackemcpherson/fitzRoy-ts)";
 
 /** WMCTok token endpoint used by the AFL website. */
@@ -50,6 +47,9 @@ const API_BASE = "https://aflapi.afl.com.au/afl/v2";
 
 /** Base URL for /cfs/ endpoints (requires WMCTok token). */
 const CFS_BASE = "https://api.afl.com.au/cfs/afl";
+
+/** Token endpoint doesn't provide expiry; assume 30 minutes. */
+const TOKEN_TTL_MS = 30 * 60 * 1000;
 
 /**
  * Hardcoded competition IDs for the AFL API.
@@ -91,80 +91,165 @@ function parseSeasonYear(name: string): number | null {
   return match ? Number(match[1]) : null;
 }
 
-/** Cached token with expiry tracking. */
-interface CachedToken {
-  readonly accessToken: string;
-  readonly expiresAt: number;
+/**
+ * Request headers with the AFL API User-Agent added when the caller set none.
+ *
+ * @param base - Caller headers.
+ * @param overrides - Headers that replace any caller value.
+ */
+function requestHeaders(
+  base?: Readonly<Record<string, string>>,
+  overrides?: Readonly<Record<string, string>>,
+) {
+  const headers = new Headers(base);
+
+  if (!headers.has("User-Agent")) headers.set("User-Agent", USER_AGENT);
+
+  for (const [name, value] of Object.entries(overrides ?? {})) headers.set(name, value);
+
+  const record: Record<string, string> = {};
+
+  headers.forEach((value, name) => {
+    record[name] = value;
+  });
+
+  return record;
 }
 
-/** Options for constructing an {@link AflApiClient}. */
-export interface AflApiClientOptions extends SourceFetchOptions {
-  /** Custom fetch implementation (defaults to global `fetch`). */
-  readonly fetchFn?: typeof fetch | undefined;
-  /** Token endpoint override (useful for testing). */
-  readonly tokenUrl?: string | undefined;
-}
+/** Errors from AFL API season resolution. */
+type SeasonError = AflApiError | ValidationError | AmbiguousSeasonError;
 
 /**
  * AFL API client that handles token authentication and provides typed fetch helpers.
  *
+ * One token serves every caller for 30 minutes; concurrent callers share a
+ * single in-flight token request.
+ *
  * @example
  * ```ts
- * const client = new AflApiClient();
- * await client.authenticate();
- * const result = await client.fetchJson("https://api.afl.com.au/cfs/afl/matchItems/round/123", MatchItemListSchema);
+ * const items = yield* (yield* AflApi).fetchRoundMatchItems("CD_R202501401");
  * ```
  */
-export class AflApiClient {
-  private readonly fetchFn: typeof fetch;
-  private readonly tokenUrl: string;
-  private cachedToken: CachedToken | null = null;
-  private pendingAuth: Promise<Result<string, AflApiError>> | null = null;
-
-  constructor(options?: AflApiClientOptions) {
-    const baseFetch = createSourceFetch(options);
-    this.fetchFn = (input, init?) => {
-      const headers = new Headers(init?.headers);
-
-      if (!headers.has("User-Agent")) {
-        headers.set("User-Agent", USER_AGENT);
-      }
-
-      return baseFetch(input, { ...init, headers });
-    };
-
-    this.tokenUrl = options?.tokenUrl ?? TOKEN_URL;
+export class AflApi extends Context.Service<
+  AflApi,
+  {
+    /**
+     * Fetch a fresh WMCTok token and cache it. Concurrent callers share the
+     * same in-flight request.
+     */
+    readonly authenticate: Effect.Effect<string, AflApiError>;
+    /** Whether a token fetched within the last 30 minutes is cached. */
+    readonly isAuthenticated: Effect.Effect<boolean>;
+    /**
+     * Perform an authenticated request, adding the bearer token.
+     * Re-authenticates and retries once on 401.
+     */
+    readonly authedFetch: (
+      url: string,
+      init?: SourceRequestInit,
+    ) => Effect.Effect<Response, AflApiError>;
+    /** Fetch JSON from a URL and validate it with an Effect schema. */
+    readonly fetchJson: <S extends Schema.ConstraintDecoder<unknown>>(
+      url: string,
+      schema: S,
+    ) => Effect.Effect<S["Type"], AflApiError | ValidationError>;
+    /**
+     * Resolve a competition code (e.g. "AFLM") to its API competition ID.
+     *
+     * Returns the hardcoded mapping from {@link AFL_API_COMP_IDS}: four
+     * competitions share `code="AFL"`, so a `/competitions` lookup would be
+     * load-bearing on response order.
+     */
+    readonly resolveCompetitionId: (code: CompetitionCode) => Effect.Effect<number>;
+    /** Fetch the compseason list for a competition. */
+    readonly fetchCompseasons: (
+      competitionId: number,
+    ) => Effect.Effect<readonly Compseason[], AflApiError | ValidationError>;
+    /** Discover canonical identities from the competition's provider season list. */
+    readonly fetchSeasons: (
+      code: CompetitionCode,
+    ) => Effect.Effect<CompetitionSeason[], AflApiError | ValidationError>;
+    /** Resolve a season (compseason) ID from a competition ID and year. */
+    readonly resolveSeasonId: (
+      competitionId: number,
+      year: SeasonSelector,
+    ) => Effect.Effect<number, SeasonError>;
+    /**
+     * Resolve the *current* default season for a competition from the AFL's
+     * round schedule — never from the local calendar year.
+     *
+     * The compseasons endpoint carries no start/end dates and pre-creates the
+     * next season before it begins, so the newest season counts only once
+     * its earliest round `utcStartTime` has passed. Each season is checked
+     * newest first; an indeterminate start or any fetch failure fails so
+     * callers can fall back. Never guesses.
+     */
+    readonly resolveCurrentSeason: (
+      code: CompetitionCode,
+    ) => Effect.Effect<SeasonSelector, AflApiError | ValidationError>;
+    /** Resolve a season ID from a competition code and year in one step. */
+    readonly resolveCompSeason: (
+      code: CompetitionCode,
+      year: SeasonSelector,
+    ) => Effect.Effect<number, SeasonError>;
+    /** Fetch all rounds for a season with their metadata. */
+    readonly resolveRounds: (
+      seasonId: number,
+    ) => Effect.Effect<readonly Round[], AflApiError | ValidationError>;
+    /** Fetch match items for a round using the /cfs/ endpoint. */
+    readonly fetchRoundMatchItems: (
+      roundProviderId: string,
+    ) => Effect.Effect<readonly MatchItem[], AflApiError | ValidationError>;
+    /** Fetch match items for a round, resolving its provider ID from the round number. */
+    readonly fetchRoundMatchItemsByNumber: (
+      seasonId: number,
+      roundNumber: number,
+    ) => Effect.Effect<readonly MatchItem[], AflApiError | ValidationError>;
+    /** Fetch match items for every round in a season (completed matches only by default). */
+    readonly fetchSeasonMatchItems: (
+      seasonId: number,
+      options?: { includeUpcoming?: boolean },
+    ) => Effect.Effect<readonly MatchItem[], AflApiError | ValidationError>;
+    /** Fetch per-player statistics for a match. */
+    readonly fetchPlayerStats: (
+      matchProviderId: string,
+    ) => Effect.Effect<PlayerStatsList, AflApiError | ValidationError>;
+    /** Fetch the match roster (lineup) for a match. */
+    readonly fetchMatchRoster: (
+      matchProviderId: string,
+    ) => Effect.Effect<MatchRoster, AflApiError | ValidationError>;
+    /** Fetch the team list, optionally scoped to one competition. */
+    readonly fetchTeams: (
+      competition?: CompetitionCode,
+    ) => Effect.Effect<readonly TeamItem[], AflApiError | ValidationError>;
+    /** Fetch the squad (roster) for a team in a specific season. */
+    readonly fetchSquad: (
+      teamId: number,
+      compSeasonId: number,
+    ) => Effect.Effect<SquadList, AflApiError | ValidationError>;
+    /** Fetch ladder standings for a season, optionally for one round (numeric `id`). */
+    readonly fetchLadder: (
+      seasonId: number,
+      roundId?: number,
+    ) => Effect.Effect<LadderResponse, AflApiError | ValidationError>;
   }
+>()("fitzroy/AflApi") {}
 
-  /**
-   * Authenticate with the WMCTok token endpoint and cache the token.
-   *
-   * Concurrent callers share the same in-flight request to avoid
-   * redundant token fetches (thundering herd prevention).
-   *
-   * @returns The access token on success, or an error Result.
-   */
-  async authenticate(): Promise<Result<string, AflApiError>> {
-    if (this.pendingAuth) {
-      return this.pendingAuth;
-    }
+/** The live AFL API client over {@link SourceHttp}. */
+export const AflApiLive = Layer.effect(
+  AflApi,
+  Effect.gen(function* () {
+    const http = yield* SourceHttp;
+    const tokenExpiresAt = yield* Ref.make(0);
 
-    this.pendingAuth = this.doAuthenticate().finally(() => {
-      this.pendingAuth = null;
-    });
-
-    return this.pendingAuth;
-  }
-
-  private async doAuthenticate(): Promise<Result<string, AflApiError>> {
-    try {
-      const response = await this.fetchFn(this.tokenUrl, {
+    const requestToken = Effect.gen(function* () {
+      const response = yield* http.request(TOKEN_URL, {
         method: "POST",
-        headers: { "Content-Length": "0" },
+        headers: requestHeaders({ "Content-Length": "0" }),
       });
 
       if (!response.ok) {
-        return err(
+        return yield* Effect.fail(
           new AflApiError({
             message: `Token request failed: ${response.status}`,
             statusCode: response.status,
@@ -172,595 +257,337 @@ export class AflApiClient {
         );
       }
 
-      const json: unknown = await response.json();
-      const parsed = decodeToken(json);
+      const json = yield* readJson(response);
 
-      if (!parsed.success) {
-        return err(new AflApiError({ message: "Invalid token response format" }));
-      }
-
-      // Token endpoint doesn't provide expiry; assume 30 minutes.
-      const ttlMs = 30 * 60 * 1000;
-      this.cachedToken = {
-        accessToken: parsed.data.token,
-        expiresAt: Date.now() + ttlMs,
-      };
-
-      return ok(parsed.data.token);
-    } catch (cause) {
-      return err(
-        new AflApiError({
-          message: `Token request failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-        }),
+      const parsed = yield* decodeToken(json).pipe(
+        Effect.mapError(() => new AflApiError({ message: "Invalid token response format" })),
       );
-    }
-  }
 
-  /**
-   * Whether the cached token is still valid (not expired).
-   */
-  get isAuthenticated(): boolean {
-    return this.cachedToken !== null && Date.now() < this.cachedToken.expiresAt;
-  }
+      const now = yield* Clock.currentTimeMillis;
 
-  /**
-   * Perform an authenticated fetch, automatically adding the bearer token.
-   * Retries once on 401 by re-authenticating.
-   *
-   * @param url - The URL to fetch.
-   * @param init - Additional fetch options.
-   * @returns The Response on success, or an error Result.
-   */
-  async authedFetch(url: string, init?: RequestInit): Promise<Result<Response, AflApiError>> {
-    if (!this.isAuthenticated) {
-      const authResult = await this.authenticate();
+      yield* Ref.set(tokenExpiresAt, now + TOKEN_TTL_MS);
 
-      if (!authResult.success) {
-        return authResult;
-      }
-    }
+      return parsed.token;
+    }).pipe(
+      Effect.catchTag("RequestError", (error) =>
+        Effect.fail(new AflApiError({ message: `Token request failed: ${error.message}` })),
+      ),
+    );
 
-    const doFetch = async (): Promise<Response> => {
-      const token = this.cachedToken;
+    // One token per 30 minutes for every caller; failures are not cached.
+    const [cachedToken, invalidateToken] = yield* Effect.cachedInvalidateWithTTL(
+      requestToken,
+      (exit) => (Exit.isSuccess(exit) ? TOKEN_TTL_MS : 0),
+    );
 
-      if (!token) {
-        throw new AflApiError({ message: "No cached token available" });
-      }
+    const authenticate = Effect.andThen(invalidateToken, cachedToken);
 
-      const headers = new Headers(init?.headers);
-      headers.set("x-media-mis-token", token.accessToken);
+    const requestFailed = (response: Response) =>
+      new AflApiError({
+        message: `Request failed: ${response.status} ${response.statusText}`,
+        statusCode: response.status,
+      });
 
-      return this.fetchFn(url, { ...init, headers });
+    const networkFailed = <A>(
+      self: Effect.Effect<A, AflApiError | RequestError>,
+    ): Effect.Effect<A, AflApiError> =>
+      self.pipe(
+        Effect.catchTag("RequestError", (error) =>
+          Effect.fail(new AflApiError({ message: `Request failed: ${error.message}` })),
+        ),
+      );
+
+    const authedFetch = (url: string, init?: SourceRequestInit) => {
+      const send = (token: string) =>
+        http
+          .request(url, {
+            ...init,
+            headers: requestHeaders(init?.headers, { "x-media-mis-token": token }),
+          })
+          .pipe(networkFailed);
+
+      return Effect.gen(function* () {
+        const first = yield* send(yield* cachedToken);
+        const response = first.status === 401 ? yield* send(yield* authenticate) : first;
+
+        if (!response.ok) return yield* Effect.fail(requestFailed(response));
+
+        return response;
+      });
     };
 
-    try {
-      let response = await doFetch();
+    const publicFetch = (url: string) =>
+      Effect.gen(function* () {
+        const response = yield* http.request(url, { headers: requestHeaders() });
 
-      if (response.status === 401) {
-        const authResult = await this.authenticate();
+        if (!response.ok) return yield* Effect.fail(requestFailed(response));
 
-        if (!authResult.success) {
-          return authResult;
-        }
+        return response;
+      }).pipe(networkFailed);
 
-        response = await doFetch();
-      }
+    const fetchJson = <S extends Schema.ConstraintDecoder<unknown>>(url: string, schema: S) =>
+      Effect.gen(function* () {
+        const response = url.startsWith(API_BASE)
+          ? yield* publicFetch(url)
+          : yield* authedFetch(url);
 
-      if (!response.ok) {
-        return err(
-          new AflApiError({
-            message: `Request failed: ${response.status} ${response.statusText}`,
-            statusCode: response.status,
-          }),
+        const json = yield* readJson(response).pipe(
+          Effect.mapError(
+            (error) => new AflApiError({ message: `JSON parse failed: ${error.message}` }),
+          ),
         );
-      }
 
-      return ok(response);
-    } catch (cause) {
-      return err(
-        new AflApiError({
-          message: `Request failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-        }),
+        return yield* decodeJson(schema)(json).pipe(
+          Effect.mapError(
+            (message) =>
+              new ValidationError({
+                message: "Response validation failed",
+                issues: [{ path: url, message }],
+              }),
+          ),
+        );
+      });
+
+    const resolveCompetitionId = (code: CompetitionCode) => Effect.succeed(AFL_API_COMP_IDS[code]);
+
+    const fetchCompseasons = (competitionId: number) =>
+      fetchJson(
+        `${API_BASE}/competitions/${competitionId}/compseasons?pageSize=100`,
+        CompseasonListSchema,
+      ).pipe(Effect.map((data): readonly Compseason[] => data.compSeasons));
+
+    const resolveRounds = (seasonId: number) =>
+      fetchJson(`${API_BASE}/compseasons/${seasonId}/rounds?pageSize=50`, RoundListSchema).pipe(
+        Effect.map((data): readonly Round[] => data.rounds),
       );
-    }
-  }
 
-  /**
-   * Fetch JSON from a URL, validate with an Effect schema, and return a typed Result.
-   *
-   * @param url - The URL to fetch.
-   * @param schema - Effect schema to validate the response against.
-   * @returns Validated data on success, or an error Result.
-   */
-  async fetchJson<S extends Schema.ConstraintDecoder<unknown>>(
-    url: string,
-    schema: S,
-  ): Promise<Result<S["Type"], AflApiError | ValidationError>> {
-    const isPublic = url.startsWith(API_BASE);
+    const fetchRoundMatchItems = (roundProviderId: string) =>
+      fetchJson(`${CFS_BASE}/matchItems/round/${roundProviderId}`, MatchItemListSchema).pipe(
+        Effect.map((data): readonly MatchItem[] => data.items),
+      );
 
-    let response: Response;
+    const resolveSeasonId = (competitionId: number, year: SeasonSelector) =>
+      Effect.gen(function* () {
+        const compseasons = yield* fetchCompseasons(competitionId);
+        const matches = compseasons.filter((cs) => parseSeasonYear(cs.name) === seasonYear(year));
+        const key = String(year);
 
-    if (isPublic) {
-      try {
-        response = await this.fetchFn(url);
+        const season = key.includes("-S")
+          ? matches.find((cs) => new RegExp(`Season ${key.slice(-1)}\\b`).test(cs.name))
+          : matches.length === 1
+            ? matches[0]
+            : undefined;
 
-        if (!response.ok) {
-          return err(
-            new AflApiError({
-              message: `Request failed: ${response.status} ${response.statusText}`,
-              statusCode: response.status,
+        if (!key.includes("-S") && matches.length > 1) {
+          return yield* Effect.fail(
+            new AmbiguousSeasonError({
+              competition: String(competitionId),
+              year: seasonYear(year),
+              validSelectors: matches.map(
+                (cs) => `${seasonYear(year)}-S${/Season (\d+)/.exec(cs.name)?.[1] ?? "unknown"}`,
+              ),
             }),
           );
         }
-      } catch (cause) {
-        return err(
-          new AflApiError({
-            message: `Request failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-          }),
-        );
-      }
-    } else {
-      const fetchResult = await this.authedFetch(url);
 
-      if (!fetchResult.success) {
-        return fetchResult;
-      }
+        if (!season)
+          return yield* Effect.fail(new AflApiError({ message: `Season not found: ${key}` }));
 
-      response = fetchResult.data;
-    }
-
-    try {
-      const json: unknown = await response.json();
-      const parsed = decodeWith(schema)(json);
-
-      if (!parsed.success) {
-        return err(
-          new ValidationError({
-            message: "Response validation failed",
-            issues: [{ path: url, message: parsed.error }],
-          }),
-        );
-      }
-
-      return ok(parsed.data);
-    } catch (cause) {
-      return err(
-        new AflApiError({
-          message: `JSON parse failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-        }),
-      );
-    }
-  }
-
-  /**
-   * Resolve a competition code (e.g. "AFLM") to its API competition ID.
-   *
-   * Returns the hardcoded mapping from {@link AFL_API_COMP_IDS}. The previous
-   * implementation looked up by `code` field on `/competitions`, but four
-   * competitions share `code="AFL"` (Premiership, Preseason, Origin,
-   * Indigenous All Stars), so the lookup was load-bearing on response order.
-   *
-   * @param code - The competition code to resolve.
-   * @returns The competition ID on success.
-   */
-  async resolveCompetitionId(
-    code: CompetitionCode,
-  ): Promise<Result<number, AflApiError | ValidationError>> {
-    return ok(AFL_API_COMP_IDS[code]);
-  }
-
-  /**
-   * Fetch the compseason list for a competition.
-   *
-   * Shared by {@link resolveSeasonId} (year → ID lookup) and
-   * {@link resolveCurrentSeason} (newest-season detection) so the
-   * compseasons URL is defined in exactly one place.
-   *
-   * @param competitionId - The competition ID (from {@link resolveCompetitionId}).
-   * @returns Array of compseason objects on success.
-   */
-  async fetchCompseasons(
-    competitionId: number,
-  ): Promise<Result<readonly Compseason[], AflApiError | ValidationError>> {
-    const result = await this.fetchJson(
-      `${API_BASE}/competitions/${competitionId}/compseasons?pageSize=100`,
-      CompseasonListSchema,
-    );
-
-    if (!result.success) {
-      return result;
-    }
-
-    return ok(result.data.compSeasons);
-  }
-
-  /** Discover canonical identities from the competition's provider season list. */
-  async fetchSeasons(code: CompetitionCode): Promise<Result<CompetitionSeason[], Error>> {
-    const competition = await this.resolveCompetitionId(code);
-
-    if (!competition.success) return competition;
-    const result = await this.fetchCompseasons(competition.data);
-
-    if (!result.success) return result;
-    const seasons: CompetitionSeason[] = [];
-
-    for (const season of result.data) {
-      const year = parseSeasonYear(season.name);
-
-      if (year === null) continue;
-
-      const suffix =
-        code === "AFLW" && year === 2022 ? /Season ([67])\b/.exec(season.name)?.[1] : undefined;
-
-      if (code === "AFLW" && year === 2022 && !suffix)
-        return err(new ValidationError({ message: "Unrecognised AFLW 2022 provider season" }));
-      seasons.push({
-        competition: code,
-        seasonKey: suffix ? `${year}-S${suffix}` : String(year),
-        year,
-        displayName: season.name,
-        providerSeasonId: season.id,
+        return season.id;
       });
-    }
 
-    return ok(seasons);
-  }
+    return {
+      authenticate,
+      isAuthenticated: Effect.gen(function* () {
+        const now = yield* Clock.currentTimeMillis;
 
-  /**
-   * Resolve a season (compseason) ID from a competition ID and year.
-   *
-   * @param competitionId - The competition ID (from {@link resolveCompetitionId}).
-   * @param year - The season year (e.g. 2024).
-   * @returns The compseason ID string on success.
-   */
-  async resolveSeasonId(
-    competitionId: number,
-    year: SeasonSelector,
-  ): Promise<Result<number, Error>> {
-    const result = await this.fetchCompseasons(competitionId);
+        return now < (yield* Ref.get(tokenExpiresAt));
+      }),
+      authedFetch,
+      fetchJson,
+      resolveCompetitionId,
+      fetchCompseasons,
+      fetchSeasons: (code) =>
+        Effect.gen(function* () {
+          const competitionId = yield* resolveCompetitionId(code);
+          const compseasons = yield* fetchCompseasons(competitionId);
 
-    if (!result.success) {
-      return result;
-    }
-
-    const matches = result.data.filter((cs) => parseSeasonYear(cs.name) === seasonYear(year));
-    const key = String(year);
-
-    const season = key.includes("-S")
-      ? matches.find((cs) => new RegExp(`Season ${key.slice(-1)}\\b`).test(cs.name))
-      : matches.length === 1
-        ? matches[0]
-        : undefined;
-
-    if (!key.includes("-S") && matches.length > 1) {
-      return err(
-        new AmbiguousSeasonError({
-          competition: String(competitionId),
-          year: seasonYear(year),
-          validSelectors: matches.map(
-            (cs) => `${seasonYear(year)}-S${/Season (\d+)/.exec(cs.name)?.[1] ?? "unknown"}`,
-          ),
+          return yield* Effect.fromResult(seasonsFromCompseasons(code, compseasons));
         }),
-      );
-    }
+      resolveSeasonId,
+      resolveCurrentSeason: (code) =>
+        Effect.gen(function* () {
+          const competitionId = yield* resolveCompetitionId(code);
+          const compseasons = yield* fetchCompseasons(competitionId);
 
-    if (!season) return err(new AflApiError({ message: `Season not found: ${key}` }));
+          // Rank by the calendar year embedded in each name, newest first.
+          const dated = compseasons
+            .map((season) => ({ season, year: parseSeasonYear(season.name) }))
+            .filter((entry): entry is { season: Compseason; year: number } => entry.year !== null)
+            .sort(
+              (a, b) =>
+                b.year - a.year ||
+                Number(/Season (\d+)/.exec(b.season.name)?.[1] ?? 0) -
+                  Number(/Season (\d+)/.exec(a.season.name)?.[1] ?? 0),
+            );
 
-    return ok(season.id);
-  }
+          if (dated.length === 0) {
+            return yield* Effect.fail(
+              new AflApiError({ message: `No dated compseasons found for competition: ${code}` }),
+            );
+          }
 
-  /**
-   * Resolve the *current* default season for a competition from the AFL's
-   * round schedule — never from the local calendar year.
-   *
-   * The compseasons endpoint carries no start/end dates and pre-creates the
-   * next season (with a populated `currentRoundNumber`) before it begins, so
-   * it cannot answer "which season is current". The rounds endpoint, however,
-   * carries `utcStartTime` per round, so the season's start instant is
-   * derivable. The rule:
-   *
-   * 1. Rank compseasons by the 4-digit year in their `name`, newest first.
-   * 2. Take the newest season's earliest defined round `utcStartTime` (`S`).
-   * 3. If `now >= S`, the newest season has started (in-progress or just
-   *    completed) → return the newest year.
-   * 4. If `now < S`, the newest season is pre-created but not yet started →
-   *    return the previous (most recently completed) year.
-   * 5. If `S` is indeterminate (no round carries `utcStartTime`) or any fetch
-   *    fails → return a `Result` error so callers can fall back; never guess.
-   *
-   * @param code - The competition code (e.g. "AFLM").
-   * @returns The resolved default season year on success.
-   */
-  async resolveCurrentSeason(
-    code: CompetitionCode,
-  ): Promise<Result<SeasonSelector, AflApiError | ValidationError>> {
-    const compResult = await this.resolveCompetitionId(code);
+          for (const candidate of dated) {
+            const rounds = yield* resolveRounds(candidate.season.id);
 
-    if (!compResult.success) return compResult;
+            const startInstants = rounds
+              .flatMap((round) =>
+                round.utcStartTime ? [new Date(round.utcStartTime).getTime()] : [],
+              )
+              .filter((instant) => Number.isFinite(instant));
 
-    const seasonsResult = await this.fetchCompseasons(compResult.data);
+            if (startInstants.length === 0) {
+              return yield* Effect.fail(
+                new AflApiError({
+                  message: `Cannot determine season start: no round has utcStartTime (${code})`,
+                }),
+              );
+            }
 
-    if (!seasonsResult.success) return seasonsResult;
+            if (Date.now() >= Math.min(...startInstants)) {
+              return yield* Effect.fromResult(
+                currentSelector(code, candidate.season, candidate.year),
+              );
+            }
+          }
 
-    // Rank by the calendar year embedded in each name, newest first.
-    const dated = seasonsResult.data
-      .map((season) => ({ season, year: parseSeasonYear(season.name) }))
-      .filter((entry): entry is { season: Compseason; year: number } => entry.year !== null)
-      .sort(
-        (a, b) =>
-          b.year - a.year ||
-          Number(/Season (\d+)/.exec(b.season.name)?.[1] ?? 0) -
-            Number(/Season (\d+)/.exec(a.season.name)?.[1] ?? 0),
-      );
+          return yield* Effect.fail(
+            new AflApiError({ message: `No dated season has started (${code})` }),
+          );
+        }),
+      resolveCompSeason: (code, year) =>
+        Effect.gen(function* () {
+          yield* Effect.fromResult(canonicalSeasonKey(code, year));
+          const competitionId = yield* resolveCompetitionId(code);
 
-    const newest = dated[0];
+          return yield* resolveSeasonId(competitionId, year);
+        }),
+      resolveRounds,
+      fetchRoundMatchItems,
+      fetchRoundMatchItemsByNumber: (seasonId, roundNumber) =>
+        Effect.gen(function* () {
+          const rounds = yield* resolveRounds(seasonId);
+          const round = rounds.find((r) => r.roundNumber === roundNumber);
 
-    if (!newest) {
-      return err(
-        new AflApiError({ message: `No dated compseasons found for competition: ${code}` }),
-      );
-    }
+          if (!round?.providerId) {
+            return yield* Effect.fail(
+              new AflApiError({
+                message: `Round not found or missing providerId: round ${roundNumber}`,
+              }),
+            );
+          }
 
-    for (const candidate of dated) {
-      const roundsResult = await this.resolveRounds(candidate.season.id);
+          return yield* fetchRoundMatchItems(round.providerId);
+        }),
+      fetchSeasonMatchItems: (seasonId, options) =>
+        Effect.gen(function* () {
+          const rounds = yield* resolveRounds(seasonId);
+          const providerIds = rounds.flatMap((r) => (r.providerId ? [r.providerId] : []));
 
-      if (!roundsResult.success) return roundsResult;
-
-      const startInstants = roundsResult.data
-        .flatMap((round) => (round.utcStartTime ? [new Date(round.utcStartTime).getTime()] : []))
-        .filter((instant) => Number.isFinite(instant));
-
-      if (startInstants.length === 0) {
-        return err(
-          new AflApiError({
-            message: `Cannot determine season start: no round has utcStartTime (${code})`,
-          }),
-        );
-      }
-
-      if (Date.now() >= Math.min(...startInstants)) {
-        return currentSelector(code, candidate.season, candidate.year);
-      }
-    }
-
-    return err(new AflApiError({ message: `No dated season has started (${code})` }));
-  }
-
-  /**
-   * Resolve a season ID from a competition code and year in one step.
-   *
-   * @param code - The competition code (e.g. "AFLM").
-   * @param year - The season year (e.g. 2025).
-   * @returns The compseason ID on success.
-   */
-  async resolveCompSeason(
-    code: CompetitionCode,
-    year: SeasonSelector,
-  ): Promise<Result<number, Error>> {
-    const key = canonicalSeasonKey(code, year);
-
-    if (!key.success) return key;
-    const compResult = await this.resolveCompetitionId(code);
-
-    if (!compResult.success) return compResult;
-
-    return this.resolveSeasonId(compResult.data, year);
-  }
-
-  /**
-   * Fetch all rounds for a season with their metadata.
-   *
-   * @param seasonId - The compseason ID (from {@link resolveSeasonId}).
-   * @returns Array of round objects on success.
-   */
-  async resolveRounds(
-    seasonId: number,
-  ): Promise<Result<readonly Round[], AflApiError | ValidationError>> {
-    const result = await this.fetchJson(
-      `${API_BASE}/compseasons/${seasonId}/rounds?pageSize=50`,
-      RoundListSchema,
-    );
-
-    if (!result.success) {
-      return result;
-    }
-
-    return ok(result.data.rounds);
-  }
-
-  /**
-   * Fetch match items for a round using the /cfs/ endpoint.
-   *
-   * @param roundProviderId - The round provider ID (e.g. "CD_R202501401").
-   * @returns Array of match items on success.
-   */
-  async fetchRoundMatchItems(
-    roundProviderId: string,
-  ): Promise<Result<readonly MatchItem[], AflApiError | ValidationError>> {
-    const result = await this.fetchJson(
-      `${CFS_BASE}/matchItems/round/${roundProviderId}`,
-      MatchItemListSchema,
-    );
-
-    if (!result.success) {
-      return result;
-    }
-
-    return ok(result.data.items);
-  }
-
-  /**
-   * Fetch match items for a round by resolving the round provider ID from season and round number.
-   *
-   * @param seasonId - The compseason ID.
-   * @param roundNumber - The round number.
-   * @returns Array of match items on success.
-   */
-  async fetchRoundMatchItemsByNumber(
-    seasonId: number,
-    roundNumber: number,
-  ): Promise<Result<readonly MatchItem[], AflApiError | ValidationError>> {
-    const roundsResult = await this.resolveRounds(seasonId);
-
-    if (!roundsResult.success) {
-      return roundsResult;
-    }
-
-    const round = roundsResult.data.find((r) => r.roundNumber === roundNumber);
-
-    if (!round?.providerId) {
-      return err(
-        new AflApiError({ message: `Round not found or missing providerId: round ${roundNumber}` }),
-      );
-    }
-
-    return this.fetchRoundMatchItems(round.providerId);
-  }
-
-  /**
-   * Fetch match items for all completed rounds in a season.
-   *
-   * @param seasonId - The compseason ID.
-   * @returns Aggregated array of match items from all completed rounds.
-   */
-  async fetchSeasonMatchItems(
-    seasonId: number,
-    options?: { includeUpcoming?: boolean },
-  ): Promise<Result<readonly MatchItem[], AflApiError | ValidationError>> {
-    const roundsResult = await this.resolveRounds(seasonId);
-
-    if (!roundsResult.success) {
-      return roundsResult;
-    }
-
-    const providerIds = roundsResult.data.flatMap((r) => (r.providerId ? [r.providerId] : []));
-
-    const results = await batchedMap(providerIds, (id) => this.fetchRoundMatchItems(id));
-
-    const includeUpcoming = options?.includeUpcoming ?? false;
-    const allItems: MatchItem[] = [];
-
-    for (const result of results) {
-      if (!result.success) {
-        return result;
-      }
-
-      const items = includeUpcoming
-        ? result.data
-        : result.data.filter(
-            (item) => item.match.status === "CONCLUDED" || item.match.status === "COMPLETE",
+          // Every round is fetched; the first failure in round order is reported.
+          const results = yield* batched(providerIds, (id) =>
+            Effect.result(fetchRoundMatchItems(id)),
           );
 
-      allItems.push(...items);
-    }
+          const includeUpcoming = options?.includeUpcoming ?? false;
+          const allItems: MatchItem[] = [];
 
-    return ok(allItems);
+          for (const result of results) {
+            if (Result.isFailure(result)) return yield* Effect.fail(result.failure);
+
+            const items = includeUpcoming
+              ? result.success
+              : result.success.filter(
+                  (item) => item.match.status === "CONCLUDED" || item.match.status === "COMPLETE",
+                );
+
+            allItems.push(...items);
+          }
+
+          return allItems;
+        }),
+      fetchPlayerStats: (matchProviderId) =>
+        fetchJson(`${CFS_BASE}/playerStats/match/${matchProviderId}`, PlayerStatsListSchema),
+      fetchMatchRoster: (matchProviderId) =>
+        fetchJson(`${CFS_BASE}/matchRoster/full/${matchProviderId}`, MatchRosterSchema),
+      fetchTeams: (competition) =>
+        fetchJson(`${API_BASE}/teams?pageSize=500`, TeamListSchema).pipe(
+          Effect.map((data): readonly TeamItem[] => {
+            if (!competition) return data.teams;
+            const teamType = AFL_API_TEAM_TYPES[competition];
+
+            return data.teams.filter((t) => t.teamType === teamType);
+          }),
+        ),
+      fetchSquad: (teamId, compSeasonId) =>
+        fetchJson(
+          `${API_BASE}/squads?teamId=${teamId}&compSeasonId=${compSeasonId}`,
+          SquadListSchema,
+        ),
+      fetchLadder: (seasonId, roundId) => {
+        const base = `${API_BASE}/compseasons/${seasonId}/ladders`;
+        const url = roundId == null ? base : `${base}?roundId=${roundId}`;
+
+        return fetchJson(url, LadderResponseSchema);
+      },
+    };
+  }),
+);
+
+/** Map provider compseasons to canonical competition seasons. */
+function seasonsFromCompseasons(
+  code: CompetitionCode,
+  compseasons: readonly Compseason[],
+): Result.Result<CompetitionSeason[], ValidationError> {
+  const seasons: CompetitionSeason[] = [];
+
+  for (const season of compseasons) {
+    const year = parseSeasonYear(season.name);
+
+    if (year === null) continue;
+
+    const suffix =
+      code === "AFLW" && year === 2022 ? /Season ([67])\b/.exec(season.name)?.[1] : undefined;
+
+    if (code === "AFLW" && year === 2022 && !suffix)
+      return Result.fail(
+        new ValidationError({ message: "Unrecognised AFLW 2022 provider season" }),
+      );
+    seasons.push({
+      competition: code,
+      seasonKey: suffix ? `${year}-S${suffix}` : String(year),
+      year,
+      displayName: season.name,
+      providerSeasonId: season.id,
+    });
   }
 
-  /**
-   * Fetch per-player statistics for a match.
-   *
-   * @param matchProviderId - The match provider ID (e.g. "CD_M20250140101").
-   * @returns Player stats list with home and away arrays.
-   */
-  async fetchPlayerStats(
-    matchProviderId: string,
-  ): Promise<Result<PlayerStatsList, AflApiError | ValidationError>> {
-    return this.fetchJson(
-      `${CFS_BASE}/playerStats/match/${matchProviderId}`,
-      PlayerStatsListSchema,
-    );
-  }
-
-  /**
-   * Fetch match roster (lineup) for a match.
-   *
-   * @param matchProviderId - The match provider ID (e.g. "CD_M20250140101").
-   * @returns Match roster with team players.
-   */
-  async fetchMatchRoster(
-    matchProviderId: string,
-  ): Promise<Result<MatchRoster, AflApiError | ValidationError>> {
-    return this.fetchJson(`${CFS_BASE}/matchRoster/full/${matchProviderId}`, MatchRosterSchema);
-  }
-
-  /**
-   * Fetch team list, optionally filtered by competition.
-   *
-   * Pass a `CompetitionCode` to scope the result to that competition's teams
-   * (uses {@link AFL_API_TEAM_TYPES} internally).
-   *
-   * @param competition - Optional CompetitionCode filter (e.g. "AFLM", "VFL").
-   * @returns Array of team items.
-   */
-  async fetchTeams(
-    competition?: CompetitionCode,
-  ): Promise<Result<readonly TeamItem[], AflApiError | ValidationError>> {
-    const result = await this.fetchJson(`${API_BASE}/teams?pageSize=500`, TeamListSchema);
-
-    if (!result.success) {
-      return result;
-    }
-
-    if (competition) {
-      const teamType = AFL_API_TEAM_TYPES[competition];
-
-      return ok(result.data.teams.filter((t) => t.teamType === teamType));
-    }
-
-    return ok(result.data.teams);
-  }
-
-  /**
-   * Fetch squad (roster) for a team in a specific season.
-   *
-   * @param teamId - The numeric team ID.
-   * @param compSeasonId - The compseason ID.
-   * @returns Squad list response.
-   */
-  async fetchSquad(
-    teamId: number,
-    compSeasonId: number,
-  ): Promise<Result<SquadList, AflApiError | ValidationError>> {
-    return this.fetchJson(
-      `${API_BASE}/squads?teamId=${teamId}&compSeasonId=${compSeasonId}`,
-      SquadListSchema,
-    );
-  }
-
-  /**
-   * Fetch ladder standings for a season (optionally for a specific round).
-   *
-   * @param seasonId - The compseason ID.
-   * @param roundId - Optional round ID (numeric `id`, not `providerId`).
-   * @returns Ladder response with entries.
-   */
-  async fetchLadder(
-    seasonId: number,
-    roundId?: number,
-  ): Promise<Result<LadderResponse, AflApiError | ValidationError>> {
-    let url = `${API_BASE}/compseasons/${seasonId}/ladders`;
-
-    if (roundId != null) {
-      url += `?roundId=${roundId}`;
-    }
-
-    return this.fetchJson(url, LadderResponseSchema);
-  }
+  return Result.succeed(seasons);
 }
 
+/** The selector for a started season, splitting AFLW 2022 into its two provider seasons. */
 function currentSelector(
   code: CompetitionCode,
   season: Compseason,
   year: number,
-): Result<SeasonSelector, ValidationError> {
+): Result.Result<SeasonSelector, ValidationError> {
   if (code === "AFLW" && year === 2022) {
-    if (/Season 6\b/.test(season.name)) return ok("2022-S6");
+    if (/Season 6\b/.test(season.name)) return Result.succeed("2022-S6");
 
-    if (/Season 7\b/.test(season.name)) return ok("2022-S7");
+    if (/Season 7\b/.test(season.name)) return Result.succeed("2022-S7");
 
-    return err(new ValidationError({ message: "Unknown AFLW 2022 provider season" }));
+    return Result.fail(new ValidationError({ message: "Unknown AFLW 2022 provider season" }));
   }
 
-  return ok(year);
+  return Result.succeed(year);
 }

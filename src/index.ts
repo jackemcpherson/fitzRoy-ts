@@ -2,16 +2,17 @@
  * fitzRoy-ts — TypeScript port of the {@link https://github.com/jimmyday12/fitzRoy | fitzRoy R package}
  * for programmatic access to AFL (Australian Football League) data.
  *
- * v3 trimmed this entry point to the supported surface: the `fetch*`
- * functions, the domain model, errors, the Result type, source clients
- * (for fetch/timeout injection), and a handful of date/name utilities.
- * Raw upstream wire schemas live in the `fitzroy/schemas` subpath;
- * internal transforms are no longer exported.
+ * Version 7 is built on Effect. Every `fetch*` function returns an `Effect`
+ * that fails with a tagged error and requires source services. Provide
+ * {@link FitzroyLive} to run them. The entry point also exports the domain
+ * schemas and types, the errors, the source services, and a handful of
+ * date/name utilities. Raw upstream wire schemas live in the
+ * `fitzroy/schemas` subpath; internal transforms are not exported.
  *
  * @packageDocumentation
  */
 
-export { fetchAwards } from "./api/awards";
+export { type AwardServices, fetchAwards } from "./api/awards";
 
 export { fetchLadder } from "./api/ladder";
 
@@ -43,22 +44,25 @@ export {
   AflApiError,
   AmbiguousSeasonError,
   DstGapError,
+  IncompleteDataError,
   OutOfRangeError,
   ScrapeError,
+  type SourceError,
   UnsupportedCompetitionError,
   UnsupportedSourceError,
   ValidationError,
 } from "./lib/errors";
 
-export type { FetchRetryOptions } from "./lib/fetch-retry";
-
-export type { FetchTimeoutOptions } from "./lib/fetch-timeout";
-
-export { type Err, err, type Ok, ok, Result } from "./lib/result";
+export {
+  RequestError,
+  SourceHttp,
+  SourceHttpConfig,
+  SourceHttpLive,
+  type SourceHttpOptions,
+  type SourceRequestInit,
+} from "./lib/http";
 
 export { roundAbbreviation, roundLabel, roundTypeLabel } from "./lib/round-labels";
-
-export type { SourceFetchOptions } from "./lib/source-fetch";
 
 export { normaliseTeamName } from "./lib/team-mapping";
 
@@ -66,17 +70,23 @@ export { normaliseVenueName } from "./lib/venue-mapping";
 
 export { resolveVenueTimezone } from "./lib/venue-timezones";
 
-export { AflApiClient, type AflApiClientOptions } from "./sources/afl-api";
+export { FitzroyLive, SourcesLive } from "./layers";
 
-export { AflCoachesClient, type AflCoachesClientOptions } from "./sources/afl-coaches";
+export { SourceRegistry } from "./sources/adapters/index";
 
-export { AflTablesClient, type AflTablesClientOptions } from "./sources/afl-tables";
+export { AflApi, AflApiLive } from "./sources/afl-api";
 
-export { FootyWireClient, type FootyWireClientOptions } from "./sources/footywire";
+export { AflCoaches, AflCoachesLive } from "./sources/afl-coaches";
 
-export { FryziggClient, type FryziggClientOptions } from "./sources/fryzigg";
+export { AflTables, AflTablesLive } from "./sources/afl-tables";
 
-export { SquiggleClient, type SquiggleClientOptions } from "./sources/squiggle";
+export { FootyWire, FootyWireLive } from "./sources/footywire";
+
+export { Fryzigg, FryziggLive, RdsParser, RdsParserLive } from "./sources/fryzigg";
+
+export { MatchCoaches, MatchCoachesLive } from "./sources/match-coaches";
+
+export { Squiggle, SquiggleLive } from "./sources/squiggle";
 
 export type {
   AllAustralianSelection,
@@ -127,4 +137,56 @@ export type {
   TeamStatsEntry,
   TeamStatsQuery,
   TeamStatsSummaryType,
+} from "./types";
+
+export {
+  AllAustralianSelectionSchema,
+  AwardQuerySchema,
+  AwardResultSchema,
+  AwardSchema,
+  AwardTypeSchema,
+  BrownlowVoteSchema,
+  CoachesVoteQuerySchema,
+  CoachesVoteSchema,
+  CoachesVotesResultSchema,
+  ColemanLeaderSchema,
+  CompetitionCodeSchema,
+  CompetitionSeasonSchema,
+  DataSourceSchema,
+  LadderEntrySchema,
+  LadderQuerySchema,
+  LadderSchema,
+  LineupPlayerSchema,
+  LineupQuerySchema,
+  LineupSchema,
+  MatchClockPeriodSchema,
+  MatchCoachAssignmentSchema,
+  MatchCoachesQuerySchema,
+  MatchCoachesResultSchema,
+  MatchCoachFailureSchema,
+  MatchQuerySchema,
+  MatchSchema,
+  MatchStatusSchema,
+  PlayerDetailsQuerySchema,
+  PlayerDetailsResultSchema,
+  PlayerDetailsSchema,
+  PlayerSchema,
+  PlayerStatsQuerySchema,
+  PlayerStatsSchema,
+  QuarterScoreSchema,
+  RisingStarNominationSchema,
+  RoundTypeSchema,
+  SeasonPlayerStatsSchema,
+  SeasonRoundQuerySchema,
+  SeasonSelectorSchema,
+  SquadQuerySchema,
+  SquadSchema,
+  SquadScopeSchema,
+  TeamMetricSetSchema,
+  TeamQuerySchema,
+  TeamResponseSchema,
+  TeamSchema,
+  TeamStatsEntrySchema,
+  TeamStatsQuerySchema,
+  TeamStatsSummaryTypeSchema,
 } from "./types";

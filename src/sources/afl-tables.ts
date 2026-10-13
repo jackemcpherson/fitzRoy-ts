@@ -6,13 +6,13 @@
  */
 
 import type * as cheerio from "cheerio/slim";
-import { batchedMap } from "../lib/concurrency";
+import { Context, Effect, Layer, Result } from "effect";
+import { batched } from "../lib/batched";
 import { localToUtc, parseDate } from "../lib/date-utils";
 import { DstGapError, ScrapeError } from "../lib/errors";
+import { readText, SourceHttp } from "../lib/http";
 import { parseHtml } from "../lib/parse-html";
 import { safeInt } from "../lib/parse-utils";
-import { err, ok, type Result } from "../lib/result";
-import { createSourceFetch, type SourceFetchOptions } from "../lib/source-fetch";
 import { normaliseTeamName } from "../lib/team-mapping";
 import { emptyMetricSet, type MutableTeamMetricSet } from "../lib/team-metrics";
 import { normaliseVenueName } from "../lib/venue-mapping";
@@ -35,247 +35,221 @@ import type {
 
 const AFL_TABLES_BASE = "https://afltables.com/afl/seas";
 
-/** Options for constructing an AFL Tables client. */
-export interface AflTablesClientOptions extends SourceFetchOptions {
-  readonly fetchFn?: typeof fetch | undefined;
+const REQUEST_HEADERS = { "User-Agent": "Mozilla/5.0" } as const;
+
+/** A scrape failure attributed to AFL Tables. */
+function scrapeError(message: string): ScrapeError {
+  return new ScrapeError({ message, source: "afl-tables" });
 }
 
 /**
  * AFL Tables scraper client.
  */
-export class AflTablesClient {
-  private readonly fetchFn: typeof fetch;
-
-  constructor(options?: AflTablesClientOptions) {
-    this.fetchFn = createSourceFetch(options);
+export class AflTables extends Context.Service<
+  AflTables,
+  {
+    /**
+     * Fetch season match results from AFL Tables.
+     *
+     * @param year - The season year (1897 to present).
+     * @returns Array of match results.
+     */
+    readonly fetchSeasonResults: (year: number) => Effect.Effect<Match[], ScrapeError>;
+    /**
+     * Fetch player statistics for an entire season from AFL Tables.
+     *
+     * Scrapes individual game pages linked from the season page. Individual
+     * game failures do not abort the season scrape — they are surfaced in
+     * the returned envelope's `failedMatchIds` instead, so callers can tell
+     * a complete season apart from a partial one. Failure to fetch the
+     * season page itself still fails the effect.
+     *
+     * @param year - The season year.
+     * @returns Envelope of scraped stats plus the match IDs that failed.
+     */
+    readonly fetchSeasonPlayerStats: (
+      year: number,
+    ) => Effect.Effect<SeasonPlayerStats, ScrapeError>;
+    /**
+     * Fetch team statistics from AFL Tables.
+     *
+     * Scrapes the season stats page which includes per-team aggregate stats.
+     *
+     * @param year - The season year.
+     * @returns Array of team stats entries.
+     */
+    readonly fetchTeamStats: (year: number) => Effect.Effect<TeamStatsEntry[], ScrapeError>;
+    /**
+     * Fetch player list from AFL Tables team page.
+     *
+     * Scrapes the all-time team page (e.g. `stats/alltime/swans.html`) which
+     * lists all players who have played for that team historically.
+     *
+     * @param teamName - Canonical team name (e.g. "Sydney Swans").
+     * @returns Array of player details (without source/competition fields).
+     */
+    readonly fetchPlayerList: (
+      teamName: string,
+    ) => Effect.Effect<Omit<PlayerDetails, "source" | "competition">[], ScrapeError>;
   }
+>()("fitzroy/AflTables") {}
 
-  /**
-   * Fetch season match results from AFL Tables.
-   *
-   * @param year - The season year (1897 to present).
-   * @returns Array of match results.
-   */
-  async fetchSeasonResults(year: number): Promise<Result<Match[], ScrapeError>> {
-    const url = `${AFL_TABLES_BASE}/${year}.html`;
-
-    try {
-      const response = await this.fetchFn(url, {
-        headers: { "User-Agent": "Mozilla/5.0" },
-      });
-
-      if (!response.ok) {
-        return err(
-          new ScrapeError({
-            message: `AFL Tables request failed: ${response.status} (${url})`,
-            source: "afl-tables",
-          }),
-        );
-      }
-
-      const html = await response.text();
-      const results = parseSeasonPage(html, year);
-
-      return ok(results);
-    } catch (cause) {
-      return err(
-        new ScrapeError({
-          message: `AFL Tables request failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-          source: "afl-tables",
-        }),
-      );
-    }
-  }
-
-  /**
-   * Fetch player statistics for an entire season from AFL Tables.
-   *
-   * Scrapes individual game pages linked from the season page. Individual
-   * game failures do not abort the season scrape — they are surfaced in
-   * the returned envelope's `failedMatchIds` instead, so callers can tell
-   * a complete season apart from a partial one. Failure to fetch the
-   * season page itself is still a total `err`.
-   *
-   * @param year - The season year.
-   * @returns Envelope of scraped stats plus the match IDs that failed.
-   */
-  async fetchSeasonPlayerStats(year: number): Promise<Result<SeasonPlayerStats, ScrapeError>> {
-    const seasonUrl = `${AFL_TABLES_BASE}/${year}.html`;
-
-    try {
-      const seasonResponse = await this.fetchFn(seasonUrl, {
-        headers: { "User-Agent": "Mozilla/5.0" },
-      });
-
-      if (!seasonResponse.ok) {
-        return err(
-          new ScrapeError({
-            message: `AFL Tables request failed: ${seasonResponse.status} (${seasonUrl})`,
-            source: "afl-tables",
-          }),
-        );
-      }
-
-      const seasonHtml = await seasonResponse.text();
-      // Parse once and share the cheerio document between the two extractors
-      // — parse5+cheerio over a 100KB+ page is the expensive step here.
-      const $season = parseHtml(seasonHtml);
-      const gameUrls = extractGameUrlsFromDoc($season);
-
-      if (gameUrls.length === 0) {
-        return ok({ stats: [], failedMatchIds: [] });
-      }
-
-      // Key the round lookup by AFL Tables game id, NOT by array index —
-      // the season parse may skip a malformed row, and an index-based
-      // alignment would then shift every later game's round (COR-10).
-      const roundByGameId = new Map<string, number>();
-
-      for (const game of parseSeasonPageGamesFromDoc($season, year)) {
-        if (game.gameId != null) {
-          roundByGameId.set(game.gameId, game.match.roundNumber);
-        }
-      }
-
-      const indexedUrls = gameUrls.map((gameUrl, idx) => ({ gameUrl, idx }));
-
-      const perGame = await batchedMap(
-        indexedUrls,
-        async ({
-          gameUrl,
-          idx,
-        }): Promise<{ stats: PlayerStats[]; failedMatchId: string | null }> => {
-          const urlMatch = /\/(\d+)\.html$/.exec(gameUrl);
-          const gameId = urlMatch?.[1];
-          const matchId = gameId ?? `${year}_${idx}`;
-
-          try {
-            const resp = await this.fetchFn(gameUrl, {
-              headers: { "User-Agent": "Mozilla/5.0" },
-            });
-
-            if (!resp.ok) return { stats: [], failedMatchId: `AT_${matchId}` };
-
-            const html = await resp.text();
-            const roundNumber = (gameId != null ? roundByGameId.get(gameId) : undefined) ?? 0;
-
-            return {
-              stats: parseAflTablesGameStats(html, matchId, year, roundNumber),
-              failedMatchId: null,
-            };
-          } catch {
-            return { stats: [], failedMatchId: `AT_${matchId}` };
-          }
-        },
-        { batchSize: 5, delayMs: 300 },
-      );
-
-      return ok({
-        stats: perGame.flatMap((g) => g.stats),
-        failedMatchIds: perGame.flatMap((g) => (g.failedMatchId ? [g.failedMatchId] : [])),
-      });
-    } catch (cause) {
-      return err(
-        new ScrapeError({
-          message: `AFL Tables player stats failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-          source: "afl-tables",
-        }),
-      );
-    }
-  }
-
-  /**
-   * Fetch team statistics from AFL Tables.
-   *
-   * Scrapes the season stats page which includes per-team aggregate stats.
-   *
-   * @param year - The season year.
-   * @returns Array of team stats entries.
-   */
-  async fetchTeamStats(year: number): Promise<Result<TeamStatsEntry[], ScrapeError>> {
-    const url = `https://afltables.com/afl/stats/${year}s.html`;
-
-    try {
-      const response = await this.fetchFn(url, {
-        headers: { "User-Agent": "Mozilla/5.0" },
-      });
-
-      if (!response.ok) {
-        const friendly =
-          response.status === 404
-            ? `AFL Tables has no team stats for ${year}`
-            : `AFL Tables stats request failed: ${response.status}`;
-
-        return err(new ScrapeError({ message: friendly, source: "afl-tables" }));
-      }
-
-      const html = await response.text();
-      const entries = parseAflTablesTeamStats(html, year);
-
-      return ok(entries);
-    } catch (cause) {
-      return err(
-        new ScrapeError({
-          message: `AFL Tables team stats failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-          source: "afl-tables",
-        }),
-      );
-    }
-  }
-
-  /**
-   * Fetch player list from AFL Tables team page.
-   *
-   * Scrapes the team index page (e.g. `teams/swans_idx.html`) which lists
-   * all players who have played for that team historically.
-   *
-   * @param teamName - Canonical team name (e.g. "Sydney Swans").
-   * @returns Array of player details (without source/competition fields).
-   */
-  async fetchPlayerList(
-    teamName: string,
-  ): Promise<Result<Omit<PlayerDetails, "source" | "competition">[], ScrapeError>> {
-    const slug = teamNameToAflTablesSlug(teamName);
-
-    if (!slug) {
-      return err(
-        new ScrapeError({
-          message: `No AFL Tables slug mapping for team: ${teamName}`,
-          source: "afl-tables",
-        }),
-      );
-    }
-
-    const url = `https://afltables.com/afl/stats/alltime/${slug}.html`;
-
-    try {
-      const response = await this.fetchFn(url, {
-        headers: { "User-Agent": "Mozilla/5.0" },
-      });
-
-      if (!response.ok) {
-        return err(
-          new ScrapeError({
-            message: `AFL Tables request failed: ${response.status} (${url})`,
-            source: "afl-tables",
-          }),
-        );
-      }
-
-      const html = await response.text();
-      const players = parseAflTablesPlayerList(html, teamName);
-
-      return ok(players);
-    } catch (cause) {
-      return err(
-        new ScrapeError({
-          message: `AFL Tables player list failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-          source: "afl-tables",
-        }),
-      );
-    }
-  }
+/** One game page's scrape outcome inside a season player-stats run. */
+interface GameScrape {
+  readonly stats: PlayerStats[];
+  readonly failedMatchId: string | null;
 }
+
+/** The live AFL Tables client over {@link SourceHttp}. */
+export const AflTablesLive = Layer.effect(
+  AflTables,
+  Effect.gen(function* () {
+    const http = yield* SourceHttp;
+
+    /** Fetch a page and read its body, failing with the v6 message on a non-OK status. */
+    const fetchPage = (url: string, onStatus: (status: number) => ScrapeError) =>
+      Effect.gen(function* () {
+        const response = yield* http.request(url, { headers: REQUEST_HEADERS });
+
+        if (!response.ok) return yield* Effect.fail(onStatus(response.status));
+
+        return yield* readText(response);
+      });
+
+    const requestFailedStatus = (url: string) => (status: number) =>
+      scrapeError(`AFL Tables request failed: ${status} (${url})`);
+
+    return {
+      fetchSeasonResults: (year) => {
+        const url = `${AFL_TABLES_BASE}/${year}.html`;
+
+        const requestFailed = (message: string) =>
+          scrapeError(`AFL Tables request failed: ${message}`);
+
+        return Effect.gen(function* () {
+          const html = yield* fetchPage(url, requestFailedStatus(url));
+          const results = parseSeasonPage(html, year);
+
+          if (Result.isFailure(results)) {
+            return yield* Effect.fail(requestFailed(results.failure.message));
+          }
+
+          return results.success;
+        }).pipe(
+          Effect.catchTag("RequestError", (error) => Effect.fail(requestFailed(error.message))),
+        );
+      },
+
+      fetchSeasonPlayerStats: (year) => {
+        const seasonUrl = `${AFL_TABLES_BASE}/${year}.html`;
+
+        const statsFailed = (message: string) =>
+          scrapeError(`AFL Tables player stats failed: ${message}`);
+
+        const scrapeGame =
+          (roundByGameId: ReadonlyMap<string, number>) =>
+          ({ gameUrl, idx }: { readonly gameUrl: string; readonly idx: number }) => {
+            const urlMatch = /\/(\d+)\.html$/.exec(gameUrl);
+            const gameId = urlMatch?.[1];
+            const matchId = gameId ?? `${year}_${idx}`;
+            const failed: GameScrape = { stats: [], failedMatchId: `AT_${matchId}` };
+
+            return Effect.gen(function* () {
+              const resp = yield* http.request(gameUrl, { headers: REQUEST_HEADERS });
+
+              if (!resp.ok) return failed;
+
+              const html = yield* readText(resp);
+              const roundNumber = (gameId != null ? roundByGameId.get(gameId) : undefined) ?? 0;
+
+              return {
+                stats: parseAflTablesGameStats(html, matchId, year, roundNumber),
+                failedMatchId: null,
+              } satisfies GameScrape;
+            }).pipe(Effect.catchTag("RequestError", () => Effect.succeed(failed)));
+          };
+
+        return Effect.gen(function* () {
+          const seasonHtml = yield* fetchPage(seasonUrl, requestFailedStatus(seasonUrl));
+          // Parse once and share the cheerio document between the two extractors
+          // — parse5+cheerio over a 100KB+ page is the expensive step here.
+          const $season = parseHtml(seasonHtml);
+          const gameUrls = extractGameUrlsFromDoc($season);
+
+          if (gameUrls.length === 0) {
+            return { stats: [], failedMatchIds: [] };
+          }
+
+          // Key the round lookup by AFL Tables game id, NOT by array index —
+          // the season parse may skip a malformed row, and an index-based
+          // alignment would then shift every later game's round (COR-10).
+          const games = parseSeasonPageGamesFromDoc($season, year);
+
+          if (Result.isFailure(games)) {
+            return yield* Effect.fail(statsFailed(games.failure.message));
+          }
+
+          const roundByGameId = new Map<string, number>();
+
+          for (const game of games.success) {
+            if (game.gameId != null) {
+              roundByGameId.set(game.gameId, game.match.roundNumber);
+            }
+          }
+
+          const indexedUrls = gameUrls.map((gameUrl, idx) => ({ gameUrl, idx }));
+
+          const perGame = yield* batched(indexedUrls, scrapeGame(roundByGameId), {
+            batchSize: 5,
+            gap: "300 millis",
+          });
+
+          return {
+            stats: perGame.flatMap((g) => g.stats),
+            failedMatchIds: perGame.flatMap((g) => (g.failedMatchId ? [g.failedMatchId] : [])),
+          };
+        }).pipe(
+          Effect.catchTag("RequestError", (error) => Effect.fail(statsFailed(error.message))),
+        );
+      },
+
+      fetchTeamStats: (year) => {
+        const url = `https://afltables.com/afl/stats/${year}s.html`;
+
+        const friendly = (status: number) =>
+          scrapeError(
+            status === 404
+              ? `AFL Tables has no team stats for ${year}`
+              : `AFL Tables stats request failed: ${status}`,
+          );
+
+        return fetchPage(url, friendly).pipe(
+          Effect.map((html) => parseAflTablesTeamStats(html, year)),
+          Effect.catchTag("RequestError", (error) =>
+            Effect.fail(scrapeError(`AFL Tables team stats failed: ${error.message}`)),
+          ),
+        );
+      },
+
+      fetchPlayerList: (teamName) => {
+        const slug = teamNameToAflTablesSlug(teamName);
+
+        if (!slug) {
+          return Effect.fail(scrapeError(`No AFL Tables slug mapping for team: ${teamName}`));
+        }
+
+        const url = `https://afltables.com/afl/stats/alltime/${slug}.html`;
+
+        return fetchPage(url, requestFailedStatus(url)).pipe(
+          Effect.map((html) => parseAflTablesPlayerList(html, teamName)),
+          Effect.catchTag("RequestError", (error) =>
+            Effect.fail(scrapeError(`AFL Tables player list failed: ${error.message}`)),
+          ),
+        );
+      },
+    };
+  }),
+);
 
 /**
  * Parse AFL Tables season page HTML into Match objects.
@@ -286,10 +260,11 @@ export class AflTablesClient {
  *
  * @param html - Raw HTML from the AFL Tables season page.
  * @param year - The season year for metadata.
- * @returns Array of match results extracted from the page.
+ * @returns Match results extracted from the page, or a `ScrapeError` when a
+ *   match row carries an unparseable required date.
  */
-export function parseSeasonPage(html: string, year: number): Match[] {
-  return parseSeasonPageGames(html, year).map((g) => g.match);
+export function parseSeasonPage(html: string, year: number): Result.Result<Match[], ScrapeError> {
+  return Result.map(parseSeasonPageGames(html, year), (games) => games.map((g) => g.match));
 }
 
 /** A season-page match plus the AFL Tables game id from its "Match stats" link. */
@@ -298,7 +273,7 @@ interface SeasonPageGame {
   /**
    * Numeric game id extracted from the away row's `stats/games/YYYY/<id>.html`
    * link, or null when the row carries no stats link. Used to key the
-   * per-game round lookup in {@link AflTablesClient.fetchSeasonPlayerStats} —
+   * per-game round lookup in `AflTables.fetchSeasonPlayerStats` —
    * keying by array index breaks as soon as one season-page row is skipped.
    */
   readonly gameId: string | null;
@@ -308,7 +283,10 @@ interface SeasonPageGame {
  * Parse the season page into matches paired with their AFL Tables game ids.
  * Internal companion to {@link parseSeasonPage}.
  */
-function parseSeasonPageGames(html: string, year: number): SeasonPageGame[] {
+function parseSeasonPageGames(
+  html: string,
+  year: number,
+): Result.Result<SeasonPageGame[], ScrapeError> {
   return parseSeasonPageGamesFromDoc(parseHtml(html), year);
 }
 
@@ -317,8 +295,12 @@ function parseSeasonPageGames(html: string, year: number): SeasonPageGame[] {
  * document, so callers that already parsed the season HTML for another
  * reason can avoid a second parse pass.
  */
-function parseSeasonPageGamesFromDoc($: cheerio.CheerioAPI, year: number): SeasonPageGame[] {
+function parseSeasonPageGamesFromDoc(
+  $: cheerio.CheerioAPI,
+  year: number,
+): Result.Result<SeasonPageGame[], ScrapeError> {
   const results: Match[] = [];
+  let failure: ScrapeError | null = null;
   const gameIds: (string | null)[] = [];
   let currentRound = 0;
   let currentRoundType: RoundType = "HomeAndAway";
@@ -389,7 +371,16 @@ function parseSeasonPageGamesFromDoc($: cheerio.CheerioAPI, year: number): Seaso
     const infoText = $(homeCells[3]).text().trim();
     const venue = normaliseVenueName(parseVenueFromInfo($(homeCells[3]).html() ?? ""));
     const venueTimezone = resolveVenueTimezone(venue);
-    const date = parseDateFromInfo(infoText, year, venueTimezone);
+    const parsedDate = parseDateFromInfo(infoText, year, venueTimezone);
+
+    if (Result.isFailure(parsedDate)) {
+      failure = parsedDate.failure;
+
+      // Stop at the first unparseable date, as the v6 throw did.
+      return false;
+    }
+
+    const date = parsedDate.success;
     const attendance = parseAttendanceFromInfo(infoText);
 
     // Parse the provider id once and use it for both the public Match id and
@@ -459,13 +450,19 @@ function parseSeasonPageGamesFromDoc($: cheerio.CheerioAPI, year: number): Seaso
       source: "afl-tables",
       competition: "AFLM",
     });
+
+    return true;
   });
 
+  if (failure !== null) return Result.fail(failure);
+
   // remapOpeningRound preserves order and length, so re-zip by index.
-  return remapOpeningRound(results, year).map((match, i) => ({
-    match,
-    gameId: gameIds[i] ?? null,
-  }));
+  return Result.succeed(
+    remapOpeningRound(results, year).map((match, i) => ({
+      match,
+      gameId: gameIds[i] ?? null,
+    })),
+  );
 }
 
 /**
@@ -579,17 +576,19 @@ function parseQuarterScores(text: string): (QuarterScore | undefined)[] {
  * in the venue's IANA tz when supplied, falling back to Australia/Melbourne
  * for unknown venues. Previously discarded the time entirely (#104).
  */
-function parseDateFromInfo(text: string, year: number, venueTimezone: string | null): Date {
+function parseDateFromInfo(
+  text: string,
+  year: number,
+  venueTimezone: string | null,
+): Result.Result<Date, ScrapeError> {
   const m = /(\d{1,2})-([A-Z][a-z]{2})-(\d{4})(?:\s+(\d{1,2}):(\d{2})\s*([AaPp][Mm]))?/.exec(text);
 
   if (!m) {
     const parsed = parseDate(text);
 
-    if (parsed) return parsed;
-    throw new ScrapeError({
-      message: `Unable to parse required AFL Tables match date: ${JSON.stringify(text)}`,
-      source: "afl-tables",
-    });
+    if (parsed) return Result.succeed(parsed);
+
+    return Result.fail(unparseableDate(text));
   }
 
   const day = Number.parseInt(m[1] ?? "0", 10);
@@ -616,16 +615,14 @@ function parseDateFromInfo(text: string, year: number, venueTimezone: string | n
   if (monthIndex == null) {
     const parsed = parseDate(text);
 
-    if (parsed) return parsed;
-    throw new ScrapeError({
-      message: `Unable to parse required AFL Tables match date: ${JSON.stringify(text)}`,
-      source: "afl-tables",
-    });
+    if (parsed) return Result.succeed(parsed);
+
+    return Result.fail(unparseableDate(text));
   }
 
   // No time → midnight UTC (matches AFL Tables' historical convention pre-2010s).
   if (!m[4] || !m[5] || !m[6]) {
-    return new Date(Date.UTC(yearN, monthIndex, day));
+    return Result.succeed(new Date(Date.UTC(yearN, monthIndex, day)));
   }
 
   let hours = Number.parseInt(m[4], 10);
@@ -639,18 +636,23 @@ function parseDateFromInfo(text: string, year: number, venueTimezone: string | n
   const tz = venueTimezone ?? "Australia/Melbourne";
   const result = localToUtc(tz, yearN, monthIndex, day, hours, minutes);
 
-  if (result.success) return result.data;
+  if (Result.isSuccess(result)) return Result.succeed(result.success);
 
   // DST spring-forward gap: the wall-clock time literally doesn't exist
   // in this tz. Roll forward by one hour (the "spring forward" direction
   // venues actually move through). See DstGapError in src/lib/errors.ts.
-  if (result.error instanceof DstGapError && hours < 23) {
+  if (result.failure instanceof DstGapError && hours < 23) {
     const retry = localToUtc(tz, yearN, monthIndex, day, hours + 1, minutes);
 
-    if (retry.success) return retry.data;
+    if (Result.isSuccess(retry)) return Result.succeed(retry.success);
   }
 
-  return new Date(Date.UTC(yearN, monthIndex, day));
+  return Result.succeed(new Date(Date.UTC(yearN, monthIndex, day)));
+}
+
+/** The failure for a match row whose required date cannot be parsed. */
+function unparseableDate(text: string): ScrapeError {
+  return scrapeError(`Unable to parse required AFL Tables match date: ${JSON.stringify(text)}`);
 }
 
 /** Parse venue from the info cell HTML. */

@@ -1,31 +1,17 @@
-import { seasonYear } from "../../lib/seasons";
 /**
  * FootyWire source adapters.
  *
  * FootyWire is AFLM-only (no AFLW or VFL coverage). Each capability has
- * its own class so per-capability coverage stays accurate.
+ * its own adapter so per-capability coverage stays accurate.
  */
 
-import { batchedMap } from "../../lib/concurrency";
-import { ok, type Result } from "../../lib/result";
+import { Effect, Result } from "effect";
+import { batched } from "../../lib/batched";
+import { seasonYear } from "../../lib/seasons";
 import { normaliseTeamName } from "../../lib/team-mapping";
-import type {
-  Match,
-  MatchCoachAssignment,
-  MatchCoachesQuery,
-  MatchCoachesResult,
-  MatchQuery,
-  Player,
-  PlayerStats,
-  PlayerStatsQuery,
-  SeasonPlayerStats,
-  Squad,
-  SquadQuery,
-  TeamStatsEntry,
-  TeamStatsQuery,
-} from "../../types";
-import { FootyWireClient } from "../footywire";
-import { MatchCoachesClient } from "../match-coaches";
+import type { MatchCoachAssignment, Player, PlayerStats } from "../../types";
+import { FootyWire } from "../footywire";
+import { MatchCoaches } from "../match-coaches";
 import type {
   MatchCoachesSource,
   MatchSource,
@@ -47,170 +33,173 @@ const FOOTYWIRE_SQUAD_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 201
 const FOOTYWIRE_MATCH_COACHES_COVERAGE: CoverageMap = new Map();
 
 /** FootyWire match-page coach headings for explicit comparison requests. */
-export class FootyWireMatchCoachesSource implements MatchCoachesSource {
-  readonly id = "footywire" as const;
-  readonly coverage = FOOTYWIRE_MATCH_COACHES_COVERAGE;
+export const footyWireMatchCoachesSource: Effect.Effect<
+  MatchCoachesSource,
+  never,
+  FootyWire | MatchCoaches
+> = Effect.gen(function* () {
+  const matchClient = yield* FootyWire;
+  const coachClient = yield* MatchCoaches;
 
-  constructor(
-    private readonly matchClient: FootyWireClient = new FootyWireClient(),
-    private readonly coachClient: MatchCoachesClient = new MatchCoachesClient(),
-  ) {}
+  return {
+    id: "footywire",
+    coverage: FOOTYWIRE_MATCH_COACHES_COVERAGE,
+    fetchMatchCoaches: (query) =>
+      Effect.gen(function* () {
+        const matches = yield* matchClient.fetchSeasonFixture(
+          seasonYear(query.season),
+          query.competition ?? "AFLM",
+        );
 
-  async fetchMatchCoaches(query: MatchCoachesQuery): Promise<Result<MatchCoachesResult, Error>> {
-    const matchesResult = await this.matchClient.fetchSeasonFixture(
-      seasonYear(query.season),
-      query.competition ?? "AFLM",
-    );
+        const records = yield* coachClient.fetchFootyWireMatches(matches);
 
-    if (!matchesResult.success) return matchesResult;
-    const records = await this.coachClient.fetchFootyWireMatches(matchesResult.data);
+        const assignments: MatchCoachAssignment[] = records.assignments.filter(
+          (assignment) =>
+            query.team === undefined ||
+            normaliseTeamName(assignment.team) === normaliseTeamName(query.team),
+        );
 
-    const assignments: MatchCoachAssignment[] = records.assignments.filter(
-      (assignment) =>
-        query.team === undefined ||
-        normaliseTeamName(assignment.team) === normaliseTeamName(query.team),
-    );
-
-    return ok({
-      assignments,
-      completeness: { complete: records.failures.length === 0, failures: records.failures },
-    });
-  }
-}
+        return {
+          assignments,
+          completeness: { complete: records.failures.length === 0, failures: records.failures },
+        };
+      }),
+  };
+});
 
 /** FootyWire as a MatchSource (AFLM only, ~2010+). */
-export class FootyWireMatchSource implements MatchSource {
-  readonly id = "footywire" as const;
-  readonly coverage = FOOTYWIRE_MATCH_COVERAGE;
+export const footyWireMatchSource: Effect.Effect<MatchSource, never, FootyWire> = Effect.gen(
+  function* () {
+    const client = yield* FootyWire;
 
-  constructor(private readonly client: FootyWireClient = new FootyWireClient()) {}
-
-  async fetchMatches(query: MatchQuery): Promise<Result<Match[], Error>> {
-    // fetchSeasonFixture returns ALL matches (any status). fetchSeasonResults
-    // returns only completed. Use the broader call so the api-layer status
-    // filter applies uniformly across sources.
-    const result = await this.client.fetchSeasonFixture(
-      seasonYear(query.season),
-      query.competition ?? "AFLM",
-    );
-
-    if (!result.success) return result;
-
-    const filtered =
-      query.round != null ? result.data.filter((m) => m.roundNumber === query.round) : result.data;
-
-    return ok(filtered);
-  }
-}
+    return {
+      id: "footywire",
+      coverage: FOOTYWIRE_MATCH_COVERAGE,
+      fetchMatches: (query) =>
+        // fetchSeasonFixture returns ALL matches (any status). fetchSeasonResults
+        // returns only completed. Use the broader call so the api-layer status
+        // filter applies uniformly across sources.
+        client
+          .fetchSeasonFixture(seasonYear(query.season), query.competition ?? "AFLM")
+          .pipe(
+            Effect.map((matches) =>
+              query.round != null ? matches.filter((m) => m.roundNumber === query.round) : matches,
+            ),
+          ),
+    };
+  },
+);
 
 /**
  * FootyWire as a PlayerStatsSource (AFLM only, ~2010+).
  *
- * Scrapes per-match stats sequentially in batches of 5 with a delay
- * between batches to be respectful to the FootyWire site. Individual
- * match failures don't abort the scrape — they are surfaced in the
- * envelope's `failedMatchIds` (same `FW_…` namespace as the stat rows).
+ * Scrapes per-match stats in batches of 5 with a delay between batches to
+ * be respectful to the FootyWire site. Individual match failures don't
+ * abort the scrape — they are surfaced in the envelope's `failedMatchIds`
+ * (same `FW_…` namespace as the stat rows).
  */
-export class FootyWirePlayerStatsSource implements PlayerStatsSource {
-  readonly id = "footywire" as const;
-  readonly coverage = FOOTYWIRE_PLAYER_STATS_COVERAGE;
+export const footyWirePlayerStatsSource: Effect.Effect<PlayerStatsSource, never, FootyWire> =
+  Effect.gen(function* () {
+    const client = yield* FootyWire;
 
-  constructor(private readonly client: FootyWireClient = new FootyWireClient()) {}
+    return {
+      id: "footywire",
+      coverage: FOOTYWIRE_PLAYER_STATS_COVERAGE,
+      fetchPlayerStats: (query) =>
+        Effect.gen(function* () {
+          const season = seasonYear(query.season);
+          const ids = yield* client.fetchSeasonMatchIds(season);
 
-  async fetchPlayerStats(query: PlayerStatsQuery): Promise<Result<SeasonPlayerStats, Error>> {
-    const idsResult = await this.client.fetchSeasonMatchIds(seasonYear(query.season));
+          const entries =
+            query.round != null ? ids.filter((e) => e.roundNumber === query.round) : ids;
 
-    if (!idsResult.success) return idsResult;
+          if (entries.length === 0) return { stats: [], failedMatchIds: [] };
 
-    const entries =
-      query.round != null
-        ? idsResult.data.filter((e) => e.roundNumber === query.round)
-        : idsResult.data;
+          const results = yield* batched(
+            entries,
+            (e) => Effect.result(client.fetchMatchPlayerStats(e.matchId, season, e.roundNumber)),
+            { batchSize: 5, gap: "500 millis" },
+          );
 
-    if (entries.length === 0) return ok({ stats: [], failedMatchIds: [] });
+          const allStats: PlayerStats[] = [];
+          const failedMatchIds: string[] = [];
 
-    const results = await batchedMap(
-      entries,
-      (e) => this.client.fetchMatchPlayerStats(e.matchId, seasonYear(query.season), e.roundNumber),
-      { batchSize: 5, delayMs: 500 },
-    );
+          results.forEach((result, i) => {
+            const entry = entries[i];
 
-    const allStats: PlayerStats[] = [];
-    const failedMatchIds: string[] = [];
+            if (Result.isSuccess(result)) {
+              allStats.push(...result.success);
+            } else if (entry) {
+              failedMatchIds.push(`FW_${entry.matchId}`);
+            }
+          });
 
-    for (let i = 0; i < results.length; i++) {
-      const result = results[i];
-      const entry = entries[i];
-
-      if (result?.success) {
-        allStats.push(...result.data);
-      } else if (entry) {
-        failedMatchIds.push(`FW_${entry.matchId}`);
-      }
-    }
-
-    return ok({ stats: allStats, failedMatchIds });
-  }
-}
+          return { stats: allStats, failedMatchIds };
+        }),
+    };
+  });
 
 /** FootyWire as a SquadSource (AFLM only — scrapes the team history page). */
-export class FootyWireSquadSource implements SquadSource {
-  readonly id = "footywire" as const;
-  readonly coverage = FOOTYWIRE_SQUAD_COVERAGE;
+export const footyWireSquadSource: Effect.Effect<SquadSource, never, FootyWire> = Effect.gen(
+  function* () {
+    const client = yield* FootyWire;
 
-  constructor(private readonly client: FootyWireClient = new FootyWireClient()) {}
+    return {
+      id: "footywire",
+      coverage: FOOTYWIRE_SQUAD_COVERAGE,
+      fetchSquad: (query) => {
+        const competition = query.competition ?? "AFLM";
+        const teamName = normaliseTeamName(query.team);
 
-  async fetchSquad(query: SquadQuery): Promise<Result<Squad, Error>> {
-    const competition = query.competition ?? "AFLM";
-    const teamName = normaliseTeamName(query.team);
-    const result = await this.client.fetchPlayerList(teamName);
+        return client.fetchPlayerList(teamName).pipe(
+          Effect.map((details) => {
+            const players: Player[] = details.map((p) => ({
+              playerId: p.playerId,
+              givenName: p.givenName,
+              surname: p.surname,
+              displayName: p.displayName,
+              jumperNumber: p.jumperNumber,
+              position: p.position,
+              dateOfBirth: p.dateOfBirth ?? null,
+              heightCm: p.heightCm,
+              weightKg: p.weightKg,
+              draftYear: p.draftYear,
+              draftPosition: p.draftPosition,
+              draftType: p.draftType,
+              debutYear: p.debutYear,
+              recruitedFrom: p.recruitedFrom,
+              gamesPlayed: p.gamesPlayed ?? null,
+              goals: p.goals ?? null,
+              team: teamName,
+              source: "footywire",
+              competition,
+            }));
 
-    if (!result.success) return result;
-
-    const players: Player[] = result.data.map((p) => ({
-      playerId: p.playerId,
-      givenName: p.givenName,
-      surname: p.surname,
-      displayName: p.displayName,
-      jumperNumber: p.jumperNumber,
-      position: p.position,
-      dateOfBirth: p.dateOfBirth ?? null,
-      heightCm: p.heightCm,
-      weightKg: p.weightKg,
-      draftYear: p.draftYear,
-      draftPosition: p.draftPosition,
-      draftType: p.draftType,
-      debutYear: p.debutYear,
-      recruitedFrom: p.recruitedFrom,
-      gamesPlayed: p.gamesPlayed ?? null,
-      goals: p.goals ?? null,
-      team: teamName,
-      source: "footywire",
-      competition,
-    }));
-
-    return ok({
-      teamId: teamName,
-      teamName,
-      season: seasonYear(query.season),
-      scope: "all-time",
-      players,
-      competition,
-      source: "footywire" as const,
-    });
-  }
-}
+            return {
+              teamId: teamName,
+              teamName,
+              season: seasonYear(query.season),
+              scope: "all-time" as const,
+              players,
+              competition,
+              source: "footywire" as const,
+            };
+          }),
+        );
+      },
+    };
+  },
+);
 
 /** FootyWire as a TeamStatsSource (AFLM only). */
-export class FootyWireTeamStatsSource implements TeamStatsSource {
-  readonly id = "footywire" as const;
-  readonly coverage = FOOTYWIRE_TEAM_STATS_COVERAGE;
+export const footyWireTeamStatsSource: Effect.Effect<TeamStatsSource, never, FootyWire> =
+  Effect.gen(function* () {
+    const client = yield* FootyWire;
 
-  constructor(private readonly client: FootyWireClient = new FootyWireClient()) {}
-
-  async fetchTeamStats(query: TeamStatsQuery): Promise<Result<TeamStatsEntry[], Error>> {
-    const summaryType = query.summaryType ?? "totals";
-
-    return this.client.fetchTeamStats(seasonYear(query.season), summaryType);
-  }
-}
+    return {
+      id: "footywire",
+      coverage: FOOTYWIRE_TEAM_STATS_COVERAGE,
+      fetchTeamStats: (query) =>
+        client.fetchTeamStats(seasonYear(query.season), query.summaryType ?? "totals"),
+    };
+  });

@@ -1,8 +1,8 @@
 /** Public API for credited coach assignments by match. */
 
-import { Result } from "../lib/result";
-import { dispatch } from "../sources/adapters/dispatch";
-import { matchCoachesRegistry } from "../sources/adapters/index";
+import { Effect } from "effect";
+import type { SourceError } from "../lib/errors";
+import { dispatch, SourceRegistry } from "../sources/adapters/index";
 import type { MatchCoachesQuery, MatchCoachesResult } from "../types";
 
 /**
@@ -17,11 +17,14 @@ import type { MatchCoachesQuery, MatchCoachesResult } from "../types";
  * const result = await fetchMatchCoaches({ season: 2022, team: "Carlton" });
  * ```
  */
-export async function fetchMatchCoaches(
+export function fetchMatchCoaches(
   query: MatchCoachesQuery,
-): Promise<import("../lib/result").Result<MatchCoachesResult, Error>> {
-  const resolved = { ...query, source: query.source ?? "afl-tables" };
-  const adapterR = dispatch(matchCoachesRegistry, "match coach", resolved);
+): Effect.Effect<MatchCoachesResult, SourceError, SourceRegistry> {
+  return Effect.gen(function* () {
+    const resolved = { ...query, source: query.source ?? "afl-tables" };
+    const registry = yield* SourceRegistry;
+    const adapter = yield* dispatch(registry.matchCoaches, "match coach", resolved);
 
-  return Result.flatMapAsync(adapterR, (adapter) => adapter.fetchMatchCoaches(resolved));
+    return yield* adapter.fetchMatchCoaches(resolved);
+  });
 }
