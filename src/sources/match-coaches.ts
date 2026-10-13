@@ -254,6 +254,20 @@ export const MatchCoachesLive = Layer.effect(
   }),
 );
 
+/** Assignments read from one FootyWire match page. */
+interface ParsedMatchPage {
+  readonly assignments: MatchCoachAssignment[];
+  /** True unless exactly one coach is credited to each participant. */
+  readonly incomplete: boolean;
+}
+
+/** Assignments read from one AFL Tables coach profile. */
+interface ParsedCoachProfile {
+  readonly assignments: MatchCoachAssignment[];
+  /** True when the profile had no usable Games Coached rows. */
+  readonly malformed: boolean;
+}
+
 /** Coach profile links from the AFL Tables coach index, in page order. */
 function parseAflTablesCoachIndex(html: string): CoachPage[] {
   const $ = parseHtml(html);
@@ -289,7 +303,7 @@ function parseFootyWireMatchCoaches(
   html: string,
   match: FootyWireCoachMatch,
   url: string,
-): { assignments: MatchCoachAssignment[]; incomplete: boolean } {
+): ParsedMatchPage {
   const $ = parseHtml(html);
   const seen = new Set<string>();
   const assignments: MatchCoachAssignment[] = [];
@@ -433,7 +447,7 @@ function parseAflTablesCoachProfile(
   html: string,
   coach: { name: string; url: string },
   season: number,
-): { assignments: MatchCoachAssignment[]; malformed: boolean } {
+): ParsedCoachProfile {
   const $ = parseHtml(html);
   const assignments: MatchCoachAssignment[] = [];
   let hadGameRows = false;
