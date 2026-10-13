@@ -28,54 +28,78 @@ A port of the [fitzRoy R package](https://github.com/jimmyday12/fitzRoy).
 npm install fitzroy
 ```
 
-Upgrading to version 5? Read the [version 5 migration guide](docs/migration-v5.md).
-For earlier changes, see the [version 4 migration guide](docs/migration-v4.md).
+Upgrading to version 7? Read the [version 7 migration guide](docs/migration-v7.md).
+For earlier changes, see the [version 6 migration guide](docs/migration-v6.md).
 
 ## Library Usage
 
-All public functions return `Result<T, E>` - check `result.success` before
-accessing `result.data` (or `result.error` on failure):
+Version 7 uses [Effect](https://effect.website/). Each `fetch*` function
+returns an `Effect` that succeeds with data or fails with a tagged error. Run it
+with `FitzroyLive`, which provides the source services and the HTTP policy:
 
 ```typescript
-import { fetchMatches, resolveDefaultSeason, Result } from "fitzroy";
+import { Effect } from "effect";
+import { FitzroyLive, fetchMatches, resolveDefaultSeason } from "fitzroy";
 
 const season = resolveDefaultSeason("AFLM");
-const r = await fetchMatches({ source: "afl-api", season });
 
-if (!r.success) {
-  console.error(r.error);
-  process.exit(1);
-}
-console.log(`${r.data.length} matches in ${season}`);
+const program = fetchMatches({ source: "afl-api", season }).pipe(
+  Effect.map((matches) => `${matches.length} matches in ${season}`),
+  Effect.catchTag("AflApiError", (error) => Effect.succeed(`AFL API failed: ${error.message}`)),
+);
+
+console.log(await Effect.runPromise(program.pipe(Effect.provide(FitzroyLive))));
 ```
 
-The composition functions on the `Result` namespace help chain calls without the
-`if (!r.success) return r` boilerplate accumulating at every call site:
+Errors are `Schema.TaggedError` classes such as `AflApiError`, `ScrapeError`,
+`OutOfRangeError`, and `UnsupportedSourceError`. Handle them with
+`Effect.catchTag` or `Match.tag`. Coverage errors carry a `suggestion` that
+names a source with coverage.
+
+Provide `FitzroyLive` once per program. A single runtime shares one AFL API
+token across every call. To change the request policy, provide
+`SourceHttpConfig`:
 
 ```typescript
-const summary = Result.map(r, (matches) => matches.length);
+import { Effect } from "effect";
+import { FitzroyLive, SourceHttpConfig, fetchLadder } from "fitzroy";
+
+const ladder = fetchLadder({ source: "afl-api", season: 2025 }).pipe(
+  Effect.provide(FitzroyLive),
+  Effect.provideService(SourceHttpConfig, { timeout: "10 seconds", retry5xx: true }),
+);
 ```
+
+In tests, replace `FetchHttpClient.Fetch` from `effect/http` with a
+fixture-backed `fetch`, or provide a stub for one source service such as
+`AflApi` with `Layer.succeed`.
 
 ### Public API
 
-| Function             | Query type           | Returns                              |
-| -------------------- | -------------------- | ------------------------------------ |
-| `fetchMatches`       | `MatchQuery`         | `Result<Match[], Error>`             |
-| `fetchMatchCoaches`  | `MatchCoachesQuery`  | `Result<MatchCoachesResult, Error>`  |
-| `fetchPlayerStats`   | `PlayerStatsQuery`   | `Result<SeasonPlayerStats, Error>`   |
-| `fetchTeamStats`     | `TeamStatsQuery`     | `Result<TeamStatsEntry[], Error>`    |
-| `fetchLadder`        | `LadderQuery`        | `Result<Ladder, Error>`              |
-| `fetchTeams`         | `TeamQuery`          | `Result<Team[], Error>`              |
-| `fetchSquad`         | `SquadQuery`         | `Result<Squad, Error>`               |
-| `fetchLineup`        | `LineupQuery`        | `Result<Lineup[], Error>`            |
-| `fetchPlayerDetails` | `PlayerDetailsQuery` | `Result<PlayerDetailsResult, Error>` |
-| `fetchAwards`        | `AwardQuery`         | `Result<AwardResult, Error>`         |
+| Function             | Query type           | Succeeds with         | Requires                                    |
+| -------------------- | -------------------- | --------------------- | ------------------------------------------- |
+| `fetchMatches`       | `MatchQuery`         | `Match[]`             | `SourceRegistry`                            |
+| `fetchMatchCoaches`  | `MatchCoachesQuery`  | `MatchCoachesResult`  | `SourceRegistry`                            |
+| `fetchPlayerStats`   | `PlayerStatsQuery`   | `SeasonPlayerStats`   | `SourceRegistry`                            |
+| `fetchTeamStats`     | `TeamStatsQuery`     | `TeamStatsEntry[]`    | `SourceRegistry`                            |
+| `fetchLadder`        | `LadderQuery`        | `Ladder`              | `SourceRegistry`                            |
+| `fetchTeams`         | `TeamQuery`          | `Team[]`              | `AflApi`                                    |
+| `fetchSquad`         | `SquadQuery`         | `Squad`               | `SourceRegistry`                            |
+| `fetchLineup`        | `LineupQuery`        | `Lineup[]`            | `SourceRegistry`                            |
+| `fetchPlayerDetails` | `PlayerDetailsQuery` | `PlayerDetailsResult` | `SourceRegistry`, `AflApi`                  |
+| `fetchAwards`        | `AwardQuery`         | `AwardResult`         | `SourceRegistry`, `FootyWire`, `AflCoaches` |
+| `fetchSeasons`       | `CompetitionCode`    | `CompetitionSeason[]` | `AflApi`                                    |
 
-Examples for each (using `resolveDefaultSeason` so the snippets stay stable
-year-on-year):
+Every function fails with a `SourceError`. `FitzroyLive` provides every
+requirement.
+
+Examples for each, inside `Effect.gen` (using `resolveDefaultSeason` so the
+snippets stay stable year-on-year):
 
 ```typescript
+import { Effect } from "effect";
 import {
+  FitzroyLive,
   fetchAwards,
   fetchLadder,
   fetchLineup,
@@ -91,35 +115,39 @@ import {
 
 const season = resolveDefaultSeason("AFLM");
 
-// Coach assignments use AFL Tables by default; partial page failures remain
-// visible in `completeness` instead of dropping successful assignments.
-await fetchMatchCoaches({ season, team: "Carlton" });
-await fetchMatchCoaches({ season, source: "footywire" }); // explicit comparison
+const program = Effect.gen(function* () {
+  // Coach assignments use AFL Tables by default; partial page failures remain
+  // visible in `completeness` instead of dropping successful assignments.
+  yield* fetchMatchCoaches({ season, team: "Carlton" });
 
-// All matches for a season
-await fetchMatches({ source: "afl-api", season });
-// Only completed
-await fetchMatches({ source: "afl-api", season, status: "Complete" });
-// Upcoming fixtures
-await fetchMatches({ source: "afl-api", season, status: "Upcoming" });
+  // All matches for a season, only completed, or upcoming fixtures
+  yield* fetchMatches({ source: "afl-api", season });
+  yield* fetchMatches({ source: "afl-api", season, status: "Complete" });
+  yield* fetchMatches({ source: "afl-api", season, status: "Upcoming" });
 
-// Player and team stats for round 1
-await fetchPlayerStats({ source: "afl-api", season, round: 1 });
-await fetchTeamStats({ source: "afl-tables", season, competition: "AFLM" });
+  // Player and team stats for round 1
+  yield* fetchPlayerStats({ source: "afl-api", season, round: 1 });
+  yield* fetchTeamStats({ source: "afl-tables", season, competition: "AFLM" });
 
-// Ladder
-await fetchLadder({ source: "afl-api", season });
+  // Ladder
+  yield* fetchLadder({ source: "afl-api", season });
 
-// Team identity
-await fetchTeams({ competition: "AFLM" });
-await fetchSquad({ source: "afl-api", season, team: "Carlton" });
-await fetchLineup({ source: "afl-api", season, round: 1 });
-await fetchPlayerDetails({ source: "afl-api", season, team: "Carlton" });
+  // Team identity
+  yield* fetchTeams({ competition: "AFLM" });
+  yield* fetchSquad({ source: "afl-api", season, team: "Carlton" });
+  yield* fetchLineup({ source: "afl-api", season, round: 1 });
+  yield* fetchPlayerDetails({ source: "afl-api", season, team: "Carlton" });
 
-// Awards
-await fetchAwards({ award: "coleman", season, limit: 10 });
-await fetchAwards({ award: "brownlow", season });
+  // Awards
+  yield* fetchAwards({ award: "coleman", season, limit: 10 });
+  yield* fetchAwards({ award: "brownlow", season });
+});
+
+await Effect.runPromise(program.pipe(Effect.provide(FitzroyLive)));
 ```
+
+The package root also exports an Effect schema for every domain model, such as
+`MatchSchema` and `LadderSchema`. Use them to decode or encode stored output.
 
 Partial-result envelopes keep successful rows and identify missing data. Check
 `failedMatchIds`, `failedTeams`, or `failedRounds` before you treat a result as
@@ -129,18 +157,20 @@ scraped roster as season-specific.
 ### Wire Schemas (`fitzroy/schemas`)
 
 The `fitzroy/schemas` subpath exports the raw AFL API and Squiggle response
-schemas (Zod) for consumers who need to validate wire-level payloads directly.
+schemas (Effect Schema) for consumers who need to validate wire-level payloads
+directly.
 The package publishes this subpath, but its contents track upstream API shapes.
 Schemas may change at minor versions when the upstream changes. Depend on it
 only if you are deliberately coupling to the raw wire format.
 
 ```typescript
+import { Result, Schema } from "effect";
 import { MatchItemListSchema } from "fitzroy/schemas";
 
 // Validate a raw AFL API round response
-const result = MatchItemListSchema.safeParse(rawJson);
-if (!result.success) {
-  console.error("Upstream shape changed:", result.error.issues);
+const result = Schema.decodeUnknownResult(MatchItemListSchema)(rawJson);
+if (Result.isFailure(result)) {
+  console.error("Upstream shape changed:", result.failure.message);
 }
 ```
 
@@ -212,14 +242,14 @@ output envelopes, and partial-failure behaviour.
 Use `fetchSeasons(competition)` to discover canonical season keys, calendar
 years, display names and provider season IDs. Ordinary seasons accept either
 `2026` or `"2026"`. AFLW's two 2022 seasons require `"2022-S6"` or `"2022-S7"`.
-A bare AFLW `2022` returns `AmbiguousSeasonError` with `validSelectors`.
+A bare AFLW `2022` fails with `AmbiguousSeasonError` and its `validSelectors`.
 Competition remains separate from the season key.
 
 ```typescript
 import { fetchMatches, fetchSeasons } from "fitzroy";
 
-const seasons = await fetchSeasons("AFLW");
-const matches = await fetchMatches({
+const seasons = yield* fetchSeasons("AFLW");
+const matches = yield* fetchMatches({
   source: "afl-api",
   competition: "AFLW",
   season: "2022-S7",

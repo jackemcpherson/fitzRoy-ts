@@ -25,23 +25,29 @@ and packaging from `vite.config.ts`.
 - Keep transforms pure in `src/transforms/`, source I/O and validation in
   `src/sources/`, public composition in `src/api/`, and presentation logic in
   `src/cli/`.
-- `src/types.ts` is the domain-model source of truth and `src/index.ts` defines
-  the public package surface.
+- `src/types.ts` defines the domain models as Effect schemas and derives their
+  types. `src/index.ts` defines the public package surface.
 - Use Web Standard APIs in library source. Node-specific process APIs belong
   only in the CLI, and Bun-specific runtime APIs do not belong in `src/`.
-- Validate untrusted data with Zod at source boundaries, then use typed domain
-  values internally.
-- Return the repository's `Result` union for expected failures. Reserve thrown
-  errors for unexpected failures handled by the CLI boundary.
+- Validate untrusted data with Effect Schema at source boundaries, then use
+  typed domain values internally.
+- Track expected failures in the Effect error channel as `Schema.TaggedError`
+  classes, and capabilities in the requirements channel as services. Do not
+  throw or use `try/catch` in application logic. Pure fallible helpers return
+  `Result` from `effect`.
+- Each data source is a `Context.Service` with a `*Live` layer over
+  `SourceHttp`. `FitzroyLive` (`src/layers.ts`) provides every service.
 - Keep TypeScript strict: no explicit `any`, enums, or default exports. Handle
   unchecked indexed access and exact optional properties explicitly.
-- Use `Promise.all` for all-or-nothing concurrency and `Promise.allSettled`
-  where partial failure is part of the contract.
+- Use `Effect.all` with an explicit concurrency for all-or-nothing work, and
+  `batched` with `Effect.result` per item where partial failure is part of the
+  contract.
 - Public exports require TSDoc and meaningful fixture-based tests. Tests must
-  not call live upstream services.
+  not call live upstream services, and must not mock modules: provide fixtures
+  through `test/support/http.ts` or stub a service with `Layer.succeed`.
 
-Follow `docs/typescript-style-guide.md` for naming, types, validation, error,
-documentation, and test conventions.
+Follow the published TypeScript style guide and the project exceptions in
+`docs/typescript-style-guide.md`.
 
 ## Ralph and release workflow
 
