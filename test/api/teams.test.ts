@@ -1,77 +1,59 @@
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it } from "@effect/vitest";
+import { Effect } from "effect";
 import { fetchTeams } from "../../src/api/teams";
+import type { Route } from "../support/http";
+import { fixtureFitzroy } from "../support/services";
 
 /**
- * Build a fetch stub that returns an empty AFL `/teams` list. This drives
- * the AFLW backfill path in `src/api/teams.ts:53-60`: when the upstream
- * `WOMEN` filter yields zero teams, the four hardcoded AFLW senior clubs
- * (Essendon, Hawthorn, Sydney Swans, Port Adelaide) should be added.
+ * Routes that return an empty AFL `/teams` list. This drives the AFLW
+ * backfill path in `src/api/teams.ts`: when the upstream `WOMEN` filter
+ * yields zero teams, the four hardcoded AFLW senior clubs (Essendon,
+ * Hawthorn, Sydney Swans, Port Adelaide) should be added.
  */
-function buildEmptyTeamsFetch(): typeof fetch {
-  return vi.fn(async (input: RequestInfo | URL) => {
-    const url = typeof input === "string" ? input : input.toString();
-
-    if (url.includes("/teams")) {
-      return new Response(JSON.stringify({ teams: [] }), { status: 200 });
-    }
-
-    return new Response("unexpected URL", { status: 500 });
-  }) as unknown as typeof fetch;
-}
+const EMPTY_TEAMS: readonly Route[] = [
+  ["/teams", { body: JSON.stringify({ teams: [] }) }],
+  [/./, { body: "unexpected URL", status: 500 }],
+];
 
 describe("fetchTeams public API", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
+  it.effect("augments AFLW with the four backfill senior clubs when upstream omits them", () =>
+    Effect.gen(function* () {
+      const teams = yield* fetchTeams({ competition: "AFLW" });
 
-  it("augments AFLW with the four backfill senior clubs when upstream omits them", async () => {
-    vi.stubGlobal("fetch", buildEmptyTeamsFetch());
+      const names = teams.map((t) => t.name).sort();
+      expect(names).toContain("Essendon");
+      expect(names).toContain("Hawthorn");
+      expect(names).toContain("Sydney Swans");
+      expect(names).toContain("Port Adelaide");
+      expect(teams).toHaveLength(4);
 
-    const result = await fetchTeams({ competition: "AFLW" });
+      for (const team of teams) {
+        expect(team.competition).toBe("AFLW");
+        expect(team.source).toBe("afl-api");
+      }
+    }).pipe(Effect.provide(fixtureFitzroy(EMPTY_TEAMS))),
+  );
 
-    expect(result.success).toBe(true);
-
-    if (!result.success) return;
-
-    const names = result.data.map((t) => t.name).sort();
-    expect(names).toContain("Essendon");
-    expect(names).toContain("Hawthorn");
-    expect(names).toContain("Sydney Swans");
-    expect(names).toContain("Port Adelaide");
-    expect(result.data).toHaveLength(4);
-
-    for (const team of result.data) {
-      expect(team.competition).toBe("AFLW");
-      expect(team.source).toBe("afl-api");
-    }
-  });
-
-  it("returns an empty list for AFLM when upstream returns no teams", async () => {
+  it.effect("returns an empty list for AFLM when upstream returns no teams", () =>
     // AFLM path filters by AFL_SENIOR_TEAMS allow-list and does NOT backfill,
     // so an empty upstream response yields an empty list. Locks in the
     // contrast with the AFLW backfill above.
-    vi.stubGlobal("fetch", buildEmptyTeamsFetch());
+    Effect.gen(function* () {
+      const teams = yield* fetchTeams({ competition: "AFLM" });
 
-    const result = await fetchTeams({ competition: "AFLM" });
+      expect(teams).toHaveLength(0);
+    }).pipe(Effect.provide(fixtureFitzroy(EMPTY_TEAMS))),
+  );
 
-    expect(result.success).toBe(true);
-
-    if (!result.success) return;
-    expect(result.data).toHaveLength(0);
-  });
-
-  it("returns AFLM + AFLW combined when no competition is specified", async () => {
+  it.effect("returns AFLM + AFLW combined when no competition is specified", () =>
     // With empty upstream, AFLM contributes 0 and AFLW contributes the 4
     // backfill teams — exercises the dual-fetch branch in fetchTeams.
-    vi.stubGlobal("fetch", buildEmptyTeamsFetch());
+    Effect.gen(function* () {
+      const teams = yield* fetchTeams();
 
-    const result = await fetchTeams();
-
-    expect(result.success).toBe(true);
-
-    if (!result.success) return;
-    expect(result.data).toHaveLength(4);
-    const competitions = new Set(result.data.map((t) => t.competition));
-    expect(competitions.has("AFLW")).toBe(true);
-  });
+      expect(teams).toHaveLength(4);
+      const competitions = new Set(teams.map((t) => t.competition));
+      expect(competitions.has("AFLW")).toBe(true);
+    }).pipe(Effect.provide(fixtureFitzroy(EMPTY_TEAMS))),
+  );
 });

@@ -1,6 +1,8 @@
+import { Result } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { filterLineupsByTeam, filterTeamList, flattenLineups } from "../../src/cli/team-filters";
 import type { Lineup, LineupPlayer, Team } from "../../src/types";
+import { failureMessage } from "./validated";
 
 /** Build a minimal LineupPlayer for tests. */
 function makePlayer(
@@ -138,38 +140,38 @@ describe("filterTeamList", () => {
   ];
 
   it("matches by lowercase name", () => {
-    const result = filterTeamList(teams, "richmond");
+    const result = Result.getOrThrow(filterTeamList(teams, "richmond"));
     expect(result).toHaveLength(1);
     expect(result[0]?.name).toBe("Richmond");
   });
 
   it("matches by mixed-case name", () => {
-    const result = filterTeamList(teams, "Collingwood");
+    const result = Result.getOrThrow(filterTeamList(teams, "Collingwood"));
     expect(result).toHaveLength(1);
     expect(result[0]?.name).toBe("Collingwood");
   });
 
   it("matches by lowercase abbreviation", () => {
-    const result = filterTeamList(teams, "ric");
+    const result = Result.getOrThrow(filterTeamList(teams, "ric"));
     expect(result).toHaveLength(1);
     expect(result[0]?.abbreviation).toBe("RIC");
   });
 
   it("matches by exact teamId", () => {
-    const result = filterTeamList(teams, "CD_T30");
+    const result = Result.getOrThrow(filterTeamList(teams, "CD_T30"));
     expect(result).toHaveLength(1);
     expect(result[0]?.name).toBe("Carlton");
   });
 
   it("retains numeric team-list identifier lookup", () => {
     const numericTeams = [makeTeam("30", "Carlton", "CAR")];
-    expect(filterTeamList(numericTeams, "30")).toEqual(numericTeams);
+    expect(Result.getOrThrow(filterTeamList(numericTeams, "30"))).toEqual(numericTeams);
   });
 
-  it("throws with a helpful message listing alternatives when no team matches", () => {
-    expect(() => filterTeamList(teams, "Brisbane Lions")).toThrow(
-      'No team matched "Brisbane Lions"',
-    );
-    expect(() => filterTeamList(teams, "Brisbane Lions")).toThrow("Richmond (RIC)");
+  it("fails with a helpful message listing alternatives when no team matches", () => {
+    const message = failureMessage(filterTeamList(teams, "Brisbane Lions"));
+
+    expect(message).toContain('No team matched "Brisbane Lions"');
+    expect(message).toContain("Richmond (RIC)");
   });
 });

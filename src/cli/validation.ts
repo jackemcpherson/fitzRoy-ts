@@ -84,7 +84,9 @@ export function validateSeason(raw: string): Validated<SeasonSelector> {
 }
 
 /** Validate and parse an optional season year string. */
-export function validateOptionalSeason(raw: string | undefined): Validated<SeasonSelector | undefined> {
+export function validateOptionalSeason(
+  raw: string | undefined,
+): Validated<SeasonSelector | undefined> {
   if (raw != null) return validateSeason(raw);
 
   return Result.succeed(undefined);
@@ -190,9 +192,7 @@ export function validateSummary(raw: string): Validated<TeamStatsSummaryType> {
 
   if (summary !== undefined) return Result.succeed(summary);
 
-  return usage(
-    `Invalid summary type: "${raw}" — valid values are: ${VALID_SUMMARIES.join(", ")}`,
-  );
+  return usage(`Invalid summary type: "${raw}" — valid values are: ${VALID_SUMMARIES.join(", ")}`);
 }
 
 /** Validate an award type string (case-insensitive). */
@@ -211,9 +211,7 @@ export function validateMatchStatus(raw: string): Validated<MatchStatus> {
 
   if (status !== undefined) return Result.succeed(status);
 
-  return usage(
-    `Invalid status: "${raw}" — valid values are: ${VALID_MATCH_STATUSES.join(", ")}`,
-  );
+  return usage(`Invalid status: "${raw}" — valid values are: ${VALID_MATCH_STATUSES.join(", ")}`);
 }
 
 /** Validate a --by grouping flag. */

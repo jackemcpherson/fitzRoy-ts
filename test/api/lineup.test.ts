@@ -1,115 +1,118 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it } from "@effect/vitest";
+import { Effect, Layer, Schema } from "effect";
 import { fetchLineup } from "../../src/api/lineup";
-import { aflApiClient } from "../../src/sources/adapters/index";
+import { MatchItemSchema } from "../../src/lib/validation";
+import { SourceRegistryLive } from "../../src/sources/adapters/index";
+import { AflApi } from "../../src/sources/afl-api";
+import { fixtureText, type Route } from "../support/http";
+import { fixtureFitzroy } from "../support/services";
 
-const ROSTER_FIXTURE = resolve(__dirname, "../fixtures/afl-api-match-roster-2025.json");
+const rosterJson = fixtureText("afl-api-match-roster-2025.json");
 
-const rosterJson = readFileSync(ROSTER_FIXTURE, "utf-8");
+/** The roster's match as the single member of its season inventory. */
+const seasonMember = Schema.decodeUnknownSync(MatchItemSchema)({
+  match: Schema.decodeUnknownSync(Schema.Struct({ match: Schema.Unknown }))(JSON.parse(rosterJson))
+    .match,
+  round: { name: "Round 1", roundId: "CD_R202501401", roundNumber: 1 },
+});
 
-/** Build a fetch stub that answers the WMCTok POST + matchRoster GET. */
-function buildMockFetch(): typeof fetch {
-  return vi.fn(async (input: RequestInfo | URL) => {
-    const url = typeof input === "string" ? input : input.toString();
+/** Routes answering the WMCTok POST and the matchRoster GET. */
+const ROSTER_ROUTES: readonly Route[] = [
+  ["WMCTok", { body: JSON.stringify({ token: "test-token" }) }],
+  ["/matchRoster/full/", { body: rosterJson }],
+  [/./, { body: "unexpected URL", status: 500 }],
+];
 
-    if (url.includes("WMCTok")) {
-      return new Response(JSON.stringify({ token: "test-token" }), { status: 200 });
-    }
+/**
+ * The live AFL API with the season lookup and inventory replaced, so the
+ * lineup flow resolves the 2025 season without the compseason and round
+ * endpoints, then fetches the roster from fixtures.
+ */
+const aflApiWithInventory = Layer.effect(
+  AflApi,
+  Effect.gen(function* () {
+    const live = yield* AflApi;
 
-    if (url.includes("/matchRoster/full/")) {
-      return new Response(rosterJson, { status: 200 });
-    }
+    return {
+      ...live,
+      resolveCompSeason: () => Effect.succeed(73),
+      fetchSeasonMatchItems: () => Effect.succeed([seasonMember]),
+    };
+  }),
+);
 
-    return new Response("unexpected URL", { status: 500 });
-  }) as unknown as typeof fetch;
-}
+/** Fresh, so layer memoisation does not reuse the registry inside `FitzroyLive`. */
+const lineupEnvironment = Layer.fresh(SourceRegistryLive).pipe(
+  Layer.provide(aflApiWithInventory),
+  Layer.provide(fixtureFitzroy(ROSTER_ROUTES)),
+);
 
 describe("fetchLineup public API", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    vi.restoreAllMocks();
-  });
+  it.effect("returns a one-element Lineup array for an explicit matchId", () =>
+    Effect.gen(function* () {
+      const lineups = yield* fetchLineup({
+        source: "afl-api",
+        season: 2025,
+        round: 1,
+        matchId: "CD_M20250140101",
+      });
 
-  it("returns a one-element Lineup array for an explicit matchId", async () => {
-    vi.stubGlobal("fetch", buildMockFetch());
-    vi.spyOn(aflApiClient, "resolveCompSeason").mockResolvedValue({ success: true, data: 73 });
-    vi.spyOn(aflApiClient, "fetchSeasonMatchItems").mockResolvedValue({
-      success: true,
-      data: [
-        {
-          match: JSON.parse(rosterJson).match,
-          round: { name: "Round 1", roundId: "CD_R202501401", roundNumber: 1 },
-        },
-      ],
-    });
+      expect(lineups).toHaveLength(1);
+      const lineup = lineups[0];
+      expect(lineup).toBeDefined();
 
-    const result = await fetchLineup({
-      source: "afl-api",
-      season: 2025,
-      round: 1,
-      matchId: "CD_M20250140101",
-    });
+      if (!lineup) return;
+      expect(lineup.matchId).toBe("CD_M20250140101");
+      expect(lineup.season).toBe(2025);
+      expect(lineup.roundNumber).toBe(1);
+      expect(lineup.homeTeam).toBe("Richmond");
+      expect(lineup.awayTeam).toBe("Carlton");
+      expect(lineup.competition).toBe("AFLM");
+      expect(lineup.source).toBe("afl-api");
+      expect(Array.isArray(lineup.homePlayers)).toBe(true);
+      expect(Array.isArray(lineup.awayPlayers)).toBe(true);
+    }).pipe(Effect.provide(lineupEnvironment)),
+  );
 
-    expect(result.success).toBe(true);
+  it.effect("fails for non-afl-api source (footywire)", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        fetchLineup({
+          source: "footywire",
+          season: 2025,
+          round: 1,
+        }),
+      );
 
-    if (!result.success) return;
+      expect(error.message).toContain("footywire does not provide lineup");
+    }).pipe(Effect.provide(fixtureFitzroy())),
+  );
 
-    expect(result.data).toHaveLength(1);
-    const lineup = result.data[0];
-    expect(lineup).toBeDefined();
+  it.effect("fails for non-afl-api source (afl-tables)", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        fetchLineup({
+          source: "afl-tables",
+          season: 2025,
+          round: 1,
+        }),
+      );
 
-    if (!lineup) return;
-    expect(lineup.matchId).toBe("CD_M20250140101");
-    expect(lineup.season).toBe(2025);
-    expect(lineup.roundNumber).toBe(1);
-    expect(lineup.homeTeam).toBe("Richmond");
-    expect(lineup.awayTeam).toBe("Carlton");
-    expect(lineup.competition).toBe("AFLM");
-    expect(lineup.source).toBe("afl-api");
-    expect(Array.isArray(lineup.homePlayers)).toBe(true);
-    expect(Array.isArray(lineup.awayPlayers)).toBe(true);
-  });
+      expect(error.message).toContain("afl-tables does not provide lineup");
+    }).pipe(Effect.provide(fixtureFitzroy())),
+  );
 
-  it("returns error for non-afl-api source (footywire)", async () => {
-    const result = await fetchLineup({
-      source: "footywire",
-      season: 2025,
-      round: 1,
-    });
+  it.effect("fails for season below afl-api coverage (pre-2012)", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        fetchLineup({
+          source: "afl-api",
+          season: 2010,
+          round: 1,
+        }),
+      );
 
-    expect(result.success).toBe(false);
-
-    if (!result.success) {
-      expect(result.error.message).toContain("footywire does not provide lineup");
-    }
-  });
-
-  it("returns error for non-afl-api source (afl-tables)", async () => {
-    const result = await fetchLineup({
-      source: "afl-tables",
-      season: 2025,
-      round: 1,
-    });
-
-    expect(result.success).toBe(false);
-
-    if (!result.success) {
-      expect(result.error.message).toContain("afl-tables does not provide lineup");
-    }
-  });
-
-  it("returns error for season below afl-api coverage (pre-2012)", async () => {
-    const result = await fetchLineup({
-      source: "afl-api",
-      season: 2010,
-      round: 1,
-    });
-
-    expect(result.success).toBe(false);
-
-    if (!result.success) {
-      expect(result.error.message).toContain("2010");
-    }
-  });
+      expect(error.message).toContain("2010");
+    }).pipe(Effect.provide(fixtureFitzroy())),
+  );
 });

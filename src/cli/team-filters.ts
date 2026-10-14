@@ -58,10 +58,7 @@ export function filterLineupsByTeam(lineups: readonly Lineup[], teamName: string
  * @param teamFilter - When supplied, only rows for this team are included.
  * @returns One row per player, stamped with `matchId` and `team`.
  */
-export function flattenLineups(
-  lineups: readonly Lineup[],
-  teamFilter?: string,
-): LineupRow[] {
+export function flattenLineups(lineups: readonly Lineup[], teamFilter?: string): LineupRow[] {
   const rows: LineupRow[] = [];
 
   for (const lineup of lineups) {

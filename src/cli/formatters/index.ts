@@ -26,8 +26,12 @@ export interface FormatOptions {
  * Resolve which output format to use based on flags and TTY status.
  *
  * Priority: --json > --csv > --format > TTY detection (non-TTY defaults to JSON).
+ * Tests pass `isTTY` explicitly instead of mutating `process.stdout`.
  */
-export function resolveFormat(options: FormatOptions): OutputFormat {
+export function resolveFormat(
+  options: FormatOptions,
+  isTTY = process.stdout.isTTY === true,
+): OutputFormat {
   if (options.json) return "json";
 
   if (options.csv) return "csv";
@@ -37,7 +41,7 @@ export function resolveFormat(options: FormatOptions): OutputFormat {
   }
 
   // Non-TTY defaults to JSON for piping
-  if (!process.stdout.isTTY) return "json";
+  if (!isTTY) return "json";
 
   return "table";
 }

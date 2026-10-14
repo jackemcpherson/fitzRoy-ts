@@ -65,82 +65,6 @@ const MIGRATION_DEBT: readonly MigrationDebt[] = [
     rules: ["anti-slop/require-safety-comment-for-type-assertion"],
   },
   {
-    phase: 6,
-    files: ["src/cli.ts", "src/cli/error-boundary.ts"],
-    rules: ["anti-slop/no-unknown-parameters"],
-  },
-  {
-    phase: 6,
-    files: ["src/cli/alias-resolution.ts"],
-    rules: ["anti-slop/no-known-value-widening"],
-  },
-  {
-    phase: 6,
-    files: ["src/cli/command-builder.ts", "src/cli/formatters/index.ts"],
-    rules: [
-      "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-safety-comment-for-type-assertion",
-    ],
-  },
-  {
-    phase: 6,
-    files: [
-      "src/cli/commands/awards.ts",
-      "src/cli/commands/ladder.ts",
-      "src/cli/commands/player.ts",
-      "src/cli/commands/stats.ts",
-      "src/cli/resolvers.ts",
-      "src/cli/validation.ts",
-    ],
-    rules: ["anti-slop/require-safety-comment-for-type-assertion"],
-  },
-  {
-    phase: 6,
-    files: ["src/cli/commands/match.ts", "src/cli/team-filters.ts"],
-    rules: ["anti-slop/no-unsafe-dictionary-type"],
-  },
-  {
-    phase: 6,
-    files: ["src/cli/completeness-output.ts"],
-    rules: ["anti-slop/no-object-parameters"],
-  },
-  {
-    phase: 6,
-    files: ["src/cli/formatters/csv.ts"],
-    rules: [
-      "anti-slop/no-known-value-widening",
-      "anti-slop/no-runtime-typeof",
-      "anti-slop/no-unknown-parameters",
-      "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-safety-comment-for-type-assertion",
-      "typescript/no-base-to-string",
-    ],
-  },
-  {
-    phase: 6,
-    files: ["src/cli/formatters/json.ts"],
-    rules: [
-      "anti-slop/no-known-value-widening",
-      "anti-slop/no-runtime-typeof",
-      "anti-slop/no-unknown-parameters",
-      "anti-slop/no-unknown-returns",
-      "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-safety-comment-for-type-assertion",
-    ],
-  },
-  {
-    phase: 6,
-    files: ["src/cli/formatters/table.ts"],
-    rules: [
-      "anti-slop/no-runtime-typeof",
-      "anti-slop/no-unknown-parameters",
-      "anti-slop/no-unknown-returns",
-      "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-safety-comment-for-type-assertion",
-      "typescript/no-base-to-string",
-    ],
-  },
-  {
     phase: 7,
     files: ["scripts/canary-baseline.ts"],
     rules: ["anti-slop/no-runtime-typeof", "anti-slop/no-unknown-parameters"],
@@ -149,10 +73,6 @@ const MIGRATION_DEBT: readonly MigrationDebt[] = [
     phase: 7,
     files: [
       "scripts/canary.ts",
-      "test/cli/completeness-output.test.ts",
-      "test/cli/ladder-envelope.test.ts",
-      "test/cli/stats-filters.test.ts",
-      "test/cli/team-response.test.ts",
       "test/golden/cli-preload.ts",
       "test/lib/result.test.ts",
       "test/transforms/match-results.test.ts",
@@ -197,14 +117,6 @@ const MIGRATION_DEBT: readonly MigrationDebt[] = [
       "anti-slop/no-runtime-typeof",
       "anti-slop/require-safety-comment-for-type-assertion",
       "typescript/unbound-method",
-    ],
-  },
-  {
-    phase: 7,
-    files: ["test/cli/resolvers.test.ts"],
-    rules: [
-      "anti-slop/no-unknown-parameters",
-      "anti-slop/require-safety-comment-for-type-assertion",
     ],
   },
   {

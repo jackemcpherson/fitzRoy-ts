@@ -33,7 +33,10 @@ export const formatError: (error: CliFailure) => string = Match.type<CliFailure>
     (error) =>
       `${pc.red("Scrape error:")} ${error.message}${suffix(error.source, (s) => ` [${s}]`)}`,
   ),
-  Match.tag("UnsupportedSourceError", (error) => `${pc.red("Unsupported source:")} ${error.message}`),
+  Match.tag(
+    "UnsupportedSourceError",
+    (error) => `${pc.red("Unsupported source:")} ${error.message}`,
+  ),
   Match.tag(
     "UnsupportedCompetitionError",
     (error) =>

@@ -1,13 +1,15 @@
+import { Result } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import {
   validateAwardsMode,
   validateStatsMode,
   validateTeamMode,
 } from "../../src/cli/mode-validation";
+import { failureMessage } from "./validated";
 
 describe("validateStatsMode", () => {
   it("rejects summary mode for player statistics", () => {
-    expect(() => validateStatsMode({ groupBy: "player", summary: "totals" })).toThrow(
+    expect(failureMessage(validateStatsMode({ groupBy: "player", summary: "totals" }))).toContain(
       "--summary is only supported with --by team",
     );
   });
@@ -15,28 +17,28 @@ describe("validateStatsMode", () => {
   it.each([{ round: 1 }, { match: "Carlton" }, { matchId: "FW_1" }, { player: "Patrick Cripps" }])(
     "rejects inapplicable team-stat filters %#",
     (flags) => {
-      expect(() => validateStatsMode({ groupBy: "team", ...flags })).toThrow(
+      expect(failureMessage(validateStatsMode({ groupBy: "team", ...flags }))).toContain(
         "not supported with --by team",
       );
     },
   );
 
   it("allows a team-row filter with team statistics", () => {
-    expect(() => validateStatsMode({ groupBy: "team" })).not.toThrow();
+    expect(Result.isSuccess(validateStatsMode({ groupBy: "team" }))).toBe(true);
   });
 
   it("rejects simultaneous match name and identifier filters", () => {
-    expect(() =>
-      validateStatsMode({ groupBy: "player", match: "Carlton", matchId: "CD_M1" }),
-    ).toThrow("Use only one of --match and --id");
+    expect(
+      failureMessage(validateStatsMode({ groupBy: "player", match: "Carlton", matchId: "CD_M1" })),
+    ).toContain("Use only one of --match and --id");
   });
 });
 
 describe("validateTeamMode", () => {
   it("selects list, squad, and lineup modes from complete flag sets", () => {
-    expect(validateTeamMode({})).toBe("list");
-    expect(validateTeamMode({ season: 2025, name: "Carlton" })).toBe("squad");
-    expect(validateTeamMode({ season: 2025, round: 1 })).toBe("lineup");
+    expect(Result.getOrThrow(validateTeamMode({}))).toBe("list");
+    expect(Result.getOrThrow(validateTeamMode({ season: 2025, name: "Carlton" }))).toBe("squad");
+    expect(Result.getOrThrow(validateTeamMode({ season: 2025, round: 1 }))).toBe("lineup");
   });
 
   it.each([
@@ -49,16 +51,16 @@ describe("validateTeamMode", () => {
       "Use only one of --match and --match-id",
     ],
   ] as const)("rejects invalid team modes %#", (flags, message) => {
-    expect(() => validateTeamMode(flags)).toThrow(message);
+    expect(failureMessage(validateTeamMode(flags))).toContain(message);
   });
 });
 
 describe("validateAwardsMode", () => {
   it("rejects a round for non-coaches awards", () => {
-    expect(() => validateAwardsMode("brownlow", 1)).toThrow("--round is not supported");
+    expect(failureMessage(validateAwardsMode("brownlow", 1))).toContain("--round is not supported");
   });
 
   it("accepts a coaches round", () => {
-    expect(() => validateAwardsMode("coaches", 1)).not.toThrow();
+    expect(Result.isSuccess(validateAwardsMode("coaches", 1))).toBe(true);
   });
 });

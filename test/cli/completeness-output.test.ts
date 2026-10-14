@@ -11,11 +11,10 @@ describe("formatCompletenessOutput", () => {
     ],
     [{ awards: [{ player: "One" }], failedRounds: [2] }, "awards", "failedRounds"],
   ] as const)("preserves the %s JSON envelope", (envelope, rowsKey, failuresKey) => {
-    const rows = Object.entries(envelope).find(
-      ([key]) => key === rowsKey,
-    )?.[1] as readonly object[];
+    const parsed = JSON.parse(
+      formatCompletenessOutput(envelope, [{ player: "One" }], { format: "json" }),
+    );
 
-    const parsed = JSON.parse(formatCompletenessOutput(envelope, rows, { format: "json" }));
     expect(parsed[rowsKey]).toEqual([{ player: "One" }]);
     expect(parsed[failuresKey]).toBeDefined();
   });

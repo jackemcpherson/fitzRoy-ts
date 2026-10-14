@@ -74,19 +74,21 @@ describe("coverage suggestions in public API", () => {
     }).pipe(Effect.provide(fixtureFitzroy())),
   );
 
-  it.effect("fetchPlayerStats with squiggle fails with UnsupportedSourceError (not registered)", () =>
-    Effect.gen(function* () {
-      const error = yield* Effect.flip(
-        fetchPlayerStats({
-          source: "squiggle",
-          season: 2025,
-          round: 1,
-        }),
-      );
+  it.effect(
+    "fetchPlayerStats with squiggle fails with UnsupportedSourceError (not registered)",
+    () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(
+          fetchPlayerStats({
+            source: "squiggle",
+            season: 2025,
+            round: 1,
+          }),
+        );
 
-      expect(error).toBeInstanceOf(UnsupportedSourceError);
-      expect(error.message).toContain("squiggle does not provide player stats");
-    }).pipe(Effect.provide(fixtureFitzroy())),
+        expect(error).toBeInstanceOf(UnsupportedSourceError);
+        expect(error.message).toContain("squiggle does not provide player stats");
+      }).pipe(Effect.provide(fixtureFitzroy())),
   );
 
   it.effect(

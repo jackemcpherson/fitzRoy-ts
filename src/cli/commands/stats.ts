@@ -7,13 +7,12 @@
  */
 
 import { defineCommand } from "citty";
+import { Effect } from "effect";
 import pc from "picocolors";
-import { fetchPlayerStats, fetchTeamStats } from "../../index";
-import { playerStatsRegistry, teamStatsRegistry } from "../../sources/adapters/registry";
-import type { DataSource } from "../../types";
+import { fetchPlayerStats, fetchTeamStats, SourceRegistry } from "../../index";
 import { rejectUnknownFlags } from "../command-builder";
 import { formatCompletenessOutput } from "../completeness-output";
-import { withErrorBoundary } from "../error-boundary";
+import { runCommand } from "../error-boundary";
 import {
   BY_FLAG,
   COMPETITION_FLAG,
@@ -84,56 +83,127 @@ export const statsCommand = defineCommand({
     description: "Fetch performance stats — `--by player` (default) or `--by team`",
   },
   args: STATS_ARGS,
-  run: withErrorBoundary(async ({ args }) => {
-    rejectUnknownFlags(STATS_ARGS, process.argv);
-    const season = validateSeason(args.season);
-    const round = args.round ? validateRound(args.round) : undefined;
-    const competition = validateCompetition(args.competition);
-    const format = validateFormat(args.format);
-    const groupBy = validateGroupBy(args.by);
-    validateStatsMode({
-      groupBy,
-      round,
-      match: args.match,
-      matchId: args.id,
-      player: args.player,
-      summary: args.summary,
-    });
+  run: runCommand<typeof STATS_ARGS>((args) =>
+    Effect.gen(function* () {
+      yield* Effect.fromResult(rejectUnknownFlags(STATS_ARGS, process.argv));
+      const season = yield* Effect.fromResult(validateSeason(args.season));
+      const round = args.round ? yield* Effect.fromResult(validateRound(args.round)) : undefined;
+      const competition = yield* Effect.fromResult(validateCompetition(args.competition));
+      const format = yield* Effect.fromResult(validateFormat(args.format));
+      const groupBy = yield* Effect.fromResult(validateGroupBy(args.by));
 
-    if (groupBy === "team") {
-      const source: DataSource = args.source
-        ? validateSource(args.source)
-        : teamStatsRegistry.defaultSource;
-
-      const summaryType = args.summary ? validateSummary(args.summary) : undefined;
-      const team = args.team ? await resolveTeamNameOrPrompt(args.team) : undefined;
-
-      const result = await withSpinner("Fetching team stats…", () =>
-        fetchTeamStats({
-          source,
-          season,
-          competition,
-          ...(summaryType !== undefined && { summaryType }),
+      yield* Effect.fromResult(
+        validateStatsMode({
+          groupBy,
+          round,
+          match: args.match,
+          matchId: args.id,
+          player: args.player,
+          summary: args.summary,
         }),
       );
 
-      if (!result.success) throw result.error;
-      const data = filterTeamStats(result.data, team);
+      const registry = yield* SourceRegistry;
 
-      const missingGamesPlayed = data
-        .filter((entry) => entry.gamesPlayed === null)
-        .map((entry) => entry.team);
+      if (groupBy === "team") {
+        const source = args.source
+          ? yield* Effect.fromResult(validateSource(args.source))
+          : registry.teamStats.defaultSource;
 
-      if (missingGamesPlayed.length > 0) {
+        const summaryType = args.summary
+          ? yield* Effect.fromResult(validateSummary(args.summary))
+          : undefined;
+
+        const team = args.team ? yield* resolveTeamNameOrPrompt(args.team) : undefined;
+
+        const stats = yield* withSpinner(
+          "Fetching team stats…",
+          fetchTeamStats({
+            source,
+            season,
+            competition,
+            ...(summaryType !== undefined && { summaryType }),
+          }),
+        );
+
+        const data = filterTeamStats(stats, team);
+
+        const missingGamesPlayed = data
+          .filter((entry) => entry.gamesPlayed === null)
+          .map((entry) => entry.team);
+
+        if (missingGamesPlayed.length > 0) {
+          console.error(
+            pc.yellow(
+              `Warning: games played is unavailable for ${missingGamesPlayed.join(", ")}; totals are returned with a null denominator.`,
+            ),
+          );
+        }
+
+        showSummary(
+          `Loaded stats for ${data.length} teams (${season}${summaryType ? `, ${summaryType}` : ""})`,
+        );
+
+        const formatOptions: FormatOptions = {
+          json: args.json,
+          csv: args.csv,
+          format,
+          full: args.full,
+          columns: TEAM_COLUMNS,
+        };
+
+        console.log(formatOutput(data, formatOptions));
+
+        return;
+      }
+
+      const source = args.source
+        ? yield* Effect.fromResult(validateSource(args.source))
+        : registry.playerStats.defaultSource;
+
+      const teamFilter = args.team ? yield* resolveTeamNameOrPrompt(args.team) : undefined;
+
+      const matchResolution = yield* resolveMatchId({
+        matchIdArg: args.id,
+        matchArg: args.match,
+        source,
+        competition,
+        season,
+        round,
+      });
+
+      const result = yield* withSpinner(
+        "Fetching player stats…",
+        fetchPlayerStats({
+          source,
+          season,
+          round,
+          matchId: matchIdForPlayerStatsSource(source, matchResolution),
+          competition,
+        }),
+      );
+
+      // Season scrapes can lose individual games — warn (on stderr, so JSON/CSV
+      // stdout output stays clean) rather than silently presenting a partial
+      // season as complete.
+      const { failedMatchIds } = result;
+
+      if (failedMatchIds.length > 0) {
         console.error(
           pc.yellow(
-            `Warning: games played is unavailable for ${missingGamesPlayed.join(", ")}; totals are returned with a null denominator.`,
+            `Warning: ${failedMatchIds.length} game(s) failed to fetch and are missing from the results: ${failedMatchIds.join(", ")}`,
           ),
         );
       }
 
+      const data = applyStatsFilters(result.stats, {
+        participants: matchResolution?.participants,
+        team: teamFilter,
+        player: args.player,
+      });
+
       showSummary(
-        `Loaded stats for ${data.length} teams (${season}${summaryType ? `, ${summaryType}` : ""})`,
+        `Loaded ${data.length} player stat lines for ${season}${round ? ` round ${round}` : ""}`,
       );
 
       const formatOptions: FormatOptions = {
@@ -141,72 +211,10 @@ export const statsCommand = defineCommand({
         csv: args.csv,
         format,
         full: args.full,
-        columns: TEAM_COLUMNS,
+        columns: PLAYER_COLUMNS,
       };
 
-      console.log(formatOutput(data as readonly object[], formatOptions));
-
-      return;
-    }
-
-    const source: DataSource = args.source
-      ? validateSource(args.source)
-      : playerStatsRegistry.defaultSource;
-
-    const teamFilter = args.team ? await resolveTeamNameOrPrompt(args.team) : undefined;
-
-    const matchResolution = await resolveMatchId({
-      matchIdArg: args.id as string | undefined,
-      matchArg: args.match,
-      source,
-      competition,
-      season,
-      round,
-    });
-
-    const result = await withSpinner("Fetching player stats…", () =>
-      fetchPlayerStats({
-        source,
-        season,
-        round,
-        matchId: matchIdForPlayerStatsSource(source, matchResolution),
-        competition,
-      }),
-    );
-
-    if (!result.success) throw result.error;
-
-    // Season scrapes can lose individual games — warn (on stderr, so JSON/CSV
-    // stdout output stays clean) rather than silently presenting a partial
-    // season as complete.
-    const { failedMatchIds } = result.data;
-
-    if (failedMatchIds.length > 0) {
-      console.error(
-        pc.yellow(
-          `Warning: ${failedMatchIds.length} game(s) failed to fetch and are missing from the results: ${failedMatchIds.join(", ")}`,
-        ),
-      );
-    }
-
-    const data = applyStatsFilters(result.data.stats, {
-      participants: matchResolution?.participants,
-      team: teamFilter,
-      player: args.player,
-    });
-
-    showSummary(
-      `Loaded ${data.length} player stat lines for ${season}${round ? ` round ${round}` : ""}`,
-    );
-
-    const formatOptions: FormatOptions = {
-      json: args.json,
-      csv: args.csv,
-      format,
-      full: args.full,
-      columns: PLAYER_COLUMNS,
-    };
-
-    console.log(formatCompletenessOutput({ stats: data, failedMatchIds }, data, formatOptions));
-  }),
+      console.log(formatCompletenessOutput({ stats: data, failedMatchIds }, data, formatOptions));
+    }),
+  ),
 });
