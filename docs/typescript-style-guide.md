@@ -85,14 +85,13 @@ file. npm remains a supported package consumer: documentation may correctly use
 Install contributor dependencies with `bun install`. The repository scripts are:
 
 ```bash
-npm run typecheck          # strict TypeScript check
+npx vp check               # Oxfmt, Oxlint with anti-slop, and tsgo type checks
 npm run typecheck:portable # verify the core without Node types
-npm run check              # Biome lint and formatting check
-npm run test               # Vitest in watch mode locally
-npx vitest run             # run the suite once
+npx vp test                # Vitest in watch mode locally
+npx vp test run            # run the suite once
 npm run test:coverage      # run tests with coverage thresholds
 bun run build              # build the ESM library, declarations, and CLI
-npm run format             # apply Biome formatting
+npx vp check --fix         # apply formatting and lint autofixes
 ```
 
 Update Vitest and `@vitest/coverage-v8` together at the exact same version. Keep

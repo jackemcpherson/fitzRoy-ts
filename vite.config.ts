@@ -1,7 +1,10 @@
 import { readFileSync } from "node:fs";
-import { defineConfig } from "vite-plus";
+import { configDefaults, defineConfig } from "vite-plus";
 
-const pkg: { readonly version: string } = JSON.parse(readFileSync("./package.json", "utf-8"));
+// Resolve next to this config, not the working directory, so `vp` works from subdirectories.
+const pkg: { readonly version: string } = JSON.parse(
+  readFileSync(new URL("./package.json", import.meta.url), "utf-8"),
+);
 
 /** Paths that are not project source: build output, fixtures, archives, agent tooling. */
 const IGNORED = [
@@ -298,6 +301,15 @@ const MIGRATION_DEBT: readonly MigrationDebt[] = [
   },
   {
     phase: 7,
+    files: [
+      "test/api/awards.test.ts",
+      "test/api/player-details.test.ts",
+      "test/sources/fryzigg.test.ts",
+    ],
+    rules: ["anti-slop/no-module-mocking"],
+  },
+  {
+    phase: 7,
     files: ["test/transforms/player-stats.test.ts"],
     rules: ["anti-slop/no-unsafe-dictionary-type"],
   },
@@ -314,7 +326,15 @@ const MIGRATION_DEBT: readonly MigrationDebt[] = [
  * of the v7 migration replaces this registration with a layer.
  */
 const treeshake = {
-  moduleSideEffects: (id: string) => id.endsWith("/src/sources/adapters/index.ts"),
+  // Only project modules are forced side-effect-free; dependencies keep their own
+  // `sideEffects` declaration. Paths are normalised so the check works on Windows.
+  moduleSideEffects: (id: string) => {
+    const path = id.replaceAll("\\", "/");
+
+    if (path.includes("/node_modules/")) return undefined;
+
+    return path.endsWith("/src/sources/adapters/index.ts");
+  },
 };
 
 export default defineConfig({
@@ -384,7 +404,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    exclude: ["**/node_modules/**", "**/dist/**", "**/.claude/**"],
+    exclude: [...configDefaults.exclude, "**/dist/**", "**/.claude/**", "comparison/**"],
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],

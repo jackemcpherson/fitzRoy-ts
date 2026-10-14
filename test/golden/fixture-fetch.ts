@@ -18,6 +18,7 @@ function fixture(name: string): string {
 
   if (cached !== undefined) return cached;
   const text = readFileSync(resolve(FIXTURES, name), "utf-8");
+
   fixtureCache.set(name, text);
 
   return text;
