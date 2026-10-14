@@ -3,14 +3,15 @@
  *
  * {@link SourceHttp} wraps Effect's standard `FetchHttpClient.Fetch` reference
  * with the source request policy: a fresh timeout per attempt and an optional
- * single jittered retry on 5xx responses. Sources receive web `Response`
+ * single jittered retry on 5xx responses. The timeout also bounds reading the
+ * response body, as the v6 `AbortSignal.timeout` did. Sources receive web `Response`
  * objects, so their status handling and error messages stay unchanged.
  *
  * Tests replace `FetchHttpClient.Fetch` with a fixture-backed function
  * instead of stubbing the global `fetch`.
  */
 
-import { Context, type Duration, Effect, Layer, Random, Schema } from "effect";
+import { Context, Duration, Effect, Layer, Random, Schema } from "effect";
 import { FetchHttpClient } from "effect/http";
 
 /** Request policy for every source request. */
@@ -49,9 +50,19 @@ export class SourceHttp extends Context.Service<
   }
 >()("fitzroy/SourceHttp") {}
 
-/** Message of a rejected fetch, matching the v6 `cause.message` text. */
-function failureMessage(cause: unknown): string {
+/** Message of a rejected promise or thrown value, matching the v6 `cause.message` text. */
+export function failureMessage(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
+}
+
+/**
+ * Release a response that will not be read, so its connection is not held
+ * until garbage collection. A failure to cancel changes nothing for the caller.
+ */
+export function discardBody(response: Response): Effect.Effect<void> {
+  return Effect.tryPromise(async () => {
+    await response.body?.cancel();
+  }).pipe(Effect.ignore);
 }
 
 /** Build the `fetch` options for one attempt. */
@@ -72,9 +83,17 @@ export const SourceHttpLive = Layer.effect(
     const fetch = yield* FetchHttpClient.Fetch;
     const config = yield* SourceHttpConfig;
 
+    const timeoutMillis = Duration.toMillis(config.timeout);
+
+    // The effect timeout covers waiting for headers; the deadline signal also
+    // aborts the body stream, so a response that stalls mid-body still fails.
     const attempt = (url: string, init: SourceRequestInit | undefined) =>
       Effect.tryPromise({
-        try: (signal) => fetch(url, requestInit(init, signal)),
+        try: (signal) => {
+          const deadline = AbortSignal.timeout(timeoutMillis);
+
+          return fetch(url, requestInit(init, AbortSignal.any([signal, deadline])));
+        },
         catch: (cause) => new RequestError({ message: failureMessage(cause) }),
       }).pipe(
         Effect.timeoutOrElse({
@@ -89,6 +108,7 @@ export const SourceHttpLive = Layer.effect(
           const response = yield* attempt(url, init);
 
           if (!config.retry5xx || response.status < 500 || response.status > 599) return response;
+          yield* discardBody(response);
           const jitter = yield* Random.nextIntBetween(0, 500);
 
           yield* Effect.sleep(250 + jitter);

@@ -25,8 +25,11 @@ A port of the [fitzRoy R package](https://github.com/jimmyday12/fitzRoy).
 ## Install
 
 ```bash
-npm install fitzroy
+npm install fitzroy effect
 ```
+
+`effect` is a peer dependency, so your program and fitzroy share one copy of
+Effect 4.
 
 Upgrading to version 7? Read the [version 7 migration guide](docs/migration-v7.md).
 For earlier changes, see the [version 6 migration guide](docs/migration-v6.md).

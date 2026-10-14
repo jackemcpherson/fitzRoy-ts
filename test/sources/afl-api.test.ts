@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "@effect/vitest";
+import { describe, expect, it } from "@effect/vitest";
 import { Effect, Layer, Schema } from "effect";
 import { TestClock } from "effect/testing";
 import { AflApiError, ValidationError } from "../../src/lib/errors";
@@ -276,6 +276,8 @@ describe("AflApi", () => {
         const error = yield* Effect.flip(client.authedFetch("https://api.afl.com.au/test"));
 
         expect(error.message).toBe("Token request failed: 500");
+        // The rejected token is no longer reported as authenticated.
+        expect(yield* client.isAuthenticated).toBe(false);
       }).pipe(
         Effect.provide(
           aflApiWith([
@@ -575,16 +577,12 @@ describe("AflApi", () => {
   });
 
   describe("resolveCurrentSeason", () => {
-    // Earliest round start is the season's start instant. "Now" is controlled
-    // by faking only `Date` so these tests never depend on the real clock.
-    afterEach(() => {
-      vi.useRealTimers();
-    });
+    // Earliest round start is the season's start instant. "Now" comes from
+    // Effect's Clock, which these tests set through TestClock.
 
-    /** Fake the wall clock without touching the scheduler's timers. */
-    function setNow(iso: string): void {
-      vi.useFakeTimers({ toFake: ["Date"] });
-      vi.setSystemTime(new Date(iso));
+    /** Set the test clock to an instant. */
+    function setNow(iso: string): Effect.Effect<void> {
+      return TestClock.setTime(Date.parse(iso));
     }
 
     /** Routes that serve the compseasons list then a rounds list. */
@@ -599,8 +597,6 @@ describe("AflApi", () => {
     }
 
     it.effect("returns the newest year when its earliest round has already started", () => {
-      setNow("2025-06-15T00:00:00.000Z");
-
       const compseasons = {
         compSeasons: [
           { id: 70, name: "2024 Toyota AFL Premiership" },
@@ -616,6 +612,7 @@ describe("AflApi", () => {
       };
 
       return Effect.gen(function* () {
+        yield* setNow("2025-06-15T00:00:00.000Z");
         const client = yield* AflApi;
 
         expect(yield* client.resolveCurrentSeason("AFLM")).toBe(2025);
@@ -623,7 +620,6 @@ describe("AflApi", () => {
     });
 
     it.effect("skips every pre-created future season using each season's start", () => {
-      setNow("2025-06-15T00:00:00.000Z");
       const log = requestLog();
 
       const starts = new Map([
@@ -651,6 +647,7 @@ describe("AflApi", () => {
       });
 
       return Effect.gen(function* () {
+        yield* setNow("2025-06-15T00:00:00.000Z");
         const client = yield* AflApi;
 
         expect(yield* client.resolveCurrentSeason("AFLW")).toBe(2024);
@@ -659,8 +656,6 @@ describe("AflApi", () => {
     });
 
     it.effect("fails when no round carries utcStartTime (indeterminate)", () => {
-      setNow("2025-06-15T00:00:00.000Z");
-
       const compseasons = {
         compSeasons: [
           { id: 70, name: "2024 Toyota AFL Premiership" },
@@ -676,6 +671,7 @@ describe("AflApi", () => {
       };
 
       return Effect.gen(function* () {
+        yield* setNow("2025-06-15T00:00:00.000Z");
         const client = yield* AflApi;
 
         const error = yield* Effect.flip(client.resolveCurrentSeason("AFLM"));

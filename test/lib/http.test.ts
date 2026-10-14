@@ -3,6 +3,7 @@ import { Effect, Fiber, Layer } from "effect";
 import { FetchHttpClient } from "effect/http";
 import { TestClock } from "effect/testing";
 import {
+  readText,
   RequestError,
   SourceHttp,
   SourceHttpConfig,
@@ -83,6 +84,35 @@ describe("SourceHttp 5xx retry", () => {
     }).pipe(Effect.provide(httpWith(fetch, RETRY)));
   });
 
+  it.effect("releases the body of a 5xx response it retries", () => {
+    let isCancelled = false;
+    let calls = 0;
+
+    const fetch: typeof globalThis.fetch = async () => {
+      calls += 1;
+
+      if (calls > 1) return new Response("ok");
+
+      const body = new ReadableStream<Uint8Array>({
+        cancel() {
+          isCancelled = true;
+        },
+      });
+
+      return new Response(body, { status: 503 });
+    };
+
+    return Effect.gen(function* () {
+      const fiber = yield* Effect.forkChild(SourceHttp.use((http) => http.request("https://x/a")));
+
+      yield* TestClock.adjust("1 second");
+      const response = yield* Fiber.join(fiber);
+
+      expect(response.status).toBe(200);
+      expect(isCancelled).toBe(true);
+    }).pipe(Effect.provide(httpWith(fetch, RETRY)));
+  });
+
   it.effect("does not retry 4xx responses", () => {
     const { calls, fetch } = sequence([404]);
 
@@ -137,6 +167,29 @@ describe("SourceHttp timeout and failures", () => {
       expect(error.message).toBe("The operation was aborted due to timeout");
       expect(aborted).toBe(true);
     }).pipe(Effect.provide(httpWith(fetch, NO_RETRY)));
+  });
+
+  it.effect("fails a response whose body stalls past the timeout", () => {
+    // Like a real fetch: aborting the request signal errors the body stream.
+    const fetch: typeof globalThis.fetch = async (_input, init) => {
+      const signal = init?.signal;
+
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode("partial"));
+          signal?.addEventListener("abort", () => controller.error(signal.reason));
+        },
+      });
+
+      return new Response(body);
+    };
+
+    return Effect.gen(function* () {
+      const response = yield* SourceHttp.use((http) => http.request("https://x/a"));
+      const error = yield* Effect.flip(readText(response));
+
+      expect(error.message).toBe("The operation was aborted due to timeout");
+    }).pipe(Effect.provide(httpWith(fetch, { timeout: "50 millis", retry5xx: false })));
   });
 
   it.effect("fails with the rejection message when fetch rejects", () => {

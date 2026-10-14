@@ -236,6 +236,26 @@ describe("transformFryziggPlayerStats", () => {
     expect(result.success).toHaveLength(1);
   });
 
+  it("blanks only the stray cell when a numeric column holds a non-number", () => {
+    const frame: DataFrame = {
+      names: ["match_id", "match_date", "player_id", "player_team", "kicks"],
+      columns: [
+        ["1", "1"],
+        ["2024-03-15", "2024-03-15"],
+        ["123", "456"],
+        ["Melbourne", "Melbourne"],
+        [12, "n/a"],
+      ],
+    };
+
+    const result = transformFryziggPlayerStats(frame, { competition: "AFLM" });
+
+    expect(Result.isSuccess(result)).toBe(true);
+
+    if (Result.isFailure(result)) return;
+    expect(result.success.map((row) => row.kicks)).toEqual([12, null]);
+  });
+
   it("sets competition from options", async () => {
     const frame = await loadFixture();
     const result = transformFryziggPlayerStats(frame, { competition: "AFLW" });

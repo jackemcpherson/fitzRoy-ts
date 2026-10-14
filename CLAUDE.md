@@ -57,9 +57,10 @@ The codebase follows a "pure core, effectful shell" pattern:
 - **No Node.js built-ins in `src/`** — only Web Standard APIs (`fetch`, `Request`, `Response`, `URL`, `crypto`). Exception: `src/cli.ts` and `src/cli/` may use `process` for TTY detection and exit codes. Test files (`test/`) may use Node.js built-ins (`node:fs`, `node:path`) for loading fixtures.
 - **No `any`** — Oxlint enforces `typescript/no-explicit-any: "error"`. Decode unknown input with Effect Schema at the boundary.
 - **No `enum`** — use union types instead (e.g., `type RoundType = "HomeAndAway" | "Finals"`).
-- **No default exports** — Oxlint enforces `import/no-default-export: "error"`, with overrides only for `*.config.ts`.
+- **No default exports** — Oxlint enforces `import/no-default-export: "error"`, with overrides only for `*.config.ts`. Vendored upstream code in `tools/oxlint/anti-slop/` keeps its own style and is excluded from lint; local patches there are marked `Local patch`.
 - **Strict TypeScript** — `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noUnusedLocals`, `noUnusedParameters` are all enabled.
 - **Package manager** — pnpm, run through Vite+ (`vp install`, `vp add`, `vp run`). `pnpm-lock.yaml` is the lockfile; overrides live in `pnpm-workspace.yaml`.
+- **`effect` is a peer dependency** — consumers compose fitzroy's Effects with their own `effect`, so it must be one shared copy. It is also a pinned devDependency for local work; tsdown keeps it external.
 - **Erasable syntax only** — `erasableSyntaxOnly` is on so Node can run the sources by stripping types (CLI golden tests, canary). No `enum`, `namespace`, or constructor parameter properties. `scripts/ts-resolve.mjs` resolves the extensionless relative imports.
 
 ## Style Guide

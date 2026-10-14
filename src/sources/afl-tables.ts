@@ -10,7 +10,7 @@ import { Context, Effect, Layer, Result } from "effect";
 import { batched } from "../lib/batched";
 import { localToUtc, parseDate } from "../lib/date-utils";
 import { DstGapError, ScrapeError } from "../lib/errors";
-import { readText, SourceHttp } from "../lib/http";
+import { failureMessage, readText, SourceHttp } from "../lib/http";
 import { parseHtml } from "../lib/parse-html";
 import { safeInt } from "../lib/parse-utils";
 import { normaliseTeamName } from "../lib/team-mapping";
@@ -119,6 +119,13 @@ export const AflTablesLive = Layer.effect(
     const requestFailedStatus = (url: string) => (status: number) =>
       scrapeError(`AFL Tables request failed: ${status} (${url})`);
 
+    /**
+     * Run a page parser. An unexpected throw becomes the v6 `... failed:
+     * <message>` error instead of a defect that would end the whole program.
+     */
+    const parsing = <A>(parse: () => A, failed: (message: string) => ScrapeError) =>
+      Effect.try({ try: parse, catch: (cause) => failed(failureMessage(cause)) });
+
     return {
       fetchSeasonResults: (year) => {
         const url = `${AFL_TABLES_BASE}/${year}.html`;
@@ -128,7 +135,7 @@ export const AflTablesLive = Layer.effect(
 
         return Effect.gen(function* () {
           const html = yield* fetchPage(url, requestFailedStatus(url));
-          const results = parseSeasonPage(html, year);
+          const results = yield* parsing(() => parseSeasonPage(html, year), requestFailed);
 
           if (Result.isFailure(results)) {
             return yield* Effect.fail(requestFailed(results.failure.message));
@@ -162,28 +169,37 @@ export const AflTablesLive = Layer.effect(
               const html = yield* readText(resp);
               const roundNumber = (gameId != null ? roundByGameId.get(gameId) : undefined) ?? 0;
 
-              return {
-                stats: parseAflTablesGameStats(html, matchId, year, roundNumber),
-                failedMatchId: null,
-              } satisfies GameScrape;
-            }).pipe(Effect.catchTag("RequestError", () => Effect.succeed(failed)));
+              const stats = yield* parsing(
+                () => parseAflTablesGameStats(html, matchId, year, roundNumber),
+                statsFailed,
+              );
+
+              return { stats, failedMatchId: null } satisfies GameScrape;
+              // As in v6, any failure for one game (request or parse) records
+              // its id and lets the rest of the season through.
+            }).pipe(Effect.orElseSucceed(() => failed));
           };
 
         return Effect.gen(function* () {
           const seasonHtml = yield* fetchPage(seasonUrl, requestFailedStatus(seasonUrl));
+
           // Parse once and share the cheerio document between the two extractors
           // — parse5+cheerio over a 100KB+ page is the expensive step here.
-          const $season = parseHtml(seasonHtml);
-          const gameUrls = extractGameUrlsFromDoc($season);
+          // Key the round lookup by AFL Tables game id, NOT by array index —
+          // the season parse may skip a malformed row, and an index-based
+          // alignment would then shift every later game's round (COR-10).
+          const { gameUrls, games } = yield* parsing(() => {
+            const $season = parseHtml(seasonHtml);
+
+            return {
+              gameUrls: extractGameUrlsFromDoc($season),
+              games: parseSeasonPageGamesFromDoc($season, year),
+            };
+          }, statsFailed);
 
           if (gameUrls.length === 0) {
             return { stats: [], failedMatchIds: [] };
           }
-
-          // Key the round lookup by AFL Tables game id, NOT by array index —
-          // the season parse may skip a malformed row, and an index-based
-          // alignment would then shift every later game's round (COR-10).
-          const games = parseSeasonPageGamesFromDoc($season, year);
 
           if (Result.isFailure(games)) {
             return yield* Effect.fail(statsFailed(games.failure.message));
@@ -223,11 +239,11 @@ export const AflTablesLive = Layer.effect(
               : `AFL Tables stats request failed: ${status}`,
           );
 
+        const failed = (message: string) => scrapeError(`AFL Tables team stats failed: ${message}`);
+
         return fetchPage(url, friendly).pipe(
-          Effect.map((html) => parseAflTablesTeamStats(html, year)),
-          Effect.catchTag("RequestError", (error) =>
-            Effect.fail(scrapeError(`AFL Tables team stats failed: ${error.message}`)),
-          ),
+          Effect.flatMap((html) => parsing(() => parseAflTablesTeamStats(html, year), failed)),
+          Effect.catchTag("RequestError", (error) => Effect.fail(failed(error.message))),
         );
       },
 
@@ -240,11 +256,12 @@ export const AflTablesLive = Layer.effect(
 
         const url = `https://afltables.com/afl/stats/alltime/${slug}.html`;
 
+        const failed = (message: string) =>
+          scrapeError(`AFL Tables player list failed: ${message}`);
+
         return fetchPage(url, requestFailedStatus(url)).pipe(
-          Effect.map((html) => parseAflTablesPlayerList(html, teamName)),
-          Effect.catchTag("RequestError", (error) =>
-            Effect.fail(scrapeError(`AFL Tables player list failed: ${error.message}`)),
-          ),
+          Effect.flatMap((html) => parsing(() => parseAflTablesPlayerList(html, teamName), failed)),
+          Effect.catchTag("RequestError", (error) => Effect.fail(failed(error.message))),
         );
       },
     };

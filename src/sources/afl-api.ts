@@ -11,7 +11,13 @@ import { Clock, Context, Effect, Exit, Layer, Ref, Result, type Schema } from "e
 import { batched } from "../lib/batched";
 import { decodeJson } from "../lib/decode";
 import { AflApiError, AmbiguousSeasonError, ValidationError } from "../lib/errors";
-import { readJson, type RequestError, SourceHttp, type SourceRequestInit } from "../lib/http";
+import {
+  discardBody,
+  readJson,
+  type RequestError,
+  SourceHttp,
+  type SourceRequestInit,
+} from "../lib/http";
 import { canonicalSeasonKey, seasonYear } from "../lib/seasons";
 import {
   AflApiTokenSchema,
@@ -280,7 +286,12 @@ export const AflApiLive = Layer.effect(
       (exit) => (Exit.isSuccess(exit) ? TOKEN_TTL_MS : 0),
     );
 
-    const authenticate = Effect.andThen(invalidateToken, cachedToken);
+    // Forget the old expiry first, so a failed re-authentication leaves
+    // `isAuthenticated` false instead of reporting the rejected token.
+    const authenticate = Ref.set(tokenExpiresAt, 0).pipe(
+      Effect.andThen(invalidateToken),
+      Effect.andThen(cachedToken),
+    );
 
     const requestFailed = (response: Response) =>
       new AflApiError({
@@ -308,6 +319,8 @@ export const AflApiLive = Layer.effect(
 
       return Effect.gen(function* () {
         const first = yield* send(yield* cachedToken);
+
+        if (first.status === 401) yield* discardBody(first);
         const response = first.status === 401 ? yield* send(yield* authenticate) : first;
 
         if (!response.ok) return yield* Effect.fail(requestFailed(response));
@@ -454,7 +467,7 @@ export const AflApiLive = Layer.effect(
               );
             }
 
-            if (Date.now() >= Math.min(...startInstants)) {
+            if ((yield* Clock.currentTimeMillis) >= Math.min(...startInstants)) {
               return yield* Effect.fromResult(
                 currentSelector(code, candidate.season, candidate.year),
               );

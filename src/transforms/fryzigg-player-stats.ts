@@ -12,7 +12,7 @@
  */
 
 import type { DataFrame } from "@jackemcpherson/rds-js";
-import { Result, Schema } from "effect";
+import { Predicate, Result } from "effect";
 
 import { parseDate } from "../lib/date-utils";
 import { ScrapeError } from "../lib/errors";
@@ -90,30 +90,15 @@ const AFLW_COLUMNS = {
   totalPossessions: "total_possessions",
 } as const;
 
-/** All pre-resolved column arrays needed for row mapping. */
 /**
- * One decoded data-frame column.
+ * One raw data-frame column from the RDS boundary.
  *
- * R atomic vectors are homogeneous, and rds-js maps `NA` to `null`. A column
- * is therefore all strings, all numbers, or neither (logical vectors and
- * all-`NA` columns), plus `null` entries.
+ * Each accessor checks the type of the single cell it reads, as v6 did, so a
+ * stray value only blanks its own cell and rows outside a season or round
+ * filter are never inspected. rds-js maps R's `NA` to `null`.
  */
-type Column =
-  | { readonly kind: "text"; readonly values: ReadonlyArray<string | null> }
-  | { readonly kind: "number"; readonly values: ReadonlyArray<number | null> }
-  | { readonly kind: "other"; readonly length: number };
-
-const isTextColumn = Schema.is(Schema.Array(Schema.NullOr(Schema.String)));
-
-const isNumberColumn = Schema.is(Schema.Array(Schema.NullOr(Schema.Number)));
-
-/** Decode a raw data-frame column at the RDS boundary. */
-function decodeColumn(values: readonly unknown[]): Column {
-  if (isTextColumn(values)) return { kind: "text", values };
-
-  if (isNumberColumn(values)) return { kind: "number", values };
-
-  return { kind: "other", length: values.length };
+interface Column {
+  readonly cells: readonly unknown[];
 }
 
 interface ResolvedColumns {
@@ -224,7 +209,7 @@ export function transformFryziggPlayerStats(
     if (idx === undefined) return undefined;
     const values = frame.columns[idx];
 
-    return values ? decodeColumn(values) : undefined;
+    return values ? { cells: values } : undefined;
   };
 
   const isAflw = options.competition === "AFLW";
@@ -339,45 +324,49 @@ export function transformFryziggPlayerStats(
     rowIndices = matching;
   }
 
-  const indices = rowIndices ?? Array.from({ length: nRows }, (_, j) => j);
-  const stats: PlayerStats[] = indices.map((i) => mapRow(i, cols, isAflw, options.competition));
+  const toStats = (i: number) => mapRow(i, cols, isAflw, options.competition);
+
+  const stats: PlayerStats[] =
+    rowIndices === null
+      ? Array.from({ length: nRows }, (_, i) => toStats(i))
+      : rowIndices.map(toStats);
 
   return Result.succeed(stats);
 }
 
-/** Number of rows in a decoded column. */
+/** Number of rows in a column. */
 function columnLength(column: Column): number {
-  return column.kind === "other" ? column.length : column.values.length;
+  return column.cells.length;
 }
 
 /** Extract a numeric value from a column at the given row index. */
 function numAt(column: Column | undefined, i: number): number | null {
-  return column?.kind === "number" ? (column.values[i] ?? null) : null;
+  const value = column?.cells[i];
+
+  return Predicate.isNumber(value) ? value : null;
 }
 
 /** Extract a string value from a column at the given row index. */
 function strAt(column: Column | undefined, i: number): string | null {
-  return column?.kind === "text" ? (column.values[i] ?? null) : null;
+  const value = column?.cells[i];
+
+  return Predicate.isString(value) ? value : null;
 }
 
 /** Render an identifier cell (text or numeric) as a string; missing is `""`. */
 function idAt(column: Column | undefined, i: number): string {
-  const value = column?.kind === "text" || column?.kind === "number" ? column.values[i] : null;
+  const value = column?.cells[i];
 
-  return value === null || value === undefined ? "" : String(value);
+  return Predicate.isString(value) || Predicate.isNumber(value) ? String(value) : "";
 }
 
 /** Round value for filtering: numeric strings convert, missing is `null`. */
 function roundFilterAt(column: Column, i: number): number | null {
-  if (column.kind === "number") return column.values[i] ?? null;
+  const value = column.cells[i];
 
-  if (column.kind === "text") {
-    const value = column.values[i];
+  if (Predicate.isNumber(value)) return value;
 
-    return value === null || value === undefined ? null : Number(value);
-  }
-
-  return null;
+  return Predicate.isString(value) ? Number(value) : null;
 }
 
 /** Parse round number, returning 0 for non-numeric values (e.g. "Semi Final"). */

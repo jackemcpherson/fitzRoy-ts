@@ -36,6 +36,8 @@ Version 7 moves the library to Effect. See
   fields, plus `_tag`. `ScrapeError` gains an optional `statusCode`.
 - `fitzroy/schemas` exports Effect schemas instead of Zod schemas.
 - `localToUtc` returns `Result` from the `effect` package.
+- `effect` 4 is a peer dependency. Install it next to fitzroy so your program
+  and the library share one copy of Effect.
 - The standalone release binaries are Node.js single executable applications
   built with `vp pack` instead of binaries compiled by Bun. They still need no
   separate runtime, and they are larger.

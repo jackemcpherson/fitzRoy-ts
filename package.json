@@ -51,7 +51,6 @@
   "dependencies": {
     "@jackemcpherson/rds-js": "^0.3.0",
     "cheerio": "^1.0.0",
-    "effect": "4.0.4",
     "parse5": "8.0.1",
     "parse5-htmlparser2-tree-adapter": "8.0.1"
   },
@@ -62,9 +61,13 @@
     "@types/node": "^26.0.0",
     "@vitest/coverage-v8": "5.0.3",
     "citty": "^0.2.2",
+    "effect": "4.0.4",
     "picocolors": "^1.1.1",
     "typescript": "^7.0.2",
     "vite-plus": "1.1.0"
+  },
+  "peerDependencies": {
+    "effect": "^4.0.4"
   },
   "engines": {
     "node": ">=20"

@@ -8,7 +8,7 @@
  * per operation (e.g., AFL Tables: matches from 1897, stats from ~1965).
  */
 
-import { Effect, Result } from "effect";
+import { Clock, Effect, Result } from "effect";
 import { batched } from "../../lib/batched";
 import { parseDate } from "../../lib/date-utils";
 import { AflApiError, ValidationError } from "../../lib/errors";
@@ -366,7 +366,7 @@ export const aflApiLadderSource: Effect.Effect<LadderSource, never, AflApi> = Ef
             // so we always anchor the default to H&A. Without this, the AFL API
             // returns a stale early-season snapshot for completed seasons (#90).
             const haRounds = rounds.filter((r) => inferRoundType(r.name) === "HomeAndAway");
-            const now = Date.now();
+            const now = yield* Clock.currentTimeMillis;
 
             const completedHa = haRounds.filter((r) => {
               if (r.utcEndTime == null) return false;

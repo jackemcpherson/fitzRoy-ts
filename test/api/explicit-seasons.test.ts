@@ -1,5 +1,6 @@
-import { afterEach, describe, expect, it, vi } from "@effect/vitest";
+import { describe, expect, it } from "@effect/vitest";
 import { Effect, Layer, Result, Schema } from "effect";
+import { TestClock } from "effect/testing";
 import { fetchMatches } from "../../src/api/match";
 import { fetchPlayerStats } from "../../src/api/player-stats";
 import { AmbiguousSeasonError } from "../../src/lib/errors";
@@ -45,10 +46,6 @@ function aflwRoutes(compseasons: string = SEASONS_JSON): readonly Route[] {
 function aflApiOver(routes: readonly Route[], log = requestLog()) {
   return AflApiLive.pipe(Layer.provide(fixtureHttp(routes, { log })));
 }
-
-afterEach(() => {
-  vi.restoreAllMocks();
-});
 
 describe("explicit competition seasons", () => {
   it.effect("discovers both provider mappings without depending on list order", () =>
@@ -159,7 +156,7 @@ describe("explicit competition seasons", () => {
       });
 
       return Effect.gen(function* () {
-        vi.spyOn(Date, "now").mockReturnValue(Date.parse("2022-09-01T00:00:00Z"));
+        yield* TestClock.setTime(Date.parse("2022-09-01T00:00:00Z"));
         const api = yield* AflApi;
 
         expect(yield* api.resolveCurrentSeason("AFLW")).toBe("2022-S7");
