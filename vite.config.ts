@@ -17,197 +17,6 @@ const IGNORED = [
   "tools/oxlint/anti-slop/**",
 ];
 
-interface MigrationDebt {
-  /** The v7 migration phase (see ADR-0004) that rewrites these files. */
-  readonly phase: 2 | 4 | 5 | 6 | 7;
-  readonly files: string[];
-  readonly rules: string[];
-}
-
-/**
- * Files that still break a lint rule because they use the version 6 patterns
- * (Zod, `Result`, `typeof` narrowing, fetch stubs). Each v7 migration phase
- * deletes its entries. The list must be empty before v7.0.0 ships.
- */
-const MIGRATION_DEBT: readonly MigrationDebt[] = [
-  {
-    // The parsing boundary itself; phase 4 decodes inside the HTTP service.
-    phase: 4,
-    files: ["src/lib/decode.ts"],
-    rules: ["anti-slop/no-unknown-parameters"],
-  },
-  {
-    phase: 4,
-    files: ["src/lib/date-utils.ts"],
-    rules: ["anti-slop/no-runtime-typeof"],
-  },
-  {
-    phase: 4,
-    files: ["src/sources/adapters/afl-tables.ts", "src/sources/fryzigg.ts"],
-    rules: ["anti-slop/require-safety-comment-for-type-assertion"],
-  },
-  {
-    phase: 4,
-    files: ["src/sources/afl-tables.ts", "src/sources/match-coaches.ts"],
-    rules: ["anti-slop/no-known-value-widening"],
-  },
-  {
-    phase: 4,
-    files: ["src/sources/footywire.ts"],
-    rules: [
-      "anti-slop/no-known-value-widening",
-      "anti-slop/require-safety-comment-for-type-assertion",
-    ],
-  },
-  {
-    phase: 5,
-    files: ["src/api/awards.ts"],
-    rules: ["anti-slop/require-safety-comment-for-type-assertion"],
-  },
-  {
-    phase: 7,
-    files: ["scripts/canary-baseline.ts"],
-    rules: ["anti-slop/no-runtime-typeof", "anti-slop/no-unknown-parameters"],
-  },
-  {
-    phase: 7,
-    files: [
-      "scripts/canary.ts",
-      "test/golden/cli-preload.ts",
-      "test/lib/result.test.ts",
-      "test/transforms/match-results.test.ts",
-      "test/transforms/player-stats-query.test.ts",
-    ],
-    rules: ["anti-slop/require-safety-comment-for-type-assertion"],
-  },
-  {
-    phase: 7,
-    files: ["test/api/ladder.test.ts", "test/api/player-details.test.ts", "test/api/squad.test.ts"],
-    rules: [
-      "anti-slop/no-chained-type-assertions",
-      "anti-slop/no-runtime-typeof",
-      "anti-slop/require-safety-comment-for-type-assertion",
-    ],
-  },
-  {
-    phase: 7,
-    files: ["test/api/lineup.test.ts", "test/api/teams.test.ts"],
-    rules: [
-      "anti-slop/no-chained-type-assertions",
-      "anti-slop/no-runtime-typeof",
-      "anti-slop/require-safety-comment-for-type-assertion",
-      "typescript/no-base-to-string",
-    ],
-  },
-  {
-    phase: 7,
-    files: [
-      "test/api/match-coaches.test.ts",
-      "test/sources/adapters/footywire.test.ts",
-      "test/sources/afl-tables.test.ts",
-      "test/sources/footywire.test.ts",
-    ],
-    rules: ["typescript/no-base-to-string"],
-  },
-  {
-    phase: 7,
-    files: ["test/api/team-stats.test.ts"],
-    rules: [
-      "anti-slop/no-chained-type-assertions",
-      "anti-slop/no-runtime-typeof",
-      "anti-slop/require-safety-comment-for-type-assertion",
-      "typescript/unbound-method",
-    ],
-  },
-  {
-    phase: 7,
-    files: ["test/golden/fixture-fetch.ts", "test/transforms/player-canonical.test.ts"],
-    rules: ["anti-slop/no-runtime-typeof"],
-  },
-  {
-    phase: 7,
-    files: ["test/golden/public-api.test.ts"],
-    rules: [
-      "anti-slop/no-known-value-widening",
-      "anti-slop/no-runtime-typeof",
-      "anti-slop/no-unknown-parameters",
-      "anti-slop/no-unknown-returns",
-      "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-safety-comment-for-type-assertion",
-    ],
-  },
-  {
-    phase: 7,
-    files: [
-      "test/lib/fetch-retry.test.ts",
-      "test/lib/fetch-timeout.test.ts",
-      "test/sources/adapters/afl-tables-ladder.test.ts",
-      "test/sources/adapters/squad-scope.test.ts",
-      "test/sources/adapters/squiggle.test.ts",
-    ],
-    rules: [
-      "anti-slop/no-chained-type-assertions",
-      "anti-slop/require-safety-comment-for-type-assertion",
-    ],
-  },
-  {
-    phase: 7,
-    files: ["test/sources/afl-api.test.ts"],
-    rules: [
-      "anti-slop/no-known-value-widening",
-      "anti-slop/no-runtime-typeof",
-      "anti-slop/no-unknown-parameters",
-      "anti-slop/require-safety-comment-for-type-assertion",
-    ],
-  },
-  {
-    phase: 7,
-    files: ["test/sources/afl-coaches.test.ts"],
-    rules: [
-      "anti-slop-effect/prefer-effect-match",
-      "anti-slop/no-chained-type-assertions",
-      "anti-slop/require-safety-comment-for-type-assertion",
-      "typescript/no-base-to-string",
-    ],
-  },
-  {
-    phase: 7,
-    files: ["test/sources/squiggle.test.ts"],
-    rules: [
-      "anti-slop/no-known-value-widening",
-      "anti-slop/require-safety-comment-for-type-assertion",
-      "typescript/no-base-to-string",
-    ],
-  },
-  {
-    phase: 7,
-    files: ["test/transforms/lineup.test.ts"],
-    rules: [
-      "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-safety-comment-for-type-assertion",
-    ],
-  },
-  {
-    phase: 7,
-    files: ["test/transforms/player-stats.test.ts"],
-    rules: ["anti-slop/no-unsafe-dictionary-type"],
-  },
-  {
-    phase: 7,
-    files: ["test/transforms/squiggle.test.ts"],
-    rules: ["anti-slop/no-unknown-returns"],
-  },
-];
-
-/**
- * `src/sources/adapters/index.ts` registers every source adapter as an import
- * side effect, which `sideEffects: false` would let the bundler drop. Phase 4
- * of the v7 migration replaces this registration with a layer.
- */
-const treeshake = {
-  moduleSideEffects: (id: string) => id.endsWith("/src/sources/adapters/index.ts"),
-};
-
 export default defineConfig({
   fmt: {
     // rumdl and Vale own Markdown and the Vale styles; Oxfmt formats code only.
@@ -263,10 +72,6 @@ export default defineConfig({
         files: ["*.config.ts"],
         rules: { "import/no-default-export": "off" },
       },
-      ...MIGRATION_DEBT.map((debt) => ({
-        files: debt.files,
-        rules: Object.fromEntries(debt.rules.map((rule) => [rule, "off" as const])),
-      })),
     ],
   },
   staged: {
@@ -296,7 +101,6 @@ export default defineConfig({
       platform: "neutral",
       dts: true,
       clean: false,
-      treeshake,
       fixedExtension: false,
     },
     {
@@ -305,7 +109,6 @@ export default defineConfig({
       platform: "node",
       dts: false,
       clean: false,
-      treeshake,
       fixedExtension: false,
       define: { PACKAGE_VERSION: JSON.stringify(pkg.version) },
     },

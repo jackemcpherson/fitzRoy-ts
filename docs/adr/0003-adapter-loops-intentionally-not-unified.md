@@ -20,8 +20,9 @@ Their similar shape suggests a shared higher-order pipeline.
 
 ## Decision
 
-Each adapter retains its complete pipeline. All three share `batchedMap` from
-`src/lib/concurrency.ts`, including its optional `delayMs` control.
+Each adapter retains its complete pipeline. All three share `batched` from
+`src/lib/batched.ts`, including its optional `gap` control. Version 7 replaced
+the earlier `batchedMap` helper with this Effect equivalent (ADR-0004).
 
 ## Rationale
 
@@ -62,7 +63,7 @@ interface would be more complex than the duplicated control flow.
 - The three adapter methods retain similar 30-to-80-line loops.
 - New adapters should begin from the closest source implementation.
 - Contributors should not subclass or parameterise an existing adapter loop.
-- `batchedMap` remains the shared concurrency and delay mechanism.
+- `batched` remains the shared concurrency and delay mechanism.
 
 ## Review Trigger
 

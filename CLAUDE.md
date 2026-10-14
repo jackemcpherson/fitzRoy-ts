@@ -27,7 +27,7 @@ bun run build            # vp pack → dist/index.js, dist/schemas.js, .d.ts, di
 bun build --compile src/cli.ts --outfile fitzroy
 ```
 
-**Note:** `vp check` covers formatting, linting, and type checking. All configuration lives in `vite.config.ts`. `MIGRATION_DEBT` in that file lists lint rules still disabled per file during the v7 migration (ADR-0004).
+**Note:** `vp check` covers formatting, linting, and type checking. All configuration lives in `vite.config.ts`.
 
 ## Architecture
 
@@ -121,7 +121,7 @@ The CLI is a thin presentation layer over the library — no business logic. Eac
 
 **Error boundary:** a failed command Effect is formatted by `formatError` in `src/cli/error-boundary.ts` (Effect `Match` over the tagged errors) and printed as a coloured message without a stack trace. Exit code 1 on error, 0 on success.
 
-**Build:** `vp pack` (tsdown) builds two configs from `vite.config.ts`: the neutral-platform library (`src/index.ts`, `src/schemas.ts`, with `.d.ts`) and the Node CLI (`src/cli.ts`, with `PACKAGE_VERSION` defined). Runtime `dependencies` stay external, and CLI-only devDependencies are bundled. `src/sources/adapters/index.ts` is marked as having side effects so its adapter registration survives tree-shaking. CI re-runs the CLI golden tests against `dist/cli.js` to catch bundling regressions.
+**Build:** `vp pack` (tsdown) builds two configs from `vite.config.ts`: the neutral-platform library (`src/index.ts`, `src/schemas.ts`, with `.d.ts`) and the Node CLI (`src/cli.ts`, with `PACKAGE_VERSION` defined). Runtime `dependencies` stay external, and CLI-only devDependencies are bundled. CI re-runs the CLI golden tests against `dist/cli.js` to catch bundling regressions.
 
 ## Ralph Workflow
 
