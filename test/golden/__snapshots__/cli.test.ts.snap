@@ -383,7 +383,7 @@ CD_M20250140105,2024,1,HomeAndAway,Round 1,2025-03-15T19:35:00+11:00,Marvel Stad
 CD_M20250140106,2024,1,HomeAndAway,Round 1,2025-03-15T19:35:00+11:00,MCG,Collingwood,Port Adelaide,21,10,136,6,9,45,91,6,5,41,3,2,20,7,2,44,5,1,31,3,2,20,1,1,7,1,2,8,1,4,10,Complete,CONCLUDED,"[{""periodNumber"":1,""periodSeconds"":2140,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null},{""periodNumber"":2,""periodSeconds"":1718,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null},{""periodNumber"":3,""periodSeconds"":1955,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null},{""periodNumber"":4,""periodSeconds"":1860,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null}]",4,,,,R1,VIC,Australia/Melbourne,2025-03-15T19:35:00,1,1,118,8,afl-api,AFLM,2024
 CD_M20250140107,2024,1,HomeAndAway,Round 1,2025-03-16T12:05:00+10:30,Adelaide Oval,Adelaide Crows,St Kilda,21,9,135,10,12,72,63,7,2,44,3,2,20,7,3,45,4,2,26,2,2,14,2,1,13,3,4,22,3,5,23,Complete,CONCLUDED,"[{""periodNumber"":1,""periodSeconds"":1984,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null},{""periodNumber"":2,""periodSeconds"":1843,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null},{""periodNumber"":3,""periodSeconds"":2126,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null},{""periodNumber"":4,""periodSeconds"":1938,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null}]",4,,,,R1,SA,Australia/Adelaide,2025-03-16T12:05:00,1,2,126,0,afl-api,AFLM,2024
 CD_M20250140108,2024,1,HomeAndAway,Round 1,2025-03-16T15:20:00+11:00,MCG,Melbourne,G
-…[1401 more chars]",
+…[1401 more chars, sha256 84794c178ea12b9819ccd66cad724e4e117a2eafa5d5169986f8e08e0e69145d]",
 }
 `;
 
@@ -676,7 +676,7 @@ exports[`CLI golden outcomes > keeps the output of fitzroy match --season 2024 -
         "periodStart": null,
         "nextPeriodStart": null
    
-…[14432 more chars]",
+…[14432 more chars, sha256 2e1b240df962c67ae122e3f77062c0c8496d2cf4321bd7a84d9399eb42390daf]",
 }
 `;
 
@@ -938,7 +938,7 @@ exports[`CLI golden outcomes > keeps the output of fitzroy match --season 2024 -
     "q1Away": null,
     "q2Away": null,
    
-…[3862 more chars]",
+…[3862 more chars, sha256 51762412df0cd7a007b0141caccb200d45e8f6250a8f98eb6cea664d3c3b1d89]",
 }
 `;
 
@@ -1333,7 +1333,7 @@ FW_11193,2024,1,Sydney Swans,AFLM,,,,FW_Hayden_McLean,Hayden,McLean,Hayden McLea
 FW_11193,2024,1,Sydney Swans,AFLM,,,,FW_Sam_Wicks,Sam,Wicks,Sam Wicks,,2,3,5,2,1,0,1,0,0,1,4,1,1,1,0,1,1,0,0,1,0,0,0,0,100,47,,1,0,,3,,30,,,,,,,37,25,5,,,,,,,,,,,,,,,,,,,,,,,,,,footywire,2024
 FW_11193,2024,1,Sydney Swans,AFLM,,,,FW_Joel_Amartey,Joel,Amartey,Joel Amartey,,3,0,3,1,0,1,2,2,0,0,0,2,0,0,0,0,0,0,0,1,2,1,0,0,0,78,,0,1,,1,,43,,,,,,,7,23,0,,,,,,,,,,,,,,,,,,,,,,,,,,footywire,2024
 FW_11193,2024,1,Melbourne,AFLM,,,,FW_Jack_Viney,Jack,Viney,Jack Viney,,19,11,30,2,2,0,7,0,4,2,14,17,0,3,3,4,7,9,1,7,9,2,
-…[13936 more chars]",
+…[13936 more chars, sha256 e191b25476325f93e53d854eb0c769c17579f595b8b8d4d55a7003275849d105]",
 }
 `;
 

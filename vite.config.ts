@@ -1,8 +1,11 @@
 import { readFileSync } from "node:fs";
-import { defineConfig } from "vite-plus";
+import { configDefaults, defineConfig } from "vite-plus";
 import type { PackUserConfig } from "vite-plus/pack";
 
-const pkg: { readonly version: string } = JSON.parse(readFileSync("./package.json", "utf-8"));
+// Resolve next to this config, not the working directory, so `vp` works from subdirectories.
+const pkg: { readonly version: string } = JSON.parse(
+  readFileSync(new URL("./package.json", import.meta.url), "utf-8"),
+);
 
 /** Paths that are not project source: build output, fixtures, archives, agent tooling. */
 const IGNORED = [
@@ -100,7 +103,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    exclude: ["**/node_modules/**", "**/dist/**", "**/.claude/**"],
+    exclude: [...configDefaults.exclude, "**/dist/**", "**/.claude/**", "comparison/**"],
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],

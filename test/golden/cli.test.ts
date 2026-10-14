@@ -2,16 +2,18 @@
  * Golden characterisation tests for CLI output (v7 migration safety net).
  *
  * Each case runs `src/cli.ts` in a Node.js subprocess with fixture-backed
- * fetch preloaded, and snapshots the exit code, stdout, and stderr. The v7 Effect
- * migration must keep these snapshots unchanged.
+ * fetch preloaded, and snapshots the exit code, stdout, and stderr. Long output
+ * is truncated for review, with a SHA-256 of the full text so any change fails.
+ * The v7 Effect migration must keep these snapshots unchanged.
  */
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 
-const ROOT = resolve(__dirname, "../..");
+const ROOT = resolve(import.meta.dirname, "../..");
 
-const PRELOAD = resolve(__dirname, "cli-preload.mjs");
+const PRELOAD = resolve(import.meta.dirname, "cli-preload.mjs");
 
 /**
  * The entry point under test. CI sets `FITZROY_CLI_ENTRY=dist/cli.js` after
@@ -24,8 +26,9 @@ const MAX_OUTPUT_CHARS = 6000;
 
 function bound(output: string): string {
   if (output.length <= MAX_OUTPUT_CHARS) return output;
+  const sha256 = createHash("sha256").update(output).digest("hex");
 
-  return `${output.slice(0, MAX_OUTPUT_CHARS)}\n…[${output.length - MAX_OUTPUT_CHARS} more chars]`;
+  return `${output.slice(0, MAX_OUTPUT_CHARS)}\n…[${output.length - MAX_OUTPUT_CHARS} more chars, sha256 ${sha256}]`;
 }
 
 function runCli(args: readonly string[]) {
@@ -39,6 +42,11 @@ function runCli(args: readonly string[]) {
       timeout: 60_000,
     },
   );
+
+  // A launch failure or timeout must fail loudly, not snapshot empty output.
+  if (result.error) throw result.error;
+
+  if (result.signal !== null) throw new Error(`CLI killed by ${result.signal}`);
 
   return {
     status: result.status,

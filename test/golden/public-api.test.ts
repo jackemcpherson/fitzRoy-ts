@@ -2,16 +2,19 @@
  * Golden characterisation tests for the public API (v7 migration safety net).
  *
  * Each case runs one exported library function against the committed
- * fixtures and snapshots the complete outcome: the sorted set of requested
- * URLs plus either the returned data or the failure's name, message, and
- * fields. The v7 Effect migration must keep these snapshots unchanged apart
- * from the result envelope, so data and error behaviour cannot drift.
+ * fixtures and snapshots the complete outcome: every requested URL (sorted,
+ * duplicates kept so request counts show) plus either the returned data or
+ * the failure's name, message, and fields. Serialisation marks `undefined`
+ * values and `Date` instances so neither is lost in the JSON round trip. The
+ * v7 Effect migration must keep these snapshots unchanged apart from the
+ * result envelope, so data and error behaviour cannot drift.
  *
  * Each Effect runs against `FitzroyLive` with `FetchHttpClient.Fetch`
- * replaced by the fixture router, so no global `fetch` is stubbed.
+ * replaced by the fixture router, so no global `fetch` is stubbed, and with
+ * `FryziggConfig` pointed at the fixture's checksum.
  */
 import { createHash } from "node:crypto";
-import { Cause, Effect, Exit, type Layer, Predicate, type Schema } from "effect";
+import { Cause, Effect, Exit, Layer, Predicate, type Schema } from "effect";
 import { FetchHttpClient } from "effect/http";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import {
@@ -27,10 +30,47 @@ import {
   fetchTeamStats,
   fetchTeams,
   FitzroyLive,
+  FryziggConfig,
   resolveDefaultSeasonForCompetition,
   type SourceError,
 } from "../../src/index";
 import { goldenFetch, requested, resetRequested } from "./fixture-fetch";
+
+/** SHA-256 of `test/fixtures/fryzigg-sample.rds`, the golden Fryzigg snapshot. */
+const FRYZIGG_FIXTURE_SHA256 = "e41773328a6cd1e926f22a1ed0f54cc18e4d0d21743172bdbde3b2f87843cd58";
+
+/**
+ * The library layer for golden runs. The fixture checksum lets the Fryzigg
+ * case exercise download, parsing, and the transform instead of stopping at
+ * the checksum check.
+ */
+const GoldenLive = FitzroyLive.pipe(
+  Layer.provide(Layer.succeed(FryziggConfig, { sha256: FRYZIGG_FIXTURE_SHA256 })),
+);
+
+/** A JSON value or a raw input to `JSON.stringify`, as a replacer sees it. */
+type ReplacerValue = Schema.Json | Date | undefined;
+
+/** `JSON.stringify` replacer that marks `undefined` values and `Date` instances. */
+function markLossyValues(
+  this: Readonly<Record<string, ReplacerValue>>,
+  key: string,
+  item: Schema.Json | undefined,
+): Schema.Json {
+  const original = this[key];
+
+  if (original instanceof Date) return { $date: original.toISOString() };
+
+  return item === undefined ? "$undefined" : item;
+}
+
+/** Whatever `JSON.stringify` accepts: the outcome of any public API call. */
+type Stringifiable = Parameters<typeof JSON.stringify>[0];
+
+/** JSON round trip that keeps `undefined` values and `Date` instances visible. */
+function toJson(value: Stringifiable): Schema.Json {
+  return JSON.parse(JSON.stringify(value ?? null, markLossyValues));
+}
 
 /** Reduce an error to its stable, comparable fields. */
 function describeError(error: SourceError | Error) {
@@ -97,18 +137,18 @@ type Call = () => Effect.Effect<unknown, SourceError, FitzroyServices>;
 async function run(call: Call): Promise<Outcome> {
   const exit = await Effect.runPromiseExit(
     call().pipe(
-      Effect.provide(FitzroyLive),
+      Effect.provide(GoldenLive),
       Effect.provideService(FetchHttpClient.Fetch, goldenFetch),
     ),
   );
 
   const outcome = Exit.isSuccess(exit)
-    ? { ok: summarise(JSON.parse(JSON.stringify(exit.value ?? null))) }
+    ? { ok: summarise(toJson(exit.value)) }
     : Cause.hasFails(exit.cause)
       ? { err: describeCause(exit.cause) }
       : { threw: describeCause(exit.cause) };
 
-  return { urls: [...new Set(requested.filter((url) => !isTokenRequest(url)))].sort(), outcome };
+  return { urls: requested.filter((url) => !isTokenRequest(url)).sort(), outcome };
 }
 
 const CASES: ReadonlyArray<readonly [string, Call]> = [
