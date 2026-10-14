@@ -1,0 +1,1429 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`CLI golden outcomes > keeps the output of fitzroy awards --type brownlow --season 2024 --json 1`] = `
+{
+  "status": 1,
+  "stderr": "Scrape error: FootyWire request failed: 404 (https://www.footywire.com/afl/footy/brownlow_medal?year=2024) [footywire]
+",
+  "stdout": "",
+}
+`;
+
+exports[`CLI golden outcomes > keeps the output of fitzroy awards --type coaches --season 2024 --round 1 --json 1`] = `
+{
+  "status": 0,
+  "stderr": "",
+  "stdout": "{
+  "awards": [
+    {
+      "type": "coaches",
+      "season": 2024,
+      "competition": "AFLM",
+      "source": "afl-coaches",
+      "round": 1,
+      "homeTeam": "Carlton",
+      "awayTeam": "Richmond",
+      "player": "Patrick Cripps (Carlton)",
+      "votes": 10,
+      "seasonKey": "2024"
+    },
+    {
+      "type": "coaches",
+      "season": 2024,
+      "competition": "AFLM",
+      "source": "afl-coaches",
+      "round": 1,
+      "homeTeam": "Carlton",
+      "awayTeam": "Richmond",
+      "player": "Sam Walsh (Carlton)",
+      "votes": 8,
+      "seasonKey": "2024"
+    },
+    {
+      "type": "coaches",
+      "season": 2024,
+      "competition": "AFLM",
+      "source": "afl-coaches",
+      "round": 1,
+      "homeTeam": "Carlton",
+      "awayTeam": "Richmond",
+      "player": "Dustin Martin (Richmond)",
+      "votes": 5,
+      "seasonKey": "2024"
+    },
+    {
+      "type": "coaches",
+      "season": 2024,
+      "competition": "AFLM",
+      "source": "afl-coaches",
+      "round": 1,
+      "homeTeam": "Geelong",
+      "awayTeam": "Hawthorn",
+      "player": "Patrick Dangerfield (Geelong)",
+      "votes": 9,
+      "seasonKey": "2024"
+    },
+    {
+      "type": "coaches",
+      "season": 2024,
+      "competition": "AFLM",
+      "source": "afl-coaches",
+      "round": 1,
+      "homeTeam": "Geelong",
+      "awayTeam": "Hawthorn",
+      "player": "James Sicily (Hawthorn)",
+      "votes": 6,
+      "seasonKey": "2024"
+    }
+  ],
+  "failedRounds": []
+}
+",
+}
+`;
+
+exports[`CLI golden outcomes > keeps the output of fitzroy ladder --season 2024 --round 10 --json 1`] = `
+{
+  "status": 0,
+  "stderr": "",
+  "stdout": "{
+  "season": 2024,
+  "roundNumber": 10,
+  "entries": [
+    {
+      "position": 1,
+      "team": "Sydney Swans",
+      "played": 10,
+      "wins": 9,
+      "losses": 1,
+      "draws": 0,
+      "pointsFor": 1030,
+      "pointsAgainst": 666,
+      "percentage": 154.7,
+      "premiershipsPoints": 36,
+      "form": "WWWLWWWWWW"
+    },
+    {
+      "position": 2,
+      "team": "Essendon",
+      "played": 10,
+      "wins": 7,
+      "losses": 2,
+      "draws": 1,
+      "pointsFor": 845,
+      "pointsAgainst": 818,
+      "percentage": 103.3,
+      "premiershipsPoints": 30,
+      "form": "WLWLWWDWWW"
+    },
+    {
+      "position": 3,
+      "team": "Geelong Cats",
+      "played": 10,
+      "wins": 7,
+      "losses": 3,
+      "draws": 0,
+      "pointsFor": 954,
+      "pointsAgainst": 851,
+      "percentage": 112.1,
+      "premiershipsPoints": 28,
+      "form": "WWWWWWWLLL"
+    },
+    {
+      "position": 4,
+      "team": "Port Adelaide",
+      "played": 10,
+      "wins": 7,
+      "losses": 3,
+      "draws": 0,
+      "pointsFor": 900,
+      "pointsAgainst": 810,
+      "percentage": 111.1,
+      "premiershipsPoints": 28,
+      "form": "WWLWWLWLWW"
+    },
+    {
+      "position": 5,
+      "team": "Collingwood",
+      "played": 10,
+      "wins": 6,
+      "losses": 3,
+      "draws": 1,
+      "pointsFor": 873,
+      "pointsAgainst": 810,
+      "percentage": 107.8,
+      "premiershipsPoints": 26,
+      "form": "LLLWWWDWWW"
+    },
+    {
+      "position": 6,
+      "team": "GWS Giants",
+      "played": 10,
+      "wins": 6,
+      "losses": 4,
+      "draws": 0,
+      "pointsFor": 925,
+      "pointsAgainst": 801,
+      "percentage": 115.5,
+      "premiershipsPoints": 24,
+      "form": "WWWWWLWLLL"
+    },
+    {
+      "position": 7,
+      "team": "Melbourne",
+      "played": 10,
+      "wins": 6,
+      "losses": 4,
+      "draws": 0,
+      "pointsFor": 805,
+      "pointsAgainst": 712,
+      "percentage": 113.1,
+      "premiershipsPoints": 24,
+      "form": "LWWWWLWWLL"
+    },
+    {
+      "position": 8,
+      "team": "Gold Coast Suns",
+      "played": 10,
+      "wins": 6,
+      "losses": 4,
+      "draws": 0,
+      "pointsFor": 922,
+      "pointsAgainst": 818,
+      "percentage": 112.7,
+      "premiershipsPoints": 24,
+      "form": "WWLLWLWLWW"
+    },
+    {
+      "position": 9,
+      "team": "Fremantle",
+      "played": 10,
+      "wins": 6,
+      "losses": 4,
+      "draws": 0,
+      "pointsFor": 767,
+      "pointsAgainst": 686,
+      "percentage": 111.8,
+      "premiershipsPoints": 24,
+      "form": "WWWLLLWWLW"
+    },
+    {
+      "position": 10,
+      "team": "Carlton",
+      "played": 10,
+      "wins": 6,
+      "losses": 4,
+      "draws": 0,
+      "pointsFor": 923,
+      "pointsAgainst": 904,
+      "percentage": 102.1,
+      "premiershipsPoints": 24,
+      "form": "WWWWLWLLWL"
+    },
+    {
+      "position": 11,
+      "team": "Western Bulldogs",
+      "played": 10,
+      "wins": 5,
+      "losses": 5,
+      "draws": 0,
+      "pointsFor": 932,
+      "pointsAgainst": 739,
+      "percentage": 126.1,
+      "premiershipsPoints": 20,
+      "form": "LWWLLWLLWW"
+    },
+    {
+      "position": 12,
+      "team": "Brisbane Lions",
+      "played": 10,
+      "wins": 4,
+      "losses": 5,
+      "draws": 1,
+      "pointsFor": 849,
+      "pointsAgainst": 728,
+      "percentage": 116.6,
+      "premiershipsPoints": 18,
+      "form": "LLLWWLLWDW"
+    },
+    {
+      "position": 13,
+      "team": "Adelaide Crows",
+      "played": 10,
+      "wins": 3,
+      "losses": 6,
+      "draws": 1,
+      "pointsFor": 783,
+      "pointsAgainst": 776,
+      "percentage": 100.9,
+      "premiershipsPoints": 14,
+      "form": "LLLLWLWWDL"
+    },
+    {
+      "position": 14,
+      "team": "St Kilda",
+      "played": 10,
+      "wins": 3,
+      "losses": 7,
+      "draws": 0,
+      "pointsFor": 722,
+      "pointsAgainst": 767,
+      "percentage": 94.1,
+      "premiershipsPoints": 12,
+      "form": "LWLWLLLWLL"
+    },
+    {
+      "position": 15,
+      "team": "Hawthorn",
+      "played": 10,
+      "wins": 3,
+      "losses": 7,
+      "draws": 0,
+      "pointsFor": 709,
+      "pointsAgainst": 902,
+      "percentage": 78.6,
+      "premiershipsPoints": 12,
+      "form": "LLLLLWLWWL"
+    },
+    {
+      "position": 16,
+      "team": "West Coast Eagles",
+      "played": 10,
+      "wins": 3,
+      "losses": 7,
+      "draws": 0,
+      "pointsFor": 723,
+      "pointsAgainst": 938,
+      "percentage": 77.1,
+      "premiershipsPoints": 12,
+      "form": "LLLLWWLLLW"
+    },
+    {
+      "position": 17,
+      "team": "Richmond",
+      "played": 10,
+      "wins": 1,
+      "losses": 9,
+      "draws": 0,
+      "pointsFor": 622,
+      "pointsAgainst": 1044,
+      "percentage": 59.6,
+      "premiershipsPoints": 4,
+      "form": "LLLWLLLLLL"
+    },
+    {
+      "position": 18,
+      "team": "North Melbourne",
+      "played": 10,
+      "wins": 0,
+      "losses": 10,
+      "draws": 0,
+      "pointsFor": 677,
+      "pointsAgainst": 1191,
+      "percentage": 56.8,
+      "premiershipsPoints": 0,
+      "form": "LLLLLLLLLL"
+    }
+  ],
+  "competition": "AFLM",
+  "source": "afl-api",
+  "asOfMatch": null,
+  "seasonKey": "2024"
+}
+",
+}
+`;
+
+exports[`CLI golden outcomes > keeps the output of fitzroy ladder --season 2024 --round 10 --source squiggle --csv 1`] = `
+{
+  "status": 0,
+  "stderr": "",
+  "stdout": "position,team,played,wins,losses,draws,pointsFor,pointsAgainst,percentage,premiershipsPoints,form
+1,Sydney Swans,10,9,1,0,1030,666,154.7,36,
+2,Essendon,10,7,2,1,845,818,103.3,30,
+3,Geelong Cats,10,7,3,0,954,851,112.1,28,
+4,Port Adelaide,10,7,3,0,900,810,111.1,28,
+5,Collingwood,10,6,3,1,873,810,107.8,26,
+6,GWS Giants,10,6,4,0,925,801,115.5,24,
+7,Melbourne,10,6,4,0,805,712,113.1,24,
+8,Gold Coast Suns,10,6,4,0,922,818,112.7,24,
+9,Fremantle,10,6,4,0,767,686,111.8,24,
+10,Carlton,10,6,4,0,923,904,102.1,24,
+11,Western Bulldogs,10,5,5,0,932,739,126.1,20,
+12,Brisbane Lions,10,4,5,1,849,728,116.6,18,
+13,Adelaide Crows,10,3,6,1,783,776,100.9,14,
+14,St Kilda,10,3,7,0,722,767,94.1,12,
+15,Hawthorn,10,3,7,0,709,902,78.6,12,
+16,West Coast Eagles,10,3,7,0,723,938,77.1,12,
+17,Richmond,10,1,9,0,622,1044,59.6,4,
+18,North Melbourne,10,0,10,0,677,1191,56.8,0,
+",
+}
+`;
+
+exports[`CLI golden outcomes > keeps the output of fitzroy match --season 2019 --competition VFL --json 1`] = `
+{
+  "status": 1,
+  "stderr": "Season out of range: afl-api only covers VFL match from 2021; you asked for 2019
+",
+  "stdout": "",
+}
+`;
+
+exports[`CLI golden outcomes > keeps the output of fitzroy match --season 2024 --round 1 --csv 1`] = `
+{
+  "status": 0,
+  "stderr": "",
+  "stdout": "matchId,season,roundNumber,roundType,roundName,date,venue,homeTeam,awayTeam,homeGoals,homeBehinds,homePoints,awayGoals,awayBehinds,awayPoints,margin,q1Home_goals,q1Home_behinds,q1Home_points,q2Home_goals,q2Home_behinds,q2Home_points,q3Home_goals,q3Home_behinds,q3Home_points,q4Home_goals,q4Home_behinds,q4Home_points,q1Away_goals,q1Away_behinds,q1Away_points,q2Away_goals,q2Away_behinds,q2Away_points,q3Away_goals,q3Away_behinds,q3Away_points,q4Away_goals,q4Away_behinds,q4Away_points,status,livePeriodStatus,matchClockPeriods,completedQuarter,attendance,weatherTempCelsius,weatherType,roundCode,venueState,venueTimezone,venueLocalDate,homeRushedBehinds,awayRushedBehinds,homeMinutesInFront,awayMinutesInFront,source,competition,seasonKey
+CD_M20250140101,2024,1,HomeAndAway,Round 1,2025-03-13T19:30:00+11:00,MCG,Richmond,Carlton,13,4,82,9,15,69,13,1,1,7,3,0,18,5,2,32,4,1,25,5,4,34,2,4,16,1,1,7,1,6,12,Complete,CONCLUDED,"[{""periodNumber"":1,""periodSeconds"":1885,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null},{""periodNumber"":2,""periodSeconds"":1952,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null},{""periodNumber"":3,""periodSeconds"":1980,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null},{""periodNumber"":4,""periodSeconds"":2103,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null}]",4,,,,R1,VIC,Australia/Melbourne,2025-03-13T19:30:00,2,3,32,94,afl-api,AFLM,2024
+CD_M20250140102,2024,1,HomeAndAway,Round 1,2025-03-14T19:40:00+11:00,MCG,Hawthorn,Essendon,17,9,111,12,13,85,26,6,1,37,4,3,27,3,3,21,4,2,26,1,4,10,3,1,19,3,6,24,5,2,32,Complete,CONCLUDED,"[{""periodNumber"":1,""periodSeconds"":1943,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null},{""periodNumber"":2,""periodSeconds"":2006,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null},{""periodNumber"":3,""periodSeconds"":1915,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null},{""periodNumber"":4,""periodSeconds"":2018,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null}]",4,,,,R1,VIC,Australia/Melbourne,2025-03-14T19:40:00,1,2,118,7,afl-api,AFLM,2024
+CD_M20250140103,2024,1,HomeAndAway,Round 1,2025-03-15T13:20:00+11:00,Kardinia Park,Geelong Cats,Fremantle,23,9,147,10,9,69,78,5,4,34,7,0,42,1,2,8,10,3,63,1,1,7,2,3,15,6,5,41,1,0,6,Complete,CONCLUDED,"[{""periodNumber"":1,""periodSeconds"":2035,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null},{""periodNumber"":2,""periodSeconds"":2087,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null},{""periodNumber"":3,""periodSeconds"":1933,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null},{""periodNumber"":4,""periodSeconds"":2081,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null}]",4,,,,R1,VIC,Australia/Melbourne,2025-03-15T13:20:00,1,5,132,0,afl-api,AFLM,2024
+CD_M20250140104,2024,1,HomeAndAway,Round 1,2025-03-15T16:15:00+11:00,SCG,Sydney Swans,Brisbane Lions,12,10,82,12,14,86,'-4,4,0,24,3,3,21,2,3,15,3,4,22,1,3,9,3,5,23,6,2,38,2,4,16,Complete,CONCLUDED,"[{""periodNumber"":1,""periodSeconds"":2149,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null},{""periodNumber"":2,""periodSeconds"":2024,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null},{""periodNumber"":3,""periodSeconds"":2040,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null},{""periodNumber"":4,""periodSeconds"":1781,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null}]",4,,,,R1,NSW,Australia/Sydney,2025-03-15T16:15:00,3,1,79,46,afl-api,AFLM,2024
+CD_M20250140105,2024,1,HomeAndAway,Round 1,2025-03-15T19:35:00+11:00,Marvel Stadium,Western Bulldogs,North Melbourne,17,11,113,14,13,97,16,5,3,33,3,2,20,4,2,26,5,4,34,1,4,10,5,3,33,4,5,29,4,1,25,Complete,CONCLUDED,"[{""periodNumber"":1,""periodSeconds"":1963,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null},{""periodNumber"":2,""periodSeconds"":1981,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null},{""periodNumber"":3,""periodSeconds"":1778,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null},{""periodNumber"":4,""periodSeconds"":2446,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null}]",4,,,,R1,VIC,Australia/Melbourne,2025-03-15T19:35:00,2,3,133,0,afl-api,AFLM,2024
+CD_M20250140106,2024,1,HomeAndAway,Round 1,2025-03-15T19:35:00+11:00,MCG,Collingwood,Port Adelaide,21,10,136,6,9,45,91,6,5,41,3,2,20,7,2,44,5,1,31,3,2,20,1,1,7,1,2,8,1,4,10,Complete,CONCLUDED,"[{""periodNumber"":1,""periodSeconds"":2140,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null},{""periodNumber"":2,""periodSeconds"":1718,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null},{""periodNumber"":3,""periodSeconds"":1955,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null},{""periodNumber"":4,""periodSeconds"":1860,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null}]",4,,,,R1,VIC,Australia/Melbourne,2025-03-15T19:35:00,1,1,118,8,afl-api,AFLM,2024
+CD_M20250140107,2024,1,HomeAndAway,Round 1,2025-03-16T12:05:00+10:30,Adelaide Oval,Adelaide Crows,St Kilda,21,9,135,10,12,72,63,7,2,44,3,2,20,7,3,45,4,2,26,2,2,14,2,1,13,3,4,22,3,5,23,Complete,CONCLUDED,"[{""periodNumber"":1,""periodSeconds"":1984,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null},{""periodNumber"":2,""periodSeconds"":1843,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null},{""periodNumber"":3,""periodSeconds"":2126,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null},{""periodNumber"":4,""periodSeconds"":1938,""periodCompleted"":true,""periodStart"":null,""nextPeriodStart"":null}]",4,,,,R1,SA,Australia/Adelaide,2025-03-16T12:05:00,1,2,126,0,afl-api,AFLM,2024
+CD_M20250140108,2024,1,HomeAndAway,Round 1,2025-03-16T15:20:00+11:00,MCG,Melbourne,G
+…[1401 more chars, sha256 84794c178ea12b9819ccd66cad724e4e117a2eafa5d5169986f8e08e0e69145d]",
+}
+`;
+
+exports[`CLI golden outcomes > keeps the output of fitzroy match --season 2024 --round 1 --json 1`] = `
+{
+  "status": 0,
+  "stderr": "",
+  "stdout": "[
+  {
+    "matchId": "CD_M20250140101",
+    "season": 2024,
+    "roundNumber": 1,
+    "roundType": "HomeAndAway",
+    "roundName": "Round 1",
+    "date": "2025-03-13T19:30:00+11:00",
+    "venue": "MCG",
+    "homeTeam": "Richmond",
+    "awayTeam": "Carlton",
+    "homeGoals": 13,
+    "homeBehinds": 4,
+    "homePoints": 82,
+    "awayGoals": 9,
+    "awayBehinds": 15,
+    "awayPoints": 69,
+    "margin": 13,
+    "q1Home": {
+      "goals": 1,
+      "behinds": 1,
+      "points": 7
+    },
+    "q2Home": {
+      "goals": 3,
+      "behinds": 0,
+      "points": 18
+    },
+    "q3Home": {
+      "goals": 5,
+      "behinds": 2,
+      "points": 32
+    },
+    "q4Home": {
+      "goals": 4,
+      "behinds": 1,
+      "points": 25
+    },
+    "q1Away": {
+      "goals": 5,
+      "behinds": 4,
+      "points": 34
+    },
+    "q2Away": {
+      "goals": 2,
+      "behinds": 4,
+      "points": 16
+    },
+    "q3Away": {
+      "goals": 1,
+      "behinds": 1,
+      "points": 7
+    },
+    "q4Away": {
+      "goals": 1,
+      "behinds": 6,
+      "points": 12
+    },
+    "status": "Complete",
+    "livePeriodStatus": "CONCLUDED",
+    "matchClockPeriods": [
+      {
+        "periodNumber": 1,
+        "periodSeconds": 1885,
+        "periodCompleted": true,
+        "periodStart": null,
+        "nextPeriodStart": null
+      },
+      {
+        "periodNumber": 2,
+        "periodSeconds": 1952,
+        "periodCompleted": true,
+        "periodStart": null,
+        "nextPeriodStart": null
+      },
+      {
+        "periodNumber": 3,
+        "periodSeconds": 1980,
+        "periodCompleted": true,
+        "periodStart": null,
+        "nextPeriodStart": null
+      },
+      {
+        "periodNumber": 4,
+        "periodSeconds": 2103,
+        "periodCompleted": true,
+        "periodStart": null,
+        "nextPeriodStart": null
+      }
+    ],
+    "completedQuarter": 4,
+    "attendance": null,
+    "weatherTempCelsius": null,
+    "weatherType": null,
+    "roundCode": "R1",
+    "venueState": "VIC",
+    "venueTimezone": "Australia/Melbourne",
+    "venueLocalDate": "2025-03-13T19:30:00",
+    "homeRushedBehinds": 2,
+    "awayRushedBehinds": 3,
+    "homeMinutesInFront": 32,
+    "awayMinutesInFront": 94,
+    "source": "afl-api",
+    "competition": "AFLM",
+    "seasonKey": "2024"
+  },
+  {
+    "matchId": "CD_M20250140102",
+    "season": 2024,
+    "roundNumber": 1,
+    "roundType": "HomeAndAway",
+    "roundName": "Round 1",
+    "date": "2025-03-14T19:40:00+11:00",
+    "venue": "MCG",
+    "homeTeam": "Hawthorn",
+    "awayTeam": "Essendon",
+    "homeGoals": 17,
+    "homeBehinds": 9,
+    "homePoints": 111,
+    "awayGoals": 12,
+    "awayBehinds": 13,
+    "awayPoints": 85,
+    "margin": 26,
+    "q1Home": {
+      "goals": 6,
+      "behinds": 1,
+      "points": 37
+    },
+    "q2Home": {
+      "goals": 4,
+      "behinds": 3,
+      "points": 27
+    },
+    "q3Home": {
+      "goals": 3,
+      "behinds": 3,
+      "points": 21
+    },
+    "q4Home": {
+      "goals": 4,
+      "behinds": 2,
+      "points": 26
+    },
+    "q1Away": {
+      "goals": 1,
+      "behinds": 4,
+      "points": 10
+    },
+    "q2Away": {
+      "goals": 3,
+      "behinds": 1,
+      "points": 19
+    },
+    "q3Away": {
+      "goals": 3,
+      "behinds": 6,
+      "points": 24
+    },
+    "q4Away": {
+      "goals": 5,
+      "behinds": 2,
+      "points": 32
+    },
+    "status": "Complete",
+    "livePeriodStatus": "CONCLUDED",
+    "matchClockPeriods": [
+      {
+        "periodNumber": 1,
+        "periodSeconds": 1943,
+        "periodCompleted": true,
+        "periodStart": null,
+        "nextPeriodStart": null
+      },
+      {
+        "periodNumber": 2,
+        "periodSeconds": 2006,
+        "periodCompleted": true,
+        "periodStart": null,
+        "nextPeriodStart": null
+      },
+      {
+        "periodNumber": 3,
+        "periodSeconds": 1915,
+        "periodCompleted": true,
+        "periodStart": null,
+        "nextPeriodStart": null
+      },
+      {
+        "periodNumber": 4,
+        "periodSeconds": 2018,
+        "periodCompleted": true,
+        "periodStart": null,
+        "nextPeriodStart": null
+      }
+    ],
+    "completedQuarter": 4,
+    "attendance": null,
+    "weatherTempCelsius": null,
+    "weatherType": null,
+    "roundCode": "R1",
+    "venueState": "VIC",
+    "venueTimezone": "Australia/Melbourne",
+    "venueLocalDate": "2025-03-14T19:40:00",
+    "homeRushedBehinds": 1,
+    "awayRushedBehinds": 2,
+    "homeMinutesInFront": 118,
+    "awayMinutesInFront": 7,
+    "source": "afl-api",
+    "competition": "AFLM",
+    "seasonKey": "2024"
+  },
+  {
+    "matchId": "CD_M20250140103",
+    "season": 2024,
+    "roundNumber": 1,
+    "roundType": "HomeAndAway",
+    "roundName": "Round 1",
+    "date": "2025-03-15T13:20:00+11:00",
+    "venue": "Kardinia Park",
+    "homeTeam": "Geelong Cats",
+    "awayTeam": "Fremantle",
+    "homeGoals": 23,
+    "homeBehinds": 9,
+    "homePoints": 147,
+    "awayGoals": 10,
+    "awayBehinds": 9,
+    "awayPoints": 69,
+    "margin": 78,
+    "q1Home": {
+      "goals": 5,
+      "behinds": 4,
+      "points": 34
+    },
+    "q2Home": {
+      "goals": 7,
+      "behinds": 0,
+      "points": 42
+    },
+    "q3Home": {
+      "goals": 1,
+      "behinds": 2,
+      "points": 8
+    },
+    "q4Home": {
+      "goals": 10,
+      "behinds": 3,
+      "points": 63
+    },
+    "q1Away": {
+      "goals": 1,
+      "behinds": 1,
+      "points": 7
+    },
+    "q2Away": {
+      "goals": 2,
+      "behinds": 3,
+      "points": 15
+    },
+    "q3Away": {
+      "goals": 6,
+      "behinds": 5,
+      "points": 41
+    },
+    "q4Away": {
+      "goals": 1,
+      "behinds": 0,
+      "points": 6
+    },
+    "status": "Complete",
+    "livePeriodStatus": "CONCLUDED",
+    "matchClockPeriods": [
+      {
+        "periodNumber": 1,
+        "periodSeconds": 2035,
+        "periodCompleted": true,
+        "periodStart": null,
+        "nextPeriodStart": null
+      },
+      {
+        "periodNumber": 2,
+        "periodSeconds": 2087,
+        "periodCompleted": true,
+        "periodStart": null,
+        "nextPeriodStart": null
+   
+…[14432 more chars, sha256 2e1b240df962c67ae122e3f77062c0c8496d2cf4321bd7a84d9399eb42390daf]",
+}
+`;
+
+exports[`CLI golden outcomes > keeps the output of fitzroy match --season 2024 --source fryzigg --json 1`] = `
+{
+  "status": 1,
+  "stderr": "Unsupported source: fryzigg does not provide match data. Supported sources: afl-api, footywire, afl-tables, squiggle.
+",
+  "stdout": "",
+}
+`;
+
+exports[`CLI golden outcomes > keeps the output of fitzroy match --season 2024 --source squiggle --round 1 --json 1`] = `
+{
+  "status": 0,
+  "stderr": "",
+  "stdout": "[
+  {
+    "matchId": "SQ_35704",
+    "season": 2024,
+    "roundNumber": 1,
+    "roundType": "HomeAndAway",
+    "roundName": "Round 1",
+    "date": "2024-03-14T19:30:00+11:00",
+    "venue": "MCG",
+    "homeTeam": "Carlton",
+    "awayTeam": "Richmond",
+    "homeGoals": 12,
+    "homeBehinds": 14,
+    "homePoints": 86,
+    "awayGoals": 12,
+    "awayBehinds": 9,
+    "awayPoints": 81,
+    "margin": 5,
+    "q1Home": null,
+    "q2Home": null,
+    "q3Home": null,
+    "q4Home": null,
+    "q1Away": null,
+    "q2Away": null,
+    "q3Away": null,
+    "q4Away": null,
+    "status": "Complete",
+    "livePeriodStatus": null,
+    "matchClockPeriods": null,
+    "completedQuarter": null,
+    "attendance": null,
+    "weatherTempCelsius": null,
+    "weatherType": null,
+    "roundCode": "R1",
+    "venueState": null,
+    "venueTimezone": "Australia/Melbourne",
+    "venueLocalDate": null,
+    "homeRushedBehinds": null,
+    "awayRushedBehinds": null,
+    "homeMinutesInFront": null,
+    "awayMinutesInFront": null,
+    "source": "squiggle",
+    "competition": "AFLM",
+    "seasonKey": "2024"
+  },
+  {
+    "matchId": "SQ_35705",
+    "season": 2024,
+    "roundNumber": 1,
+    "roundType": "HomeAndAway",
+    "roundName": "Round 1",
+    "date": "2024-03-15T19:40:00+11:00",
+    "venue": "MCG",
+    "homeTeam": "Collingwood",
+    "awayTeam": "Sydney Swans",
+    "homeGoals": 10,
+    "homeBehinds": 9,
+    "homePoints": 69,
+    "awayGoals": 15,
+    "awayBehinds": 12,
+    "awayPoints": 102,
+    "margin": -33,
+    "q1Home": null,
+    "q2Home": null,
+    "q3Home": null,
+    "q4Home": null,
+    "q1Away": null,
+    "q2Away": null,
+    "q3Away": null,
+    "q4Away": null,
+    "status": "Complete",
+    "livePeriodStatus": null,
+    "matchClockPeriods": null,
+    "completedQuarter": null,
+    "attendance": null,
+    "weatherTempCelsius": null,
+    "weatherType": null,
+    "roundCode": "R1",
+    "venueState": null,
+    "venueTimezone": "Australia/Melbourne",
+    "venueLocalDate": null,
+    "homeRushedBehinds": null,
+    "awayRushedBehinds": null,
+    "homeMinutesInFront": null,
+    "awayMinutesInFront": null,
+    "source": "squiggle",
+    "competition": "AFLM",
+    "seasonKey": "2024"
+  },
+  {
+    "matchId": "SQ_35706",
+    "season": 2024,
+    "roundNumber": 1,
+    "roundType": "HomeAndAway",
+    "roundName": "Round 1",
+    "date": "2024-03-16T13:45:00+11:00",
+    "venue": "MCG",
+    "homeTeam": "Essendon",
+    "awayTeam": "Hawthorn",
+    "homeGoals": 17,
+    "homeBehinds": 5,
+    "homePoints": 107,
+    "awayGoals": 11,
+    "awayBehinds": 17,
+    "awayPoints": 83,
+    "margin": 24,
+    "q1Home": null,
+    "q2Home": null,
+    "q3Home": null,
+    "q4Home": null,
+    "q1Away": null,
+    "q2Away": null,
+    "q3Away": null,
+    "q4Away": null,
+    "status": "Complete",
+    "livePeriodStatus": null,
+    "matchClockPeriods": null,
+    "completedQuarter": null,
+    "attendance": null,
+    "weatherTempCelsius": null,
+    "weatherType": null,
+    "roundCode": "R1",
+    "venueState": null,
+    "venueTimezone": "Australia/Melbourne",
+    "venueLocalDate": null,
+    "homeRushedBehinds": null,
+    "awayRushedBehinds": null,
+    "homeMinutesInFront": null,
+    "awayMinutesInFront": null,
+    "source": "squiggle",
+    "competition": "AFLM",
+    "seasonKey": "2024"
+  },
+  {
+    "matchId": "SQ_35707",
+    "season": 2024,
+    "roundNumber": 1,
+    "roundType": "HomeAndAway",
+    "roundName": "Round 1",
+    "date": "2024-03-16T16:35:00+11:00",
+    "venue": "Sydney Showground",
+    "homeTeam": "GWS Giants",
+    "awayTeam": "North Melbourne",
+    "homeGoals": 17,
+    "homeBehinds": 19,
+    "homePoints": 121,
+    "awayGoals": 13,
+    "awayBehinds": 4,
+    "awayPoints": 82,
+    "margin": 39,
+    "q1Home": null,
+    "q2Home": null,
+    "q3Home": null,
+    "q4Home": null,
+    "q1Away": null,
+    "q2Away": null,
+    "q3Away": null,
+    "q4Away": null,
+    "status": "Complete",
+    "livePeriodStatus": null,
+    "matchClockPeriods": null,
+    "completedQuarter": null,
+    "attendance": null,
+    "weatherTempCelsius": null,
+    "weatherType": null,
+    "roundCode": "R1",
+    "venueState": null,
+    "venueTimezone": "Australia/Sydney",
+    "venueLocalDate": null,
+    "homeRushedBehinds": null,
+    "awayRushedBehinds": null,
+    "homeMinutesInFront": null,
+    "awayMinutesInFront": null,
+    "source": "squiggle",
+    "competition": "AFLM",
+    "seasonKey": "2024"
+  },
+  {
+    "matchId": "SQ_35708",
+    "season": 2024,
+    "roundNumber": 1,
+    "roundType": "HomeAndAway",
+    "roundName": "Round 1",
+    "date": "2024-03-16T19:30:00+11:00",
+    "venue": "Kardinia Park",
+    "homeTeam": "Geelong Cats",
+    "awayTeam": "St Kilda",
+    "homeGoals": 10,
+    "homeBehinds": 16,
+    "homePoints": 76,
+    "awayGoals": 9,
+    "awayBehinds": 14,
+    "awayPoints": 68,
+    "margin": 8,
+    "q1Home": null,
+    "q2Home": null,
+    "q3Home": null,
+    "q4Home": null,
+    "q1Away": null,
+    "q2Away": null,
+    "q3Away": null,
+    "q4Away": null,
+    "status": "Complete",
+    "livePeriodStatus": null,
+    "matchClockPeriods": null,
+    "completedQuarter": null,
+    "attendance": null,
+    "weatherTempCelsius": null,
+    "weatherType": null,
+    "roundCode": "R1",
+    "venueState": null,
+    "venueTimezone": "Australia/Melbourne",
+    "venueLocalDate": null,
+    "homeRushedBehinds": null,
+    "awayRushedBehinds": null,
+    "homeMinutesInFront": null,
+    "awayMinutesInFront": null,
+    "source": "squiggle",
+    "competition": "AFLM",
+    "seasonKey": "2024"
+  },
+  {
+    "matchId": "SQ_35709",
+    "season": 2024,
+    "roundNumber": 1,
+    "roundType": "HomeAndAway",
+    "roundName": "Round 1",
+    "date": "2024-03-16T19:10:00+10:00",
+    "venue": "Carrara",
+    "homeTeam": "Gold Coast Suns",
+    "awayTeam": "Adelaide Crows",
+    "homeGoals": 8,
+    "homeBehinds": 12,
+    "homePoints": 60,
+    "awayGoals": 8,
+    "awayBehinds": 6,
+    "awayPoints": 54,
+    "margin": 6,
+    "q1Home": null,
+    "q2Home": null,
+    "q3Home": null,
+    "q4Home": null,
+    "q1Away": null,
+    "q2Away": null,
+   
+…[3862 more chars, sha256 51762412df0cd7a007b0141caccb200d45e8f6250a8f98eb6cea664d3c3b1d89]",
+}
+`;
+
+exports[`CLI golden outcomes > keeps the output of fitzroy match --season 2024 --unknown-flag --json 1`] = `
+{
+  "status": 1,
+  "stderr": "Error: Unknown flag: "--unknown-flag". Valid flags for this command: c, competition, csv, format, full, id, j, json, o, r, round, s, season, source, status, t, team
+",
+  "stdout": "",
+}
+`;
+
+exports[`CLI golden outcomes > keeps the output of fitzroy match --season not-a-year --json 1`] = `
+{
+  "status": 1,
+  "stderr": "Error: Invalid season: "not-a-year" — season must be a number (e.g. 2025)
+",
+  "stdout": "",
+}
+`;
+
+exports[`CLI golden outcomes > keeps the output of fitzroy player --season 2024 --team Carlton --json 1`] = `
+{
+  "status": 0,
+  "stderr": "",
+  "stdout": "{
+  "players": [
+    {
+      "playerId": "CD_I1000900",
+      "givenName": "Patrick",
+      "surname": "Cripps",
+      "displayName": "Patrick Cripps",
+      "jumperNumber": 9,
+      "position": "Midfield",
+      "dateOfBirth": "1995-03-18",
+      "heightCm": 195,
+      "weightKg": 92,
+      "draftYear": 2013,
+      "draftPosition": 13,
+      "draftType": "National Draft",
+      "debutYear": 2014,
+      "recruitedFrom": "Northern Knights",
+      "gamesPlayed": null,
+      "goals": null,
+      "team": "Carlton",
+      "source": "afl-api",
+      "competition": "AFLM"
+    },
+    {
+      "playerId": "CD_I1001020",
+      "givenName": "Sam",
+      "surname": "Walsh",
+      "displayName": "Sam Walsh",
+      "jumperNumber": 3,
+      "position": "Midfield",
+      "dateOfBirth": "2000-06-29",
+      "heightCm": 184,
+      "weightKg": 81,
+      "draftYear": 2018,
+      "draftPosition": 1,
+      "draftType": "National Draft",
+      "debutYear": 2019,
+      "recruitedFrom": null,
+      "gamesPlayed": null,
+      "goals": null,
+      "team": "Carlton",
+      "source": "afl-api",
+      "competition": "AFLM"
+    }
+  ],
+  "failedTeams": [],
+  "scope": "season"
+}
+",
+}
+`;
+
+exports[`CLI golden outcomes > keeps the output of fitzroy seasons --competition AFLW --json 1`] = `
+{
+  "status": 0,
+  "stderr": "",
+  "stdout": "[
+  {
+    "competition": "AFLW",
+    "seasonKey": "2026",
+    "year": 2026,
+    "displayName": "2026 NAB AFLW Season",
+    "providerSeasonId": 96
+  },
+  {
+    "competition": "AFLW",
+    "seasonKey": "2025",
+    "year": 2025,
+    "displayName": "2025 NAB AFLW Season",
+    "providerSeasonId": 84
+  },
+  {
+    "competition": "AFLW",
+    "seasonKey": "2024",
+    "year": 2024,
+    "displayName": "2024 NAB AFLW Season",
+    "providerSeasonId": 72
+  },
+  {
+    "competition": "AFLW",
+    "seasonKey": "2023",
+    "year": 2023,
+    "displayName": "2023 NAB AFLW Season",
+    "providerSeasonId": 61
+  },
+  {
+    "competition": "AFLW",
+    "seasonKey": "2022-S6",
+    "year": 2022,
+    "displayName": "2022 NAB AFLW Season 6",
+    "providerSeasonId": 41
+  },
+  {
+    "competition": "AFLW",
+    "seasonKey": "2022-S7",
+    "year": 2022,
+    "displayName": "2022 NAB AFLW Season 7",
+    "providerSeasonId": 51
+  },
+  {
+    "competition": "AFLW",
+    "seasonKey": "2021",
+    "year": 2021,
+    "displayName": "2021 NAB AFLW Season",
+    "providerSeasonId": 32
+  },
+  {
+    "competition": "AFLW",
+    "seasonKey": "2020",
+    "year": 2020,
+    "displayName": "2020 NAB AFLW Season",
+    "providerSeasonId": 22
+  },
+  {
+    "competition": "AFLW",
+    "seasonKey": "2019",
+    "year": 2019,
+    "displayName": "2019 NAB AFLW Season",
+    "providerSeasonId": 19
+  },
+  {
+    "competition": "AFLW",
+    "seasonKey": "2018",
+    "year": 2018,
+    "displayName": "2018 NAB AFLW Season",
+    "providerSeasonId": 16
+  },
+  {
+    "competition": "AFLW",
+    "seasonKey": "2017",
+    "year": 2017,
+    "displayName": "2017 NAB AFLW Season",
+    "providerSeasonId": 13
+  }
+]
+",
+}
+`;
+
+exports[`CLI golden outcomes > keeps the output of fitzroy stats --season 2024 --by team --source afl-tables --csv 1`] = `
+{
+  "status": 0,
+  "stderr": "",
+  "stdout": "season,competition,team,gamesPlayed,for_kicks,for_handballs,for_disposals,for_marks,for_goals,for_behinds,for_goalAssists,for_tackles,for_hitouts,for_freesFor,for_freesAgainst,for_clearances,for_clangers,for_inside50s,for_rebound50s,for_contestedPossessions,for_uncontestedPossessions,for_contestedMarks,for_marksInside50,for_onePercenters,for_bounces,for_brownlowVotes,for_fantasyPoints,for_supercoachPoints,against_kicks,against_handballs,against_disposals,against_marks,against_goals,against_behinds,against_goalAssists,against_tackles,against_hitouts,against_freesFor,against_freesAgainst,against_clearances,against_clangers,against_inside50s,against_rebound50s,against_contestedPossessions,against_uncontestedPossessions,against_contestedMarks,against_marksInside50,against_onePercenters,against_bounces,against_brownlowVotes,against_fantasyPoints,against_supercoachPoints,source,seasonKey
+2024,AFLM,Carlton,1,3200,2100,5300,1800,250,180,,1400,900,,,,,,,,,,,,,,,,3000,2000,5000,1700,200,150,,1300,850,,,,,,,,,,,,,,,,afl-tables,2024
+2024,AFLM,Geelong Cats,1,3400,2200,5600,1900,270,190,,1350,950,,,,,,,,,,,,,,,,3100,2050,5150,1750,210,160,,1320,870,,,,,,,,,,,,,,,,afl-tables,2024
+",
+}
+`;
+
+exports[`CLI golden outcomes > keeps the output of fitzroy stats --season 2024 --by team --source footywire --json 1`] = `
+{
+  "status": 0,
+  "stderr": "",
+  "stdout": "[
+  {
+    "season": 2024,
+    "competition": "AFLM",
+    "team": "Carlton",
+    "gamesPlayed": 22,
+    "for": {
+      "kicks": 3200,
+      "handballs": 2100,
+      "disposals": 5300,
+      "marks": 1800,
+      "goals": 250,
+      "behinds": 180,
+      "goalAssists": 120,
+      "tackles": 1400,
+      "hitouts": 900,
+      "freesFor": 350,
+      "freesAgainst": 320,
+      "clearances": 600,
+      "clangers": 500,
+      "inside50s": 1100,
+      "rebound50s": 400,
+      "contestedPossessions": null,
+      "uncontestedPossessions": null,
+      "contestedMarks": null,
+      "marksInside50": null,
+      "onePercenters": null,
+      "bounces": null,
+      "brownlowVotes": null,
+      "fantasyPoints": 35000,
+      "supercoachPoints": 32000
+    },
+    "against": {
+      "kicks": 3000,
+      "handballs": 2000,
+      "disposals": 5000,
+      "marks": 1700,
+      "goals": 200,
+      "behinds": 150,
+      "goalAssists": 100,
+      "tackles": 1300,
+      "hitouts": 850,
+      "freesFor": 320,
+      "freesAgainst": 350,
+      "clearances": 550,
+      "clangers": 450,
+      "inside50s": 1000,
+      "rebound50s": 350,
+      "contestedPossessions": null,
+      "uncontestedPossessions": null,
+      "contestedMarks": null,
+      "marksInside50": null,
+      "onePercenters": null,
+      "bounces": null,
+      "brownlowVotes": null,
+      "fantasyPoints": 33000,
+      "supercoachPoints": 30000
+    },
+    "source": "footywire",
+    "seasonKey": "2024"
+  },
+  {
+    "season": 2024,
+    "competition": "AFLM",
+    "team": "Geelong Cats",
+    "gamesPlayed": 22,
+    "for": {
+      "kicks": 3400,
+      "handballs": 2200,
+      "disposals": 5600,
+      "marks": 1900,
+      "goals": 270,
+      "behinds": 190,
+      "goalAssists": 130,
+      "tackles": 1350,
+      "hitouts": 950,
+      "freesFor": 370,
+      "freesAgainst": 340,
+      "clearances": 620,
+      "clangers": 520,
+      "inside50s": 1150,
+      "rebound50s": 420,
+      "contestedPossessions": null,
+      "uncontestedPossessions": null,
+      "contestedMarks": null,
+      "marksInside50": null,
+      "onePercenters": null,
+      "bounces": null,
+      "brownlowVotes": null,
+      "fantasyPoints": 36000,
+      "supercoachPoints": 33000
+    },
+    "against": {
+      "kicks": 3100,
+      "handballs": 2050,
+      "disposals": 5150,
+      "marks": 1750,
+      "goals": 210,
+      "behinds": 160,
+      "goalAssists": 105,
+      "tackles": 1320,
+      "hitouts": 870,
+      "freesFor": 340,
+      "freesAgainst": 370,
+      "clearances": 570,
+      "clangers": 470,
+      "inside50s": 1020,
+      "rebound50s": 370,
+      "contestedPossessions": null,
+      "uncontestedPossessions": null,
+      "contestedMarks": null,
+      "marksInside50": null,
+      "onePercenters": null,
+      "bounces": null,
+      "brownlowVotes": null,
+      "fantasyPoints": 34000,
+      "supercoachPoints": 31000
+    },
+    "source": "footywire",
+    "seasonKey": "2024"
+  },
+  {
+    "season": 2024,
+    "competition": "AFLM",
+    "team": "Sydney Swans",
+    "gamesPlayed": 22,
+    "for": {
+      "kicks": 3100,
+      "handballs": 2050,
+      "disposals": 5150,
+      "marks": 1750,
+      "goals": 230,
+      "behinds": 170,
+      "goalAssists": 110,
+      "tackles": 1450,
+      "hitouts": 880,
+      "freesFor": 330,
+      "freesAgainst": 310,
+      "clearances": 580,
+      "clangers": 480,
+      "inside50s": 1050,
+      "rebound50s": 380,
+      "contestedPossessions": null,
+      "uncontestedPossessions": null,
+      "contestedMarks": null,
+      "marksInside50": null,
+      "onePercenters": null,
+      "bounces": null,
+      "brownlowVotes": null,
+      "fantasyPoints": 34000,
+      "supercoachPoints": 31000
+    },
+    "against": {
+      "kicks": 2900,
+      "handballs": 1950,
+      "disposals": 4850,
+      "marks": 1650,
+      "goals": 190,
+      "behinds": 140,
+      "goalAssists": 95,
+      "tackles": 1280,
+      "hitouts": 830,
+      "freesFor": 310,
+      "freesAgainst": 330,
+      "clearances": 530,
+      "clangers": 430,
+      "inside50s": 980,
+      "rebound50s": 340,
+      "contestedPossessions": null,
+      "uncontestedPossessions": null,
+      "contestedMarks": null,
+      "marksInside50": null,
+      "onePercenters": null,
+      "bounces": null,
+      "brownlowVotes": null,
+      "fantasyPoints": 32000,
+      "supercoachPoints": 29000
+    },
+    "source": "footywire",
+    "seasonKey": "2024"
+  }
+]
+",
+}
+`;
+
+exports[`CLI golden outcomes > keeps the output of fitzroy stats --season 2024 --round 1 --source footywire --csv 1`] = `
+{
+  "status": 0,
+  "stderr": "",
+  "stdout": "matchId,season,roundNumber,team,competition,date,homeTeam,awayTeam,playerId,givenName,surname,displayName,jumperNumber,kicks,handballs,disposals,marks,goals,behinds,tackles,hitouts,freesFor,freesAgainst,contestedPossessions,uncontestedPossessions,contestedMarks,intercepts,centreClearances,stoppageClearances,totalClearances,inside50s,rebound50s,clangers,turnovers,onePercenters,bounces,goalAssists,disposalEfficiency,metresGained,goalAccuracy,marksInside50,tacklesInside50,shotsAtGoal,scoreInvolvements,totalPossessions,timeOnGroundPercentage,ratingPoints,position,goalEfficiency,shotEfficiency,interchangeCounts,brownlowVotes,supercoachScore,dreamTeamPoints,effectiveDisposals,effectiveKicks,kickEfficiency,kickToHandballRatio,pressureActs,defHalfPressureActs,spoils,hitoutsToAdvantage,hitoutWinPercentage,hitoutToAdvantageRate,groundBallGets,f50GroundBallGets,interceptMarks,marksOnLead,contestedPossessionRate,contestOffOneOnOnes,contestOffWins,contestOffWinsPercentage,contestDefOneOnOnes,contestDefLosses,contestDefLossPercentage,centreBounceAttendances,kickins,kickinsPlayon,ruckContests,scoreLaunches,source,seasonKey
+FW_11193,2024,1,Sydney Swans,AFLM,,,,FW_Isaac_Heeney,Isaac,Heeney,Isaac Heeney,,17,9,26,5,1,1,7,0,2,0,18,10,0,4,4,9,13,8,2,2,2,4,0,1,69.2,619,,1,1,,12,,79,,,,,,,144,121,18,,,,,,,,,,,,,,,,,,,,,,,,,,footywire,2024
+FW_11193,2024,1,Sydney Swans,AFLM,,,,FW_Nick_Blakey,Nick,Blakey,Nick Blakey,,18,8,26,9,0,0,0,0,2,0,6,16,1,6,0,0,0,6,7,2,3,6,6,2,69.2,529,,0,0,,4,,78,,,,,,,117,99,18,,,,,,,,,,,,,,,,,,,,,,,,,,footywire,2024
+FW_11193,2024,1,Sydney Swans,AFLM,,,,FW_Chad_Warner,Chad,Warner,Chad Warner,,17,9,26,4,1,1,1,0,2,2,11,17,0,2,1,1,2,12,1,7,7,2,1,2,73.1,588,,0,0,,8,,81,,,,,,,118,88,19,,,,,,,,,,,,,,,,,,,,,,,,,,footywire,2024
+FW_11193,2024,1,Sydney Swans,AFLM,,,,FW_Brodie_Grundy,Brodie,Grundy,Brodie Grundy,,12,11,23,4,0,0,6,33,3,4,15,7,2,5,2,7,9,5,1,9,6,4,0,0,43.5,254,,0,0,,7,,78,,,,,,,139,118,10,,,,,,,,,,,,,,,,,,,,,,,,,,footywire,2024
+FW_11193,2024,1,Sydney Swans,AFLM,,,,FW_James_Rowbottom,James,Rowbottom,James Rowbottom,,12,9,21,0,0,2,7,0,2,3,14,8,0,5,1,5,6,5,2,4,7,1,0,0,57.1,343,,0,2,,4,,79,,,,,,,94,77,12,,,,,,,,,,,,,,,,,,,,,,,,,,footywire,2024
+FW_11193,2024,1,Sydney Swans,AFLM,,,,FW_Tom_Papley,Tom,Papley,Tom Papley,,15,5,20,4,1,1,3,0,1,0,10,9,0,2,1,2,3,4,1,1,4,3,0,0,65,404,,2,2,,9,,81,,,,,,,120,87,13,,,,,,,,,,,,,,,,,,,,,,,,,,footywire,2024
+FW_11193,2024,1,Sydney Swans,AFLM,,,,FW_Justin_McInerney,Justin,McInerney,Justin McInerney,,7,13,20,6,1,0,4,1,0,3,6,15,0,2,0,1,1,1,2,4,3,0,0,0,70,129,,0,0,,3,,86,,,,,,,76,79,14,,,,,,,,,,,,,,,,,,,,,,,,,,footywire,2024
+FW_11193,2024,1,Sydney Swans,AFLM,,,,FW_Errol_Gulden,Errol,Gulden,Errol Gulden,,16,4,20,2,0,1,2,0,1,1,9,14,0,3,0,2,2,5,2,4,8,2,0,0,55,442,,0,0,,4,,89,,,,,,,77,69,11,,,,,,,,,,,,,,,,,,,,,,,,,,footywire,2024
+FW_11193,2024,1,Sydney Swans,AFLM,,,,FW_Dane_Rampe,Dane,Rampe,Dane Rampe,,13,6,19,6,0,0,0,0,1,0,7,10,0,7,0,0,0,1,6,1,3,4,0,0,78.9,519,,0,0,,2,,87,,,,,,,83,70,15,,,,,,,,,,,,,,,,,,,,,,,,,,footywire,2024
+FW_11193,2024,1,Sydney Swans,AFLM,,,,FW_Matthew_Roberts,Matthew,Roberts,Matthew Roberts,,16,3,19,8,0,0,3,0,1,0,1,13,0,3,0,0,0,1,3,1,2,1,0,0,94.7,260,,0,0,,1,,84,,,,,,,76,91,18,,,,,,,,,,,,,,,,,,,,,,,,,,footywire,2024
+FW_11193,2024,1,Sydney Swans,AFLM,,,,FW_Harry_Cunningham,Harry,Cunningham,Harry Cunningham,,14,4,18,10,0,0,3,0,0,0,3,15,0,5,0,1,1,2,0,1,3,5,0,0,77.8,253,,1,0,,0,,83,,,,,,,86,92,14,,,,,,,,,,,,,,,,,,,,,,,,,,footywire,2024
+FW_11193,2024,1,Sydney Swans,AFLM,,,,FW_Oliver_Florent,Oliver,Florent,Oliver Florent,,10,8,18,3,1,0,2,0,0,0,8,8,0,5,0,3,3,2,7,1,6,1,0,0,66.7,374,,0,0,,1,,91,,,,,,,75,69,12,,,,,,,,,,,,,,,,,,,,,,,,,,footywire,2024
+FW_11193,2024,1,Sydney Swans,AFLM,,,,FW_James_Jordon,James,Jordon,James Jordon,,8,10,18,3,0,0,7,0,1,2,6,13,0,2,0,2,2,4,2,3,3,2,0,0,77.8,158,,0,2,,3,,71,,,,,,,81,76,14,,,,,,,,,,,,,,,,,,,,,,,,,,footywire,2024
+FW_11193,2024,1,Sydney Swans,AFLM,,,,FW_Braeden_Campbell,Braeden,Campbell,Braeden Campbell,,12,4,16,7,0,0,2,0,1,0,3,15,0,4,0,1,1,5,2,2,4,1,0,0,75,378,,0,0,,2,,68,,,,,,,53,74,12,,,,,,,,,,,,,,,,,,,,,,,,,,footywire,2024
+FW_11193,2024,1,Sydney Swans,AFLM,,,,FW_Jake_Lloyd,Jake,Lloyd,Jake Lloyd,,8,5,13,5,0,0,2,0,2,1,5,9,0,4,0,0,0,1,1,2,3,3,0,0,84.6,142,,0,0,,1,,83,,,,,,,70,56,11,,,,,,,,,,,,,,,,,,,,,,,,,,footywire,2024
+FW_11193,2024,1,Sydney Swans,AFLM,,,,FW_Will_Hayward,Will,Hayward,Will Hayward,,8,2,10,4,2,0,2,0,0,0,2,9,0,0,0,0,0,0,1,2,3,4,0,0,60,195,,2,1,,3,,83,,,,,,,83,60,6,,,,,,,,,,,,,,,,,,,,,,,,,,footywire,2024
+FW_11193,2024,1,Sydney Swans,AFLM,,,,FW_Robbie_Fox,Robbie,Fox,Robbie Fox,,6,3,9,2,1,1,6,0,2,2,5,4,0,1,0,1,1,0,0,4,5,4,0,0,55.6,90,,0,4,,2,,91,,,,,,,50,57,5,,,,,,,,,,,,,,,,,,,,,,,,,,footywire,2024
+FW_11193,2024,1,Sydney Swans,AFLM,,,,FW_Tom_McCartin,Tom,McCartin,Tom McCartin,,7,2,9,7,0,0,0,0,0,0,4,6,1,6,0,0,0,0,1,3,1,4,0,0,77.8,91,,0,0,,1,,97,,,,,,,47,46,7,,,,,,,,,,,,,,,,,,,,,,,,,,footywire,2024
+FW_11193,2024,1,Sydney Swans,AFLM,,,,FW_Logan_McDonald,Logan,McDonald,Logan McDonald,,5,3,8,3,1,0,1,0,0,1,4,4,2,1,0,0,0,2,0,3,2,2,0,0,50,189,,1,0,,5,,83,,,,,,,30,37,4,,,,,,,,,,,,,,,,,,,,,,,,,,footywire,2024
+FW_11193,2024,1,Sydney Swans,AFLM,,,,FW_Lewis_Melican,Lewis,Melican,Lewis Melican,,4,1,5,2,0,0,0,0,0,0,1,2,0,5,0,0,0,0,1,0,0,6,0,0,100,47,,0,0,,2,,80,,,,,,,30,20,5,,,,,,,,,,,,,,,,,,,,,,,,,,footywire,2024
+FW_11193,2024,1,Sydney Swans,AFLM,,,,FW_Hayden_McLean,Hayden,McLean,Hayden McLean,,4,1,5,2,2,2,2,10,0,4,4,1,1,2,0,0,0,1,0,5,1,7,0,0,60,150,,1,0,,4,,76,,,,,,,44,40,3,,,,,,,,,,,,,,,,,,,,,,,,,,footywire,2024
+FW_11193,2024,1,Sydney Swans,AFLM,,,,FW_Sam_Wicks,Sam,Wicks,Sam Wicks,,2,3,5,2,1,0,1,0,0,1,4,1,1,1,0,1,1,0,0,1,0,0,0,0,100,47,,1,0,,3,,30,,,,,,,37,25,5,,,,,,,,,,,,,,,,,,,,,,,,,,footywire,2024
+FW_11193,2024,1,Sydney Swans,AFLM,,,,FW_Joel_Amartey,Joel,Amartey,Joel Amartey,,3,0,3,1,0,1,2,2,0,0,0,2,0,0,0,0,0,0,0,1,2,1,0,0,0,78,,0,1,,1,,43,,,,,,,7,23,0,,,,,,,,,,,,,,,,,,,,,,,,,,footywire,2024
+FW_11193,2024,1,Melbourne,AFLM,,,,FW_Jack_Viney,Jack,Viney,Jack Viney,,19,11,30,2,2,0,7,0,4,2,14,17,0,3,3,4,7,9,1,7,9,2,
+…[13936 more chars, sha256 e191b25476325f93e53d854eb0c769c17579f595b8b8d4d55a7003275849d105]",
+}
+`;
+
+exports[`CLI golden outcomes > keeps the output of fitzroy team --json 1`] = `
+{
+  "status": 0,
+  "stderr": "",
+  "stdout": "{
+  "mode": "list",
+  "teams": [
+    {
+      "teamId": "5",
+      "name": "Carlton",
+      "abbreviation": "CARL",
+      "competition": "AFLM",
+      "source": "afl-api"
+    },
+    {
+      "teamId": "13",
+      "name": "Sydney Swans",
+      "abbreviation": "SYD",
+      "competition": "AFLM",
+      "source": "afl-api"
+    }
+  ]
+}
+",
+}
+`;
+
+exports[`CLI golden outcomes > keeps the output of fitzroy team --season 2024 --name Carlton --json 1`] = `
+{
+  "status": 0,
+  "stderr": "",
+  "stdout": "{
+  "mode": "squad",
+  "squad": {
+    "teamId": "5",
+    "teamName": "Carlton",
+    "season": 2024,
+    "scope": "season",
+    "players": [
+      {
+        "playerId": "CD_I1000900",
+        "givenName": "Patrick",
+        "surname": "Cripps",
+        "displayName": "Patrick Cripps",
+        "jumperNumber": 9,
+        "position": "Midfield",
+        "dateOfBirth": "1995-03-18",
+        "heightCm": 195,
+        "weightKg": 92,
+        "draftYear": 2013,
+        "draftPosition": 13,
+        "draftType": "National Draft",
+        "debutYear": 2014,
+        "recruitedFrom": "Northern Knights",
+        "gamesPlayed": null,
+        "goals": null,
+        "team": "Carlton",
+        "source": "afl-api",
+        "competition": "AFLM"
+      },
+      {
+        "playerId": "CD_I1001020",
+        "givenName": "Sam",
+        "surname": "Walsh",
+        "displayName": "Sam Walsh",
+        "jumperNumber": 3,
+        "position": "Midfield",
+        "dateOfBirth": "2000-06-29",
+        "heightCm": 184,
+        "weightKg": 81,
+        "draftYear": 2018,
+        "draftPosition": 1,
+        "draftType": "National Draft",
+        "debutYear": 2019,
+        "recruitedFrom": null,
+        "gamesPlayed": null,
+        "goals": null,
+        "team": "Carlton",
+        "source": "afl-api",
+        "competition": "AFLM"
+      }
+    ],
+    "competition": "AFLM",
+    "source": "afl-api",
+    "seasonKey": "2024"
+  }
+}
+",
+}
+`;

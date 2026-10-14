@@ -3,8 +3,8 @@ name: CI
 on:
   push:
     branches: [main]
+  # Every pull request, so PRs stacked on another PR's branch get CI too.
   pull_request:
-    branches: [main]
   workflow_call:
     inputs:
       ref:
