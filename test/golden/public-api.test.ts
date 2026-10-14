@@ -2,9 +2,10 @@
  * Golden characterisation tests for the public API (v7 migration safety net).
  *
  * Each case runs one exported library function against the committed
- * fixtures and snapshots the complete outcome: the sorted set of requested
- * URLs plus either the returned data or the failure's name, message, and
- * fields. The v7 Effect migration must keep these snapshots unchanged apart
+ * fixtures and snapshots the complete outcome: every requested URL (sorted,
+ * duplicates kept so request counts show) plus either the returned data or
+ * the failure's name, message, and fields. Serialisation marks `undefined`
+ * values and `Date` instances so neither is lost in the JSON round trip. The v7 Effect migration must keep these snapshots unchanged apart
  * from the result envelope, so data and error behaviour cannot drift.
  */
 import { createHash } from "node:crypto";
@@ -23,7 +24,37 @@ import {
   fetchTeams,
   resolveDefaultSeasonForCompetition,
 } from "../../src/index";
+import { FRYZIGG_SNAPSHOTS } from "../../src/sources/fryzigg-snapshots";
 import { goldenFetch, requested, resetRequested } from "./fixture-fetch";
+
+/** SHA-256 of `test/fixtures/fryzigg-sample.rds`, the golden Fryzigg snapshot. */
+const FRYZIGG_FIXTURE_SHA256 = "e41773328a6cd1e926f22a1ed0f54cc18e4d0d21743172bdbde3b2f87843cd58";
+
+/**
+ * Run a call with the AFLM Fryzigg checksum pointed at the fixture, so the
+ * golden case exercises download, parsing, and the transform instead of
+ * stopping at the checksum check.
+ */
+async function withFryziggFixture<T>(call: () => Promise<T>): Promise<T> {
+  const reviewed = FRYZIGG_SNAPSHOTS.AFLM.sha256;
+  Object.assign(FRYZIGG_SNAPSHOTS.AFLM, { sha256: FRYZIGG_FIXTURE_SHA256 });
+  try {
+    return await call();
+  } finally {
+    Object.assign(FRYZIGG_SNAPSHOTS.AFLM, { sha256: reviewed });
+  }
+}
+
+/** JSON round trip that keeps `undefined` values and `Date` instances visible. */
+function toJson(value: unknown): unknown {
+  return JSON.parse(
+    JSON.stringify(value ?? null, function (this: Record<string, unknown>, key, item: unknown) {
+      const original = this[key];
+      if (original instanceof Date) return { $date: original.toISOString() };
+      return item === undefined ? "$undefined" : item;
+    }),
+  );
+}
 
 /** Reduce an error to its stable, comparable fields. */
 function describeError(error: unknown): unknown {
@@ -74,15 +105,15 @@ async function run(call: () => Promise<unknown>): Promise<Outcome> {
     if (result !== null && typeof result === "object" && "success" in result) {
       const settled = result as { success: boolean; data?: unknown; error?: unknown };
       outcome = settled.success
-        ? { ok: summarise(JSON.parse(JSON.stringify(settled.data))) }
+        ? { ok: summarise(toJson(settled.data)) }
         : { err: describeError(settled.error) };
     } else {
-      outcome = { value: summarise(JSON.parse(JSON.stringify(result ?? null))) };
+      outcome = { value: summarise(toJson(result)) };
     }
   } catch (error) {
     outcome = { threw: describeError(error) };
   }
-  return { urls: [...new Set(requested.filter((url) => !isTokenRequest(url)))].sort(), outcome };
+  return { urls: requested.filter((url) => !isTokenRequest(url)).sort(), outcome };
 }
 
 const CASES: ReadonlyArray<readonly [string, () => Promise<unknown>]> = [
@@ -119,7 +150,7 @@ const CASES: ReadonlyArray<readonly [string, () => Promise<unknown>]> = [
   ],
   [
     "fetchPlayerStats fryzigg 2024 r1",
-    () => fetchPlayerStats({ source: "fryzigg", season: 2024, round: 1 }),
+    () => withFryziggFixture(() => fetchPlayerStats({ source: "fryzigg", season: 2024, round: 1 })),
   ],
   [
     "fetchLadder afl-api 2024 r10",

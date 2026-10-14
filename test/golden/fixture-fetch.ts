@@ -10,8 +10,15 @@ import { resolve } from "node:path";
 
 const FIXTURES = resolve(import.meta.dirname, "../fixtures");
 
+const fixtureCache = new Map<string, string>();
+
+/** Read a fixture once; later requests for it reuse the text. */
 function fixture(name: string): string {
-  return readFileSync(resolve(FIXTURES, name), "utf-8");
+  const cached = fixtureCache.get(name);
+  if (cached !== undefined) return cached;
+  const text = readFileSync(resolve(FIXTURES, name), "utf-8");
+  fixtureCache.set(name, text);
+  return text;
 }
 
 interface Capture {

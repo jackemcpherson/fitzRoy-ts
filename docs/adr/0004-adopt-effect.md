@@ -77,8 +77,8 @@ supply fixtures through layers instead of global stubs and module mocks.
 
 ## Consequences
 
-- Version 7 breaks every public call site. `docs/migration-v7.md` describes
-  each change.
+- Version 7 breaks every public call site. A migration guide ships with the
+  release and describes each change.
 - Golden tests under `test/golden/` record version 6 data, errors, and command
   output before the migration. Later changes must keep these snapshots.
 - ADR-0001, ADR-0002, and ADR-0003 still apply. The shared batching helper
