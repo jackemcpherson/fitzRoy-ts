@@ -31,12 +31,11 @@ import type {
  * default source for that capability.
  */
 export class CapabilityRegistry<I extends CapabilityAdapter> {
+  readonly defaultSource: DataSource;
   private readonly adapters: ReadonlyMap<DataSource, I>;
 
-  constructor(
-    readonly defaultSource: DataSource,
-    adapters: readonly I[],
-  ) {
+  constructor(defaultSource: DataSource, adapters: readonly I[]) {
+    this.defaultSource = defaultSource;
     this.adapters = new Map(adapters.map((adapter) => [adapter.id, adapter]));
   }
 
