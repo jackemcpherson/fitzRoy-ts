@@ -7,7 +7,7 @@
  * - Actual max season present in each dump
  * - Two-download SHA-256 and byte-length stability
  *
- * Run: bun run scripts/probe-fryzigg.ts
+ * Run: node --import ./scripts/ts-resolve.mjs scripts/probe-fryzigg.ts
  *
  * Security note: fryziggafl.net is HTTP-only (no TLS). This probe
  * is read-only and the data is fed into rds-js.

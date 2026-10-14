@@ -227,11 +227,12 @@ output envelopes, and partial-failure behaviour.
 ## Contributing
 
 1. Clone the repository.
-2. Install dependencies with `bun install`. This command also installs the
-   pre-commit hook that runs `vp staged`.
-3. Use Bun as the only contributor package manager. `bun.lock` is the sole lock
-   file, and a pre-install guard rejects `npm install`.
-4. Run quality checks with `npx vp check && npx vp test`.
+2. Install the [Vite+ CLI](https://viteplus.dev/guide/), then run `vp install`.
+   Vite+ selects Node.js from `.node-version` and pnpm from `packageManager`.
+   The install also sets up the pre-commit hook that runs `vp staged`.
+3. Use pnpm through `vp install`, `vp add`, and `vp remove`. `pnpm-lock.yaml`
+   is the only lock file.
+4. Run quality checks with `vp check && vp test`.
 
 ## License
 

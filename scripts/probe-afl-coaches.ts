@@ -5,7 +5,7 @@
  * (Champion Player) URL vs the Finals (Gary Ayres) URL, so we can build a
  * correct per-season finals-boundary table in src/sources/afl-coaches.ts.
  *
- * Run: bun run scripts/probe-afl-coaches.ts
+ * Run: node --import ./scripts/ts-resolve.mjs scripts/probe-afl-coaches.ts
  *
  * ─── Findings (run 2026-07-02) ──────────────────────────────────────────────
  *

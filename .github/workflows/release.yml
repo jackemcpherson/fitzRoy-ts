@@ -26,10 +26,10 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
         with:
-          node-version: "24"
-          package-manager-cache: false
+          node-version-file: .node-version
+          run-install: false
       - name: Resolve version tag
         id: release
         env:
@@ -58,21 +58,14 @@ jobs:
         with:
           ref: ${{ needs.resolve.outputs.sha }}
 
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
         with:
-          bun-version: "1.4"
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: "24"
+          node-version-file: .node-version
           registry-url: "https://registry.npmjs.org"
-          package-manager-cache: false
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
+          cache: true
 
       - name: Build
-        run: bun run build
+        run: vp run build
 
       - name: Verify package contents
         run: npm pack --dry-run
@@ -102,13 +95,10 @@ jobs:
       matrix:
         include:
           - os: macos-latest
-            target: bun-darwin-arm64
             artifact: fitzroy-macos-arm64
           - os: ubuntu-latest
-            target: bun-linux-x64
             artifact: fitzroy-linux-x64
           - os: ubuntu-24.04-arm
-            target: bun-linux-arm64
             artifact: fitzroy-linux-arm64
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
@@ -117,21 +107,20 @@ jobs:
         with:
           ref: ${{ needs.resolve.outputs.sha }}
 
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      # Node single executable applications need Node 25.7 or later, and each
+      # runner builds the binary for its own platform.
+      - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
         with:
-          bun-version: "1.4"
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
+          node-version: "26"
+          cache: true
 
       - name: Compile binary
         env:
-          BINARY_TARGET: ${{ matrix.target }}
           BINARY_ARTIFACT: ${{ matrix.artifact }}
         run: |
           version=$(node -p "require('./package.json').version")
-          bun build --compile --target="$BINARY_TARGET" src/cli.ts \
-            --define "PACKAGE_VERSION=\"${version}\"" --outfile "$BINARY_ARTIFACT"
+          vp run build:exe
+          mv build/cli "$BINARY_ARTIFACT"
           "./$BINARY_ARTIFACT" --help
           [[ "$("./$BINARY_ARTIFACT" --version)" == "$version" ]]
 

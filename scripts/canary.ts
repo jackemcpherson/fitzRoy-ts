@@ -2,7 +2,7 @@
  * Scraper canary (TST-03) — hits ONE cheap live page/endpoint per data
  * source and asserts the parsers still return non-empty Results for the
  * previous season. Run weekly by `.github/workflows/scraper-canary.yml`
- * (and on demand via `bun scripts/canary.ts`).
+ * (and on demand via `vp run canary`).
  *
  * Notes:
  * - Each source service keeps the default 30-second timeout — no overrides here.
@@ -40,7 +40,7 @@ const season = new Date().getUTCFullYear() - 1;
 /** Drift threshold — fail if the new count drops below this fraction of the previous count. */
 const DRIFT_THRESHOLD = 0.85;
 
-/** Path to the persisted baseline counts (relative to repo root, where bun is invoked). */
+/** Path to the persisted baseline counts (relative to repo root, where the canary is run). */
 const BASELINE_PATH = "scripts/canary-baseline.json";
 
 /** A canary probe found the source alive but empty. */

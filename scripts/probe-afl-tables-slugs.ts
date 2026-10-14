@@ -9,7 +9,7 @@
  * For any FAIL the script also tries the obvious corrections and reports the
  * first one that resolves so the fix can be applied to the map.
  *
- * Run: bun run scripts/probe-afl-tables-slugs.ts
+ * Run: node --import ./scripts/ts-resolve.mjs scripts/probe-afl-tables-slugs.ts
  *
  * ─── Findings (run 2026-07-02) ──────────────────────────────────────────────
  *

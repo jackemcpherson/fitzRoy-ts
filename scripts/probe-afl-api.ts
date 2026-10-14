@@ -7,7 +7,7 @@
  *   3. Does VFL return rich PlayerStats (kicks, marks, etc.) or just basic match info?
  *   4. What `teamType` value(s) do VFL teams use in /teams?
  *
- * Run: bun run scripts/probe-afl-api.ts
+ * Run: node --import ./scripts/ts-resolve.mjs scripts/probe-afl-api.ts
  */
 
 import {

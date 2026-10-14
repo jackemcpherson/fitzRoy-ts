@@ -3,6 +3,7 @@ node_modules/
 
 # build output
 dist/
+build/
 fitzroy
 
 # cloudflare
@@ -48,5 +49,5 @@ comparison/ts/
 # large reference files
 docs/jimmyday12-fitzroy-*.txt
 
-# npm lockfile (project uses bun)
+# npm lockfile (project uses pnpm)
 package-lock.json

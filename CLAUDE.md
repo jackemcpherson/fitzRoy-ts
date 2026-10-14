@@ -9,22 +9,28 @@ fitzRoy-ts is a TypeScript port of the [fitzRoy R package](https://github.com/ji
 ## Commands
 
 ```bash
+# Install (Vite+ picks Node from .node-version and pnpm from packageManager)
+vp install
+
 # Quality checks (run all before committing)
-npx vp check                 # Oxfmt + Oxlint (anti-slop) + tsgo type check
-npm run typecheck:portable   # library core compiles without Node types
-npx vp test                  # Vitest
+vp check                     # Oxfmt + Oxlint (anti-slop) + tsgo type check
+vp run typecheck:portable    # library core compiles without Node types
+vp test                      # Vitest
 
 # Apply formatting and lint autofixes
-npx vp check --fix
+vp check --fix
 
 # Single test file
-npx vp test run test/path/to/file.test.ts
+vp test run test/path/to/file.test.ts
 
 # Build (library + CLI)
-bun run build            # vp pack → dist/index.js, dist/schemas.js, .d.ts, dist/cli.js
+vp run build             # vp pack → dist/index.js, dist/schemas.js, .d.ts, dist/cli.js
 
-# Compiled standalone binary
-bun build --compile src/cli.ts --outfile fitzroy
+# Compiled standalone binary (Node single executable; needs Node 25.7+)
+vp env use 26 && vp run build:exe   # → build/cli
+
+# Live scraper canary (runs the TypeScript sources directly on Node)
+vp run canary
 ```
 
 **Note:** `vp check` covers formatting, linting, and type checking. All configuration lives in `vite.config.ts`.
@@ -48,12 +54,13 @@ The codebase follows a "pure core, effectful shell" pattern:
 
 ## Key Constraints
 
-- **No Node.js built-ins in `src/`** — only Web Standard APIs (`fetch`, `Request`, `Response`, `URL`, `crypto`). Exception: `src/cli.ts` and `src/cli/` may use `process` for TTY detection and exit codes. No Bun-specific APIs (`Bun.file()`, `Bun.serve()`). Test files (`test/`) may use Node.js built-ins (`node:fs`, `node:path`) for loading fixtures.
+- **No Node.js built-ins in `src/`** — only Web Standard APIs (`fetch`, `Request`, `Response`, `URL`, `crypto`). Exception: `src/cli.ts` and `src/cli/` may use `process` for TTY detection and exit codes. Test files (`test/`) may use Node.js built-ins (`node:fs`, `node:path`) for loading fixtures.
 - **No `any`** — Oxlint enforces `typescript/no-explicit-any: "error"`. Decode unknown input with Effect Schema at the boundary.
 - **No `enum`** — use union types instead (e.g., `type RoundType = "HomeAndAway" | "Finals"`).
 - **No default exports** — Oxlint enforces `import/no-default-export: "error"`, with overrides only for `*.config.ts`.
 - **Strict TypeScript** — `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noUnusedLocals`, `noUnusedParameters` are all enabled.
-- **Package manager** — bun (see `bun.lock`), but npm scripts work via `npm run`.
+- **Package manager** — pnpm, run through Vite+ (`vp install`, `vp add`, `vp run`). `pnpm-lock.yaml` is the lockfile; overrides live in `pnpm-workspace.yaml`.
+- **Erasable syntax only** — `erasableSyntaxOnly` is on so Node can run the sources by stripping types (CLI golden tests, canary). No `enum`, `namespace`, or constructor parameter properties. `scripts/ts-resolve.mjs` resolves the extensionless relative imports.
 
 ## Style Guide
 

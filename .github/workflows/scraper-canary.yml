@@ -20,12 +20,10 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
         with:
-          bun-version: "1.4"
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
+          node-version-file: .node-version
+          cache: true
 
       - name: Find previous successful canary run
         id: previous-run
@@ -49,7 +47,7 @@ jobs:
           run-id: ${{ steps.previous-run.outputs.run-id }}
 
       - name: Run canary
-        run: bun scripts/canary.ts
+        run: vp run canary
 
       # The baseline artifact always represents one fully successful run.
       - name: Persist canary baseline

@@ -16,7 +16,8 @@ a Node command-line tool, so these exceptions apply.
   enforces this rule without Node types.
 - Node APIs such as `process` belong only in `src/cli.ts` and `src/cli/`.
 - The Cloudflare delivery rules do not apply. The release workflow publishes
-  to npm with provenance and builds binaries with `bun build --compile`.
+  to npm with provenance and builds Node single executable binaries with
+  `vp pack`.
 - Tests run in the Node environment instead of Miniflare.
 - Citty remains the argument parser. Commands run their effects through one
   managed runtime in `src/cli/runtime.ts`.

@@ -4,7 +4,7 @@
  * Fetches AFLM and AFLW dumps and prints a full column inventory:
  * name, inferred type, null-rate (%), sample value.
  *
- * Run: bun run scripts/probe-fryzigg-columns.ts
+ * Run: node --import ./scripts/ts-resolve.mjs scripts/probe-fryzigg-columns.ts
  */
 
 import { isDataFrame, parseRds } from "@jackemcpherson/rds-js";

@@ -9,16 +9,17 @@ must remain synchronized with it.
 Run the complete quality gate before committing:
 
 ```bash
-npx vp check
-npm run typecheck:portable
-npx vp test
-bun run build
-npm run verify:package
+vp check
+vp run typecheck:portable
+vp test
+vp run build
+vp run verify:package
 ```
 
-Use `npx vp test run test/path/to/file.test.ts` for a focused test. Bun is the
-package manager, and Vite+ (`vp`) runs formatting, linting, type checks, tests,
-and packaging from `vite.config.ts`.
+Use `vp test run test/path/to/file.test.ts` for a focused test. Vite+ (`vp`)
+manages Node.js (`.node-version`) and pnpm (`packageManager`), and runs
+formatting, linting, type checks, tests, and packaging from `vite.config.ts`.
+Install with `vp install`; `pnpm-lock.yaml` is the only lock file.
 
 ## Architecture and constraints
 
@@ -28,7 +29,7 @@ and packaging from `vite.config.ts`.
 - `src/types.ts` defines the domain models as Effect schemas and derives their
   types. `src/index.ts` defines the public package surface.
 - Use Web Standard APIs in library source. Node-specific process APIs belong
-  only in the CLI, and Bun-specific runtime APIs do not belong in `src/`.
+  only in the CLI.
 - Validate untrusted data with Effect Schema at source boundaries, then use
   typed domain values internally.
 - Track expected failures in the Effect error channel as `Schema.TaggedError`

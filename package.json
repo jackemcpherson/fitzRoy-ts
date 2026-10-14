@@ -36,15 +36,17 @@
   },
   "scripts": {
     "build": "rm -rf dist && vp pack",
+    "build:exe": "rm -rf build && FITZROY_EXE=1 vp pack",
     "check": "vp check",
     "format": "vp check --fix",
     "test": "vp test",
     "test:coverage": "vp test run --coverage",
     "typecheck:portable": "tsc -p tsconfig.portable.json",
     "verify:package": "node scripts/verify-package-install.mjs",
-    "prerelease": "vp check && npm run typecheck:portable && vp test run && npm run build && npm run verify:package",
+    "canary": "node --disable-warning=ExperimentalWarning --import ./scripts/ts-resolve.mjs scripts/canary.ts",
+    "prerelease": "vp check && vp run typecheck:portable && vp test run && vp run build && vp run verify:package",
     "prepare": "vp config --no-agent",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "vp run build"
   },
   "dependencies": {
     "@jackemcpherson/rds-js": "^0.3.0",
@@ -64,11 +66,8 @@
     "typescript": "^7.0.2",
     "vite-plus": "1.1.0"
   },
-  "overrides": {
-    "fflate": "0.8.3",
-    "undici": "^8.0.0"
-  },
   "engines": {
     "node": ">=20"
-  }
+  },
+  "packageManager": "pnpm@12.11.2"
 }

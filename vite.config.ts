@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { defineConfig } from "vite-plus";
+import type { PackUserConfig } from "vite-plus/pack";
 
 const pkg: { readonly version: string } = JSON.parse(readFileSync("./package.json", "utf-8"));
 
@@ -10,12 +11,31 @@ const IGNORED = [
   ".rumdl_cache/**",
   ".wrangler/**",
   "dist/**",
+  "build/**",
   "coverage/**",
   "comparison/**",
   "test/fixtures/**",
   "test/golden/__snapshots__/**",
   "tools/oxlint/anti-slop/**",
 ];
+
+/**
+ * Standalone CLI executable (Node single executable application). Built only
+ * when `FITZROY_EXE=1`, because it needs Node 25.7 or later.
+ */
+const EXE_PACK: PackUserConfig = {
+  entry: ["src/cli.ts"],
+  format: "esm",
+  platform: "node",
+  dts: false,
+  clean: false,
+  exe: true,
+  // A single executable has no node_modules, so bundle every dependency.
+  deps: { alwaysBundle: [/./], onlyBundle: false },
+  define: { PACKAGE_VERSION: JSON.stringify(pkg.version) },
+};
+
+const isExeBuild = process.env["FITZROY_EXE"] === "1";
 
 export default defineConfig({
   fmt: {
@@ -25,7 +45,7 @@ export default defineConfig({
   },
   lint: {
     // `scripts/probe-*.ts` are one-off source investigations kept for reference.
-    // They run with Bun, sit outside the type-checked project, and are not linted.
+    // They sit outside the type-checked project and are not linted.
     ignorePatterns: [...IGNORED, "scripts/probe-*.ts"],
     options: {
       typeAware: true,
@@ -94,23 +114,25 @@ export default defineConfig({
       },
     },
   },
-  pack: [
-    {
-      entry: ["src/index.ts", "src/schemas.ts"],
-      format: "esm",
-      platform: "neutral",
-      dts: true,
-      clean: false,
-      fixedExtension: false,
-    },
-    {
-      entry: ["src/cli.ts"],
-      format: "esm",
-      platform: "node",
-      dts: false,
-      clean: false,
-      fixedExtension: false,
-      define: { PACKAGE_VERSION: JSON.stringify(pkg.version) },
-    },
-  ],
+  pack: isExeBuild
+    ? [EXE_PACK]
+    : [
+        {
+          entry: ["src/index.ts", "src/schemas.ts"],
+          format: "esm",
+          platform: "neutral",
+          dts: true,
+          clean: false,
+          fixedExtension: false,
+        },
+        {
+          entry: ["src/cli.ts"],
+          format: "esm",
+          platform: "node",
+          dts: false,
+          clean: false,
+          fixedExtension: false,
+          define: { PACKAGE_VERSION: JSON.stringify(pkg.version) },
+        },
+      ],
 });

@@ -6,7 +6,7 @@
  * names, jumper numbers, substitute flags) for eras where the AFL API fails
  * or returns only the Thursday-night announced team.
  *
- * Run: bun run scripts/probe-afl-tables-lineup-source.ts
+ * Run: node --import ./scripts/ts-resolve.mjs scripts/probe-afl-tables-lineup-source.ts
  *
  * ─── Findings (run 2026-07-02) ──────────────────────────────────────────────
  *
