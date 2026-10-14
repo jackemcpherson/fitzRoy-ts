@@ -7,28 +7,13 @@ import { seasonYear } from "../../lib/seasons";
  * their own coverage in their own classes.
  */
 
+import { Effect, Result } from "effect";
 import { ScrapeError } from "../../lib/errors";
-import { err, ok, type Result } from "../../lib/result";
 import { normaliseTeamName } from "../../lib/team-mapping";
 import { computeLadder } from "../../transforms/computed-ladder";
-import type {
-  Ladder,
-  LadderQuery,
-  Match,
-  MatchCoachAssignment,
-  MatchCoachesQuery,
-  MatchCoachesResult,
-  MatchQuery,
-  Player,
-  PlayerStatsQuery,
-  SeasonPlayerStats,
-  Squad,
-  SquadQuery,
-  TeamStatsEntry,
-  TeamStatsQuery,
-} from "../../types";
-import { AflTablesClient } from "../afl-tables";
-import { MatchCoachesClient } from "../match-coaches";
+import type { MatchCoachAssignment, Player, TeamStatsEntry } from "../../types";
+import { AflTables } from "../afl-tables";
+import { MatchCoaches } from "../match-coaches";
 import type {
   LadderSource,
   MatchCoachesSource,
@@ -52,133 +37,137 @@ const AFL_TABLES_SQUAD_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 18
 const AFL_TABLES_MATCH_COACHES_COVERAGE: CoverageMap = new Map([["AFLM", { minSeason: 1990 }]]);
 
 /** AFL Tables as the primary credited match-coach source (AFLM 1990+). */
-export class AflTablesMatchCoachesSource implements MatchCoachesSource {
-  readonly id = "afl-tables" as const;
-  readonly coverage = AFL_TABLES_MATCH_COACHES_COVERAGE;
+export const aflTablesMatchCoachesSource: Effect.Effect<MatchCoachesSource, never, MatchCoaches> =
+  Effect.gen(function* () {
+    const client = yield* MatchCoaches;
 
-  constructor(private readonly client: MatchCoachesClient = new MatchCoachesClient()) {}
+    return {
+      id: "afl-tables",
+      coverage: AFL_TABLES_MATCH_COACHES_COVERAGE,
+      fetchMatchCoaches: (query) =>
+        client.fetchAflTablesSeason(seasonYear(query.season), query.batch).pipe(
+          Effect.map((data) => {
+            const assignments: MatchCoachAssignment[] = data.assignments.filter(
+              (assignment) =>
+                query.team === undefined ||
+                normaliseTeamName(assignment.team) === normaliseTeamName(query.team),
+            );
 
-  async fetchMatchCoaches(query: MatchCoachesQuery): Promise<Result<MatchCoachesResult, Error>> {
-    const result = await this.client.fetchAflTablesSeason(seasonYear(query.season), query.batch);
+            const failures = data.failures;
 
-    if (!result.success) return result;
-
-    const assignments: MatchCoachAssignment[] = result.data.assignments.filter(
-      (assignment) =>
-        query.team === undefined ||
-        normaliseTeamName(assignment.team) === normaliseTeamName(query.team),
-    );
-
-    const failures = result.data.failures;
-
-    return ok({
-      assignments,
-      completeness: { complete: failures.length === 0, failures },
-      ...(result.data.batch && { batch: result.data.batch }),
-    });
-  }
-}
+            return {
+              assignments,
+              completeness: { complete: failures.length === 0, failures },
+              ...(data.batch && { batch: data.batch }),
+            };
+          }),
+        ),
+    };
+  });
 
 /** AFL Tables as a MatchSource (AFLM only, 1897+). */
-export class AflTablesMatchSource implements MatchSource {
-  readonly id = "afl-tables" as const;
-  readonly coverage = AFL_TABLES_MATCH_COVERAGE;
+export const aflTablesMatchSource: Effect.Effect<MatchSource, never, AflTables> = Effect.gen(
+  function* () {
+    const client = yield* AflTables;
 
-  constructor(private readonly client: AflTablesClient = new AflTablesClient()) {}
-
-  async fetchMatches(query: MatchQuery): Promise<Result<Match[], Error>> {
-    const result = await this.client.fetchSeasonResults(seasonYear(query.season));
-
-    if (!result.success) return result;
-
-    const filtered =
-      query.round != null ? result.data.filter((m) => m.roundNumber === query.round) : result.data;
-
-    return ok(filtered);
-  }
-}
+    return {
+      id: "afl-tables",
+      coverage: AFL_TABLES_MATCH_COVERAGE,
+      fetchMatches: (query) =>
+        client
+          .fetchSeasonResults(seasonYear(query.season))
+          .pipe(
+            Effect.map((matches) =>
+              query.round != null ? matches.filter((m) => m.roundNumber === query.round) : matches,
+            ),
+          ),
+    };
+  },
+);
 
 /** AFL Tables as a PlayerStatsSource (AFLM only, ~1965+). */
-export class AflTablesPlayerStatsSource implements PlayerStatsSource {
-  readonly id = "afl-tables" as const;
-  readonly coverage = AFL_TABLES_PLAYER_STATS_COVERAGE;
+export const aflTablesPlayerStatsSource: Effect.Effect<PlayerStatsSource, never, AflTables> =
+  Effect.gen(function* () {
+    const client = yield* AflTables;
 
-  constructor(private readonly client: AflTablesClient = new AflTablesClient()) {}
+    return {
+      id: "afl-tables",
+      coverage: AFL_TABLES_PLAYER_STATS_COVERAGE,
+      fetchPlayerStats: (query) =>
+        client.fetchSeasonPlayerStats(seasonYear(query.season)).pipe(
+          Effect.map((season) => {
+            if (query.round == null) return season;
 
-  async fetchPlayerStats(query: PlayerStatsQuery): Promise<Result<SeasonPlayerStats, Error>> {
-    const result = await this.client.fetchSeasonPlayerStats(seasonYear(query.season));
-
-    if (!result.success) return result;
-
-    if (query.round != null) {
-      // failedMatchIds pass through unfiltered — a failed game's round is
-      // unknown, so callers see every season-scrape failure regardless of
-      // the round filter.
-      return ok({
-        stats: result.data.stats.filter((s) => s.roundNumber === query.round),
-        failedMatchIds: result.data.failedMatchIds,
-      });
-    }
-
-    return result;
-  }
-}
+            // failedMatchIds pass through unfiltered — a failed game's round is
+            // unknown, so callers see every season-scrape failure regardless of
+            // the round filter.
+            return {
+              stats: season.stats.filter((s) => s.roundNumber === query.round),
+              failedMatchIds: season.failedMatchIds,
+            };
+          }),
+        ),
+    };
+  });
 
 /** AFL Tables as a TeamStatsSource. */
-export class AflTablesTeamStatsSource implements TeamStatsSource {
-  readonly id = "afl-tables" as const;
-  readonly coverage = AFL_TABLES_TEAM_STATS_COVERAGE;
+export const aflTablesTeamStatsSource: Effect.Effect<TeamStatsSource, never, AflTables> =
+  Effect.gen(function* () {
+    const client = yield* AflTables;
 
-  constructor(private readonly client: AflTablesClient = new AflTablesClient()) {}
+    return {
+      id: "afl-tables",
+      coverage: AFL_TABLES_TEAM_STATS_COVERAGE,
+      fetchTeamStats: (query) =>
+        Effect.gen(function* () {
+          const summaryType = query.summaryType ?? "totals";
+          const stats = yield* client.fetchTeamStats(seasonYear(query.season));
 
-  async fetchTeamStats(query: TeamStatsQuery): Promise<Result<TeamStatsEntry[], Error>> {
-    const summaryType = query.summaryType ?? "totals";
-    const statsResult = await this.client.fetchTeamStats(seasonYear(query.season));
+          // The stats page lacks a GP column — derive from match results if needed.
+          const needsGp = stats.some((entry) => entry.gamesPlayed === null);
+          const gpMap = new Map<string, number>();
 
-    if (!statsResult.success) return statsResult;
+          if (needsGp) {
+            const results = yield* Effect.result(
+              client.fetchSeasonResults(seasonYear(query.season)),
+            );
 
-    // The stats page lacks a GP column — derive from match results if needed.
-    const needsGp = statsResult.data.some((entry) => entry.gamesPlayed === null);
-    const gpMap = new Map<string, number>();
+            if (Result.isSuccess(results)) {
+              for (const m of results.success) {
+                const home = normaliseTeamName(m.homeTeam);
+                const away = normaliseTeamName(m.awayTeam);
+                gpMap.set(home, (gpMap.get(home) ?? 0) + 1);
+                gpMap.set(away, (gpMap.get(away) ?? 0) + 1);
+              }
+            }
+          }
 
-    if (needsGp) {
-      const resultsResult = await this.client.fetchSeasonResults(seasonYear(query.season));
+          const enriched = stats.map((entry) => ({
+            ...entry,
+            gamesPlayed: gpMap.get(normaliseTeamName(entry.team)) ?? entry.gamesPlayed,
+          }));
 
-      if (resultsResult.success) {
-        for (const m of resultsResult.data) {
-          const home = normaliseTeamName(m.homeTeam);
-          const away = normaliseTeamName(m.awayTeam);
-          gpMap.set(home, (gpMap.get(home) ?? 0) + 1);
-          gpMap.set(away, (gpMap.get(away) ?? 0) + 1);
-        }
-      }
-    }
+          if (summaryType === "averages") {
+            const invalid = enriched.filter(
+              (entry) => entry.gamesPlayed === null || entry.gamesPlayed <= 0,
+            );
 
-    const enriched = statsResult.data.map((entry) => ({
-      ...entry,
-      gamesPlayed: gpMap.get(normaliseTeamName(entry.team)) ?? entry.gamesPlayed,
-    }));
+            if (invalid.length > 0) {
+              return yield* Effect.fail(
+                new ScrapeError({
+                  message: `Cannot calculate team-stat averages because games played is missing or non-positive for: ${invalid.map((entry) => entry.team).join(", ")}`,
+                  source: "afl-tables",
+                }),
+              );
+            }
 
-    if (summaryType === "averages") {
-      const invalid = enriched.filter(
-        (entry) => entry.gamesPlayed === null || entry.gamesPlayed <= 0,
-      );
+            return enriched.map((entry) => averageMetrics(entry));
+          }
 
-      if (invalid.length > 0) {
-        return err(
-          new ScrapeError(
-            `Cannot calculate team-stat averages because games played is missing or non-positive for: ${invalid.map((entry) => entry.team).join(", ")}`,
-            "afl-tables",
-          ),
-        );
-      }
-
-      return ok(enriched.map((entry) => averageMetrics(entry)));
-    }
-
-    return ok(enriched);
-  }
-}
+          return enriched;
+        }),
+    };
+  });
 
 /** Convert a TeamStatsEntry's `for`/`against` totals into per-game averages. */
 function averageMetrics(entry: TeamStatsEntry): TeamStatsEntry {
@@ -189,6 +178,8 @@ function averageMetrics(entry: TeamStatsEntry): TeamStatsEntry {
   const divide = (set: TeamStatsEntry["for"]): TeamStatsEntry["for"] => {
     const out = { ...set };
 
+    // SAFETY: `out` is a shallow copy of a TeamMetricSet, so its own keys are
+    // exactly the TeamMetricSet keys.
     for (const key of Object.keys(out) as (keyof typeof out)[]) {
       const v = out[key];
 
@@ -214,52 +205,56 @@ function averageMetrics(entry: TeamStatsEntry): TeamStatsEntry {
  * use `--source afl-api` (2012+ only). For pre-2012 seasons the all-time
  * roster is the only available proxy.
  */
-export class AflTablesSquadSource implements SquadSource {
-  readonly id = "afl-tables" as const;
-  readonly coverage = AFL_TABLES_SQUAD_COVERAGE;
+export const aflTablesSquadSource: Effect.Effect<SquadSource, never, AflTables> = Effect.gen(
+  function* () {
+    const client = yield* AflTables;
 
-  constructor(private readonly client: AflTablesClient = new AflTablesClient()) {}
+    return {
+      id: "afl-tables",
+      coverage: AFL_TABLES_SQUAD_COVERAGE,
+      fetchSquad: (query) => {
+        const competition = query.competition ?? "AFLM";
+        const teamName = normaliseTeamName(query.team);
 
-  async fetchSquad(query: SquadQuery): Promise<Result<Squad, Error>> {
-    const competition = query.competition ?? "AFLM";
-    const teamName = normaliseTeamName(query.team);
-    const result = await this.client.fetchPlayerList(teamName);
+        return client.fetchPlayerList(teamName).pipe(
+          Effect.map((list) => {
+            const players: Player[] = list.map((p) => ({
+              playerId: p.playerId,
+              givenName: p.givenName,
+              surname: p.surname,
+              displayName: p.displayName,
+              jumperNumber: p.jumperNumber,
+              position: p.position,
+              dateOfBirth: p.dateOfBirth ?? null,
+              heightCm: p.heightCm,
+              weightKg: p.weightKg,
+              draftYear: p.draftYear,
+              draftPosition: p.draftPosition,
+              draftType: p.draftType,
+              debutYear: p.debutYear,
+              recruitedFrom: p.recruitedFrom,
+              gamesPlayed: p.gamesPlayed ?? null,
+              goals: p.goals ?? null,
+              team: teamName,
+              source: "afl-tables",
+              competition,
+            }));
 
-    if (!result.success) return result;
-
-    const players: Player[] = result.data.map((p) => ({
-      playerId: p.playerId,
-      givenName: p.givenName,
-      surname: p.surname,
-      displayName: p.displayName,
-      jumperNumber: p.jumperNumber,
-      position: p.position,
-      dateOfBirth: p.dateOfBirth ?? null,
-      heightCm: p.heightCm,
-      weightKg: p.weightKg,
-      draftYear: p.draftYear,
-      draftPosition: p.draftPosition,
-      draftType: p.draftType,
-      debutYear: p.debutYear,
-      recruitedFrom: p.recruitedFrom,
-      gamesPlayed: p.gamesPlayed ?? null,
-      goals: p.goals ?? null,
-      team: teamName,
-      source: "afl-tables",
-      competition,
-    }));
-
-    return ok({
-      teamId: teamName,
-      teamName,
-      season: seasonYear(query.season),
-      scope: "all-time",
-      players,
-      competition,
-      source: "afl-tables" as const,
-    });
-  }
-}
+            return {
+              teamId: teamName,
+              teamName,
+              season: seasonYear(query.season),
+              scope: "all-time" as const,
+              players,
+              competition,
+              source: "afl-tables" as const,
+            };
+          }),
+        );
+      },
+    };
+  },
+);
 
 /**
  * AFL Tables as a LadderSource — *computed* from match results.
@@ -268,39 +263,41 @@ export class AflTablesSquadSource implements SquadSource {
  * to 1897, so we can synthesise the ladder by accumulating wins/losses/etc.
  * via {@link computeLadder}. Coverage matches the match-results coverage.
  */
-export class AflTablesLadderSource implements LadderSource {
-  readonly id = "afl-tables" as const;
-  readonly coverage = AFL_TABLES_LADDER_COVERAGE;
+export const aflTablesLadderSource: Effect.Effect<LadderSource, never, AflTables> = Effect.gen(
+  function* () {
+    const client = yield* AflTables;
 
-  constructor(private readonly client: AflTablesClient = new AflTablesClient()) {}
+    return {
+      id: "afl-tables",
+      coverage: AFL_TABLES_LADDER_COVERAGE,
+      fetchLadder: (query) => {
+        const competition = query.competition ?? "AFLM";
 
-  async fetchLadder(query: LadderQuery): Promise<Result<Ladder, Error>> {
-    const competition = query.competition ?? "AFLM";
-    const resultsResult = await this.client.fetchSeasonResults(seasonYear(query.season));
+        return client.fetchSeasonResults(seasonYear(query.season)).pipe(
+          Effect.map((results) => {
+            const entries = computeLadder(results, query.round ?? undefined);
+            // Surface the most-recent completed match feeding the synthesised
+            // ladder so mid-round snapshots are pinned to a specific cutoff (#119).
+            const roundCutoff = query.round;
 
-    if (!resultsResult.success) return resultsResult;
+            const inScope =
+              roundCutoff != null ? results.filter((m) => m.roundNumber <= roundCutoff) : results;
 
-    const entries = computeLadder(resultsResult.data, query.round ?? undefined);
-    // Surface the most-recent completed match feeding the synthesised
-    // ladder so mid-round snapshots are pinned to a specific cutoff (#119).
-    const roundCutoff = query.round;
+            const completed = inScope.filter((m) => m.status === "Complete");
+            completed.sort((a, b) => b.date.getTime() - a.date.getTime());
+            const asOfMatch = completed[0]?.matchId ?? null;
 
-    const inScope =
-      roundCutoff != null
-        ? resultsResult.data.filter((m) => m.roundNumber <= roundCutoff)
-        : resultsResult.data;
-
-    const completed = inScope.filter((m) => m.status === "Complete");
-    completed.sort((a, b) => b.date.getTime() - a.date.getTime());
-    const asOfMatch = completed[0]?.matchId ?? null;
-
-    return ok({
-      season: seasonYear(query.season),
-      roundNumber: query.round ?? null,
-      entries,
-      competition,
-      source: "afl-tables" as const,
-      asOfMatch,
-    });
-  }
-}
+            return {
+              season: seasonYear(query.season),
+              roundNumber: query.round ?? null,
+              entries,
+              competition,
+              source: "afl-tables" as const,
+              asOfMatch,
+            };
+          }),
+        );
+      },
+    };
+  },
+);

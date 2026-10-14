@@ -57,10 +57,19 @@ try {
   consumerDirectory = await mkdtemp(join(tmpdir(), "fitzroy-package-consumer-"));
   run("npm", ["install", "--no-package-lock", tarballPath], consumerDirectory);
 
+  // Run one real Effect offline: an unsupported source fails in dispatch,
+  // before any request, so this proves the runtime, layers and tagged
+  // errors load from the packed tarball.
   const importCheck = [
     'const fitzroy = await import("fitzroy");',
-    'if (typeof fitzroy.fetchMatches !== "function") process.exit(1);',
+    'const { Cause, Effect } = await import("effect");',
     'if (typeof fitzroy.fetchMatchCoaches !== "function") process.exit(1);',
+    "const exit = await Effect.runPromiseExit(",
+    '  fitzroy.fetchMatches({ source: "fryzigg", season: 2024 }).pipe(Effect.provide(fitzroy.FitzroyLive)),',
+    ");",
+    'if (exit._tag !== "Failure") process.exit(1);',
+    "const failure = Cause.squash(exit.cause);",
+    "if (!(failure instanceof fitzroy.UnsupportedSourceError)) { console.error(exit.cause); process.exit(1); }",
   ].join("\n");
 
   run(process.execPath, ["--input-type=module", "--eval", importCheck], consumerDirectory);

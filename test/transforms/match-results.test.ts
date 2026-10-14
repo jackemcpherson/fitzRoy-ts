@@ -1,12 +1,14 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { AFL_SENIOR_TEAMS } from "../../src/lib/team-mapping";
 import { type MatchItem, MatchItemListSchema } from "../../src/lib/validation";
 import { transformMatchItems } from "../../src/transforms/match-results";
+import type { DeepMutable } from "../support/mutable";
 
 /** Minimal match item for testing. */
-function makeMatchItem(overrides?: Partial<MatchItem>): MatchItem {
+function makeMatchItem(overrides?: Partial<DeepMutable<MatchItem>>): DeepMutable<MatchItem> {
   return {
     match: {
       matchId: "CD_M1",
@@ -47,9 +49,11 @@ function makeMatchItem(overrides?: Partial<MatchItem>): MatchItem {
 
 /** Helper to get first result or fail test. */
 function first<T>(arr: T[]): T {
-  expect(arr.length).toBeGreaterThanOrEqual(1);
+  const [head] = arr;
 
-  return arr[0] as T;
+  if (head === undefined) throw new Error("Expected at least one result");
+
+  return head;
 }
 
 describe("transformMatchItems", () => {
@@ -405,7 +409,7 @@ describe("transformMatchItems", () => {
 describe("transformMatchItems — Sir Doug Nicholls Round canonicalisation", () => {
   const fixturePath = join(__dirname, "../fixtures/afl-api-round-10-2026.json");
   const raw = JSON.parse(readFileSync(fixturePath, "utf-8"));
-  const response = MatchItemListSchema.parse(raw);
+  const response = Schema.decodeUnknownSync(MatchItemListSchema)(raw);
 
   it("canonicalises indigenous team names returned by the AFL API during SDNR", () => {
     const results = transformMatchItems(response.items, 2026, "AFLM");

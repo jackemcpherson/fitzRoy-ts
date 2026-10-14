@@ -1,10 +1,10 @@
 /**
  * Golden characterisation tests for CLI output (v7 migration safety net).
  *
- * Each case runs `src/cli.ts` in a Bun subprocess with fixture-backed fetch
- * preloaded, and snapshots the exit code, stdout, and stderr. Long output is
- * truncated for review, with a SHA-256 of the full text so any change fails. The v7 Effect
- * migration must keep these snapshots unchanged.
+ * Each case runs `src/cli.ts` in a Node.js subprocess with fixture-backed
+ * fetch preloaded, and snapshots the exit code, stdout, and stderr. Long output
+ * is truncated for review, with a SHA-256 of the full text so any change fails.
+ * The v7 Effect migration must keep these snapshots unchanged.
  */
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -13,7 +13,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 const ROOT = resolve(import.meta.dirname, "../..");
 
-const PRELOAD = resolve(import.meta.dirname, "cli-preload.ts");
+const PRELOAD = resolve(import.meta.dirname, "cli-preload.mjs");
 
 /**
  * The entry point under test. CI sets `FITZROY_CLI_ENTRY=dist/cli.js` after
@@ -33,15 +33,8 @@ function bound(output: string): string {
 
 function runCli(args: readonly string[]) {
   const result = spawnSync(
-    "bun",
-    [
-      "--preload",
-      PRELOAD,
-      "--define",
-      `PACKAGE_VERSION=${JSON.stringify("0.0.0-golden")}`,
-      ENTRY,
-      ...args,
-    ],
+    process.execPath,
+    ["--disable-warning=ExperimentalWarning", "--import", PRELOAD, ENTRY, ...args],
     {
       cwd: ROOT,
       encoding: "utf-8",

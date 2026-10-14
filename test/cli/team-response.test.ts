@@ -88,7 +88,7 @@ describe("team verb discriminated union (#99)", () => {
   });
 
   it("table/CSV paths flatten to inner arrays (no envelope keys)", () => {
-    const csv = formatOutput(sampleTeams as readonly object[], { format: "csv" });
+    const csv = formatOutput(sampleTeams, { format: "csv" });
     const headers = csv.split("\n")[0] ?? "";
     expect(headers).toContain("name");
     expect(headers).toContain("abbreviation");

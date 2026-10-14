@@ -1,19 +1,33 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it } from "@effect/vitest";
+import { Effect, Layer, Result } from "effect";
+import type { Match } from "../../src/types";
 import {
-  AflTablesClient,
+  AflTables,
+  AflTablesLive,
   parseSeasonPage,
   teamNameToAflTablesSlug,
 } from "../../src/sources/afl-tables";
+import { fixtureHttp, fixtureText, type Route } from "../support/http";
 
-const FIXTURE_PATH = resolve(__dirname, "../fixtures/afl-tables-season.html");
+const fixtureHtml = fixtureText("afl-tables-season.html");
 
-const fixtureHtml = readFileSync(FIXTURE_PATH, "utf-8");
+/** Parse a season page that must parse, failing the test otherwise. */
+function parseOk(html: string, year: number): Match[] {
+  const parsed = parseSeasonPage(html, year);
+
+  if (Result.isFailure(parsed)) throw new Error(parsed.failure.message);
+
+  return parsed.success;
+}
+
+/** The live AFL Tables client over fixture routes. */
+function aflTablesWith(routes: readonly Route[]) {
+  return AflTablesLive.pipe(Layer.provide(fixtureHttp(routes)));
+}
 
 describe("parseSeasonPage", () => {
   it("parses complete match results from fixture", () => {
-    const results = parseSeasonPage(fixtureHtml, 2024);
+    const results = parseOk(fixtureHtml, 2024);
 
     expect(results).toHaveLength(3);
 
@@ -60,7 +74,7 @@ describe("parseSeasonPage", () => {
   });
 
   it("remaps Opening Round to round 0 for 2024+ seasons (#102)", () => {
-    const results = parseSeasonPage(fixtureHtml, 2024);
+    const results = parseOk(fixtureHtml, 2024);
 
     // The fixture's "Round 1" is actually the AFL's Opening Round (4 games);
     // its "Round 2" is the AFL's Round 1. After remapping:
@@ -71,7 +85,7 @@ describe("parseSeasonPage", () => {
   });
 
   it("returns empty array for empty HTML", () => {
-    expect(parseSeasonPage("<html></html>", 2024)).toEqual([]);
+    expect(parseSeasonPage("<html></html>", 2024)).toEqual(Result.succeed([]));
   });
 
   it("uses a non-colliding synthetic id when a match has no provider link", () => {
@@ -82,7 +96,7 @@ describe("parseSeasonPage", () => {
 <tr><td><a>Melbourne</a></td><td>1.6 2.8 7.8 9.10</td><td>64</td><td>Sydney won by 22 pts</td></tr>
 </table></body></html>`;
 
-    expect(parseSeasonPage(html, 2024)[0]?.matchId).toBe("AT_SYNTH_2024_1");
+    expect(parseOk(html, 2024)[0]?.matchId).toBe("AT_SYNTH_2024_1");
   });
 
   it("rejects an unparseable required match date instead of returning January 1", () => {
@@ -93,7 +107,12 @@ describe("parseSeasonPage", () => {
 <tr><td><a>Melbourne</a></td><td>1.6 2.8 7.8 9.10</td><td>64</td><td>Sydney won by 22 pts</td></tr>
 </table></body></html>`;
 
-    expect(() => parseSeasonPage(html, 2024)).toThrow(/required AFL Tables match date/);
+    const parsed = parseSeasonPage(html, 2024);
+
+    expect(Result.isFailure(parsed)).toBe(true);
+
+    if (Result.isSuccess(parsed)) return;
+    expect(parsed.failure.message).toMatch(/required AFL Tables match date/);
   });
 
   // 2025-10-05 02:00 → 03:00 AEDT in Australia/Melbourne, so 02:30 doesn't
@@ -109,7 +128,7 @@ describe("parseSeasonPage", () => {
 </table>
 </body></html>`;
 
-    const results = parseSeasonPage(dstGapHtml, 2025);
+    const results = parseOk(dstGapHtml, 2025);
     expect(results).toHaveLength(1);
     const date = results[0]?.date;
     expect(date).toBeDefined();
@@ -126,7 +145,7 @@ describe("parseSeasonPage", () => {
 </table>
 </body></html>`;
 
-    const results = parseSeasonPage(nonGapHtml, 2025);
+    const results = parseOk(nonGapHtml, 2025);
     expect(results).toHaveLength(1);
     const date = results[0]?.date;
     expect(date).toBeDefined();
@@ -148,7 +167,7 @@ describe("parseSeasonPage", () => {
 </table>
 </body></html>`;
 
-    const results = parseSeasonPage(html, 2024);
+    const results = parseOk(html, 2024);
     expect(results).toHaveLength(1);
     expect(results[0]?.attendance).toBe(0);
   });
@@ -168,128 +187,133 @@ const seasonWithTwoGameLinksHtml = `<html><body>
 </table>
 </body></html>`;
 
-const GAME_STATS_FIXTURE = resolve(__dirname, "../fixtures/afltables-game-stats-2024-r1.html");
+const gameStatsHtml = fixtureText("afltables-game-stats-2024-r1.html");
 
-const gameStatsHtml = readFileSync(GAME_STATS_FIXTURE, "utf-8");
+describe("AflTables", () => {
+  it.effect("fetches and parses season results", () =>
+    Effect.gen(function* () {
+      const aflTables = yield* AflTables;
 
-describe("AflTablesClient", () => {
-  it("fetches and parses season results", async () => {
-    const fetchFn = vi.fn().mockResolvedValue(new Response(fixtureHtml, { status: 200 }));
-    const client = new AflTablesClient({ fetchFn });
+      const results = yield* aflTables.fetchSeasonResults(2024);
 
-    const result = await client.fetchSeasonResults(2024);
+      expect(results).toHaveLength(3);
+    }).pipe(Effect.provide(aflTablesWith([["/seas/2024.html", { body: fixtureHtml }]]))),
+  );
 
-    expect(result.success).toBe(true);
+  it.effect("fails with a ScrapeError on non-OK response", () =>
+    Effect.gen(function* () {
+      const aflTables = yield* AflTables;
 
-    if (result.success) {
-      expect(result.data).toHaveLength(3);
-    }
-  });
+      const error = yield* Effect.flip(aflTables.fetchSeasonResults(2024));
 
-  it("returns error on non-OK response", async () => {
-    const fetchFn = vi.fn().mockResolvedValue(new Response("", { status: 404 }));
-    const client = new AflTablesClient({ fetchFn });
+      expect(error._tag).toBe("ScrapeError");
+      expect(error.message).toBe(
+        "AFL Tables request failed: 404 (https://afltables.com/afl/seas/2024.html)",
+      );
+    }).pipe(Effect.provide(aflTablesWith([["/seas/2024.html", { status: 404 }]]))),
+  );
 
-    const result = await client.fetchSeasonResults(2024);
+  it.effect("prefixes an unparseable required match date with the request-failed message", () => {
+    const html = `<html><body>
+<table><tr><td>Round 1</td><td></td></tr></table>
+<table border=1>
+<tr><td><a>Sydney</a></td><td>3.3 4.3 7.10 12.14</td><td>86</td><td>TBC <b>Venue:</b> <a href="../venues/scg.html">S.C.G.</a></td></tr>
+<tr><td><a>Melbourne</a></td><td>1.6 2.8 7.8 9.10</td><td>64</td><td>Sydney won by 22 pts</td></tr>
+</table></body></html>`;
 
-    expect(result.success).toBe(false);
+    return Effect.gen(function* () {
+      const aflTables = yield* AflTables;
+
+      const error = yield* Effect.flip(aflTables.fetchSeasonResults(2024));
+
+      expect(error.message).toBe(
+        'AFL Tables request failed: Unable to parse required AFL Tables match date: "TBC Venue: S.C.G."',
+      );
+    }).pipe(Effect.provide(aflTablesWith([["/seas/2024.html", { body: html }]])));
   });
 
   describe("fetchSeasonPlayerStats (COR-03 partial-result envelope)", () => {
-    it("reports a failed game in failedMatchIds while the rest of the season survives", async () => {
-      const fetchFn = vi.fn((input: RequestInfo | URL) => {
-        const url = String(input);
+    it.effect("reports a failed game in failedMatchIds while the rest of the season survives", () =>
+      Effect.gen(function* () {
+        const aflTables = yield* AflTables;
 
-        if (url.endsWith("/seas/2024.html")) {
-          return Promise.resolve(new Response(seasonWithTwoGameLinksHtml, { status: 200 }));
-        }
+        const season = yield* aflTables.fetchSeasonPlayerStats(2024);
 
-        if (url.includes("111620240307")) {
-          return Promise.resolve(new Response(gameStatsHtml, { status: 200 }));
-        }
+        expect(season.stats.length).toBeGreaterThan(0);
+        expect(season.stats[0]?.matchId).toBe("AT_111620240307");
+        expect(parseOk(seasonWithTwoGameLinksHtml, 2024)[0]?.matchId).toBe(
+          season.stats[0]?.matchId,
+        );
+        expect(season.failedMatchIds).toEqual(["AT_031420240308"]);
+      }).pipe(
+        Effect.provide(
+          aflTablesWith([
+            ["/seas/2024.html", { body: seasonWithTwoGameLinksHtml }],
+            ["111620240307", { body: gameStatsHtml }],
+            // Second game page 404s.
+            ["031420240308", { status: 404 }],
+          ]),
+        ),
+      ),
+    );
 
-        // Second game page 404s.
-        return Promise.resolve(new Response("", { status: 404 }));
-      });
+    it.effect("reports a game whose fetch throws in failedMatchIds", () =>
+      Effect.gen(function* () {
+        const aflTables = yield* AflTables;
 
-      const client = new AflTablesClient({ fetchFn });
+        const season = yield* aflTables.fetchSeasonPlayerStats(2024);
 
-      const result = await client.fetchSeasonPlayerStats(2024);
+        expect(season.stats.length).toBeGreaterThan(0);
+        expect(season.failedMatchIds).toEqual(["AT_031420240308"]);
+      }).pipe(
+        Effect.provide(
+          aflTablesWith([
+            ["/seas/2024.html", { body: seasonWithTwoGameLinksHtml }],
+            ["111620240307", { body: gameStatsHtml }],
+            ["031420240308", { respond: () => Promise.reject(new Error("Network error")) }],
+          ]),
+        ),
+      ),
+    );
 
-      expect(result.success).toBe(true);
+    it.effect("returns empty failedMatchIds when every game succeeds", () =>
+      Effect.gen(function* () {
+        const aflTables = yield* AflTables;
 
-      if (!result.success) return;
-      expect(result.data.stats.length).toBeGreaterThan(0);
-      expect(result.data.stats[0]?.matchId).toBe("AT_111620240307");
-      expect(parseSeasonPage(seasonWithTwoGameLinksHtml, 2024)[0]?.matchId).toBe(
-        result.data.stats[0]?.matchId,
-      );
-      expect(result.data.failedMatchIds).toEqual(["AT_031420240308"]);
-    });
+        const season = yield* aflTables.fetchSeasonPlayerStats(2024);
 
-    it("reports a game whose fetch throws in failedMatchIds", async () => {
-      const fetchFn = vi.fn((input: RequestInfo | URL) => {
-        const url = String(input);
+        expect(season.stats.length).toBeGreaterThan(0);
+        expect(season.failedMatchIds).toEqual([]);
+      }).pipe(
+        Effect.provide(
+          aflTablesWith([
+            ["/seas/2024.html", { body: seasonWithTwoGameLinksHtml }],
+            ["/stats/games/", { body: gameStatsHtml }],
+          ]),
+        ),
+      ),
+    );
 
-        if (url.endsWith("/seas/2024.html")) {
-          return Promise.resolve(new Response(seasonWithTwoGameLinksHtml, { status: 200 }));
-        }
+    it.effect("still fails when the season page itself fails", () =>
+      Effect.gen(function* () {
+        const aflTables = yield* AflTables;
 
-        if (url.includes("111620240307")) {
-          return Promise.resolve(new Response(gameStatsHtml, { status: 200 }));
-        }
+        const error = yield* Effect.flip(aflTables.fetchSeasonPlayerStats(2024));
 
-        return Promise.reject(new Error("Network error"));
-      });
+        expect(error.message).toBe(
+          "AFL Tables request failed: 503 (https://afltables.com/afl/seas/2024.html)",
+        );
+      }).pipe(Effect.provide(aflTablesWith([["afltables.com", { status: 503 }]]))),
+    );
 
-      const client = new AflTablesClient({ fetchFn });
-
-      const result = await client.fetchSeasonPlayerStats(2024);
-
-      expect(result.success).toBe(true);
-
-      if (!result.success) return;
-      expect(result.data.stats.length).toBeGreaterThan(0);
-      expect(result.data.failedMatchIds).toEqual(["AT_031420240308"]);
-    });
-
-    it("returns empty failedMatchIds when every game succeeds", async () => {
-      const fetchFn = vi.fn((input: RequestInfo | URL) => {
-        const url = String(input);
-
-        if (url.endsWith("/seas/2024.html")) {
-          return Promise.resolve(new Response(seasonWithTwoGameLinksHtml, { status: 200 }));
-        }
-
-        return Promise.resolve(new Response(gameStatsHtml, { status: 200 }));
-      });
-
-      const client = new AflTablesClient({ fetchFn });
-
-      const result = await client.fetchSeasonPlayerStats(2024);
-
-      expect(result.success).toBe(true);
-
-      if (!result.success) return;
-      expect(result.data.stats.length).toBeGreaterThan(0);
-      expect(result.data.failedMatchIds).toEqual([]);
-    });
-
-    it("still returns total err when the season page itself fails", async () => {
-      const fetchFn = vi.fn().mockResolvedValue(new Response("", { status: 503 }));
-      const client = new AflTablesClient({ fetchFn });
-
-      const result = await client.fetchSeasonPlayerStats(2024);
-
-      expect(result.success).toBe(false);
-    });
-
-    it("keys round numbers by game id, so a skipped season-page row does not shift later rounds (COR-10)", async () => {
-      // Round 1's match table is malformed (no team links) so parseSeasonPage
-      // skips it, but its "Match stats" link is still picked up by the game-URL
-      // extractor. With index-based alignment the Round 2 game would read the
-      // round from results[1] (which doesn't exist) and fall back to 0.
-      const seasonWithSkippedRowHtml = `<html><body>
+    it.effect(
+      "keys round numbers by game id, so a skipped season-page row does not shift later rounds (COR-10)",
+      () => {
+        // Round 1's match table is malformed (no team links) so parseSeasonPage
+        // skips it, but its "Match stats" link is still picked up by the game-URL
+        // extractor. With index-based alignment the Round 2 game would read the
+        // round from results[1] (which doesn't exist) and fall back to 0.
+        const seasonWithSkippedRowHtml = `<html><body>
 <table><tr><td>Round 1</td><td></td></tr></table>
 <table border=1>
 <tr><td>Sydney</td><td><tt>3.3 4.3 7.10 12.14</tt></td><td> 86</td><td>Thu 07-Mar-2023 7:30 PM <b>Venue:</b> <a href="../venues/scg.html">S.C.G.</a></td></tr>
@@ -302,27 +326,24 @@ describe("AflTablesClient", () => {
 </table>
 </body></html>`;
 
-      const fetchFn = vi.fn((input: RequestInfo | URL) => {
-        const url = String(input);
+        return Effect.gen(function* () {
+          const aflTables = yield* AflTables;
 
-        if (url.endsWith("/seas/2023.html")) {
-          return Promise.resolve(new Response(seasonWithSkippedRowHtml, { status: 200 }));
-        }
+          const season = yield* aflTables.fetchSeasonPlayerStats(2023);
 
-        return Promise.resolve(new Response(gameStatsHtml, { status: 200 }));
-      });
-
-      const client = new AflTablesClient({ fetchFn });
-
-      const result = await client.fetchSeasonPlayerStats(2023);
-
-      expect(result.success).toBe(true);
-
-      if (!result.success) return;
-      const round2Stats = result.data.stats.filter((s) => s.matchId === "AT_031820230316");
-      expect(round2Stats.length).toBeGreaterThan(0);
-      expect(round2Stats[0]?.roundNumber).toBe(2);
-    });
+          const round2Stats = season.stats.filter((s) => s.matchId === "AT_031820230316");
+          expect(round2Stats.length).toBeGreaterThan(0);
+          expect(round2Stats[0]?.roundNumber).toBe(2);
+        }).pipe(
+          Effect.provide(
+            aflTablesWith([
+              ["/seas/2023.html", { body: seasonWithSkippedRowHtml }],
+              ["/stats/games/", { body: gameStatsHtml }],
+            ]),
+          ),
+        );
+      },
+    );
   });
 });
 

@@ -1,46 +1,48 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "@effect/vitest";
+import { Effect } from "effect";
 import { fetchLadder } from "../../src/api/ladder";
 import { fetchLineup } from "../../src/api/lineup";
+import { fixtureFitzroy } from "../support/services";
 
 describe("public API source validation", () => {
-  it("fetchLineup returns error for non-afl-api source", async () => {
-    const result = await fetchLineup({
-      source: "footywire",
-      season: 2025,
-      round: 1,
-    });
+  it.effect("fetchLineup fails for non-afl-api source", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        fetchLineup({
+          source: "footywire",
+          season: 2025,
+          round: 1,
+        }),
+      );
 
-    expect(result.success).toBe(false);
+      expect(error.message).toContain("footywire does not provide lineup");
+    }).pipe(Effect.provide(fixtureFitzroy())),
+  );
 
-    if (!result.success) {
-      expect(result.error.message).toContain("footywire does not provide lineup");
-    }
-  });
+  it.effect("fetchLadder fails for footywire source", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        fetchLadder({
+          source: "footywire",
+          season: 2025,
+        }),
+      );
 
-  it("fetchLadder returns error for footywire source", async () => {
-    const result = await fetchLadder({
-      source: "footywire",
-      season: 2025,
-    });
+      expect(error.message).toContain("footywire does not provide ladder");
+    }).pipe(Effect.provide(fixtureFitzroy())),
+  );
 
-    expect(result.success).toBe(false);
+  it.effect("fetchLineup fails for squiggle source", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        fetchLineup({
+          source: "squiggle",
+          season: 2025,
+          round: 1,
+        }),
+      );
 
-    if (!result.success) {
-      expect(result.error.message).toContain("footywire does not provide ladder");
-    }
-  });
-
-  it("fetchLineup returns error for squiggle source", async () => {
-    const result = await fetchLineup({
-      source: "squiggle",
-      season: 2025,
-      round: 1,
-    });
-
-    expect(result.success).toBe(false);
-
-    if (!result.success) {
-      expect(result.error.message).toContain("squiggle does not provide lineup");
-    }
-  });
+      expect(error.message).toContain("squiggle does not provide lineup");
+    }).pipe(Effect.provide(fixtureFitzroy())),
+  );
 });

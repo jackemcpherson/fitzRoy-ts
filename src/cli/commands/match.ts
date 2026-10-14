@@ -7,6 +7,7 @@
  * `matches` command.
  */
 
+import { Effect } from "effect";
 import { fetchMatches } from "../../index";
 import { defineFitzroyCommand } from "../command-builder";
 import {
@@ -40,17 +41,7 @@ const DEFAULT_COLUMNS: TableColumnConfig[] = [
   { key: "venue", label: "Venue", maxWidth: 24 },
 ];
 
-interface MatchArgs {
-  season: string;
-  round?: string;
-  source: string;
-  competition: string;
-  team?: string;
-  status?: string;
-  id?: string;
-}
-
-export const matchCommand = defineFitzroyCommand<MatchArgs & Record<string, unknown>, object>({
+export const matchCommand = defineFitzroyCommand({
   meta: {
     name: "match",
     description: "Fetch matches (results, fixtures, or any combination via --status)",
@@ -67,27 +58,35 @@ export const matchCommand = defineFitzroyCommand<MatchArgs & Record<string, unkn
   },
   columns: DEFAULT_COLUMNS,
   spinner: "Fetching matches…",
-  run: async (args) => {
-    const season = validateSeason(args.season);
-    const round = args.round ? validateRound(args.round) : undefined;
-    const source = validateSource(args.source);
-    const competition = validateCompetition(args.competition);
-    const status = args.status ? validateMatchStatus(args.status) : undefined;
-    const team = args.team ? await resolveTeamNameOrPrompt(args.team) : undefined;
-    const matchId = args.id ? validateMatchId(source, args.id) : undefined;
+  run: (args) =>
+    Effect.gen(function* () {
+      const season = yield* Effect.fromResult(validateSeason(args.season));
+      const round = args.round ? yield* Effect.fromResult(validateRound(args.round)) : undefined;
+      const source = yield* Effect.fromResult(validateSource(args.source));
+      const competition = yield* Effect.fromResult(validateCompetition(args.competition));
 
-    return fetchMatches({
-      source,
-      season,
-      round,
-      matchId,
-      team,
-      status,
-      competition,
-    });
-  },
+      const status = args.status
+        ? yield* Effect.fromResult(validateMatchStatus(args.status))
+        : undefined;
+
+      const team = args.team ? yield* resolveTeamNameOrPrompt(args.team) : undefined;
+
+      const matchId = args.id
+        ? yield* Effect.fromResult(validateMatchId(source, args.id))
+        : undefined;
+
+      return yield* fetchMatches({
+        source,
+        season,
+        round,
+        matchId,
+        team,
+        status,
+        competition,
+      });
+    }),
   summary: (data, args) => {
-    const filters: string[] = [String(args.season)];
+    const filters: string[] = [args.season];
 
     if (args.round) filters.push(`round ${args.round}`);
 

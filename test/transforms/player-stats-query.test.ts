@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 import { filterSeasonPlayerStats } from "../../src/transforms/player-stats-query";
 import type { PlayerStats } from "../../src/types";
+import { playerStatsFixture } from "../support/domain";
 
 function stat(matchId: string): PlayerStats {
-  return { matchId } as PlayerStats;
+  return playerStatsFixture(matchId, "p1", "Test Player", 0);
 }
 
 describe("filterSeasonPlayerStats", () => {

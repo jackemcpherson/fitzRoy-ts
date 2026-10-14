@@ -6,7 +6,7 @@
  * names, jumper numbers, substitute flags) for eras where the AFL API fails
  * or returns only the Thursday-night announced team.
  *
- * Run: bun run scripts/probe-afl-tables-lineup-source.ts
+ * Run: node --import ./scripts/ts-resolve.mjs scripts/probe-afl-tables-lineup-source.ts
  *
  * ─── Findings (run 2026-07-02) ──────────────────────────────────────────────
  *
@@ -74,12 +74,12 @@
  */
 
 import { parseHtml } from "../src/lib/parse-html";
-import { createSourceFetch } from "../src/lib/source-fetch";
 
 const BASE = "https://afltables.com/afl/stats/games";
 const SEAS = "https://afltables.com/afl/seas";
 
-const fetchFn = createSourceFetch({ minDelayMs: 500 });
+// The v6 `createSourceFetch` helper is gone; this one-off probe uses plain fetch.
+const fetchFn = fetch;
 
 interface SampledGame {
   readonly year: number;

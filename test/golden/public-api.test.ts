@@ -5,10 +5,17 @@
  * fixtures and snapshots the complete outcome: every requested URL (sorted,
  * duplicates kept so request counts show) plus either the returned data or
  * the failure's name, message, and fields. Serialisation marks `undefined`
- * values and `Date` instances so neither is lost in the JSON round trip. The v7 Effect migration must keep these snapshots unchanged apart
- * from the result envelope, so data and error behaviour cannot drift.
+ * values and `Date` instances so neither is lost in the JSON round trip. The
+ * v7 Effect migration must keep these snapshots unchanged apart from the
+ * result envelope, so data and error behaviour cannot drift.
+ *
+ * Each Effect runs against `FitzroyLive` with `FetchHttpClient.Fetch`
+ * replaced by the fixture router, so no global `fetch` is stubbed, and with
+ * `FryziggConfig` pointed at the fixture's checksum.
  */
 import { createHash } from "node:crypto";
+import { Cause, Effect, Exit, Layer, Predicate, type Schema } from "effect";
+import { FetchHttpClient } from "effect/http";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import {
   fetchAwards,
@@ -22,53 +29,63 @@ import {
   fetchSquad,
   fetchTeamStats,
   fetchTeams,
+  FitzroyLive,
+  FryziggConfig,
   resolveDefaultSeasonForCompetition,
+  type SourceError,
 } from "../../src/index";
-import { FRYZIGG_SNAPSHOTS } from "../../src/sources/fryzigg-snapshots";
 import { goldenFetch, requested, resetRequested } from "./fixture-fetch";
 
 /** SHA-256 of `test/fixtures/fryzigg-sample.rds`, the golden Fryzigg snapshot. */
 const FRYZIGG_FIXTURE_SHA256 = "e41773328a6cd1e926f22a1ed0f54cc18e4d0d21743172bdbde3b2f87843cd58";
 
 /**
- * Run a call with the AFLM Fryzigg checksum pointed at the fixture, so the
- * golden case exercises download, parsing, and the transform instead of
- * stopping at the checksum check.
+ * The library layer for golden runs. The fixture checksum lets the Fryzigg
+ * case exercise download, parsing, and the transform instead of stopping at
+ * the checksum check.
  */
-async function withFryziggFixture<T>(call: () => Promise<T>): Promise<T> {
-  const reviewed = FRYZIGG_SNAPSHOTS.AFLM.sha256;
-  Object.assign(FRYZIGG_SNAPSHOTS.AFLM, { sha256: FRYZIGG_FIXTURE_SHA256 });
+const GoldenLive = FitzroyLive.pipe(
+  Layer.provide(Layer.succeed(FryziggConfig, { sha256: FRYZIGG_FIXTURE_SHA256 })),
+);
 
-  try {
-    return await call();
-  } finally {
-    Object.assign(FRYZIGG_SNAPSHOTS.AFLM, { sha256: reviewed });
-  }
+/** A JSON value or a raw input to `JSON.stringify`, as a replacer sees it. */
+type ReplacerValue = Schema.Json | Date | undefined;
+
+/** `JSON.stringify` replacer that marks `undefined` values and `Date` instances. */
+function markLossyValues(
+  this: Readonly<Record<string, ReplacerValue>>,
+  key: string,
+  item: Schema.Json | undefined,
+): Schema.Json {
+  const original = this[key];
+
+  if (original instanceof Date) return { $date: original.toISOString() };
+
+  return item === undefined ? "$undefined" : item;
 }
 
+/** Whatever `JSON.stringify` accepts: the outcome of any public API call. */
+type Stringifiable = Parameters<typeof JSON.stringify>[0];
+
 /** JSON round trip that keeps `undefined` values and `Date` instances visible. */
-function toJson(value: unknown): unknown {
-  return JSON.parse(
-    JSON.stringify(value ?? null, function (this: Record<string, unknown>, key, item: unknown) {
-      const original = this[key];
-
-      if (original instanceof Date) return { $date: original.toISOString() };
-
-      return item === undefined ? "$undefined" : item;
-    }),
-  );
+function toJson(value: Stringifiable): Schema.Json {
+  return JSON.parse(JSON.stringify(value ?? null, markLossyValues));
 }
 
 /** Reduce an error to its stable, comparable fields. */
-function describeError(error: unknown): unknown {
-  if (!(error instanceof Error)) return { thrown: String(error) };
-  const fields: Record<string, unknown> = {};
-
-  for (const [key, value] of Object.entries(error)) {
-    if (key !== "stack" && key !== "cause") fields[key] = value;
-  }
+function describeError(error: SourceError | Error) {
+  const fields = Object.fromEntries(
+    Object.entries(error).filter(([key]) => key !== "stack" && key !== "cause"),
+  );
 
   return { name: error.name, message: error.message, fields };
+}
+
+/** Describe the squashed failure of a cause; non-`Error` defects become their string form. */
+function describeCause(cause: Cause.Cause<SourceError>) {
+  const squashed = Cause.squash(cause);
+
+  return squashed instanceof Error ? describeError(squashed) : { thrown: String(squashed) };
 }
 
 /** Arrays longer than this are summarised by count, head, and digest. */
@@ -78,7 +95,7 @@ const MAX_INLINE_ITEMS = 25;
  * Keep snapshots reviewable: long arrays become their length, first three
  * items, and a SHA-256 of the full JSON, so any change still fails.
  */
-function summarise(value: unknown): unknown {
+function summarise(value: Schema.Json): Schema.Json {
   if (Array.isArray(value)) {
     if (value.length <= MAX_INLINE_ITEMS) return value.map(summarise);
 
@@ -89,11 +106,16 @@ function summarise(value: unknown): unknown {
     };
   }
 
-  if (value !== null && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, summarise(item)]));
+  if (
+    value === null ||
+    Predicate.isString(value) ||
+    Predicate.isNumber(value) ||
+    Predicate.isBoolean(value)
+  ) {
+    return value;
   }
 
-  return value;
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, summarise(item)]));
 }
 
 /** The AFL API token request depends on cache state shared across cases. */
@@ -106,28 +128,30 @@ interface Outcome {
   readonly outcome: unknown;
 }
 
-async function run(call: () => Promise<unknown>): Promise<Outcome> {
-  let outcome: unknown;
+/** Services `FitzroyLive` provides. */
+type FitzroyServices = Layer.Success<typeof FitzroyLive>;
 
-  try {
-    const result = await call();
+/** One public API call, as an Effect over the library services. */
+type Call = () => Effect.Effect<unknown, SourceError, FitzroyServices>;
 
-    if (result !== null && typeof result === "object" && "success" in result) {
-      const settled = result as { success: boolean; data?: unknown; error?: unknown };
-      outcome = settled.success
-        ? { ok: summarise(toJson(settled.data)) }
-        : { err: describeError(settled.error) };
-    } else {
-      outcome = { value: summarise(toJson(result)) };
-    }
-  } catch (error) {
-    outcome = { threw: describeError(error) };
-  }
+async function run(call: Call): Promise<Outcome> {
+  const exit = await Effect.runPromiseExit(
+    call().pipe(
+      Effect.provide(GoldenLive),
+      Effect.provideService(FetchHttpClient.Fetch, goldenFetch),
+    ),
+  );
+
+  const outcome = Exit.isSuccess(exit)
+    ? { ok: summarise(toJson(exit.value)) }
+    : Cause.hasFails(exit.cause)
+      ? { err: describeCause(exit.cause) }
+      : { threw: describeCause(exit.cause) };
 
   return { urls: requested.filter((url) => !isTokenRequest(url)).sort(), outcome };
 }
 
-const CASES: ReadonlyArray<readonly [string, () => Promise<unknown>]> = [
+const CASES: ReadonlyArray<readonly [string, Call]> = [
   [
     "fetchMatches afl-api 2025 r1",
     () => fetchMatches({ source: "afl-api", season: 2025, round: 1 }),
@@ -161,7 +185,7 @@ const CASES: ReadonlyArray<readonly [string, () => Promise<unknown>]> = [
   ],
   [
     "fetchPlayerStats fryzigg 2024 r1",
-    () => withFryziggFixture(() => fetchPlayerStats({ source: "fryzigg", season: 2024, round: 1 })),
+    () => fetchPlayerStats({ source: "fryzigg", season: 2024, round: 1 }),
   ],
   [
     "fetchLadder afl-api 2024 r10",
@@ -200,11 +224,9 @@ describe("public API golden outcomes", () => {
   beforeEach(() => {
     resetRequested();
     vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-10-13T00:00:00Z") });
-    vi.stubGlobal("fetch", goldenFetch);
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
     vi.useRealTimers();
   });
 

@@ -145,6 +145,8 @@ function deriveCompletedQuarter(periods: ReadonlyArray<MatchClockPeriod>): 0 | 1
     }
   }
 
+  // SAFETY: `highest` starts at 0 and only takes integer period numbers
+  // (1-4, plus extra time) above it; clamping to 4 leaves 0, 1, 2, 3, or 4.
   return Math.min(highest, 4) as 0 | 1 | 2 | 3 | 4;
 }
 

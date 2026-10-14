@@ -1,7 +1,7 @@
 /**
  * Targeted probe for AFL 2011 and 2012 H&A boundary.
  * Uses same heuristics as scripts/probe-afl-coaches.ts.
- * Run: bun run scripts/probe-2011-2012.ts
+ * Run: node --import ./scripts/ts-resolve.mjs scripts/probe-2011-2012.ts
  */
 
 import { parseCoachesVotesHtml } from "../src/sources/afl-coaches";

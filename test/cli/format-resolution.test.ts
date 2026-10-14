@@ -26,35 +26,14 @@ describe("resolveFormat", () => {
   });
 
   it("defaults to json when stdout is not a TTY", () => {
-    const origIsTTY = process.stdout.isTTY;
-
-    try {
-      Object.defineProperty(process.stdout, "isTTY", { value: false, configurable: true });
-      expect(resolveFormat({})).toBe("json");
-    } finally {
-      Object.defineProperty(process.stdout, "isTTY", { value: origIsTTY, configurable: true });
-    }
+    expect(resolveFormat({}, false)).toBe("json");
   });
 
   it("defaults to table when stdout is a TTY", () => {
-    const origIsTTY = process.stdout.isTTY;
-
-    try {
-      Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
-      expect(resolveFormat({})).toBe("table");
-    } finally {
-      Object.defineProperty(process.stdout, "isTTY", { value: origIsTTY, configurable: true });
-    }
+    expect(resolveFormat({}, true)).toBe("table");
   });
 
   it("ignores invalid --format values and falls through to TTY detection", () => {
-    const origIsTTY = process.stdout.isTTY;
-
-    try {
-      Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
-      expect(resolveFormat({ format: "invalid" })).toBe("table");
-    } finally {
-      Object.defineProperty(process.stdout, "isTTY", { value: origIsTTY, configurable: true });
-    }
+    expect(resolveFormat({ format: "invalid" }, true)).toBe("table");
   });
 });

@@ -8,9 +8,10 @@
  */
 
 import { defineCommand } from "citty";
+import { Effect } from "effect";
 import { fetchLadder } from "../../index";
 import { rejectUnknownFlags } from "../command-builder";
-import { withErrorBoundary } from "../error-boundary";
+import { runCommand } from "../error-boundary";
 import { COMPETITION_FLAG, OUTPUT_FLAGS, ROUND_FLAG, SEASON_FLAG, SOURCE_FLAG } from "../flags";
 import {
   type FormatOptions,
@@ -52,38 +53,36 @@ export const ladderCommand = defineCommand({
     description: "Fetch ladder standings for a season",
   },
   args: LADDER_ARGS,
-  run: withErrorBoundary(async ({ args }) => {
-    rejectUnknownFlags(LADDER_ARGS, process.argv);
-    const season = validateSeason(args.season as string);
-    const round = args.round ? validateRound(args.round as string) : undefined;
-    const source = validateSource(args.source as string);
-    const competition = validateCompetition(args.competition as string);
-    const format = validateFormat(args.format as string | undefined);
+  run: runCommand<typeof LADDER_ARGS>((args) =>
+    Effect.gen(function* () {
+      yield* Effect.fromResult(rejectUnknownFlags(LADDER_ARGS, process.argv));
+      const season = yield* Effect.fromResult(validateSeason(args.season));
+      const round = args.round ? yield* Effect.fromResult(validateRound(args.round)) : undefined;
+      const source = yield* Effect.fromResult(validateSource(args.source));
+      const competition = yield* Effect.fromResult(validateCompetition(args.competition));
+      const format = yield* Effect.fromResult(validateFormat(args.format));
 
-    const result = await withSpinner("Fetching ladder…", () =>
-      fetchLadder({ source, season, round, competition }),
-    );
+      const ladder = yield* withSpinner(
+        "Fetching ladder…",
+        fetchLadder({ source, season, round, competition }),
+      );
 
-    if (!result.success) throw result.error;
+      showSummary(
+        `Loaded ladder for ${season}${round ? ` round ${round}` : ""} (${ladder.entries.length} teams)`,
+      );
 
-    const ladder = result.data;
-    showSummary(
-      `Loaded ladder for ${season}${round ? ` round ${round}` : ""} (${ladder.entries.length} teams)`,
-    );
+      const formatOptions: FormatOptions = {
+        json: args.json,
+        csv: args.csv,
+        format,
+        full: args.full,
+        columns: DEFAULT_COLUMNS,
+      };
 
-    const formatOptions: FormatOptions = {
-      json: args.json as boolean | undefined,
-      csv: args.csv as boolean | undefined,
-      format,
-      full: args.full as boolean | undefined,
-      columns: DEFAULT_COLUMNS,
-    };
-
-    const resolved = resolveFormat(formatOptions);
-    console.log(
-      resolved === "json"
-        ? formatJson(ladder)
-        : formatOutput(ladder.entries as readonly object[], formatOptions),
-    );
-  }),
+      const resolved = resolveFormat(formatOptions);
+      console.log(
+        resolved === "json" ? formatJson(ladder) : formatOutput(ladder.entries, formatOptions),
+      );
+    }),
+  ),
 });

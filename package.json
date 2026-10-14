@@ -1,6 +1,6 @@
 {
   "name": "fitzroy",
-  "version": "6.0.0",
+  "version": "7.0.0",
   "description": "TypeScript port of the fitzRoy R package — programmatic access to AFL data including match results, player stats, fixtures, ladders, and more",
   "keywords": [
     "afl",
@@ -36,38 +36,41 @@
   },
   "scripts": {
     "build": "rm -rf dist && vp pack",
+    "build:exe": "rm -rf build && FITZROY_EXE=1 vp pack",
     "check": "vp check",
     "format": "vp check --fix",
     "test": "vp test",
     "test:coverage": "vp test run --coverage",
     "typecheck:portable": "tsc -p tsconfig.portable.json",
     "verify:package": "node scripts/verify-package-install.mjs",
-    "prerelease": "vp check && npm run typecheck:portable && vp test run && npm run build && npm run verify:package",
+    "canary": "node --disable-warning=ExperimentalWarning --import ./scripts/ts-resolve.mjs scripts/canary.ts",
+    "prerelease": "vp check && vp run typecheck:portable && vp test run && vp run build && vp run verify:package",
     "prepare": "vp config --no-agent",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "vp run build"
   },
   "dependencies": {
     "@jackemcpherson/rds-js": "^0.3.0",
     "cheerio": "^1.0.0",
     "parse5": "8.0.1",
-    "parse5-htmlparser2-tree-adapter": "8.0.1",
-    "zod": "^4.4.3"
+    "parse5-htmlparser2-tree-adapter": "8.0.1"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
     "@clack/prompts": "^1.7.0",
+    "@effect/vitest": "4.0.4",
     "@types/node": "^26.0.0",
     "@vitest/coverage-v8": "5.0.3",
     "citty": "^0.2.2",
+    "effect": "4.0.4",
     "picocolors": "^1.1.1",
     "typescript": "^7.0.2",
     "vite-plus": "1.1.0"
   },
-  "overrides": {
-    "fflate": "0.8.3",
-    "undici": "^8.0.0"
+  "peerDependencies": {
+    "effect": "^4.0.4"
   },
   "engines": {
     "node": ">=20"
-  }
+  },
+  "packageManager": "pnpm@12.11.2"
 }

@@ -5,12 +5,12 @@
  * when AFL API data is delayed or unavailable.
  */
 
+import { Context, Effect, Layer, Result } from "effect";
 import { parseDate } from "../lib/date-utils";
 import { ScrapeError } from "../lib/errors";
+import { readText, SourceHttp } from "../lib/http";
 import { parseHtml } from "../lib/parse-html";
 import { safeInt } from "../lib/parse-utils";
-import { err, ok, type Result } from "../lib/result";
-import { createSourceFetch, type SourceFetchOptions } from "../lib/source-fetch";
 import { normaliseTeamName } from "../lib/team-mapping";
 import { emptyMetricSet } from "../lib/team-metrics";
 import { normaliseVenueName } from "../lib/venue-mapping";
@@ -33,313 +33,303 @@ import type {
 
 const FOOTYWIRE_BASE = "https://www.footywire.com/afl/footy";
 
-/** Options for constructing a FootyWire client. */
-export interface FootyWireClientOptions extends SourceFetchOptions {
-  readonly fetchFn?: typeof fetch | undefined;
+const USER_AGENT =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
+/** A match ID and its round number from a season match list. */
+export interface FootyWireMatchIdEntry {
+  readonly matchId: string;
+  readonly roundNumber: number;
 }
 
 /**
  * FootyWire scraper client.
  */
-export class FootyWireClient {
-  private readonly fetchFn: typeof fetch;
-
-  constructor(options?: FootyWireClientOptions) {
-    this.fetchFn = createSourceFetch(options);
+export class FootyWire extends Context.Service<
+  FootyWire,
+  {
+    /**
+     * Fetch the HTML content of any FootyWire URL.
+     *
+     * Used by external modules (e.g. awards) that need to scrape FootyWire pages.
+     */
+    readonly fetchPage: (url: string) => Effect.Effect<string, ScrapeError>;
+    /**
+     * Fetch season match results from FootyWire.
+     *
+     * @param year - The season year.
+     */
+    readonly fetchSeasonResults: (year: number) => Effect.Effect<Match[], ScrapeError>;
+    /**
+     * Fetch player statistics for a single match.
+     *
+     * Scrapes both the basic and advanced stats pages. Available from 2010 onwards.
+     *
+     * @param matchId - The FootyWire match ID (numeric string).
+     * @param season - The season year.
+     * @param roundNumber - The round number.
+     */
+    readonly fetchMatchPlayerStats: (
+      matchId: string,
+      season: number,
+      roundNumber: number,
+    ) => Effect.Effect<PlayerStats[], ScrapeError>;
+    /**
+     * Fetch match IDs from a season's match list page.
+     *
+     * Extracts `mid=XXXX` values from score links alongside round numbers.
+     *
+     * @param year - The season year.
+     */
+    readonly fetchSeasonMatchIds: (
+      year: number,
+    ) => Effect.Effect<FootyWireMatchIdEntry[], ScrapeError>;
+    /**
+     * Fetch the player list (team history) for a team.
+     *
+     * @param teamName - Canonical team name (e.g. "Hawthorn").
+     */
+    readonly fetchPlayerList: (
+      teamName: string,
+    ) => Effect.Effect<Omit<PlayerDetails, "source" | "competition">[], ScrapeError>;
+    /**
+     * Fetch fixture data (played and upcoming matches) from FootyWire.
+     *
+     * @param year - The season year.
+     * @param competition - Used to roll cross-calendar dates to year + 1 when
+     *   the parsed month precedes the season opener. Defaults to AFLM.
+     */
+    readonly fetchSeasonFixture: (
+      year: number,
+      competition?: CompetitionCode,
+    ) => Effect.Effect<Match[], ScrapeError>;
+    /**
+     * Fetch team statistics (totals or averages) for a season.
+     *
+     * @param year - The season year.
+     * @param summaryType - "totals" or "averages" (default "totals").
+     */
+    readonly fetchTeamStats: (
+      year: number,
+      summaryType?: "totals" | "averages",
+    ) => Effect.Effect<TeamStatsEntry[], ScrapeError>;
   }
+>()("fitzroy/FootyWire") {}
 
-  /**
-   * Fetch the HTML content of any URL using this client's fetch function.
-   *
-   * Public wrapper around the internal fetchHtml for use by external modules
-   * (e.g. awards) that need to scrape FootyWire pages.
-   */
-  async fetchPage(url: string): Promise<Result<string, ScrapeError>> {
-    return this.fetchHtml(url);
-  }
+/** Message of a thrown parse failure, matching the v6 `cause.message` text. */
+function causeMessage(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause);
+}
 
-  /**
-   * Fetch the HTML content of a FootyWire page.
-   */
-  private async fetchHtml(url: string): Promise<Result<string, ScrapeError>> {
-    try {
-      const response = await this.fetchFn(url, {
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        },
-      });
+/**
+ * Run a parser, mapping a thrown failure to a `ScrapeError` with `prefix`.
+ */
+function parseWith<A>(prefix: string, parse: () => A): Effect.Effect<A, ScrapeError> {
+  return Effect.try({
+    try: parse,
+    catch: (cause) =>
+      new ScrapeError({ message: `${prefix}: ${causeMessage(cause)}`, source: "footywire" }),
+  });
+}
 
-      if (!response.ok) {
-        return err(
-          new ScrapeError(`FootyWire request failed: ${response.status} (${url})`, "footywire"),
+/**
+ * Run a parser returning a `Result`, mapping either a thrown failure or a
+ * failed result to a `ScrapeError` with `prefix`.
+ */
+function parseResultWith<A>(
+  prefix: string,
+  parse: () => Result.Result<A, ScrapeError>,
+): Effect.Effect<A, ScrapeError> {
+  return parseWith(prefix, parse).pipe(
+    Effect.flatMap((result) =>
+      Result.isSuccess(result)
+        ? Effect.succeed(result.success)
+        : Effect.fail(
+            new ScrapeError({
+              message: `${prefix}: ${result.failure.message}`,
+              source: "footywire",
+            }),
+          ),
+    ),
+  );
+}
+
+/** The live FootyWire client over {@link SourceHttp}. */
+export const FootyWireLive = Layer.effect(
+  FootyWire,
+  Effect.gen(function* () {
+    const http = yield* SourceHttp;
+
+    const requestFailed = (message: string) =>
+      new ScrapeError({ message: `FootyWire request failed: ${message}`, source: "footywire" });
+
+    const fetchHtml = (url: string): Effect.Effect<string, ScrapeError> =>
+      Effect.gen(function* () {
+        const response = yield* http.request(url, { headers: { "User-Agent": USER_AGENT } });
+
+        if (!response.ok) {
+          return yield* Effect.fail(requestFailed(`${response.status} (${url})`));
+        }
+
+        return yield* readText(response);
+      }).pipe(
+        Effect.catchTag("RequestError", (error) => Effect.fail(requestFailed(error.message))),
+      );
+
+    /**
+     * Fetch two pages concurrently; the first page's failure takes
+     * precedence over the second's, whichever finishes first.
+     */
+    const fetchPair = (first: string, second: string) =>
+      Effect.all([Effect.result(fetchHtml(first)), Effect.result(fetchHtml(second))], {
+        concurrency: "unbounded",
+      }).pipe(
+        Effect.flatMap(([a, b]) =>
+          Effect.fromResult(a).pipe(
+            Effect.flatMap((aHtml) =>
+              Effect.fromResult(b).pipe(Effect.map((bHtml) => [aHtml, bHtml] as const)),
+            ),
+          ),
+        ),
+      );
+
+    const matchListUrl = (year: number) => `${FOOTYWIRE_BASE}/ft_match_list?year=${year}`;
+
+    return {
+      fetchPage: fetchHtml,
+      fetchSeasonResults: (year) =>
+        fetchHtml(matchListUrl(year)).pipe(
+          Effect.flatMap((html) =>
+            parseResultWith("Failed to parse match list", () => parseMatchList(html, year)),
+          ),
+        ),
+      fetchMatchPlayerStats: (matchId, season, roundNumber) =>
+        fetchPair(
+          `${FOOTYWIRE_BASE}/ft_match_statistics?mid=${matchId}`,
+          `${FOOTYWIRE_BASE}/ft_match_statistics?mid=${matchId}&advv=Y`,
+        ).pipe(
+          Effect.flatMap(([basicHtml, advancedHtml]) =>
+            parseWith("Failed to parse match stats", () =>
+              mergeFootyWireStats(
+                parseBasicStats(basicHtml),
+                parseAdvancedStats(advancedHtml),
+                matchId,
+                season,
+                roundNumber,
+              ),
+            ),
+          ),
+        ),
+      fetchSeasonMatchIds: (year) =>
+        fetchHtml(matchListUrl(year)).pipe(
+          Effect.flatMap((html) =>
+            parseWith("Failed to parse match IDs", () => parseMatchIds(html)),
+          ),
+        ),
+      fetchPlayerList: (teamName) => {
+        const slug = teamNameToFootyWireSlug(teamName);
+
+        if (!slug) {
+          return Effect.fail(
+            new ScrapeError({
+              message: `No FootyWire slug mapping for team: ${teamName}`,
+              source: "footywire",
+            }),
+          );
+        }
+
+        return fetchHtml(`${FOOTYWIRE_BASE}/tp-${slug}`).pipe(
+          Effect.flatMap((html) =>
+            parseWith("Failed to parse player list", () =>
+              parseFootyWirePlayerList(html, teamName),
+            ),
+          ),
         );
+      },
+      fetchSeasonFixture: (year, competition = "AFLM") =>
+        fetchHtml(matchListUrl(year)).pipe(
+          Effect.flatMap((html) =>
+            parseResultWith("Failed to parse fixture list", () =>
+              parseFixtureList(html, year, competition),
+            ),
+          ),
+        ),
+      fetchTeamStats: (year, summaryType = "totals") => {
+        const teamType = summaryType === "averages" ? "TA" : "TT";
+        const oppType = summaryType === "averages" ? "OA" : "OT";
+
+        return fetchPair(
+          `${FOOTYWIRE_BASE}/ft_team_rankings?year=${year}&type=${teamType}&sby=2`,
+          `${FOOTYWIRE_BASE}/ft_team_rankings?year=${year}&type=${oppType}&sby=2`,
+        ).pipe(
+          Effect.flatMap(([teamHtml, oppHtml]) =>
+            parseWith("Failed to parse team stats", () =>
+              // Merge into canonical for/against TeamStatsEntry per team
+              mergeTeamAndOppStats(
+                parseFootyWireTeamStats(teamHtml, year),
+                parseFootyWireTeamStats(oppHtml, year),
+                year,
+              ),
+            ),
+          ),
+        );
+      },
+    };
+  }),
+);
+
+/** The failure for a match row whose required date does not parse. */
+function unparseableDate(dateText: string): ScrapeError {
+  return new ScrapeError({
+    message: `Unable to parse required FootyWire match date: ${JSON.stringify(dateText)}`,
+    source: "footywire",
+  });
+}
+
+/**
+ * Parse match IDs and round numbers from a FootyWire match list page.
+ *
+ * @param html - Raw HTML from the FootyWire match list page.
+ */
+function parseMatchIds(html: string): FootyWireMatchIdEntry[] {
+  const $ = parseHtml(html);
+  const entries: FootyWireMatchIdEntry[] = [];
+  let currentRound = 0;
+  let lastHARound = 0;
+
+  $("tr").each((_i, row) => {
+    const roundHeader = $(row).find("td[colspan='7']");
+
+    if (roundHeader.length > 0) {
+      const text = roundHeader.text().trim();
+      const roundMatch = /Round\s+(\d+)/i.exec(text);
+
+      if (roundMatch?.[1]) {
+        currentRound = Number.parseInt(roundMatch[1], 10);
+
+        if (inferRoundType(text) === "HomeAndAway") {
+          lastHARound = currentRound;
+        }
+      } else if (inferRoundType(text) === "Finals") {
+        currentRound = finalsRoundNumber(text, lastHARound);
       }
 
-      const html = await response.text();
-
-      return ok(html);
-    } catch (cause) {
-      return err(
-        new ScrapeError(
-          `FootyWire request failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-          "footywire",
-        ),
-      );
-    }
-  }
-
-  /**
-   * Fetch season match results from FootyWire.
-   *
-   * @param year - The season year.
-   * @returns Array of match results.
-   */
-  async fetchSeasonResults(year: number): Promise<Result<Match[], ScrapeError>> {
-    const url = `${FOOTYWIRE_BASE}/ft_match_list?year=${year}`;
-    const htmlResult = await this.fetchHtml(url);
-
-    if (!htmlResult.success) {
-      return htmlResult;
+      return;
     }
 
-    try {
-      const results = parseMatchList(htmlResult.data, year);
+    const scoreLink = $(row).find(".data:nth-child(5) a");
 
-      return ok(results);
-    } catch (cause) {
-      return err(
-        new ScrapeError(
-          `Failed to parse match list: ${cause instanceof Error ? cause.message : String(cause)}`,
-          "footywire",
-        ),
-      );
+    if (scoreLink.length === 0) return;
+
+    const href = scoreLink.attr("href") ?? "";
+    const midMatch = /mid=(\d+)/.exec(href);
+
+    if (midMatch?.[1]) {
+      entries.push({ matchId: midMatch[1], roundNumber: currentRound });
     }
-  }
+  });
 
-  /**
-   * Fetch player statistics for a single match.
-   *
-   * Scrapes both the basic and advanced stats pages.
-   * Available from 2010 onwards.
-   *
-   * @param matchId - The FootyWire match ID (numeric string).
-   * @param season - The season year.
-   * @param roundNumber - The round number.
-   */
-  async fetchMatchPlayerStats(
-    matchId: string,
-    season: number,
-    roundNumber: number,
-  ): Promise<Result<PlayerStats[], ScrapeError>> {
-    const basicUrl = `${FOOTYWIRE_BASE}/ft_match_statistics?mid=${matchId}`;
-    const advancedUrl = `${FOOTYWIRE_BASE}/ft_match_statistics?mid=${matchId}&advv=Y`;
-
-    const [basicResult, advancedResult] = await Promise.all([
-      this.fetchHtml(basicUrl),
-      this.fetchHtml(advancedUrl),
-    ]);
-
-    if (!basicResult.success) return basicResult;
-
-    if (!advancedResult.success) return advancedResult;
-
-    try {
-      const basicTeams = parseBasicStats(basicResult.data);
-      const advancedTeams = parseAdvancedStats(advancedResult.data);
-      const stats = mergeFootyWireStats(basicTeams, advancedTeams, matchId, season, roundNumber);
-
-      return ok(stats);
-    } catch (cause) {
-      return err(
-        new ScrapeError(
-          `Failed to parse match stats: ${cause instanceof Error ? cause.message : String(cause)}`,
-          "footywire",
-        ),
-      );
-    }
-  }
-
-  /**
-   * Fetch match IDs from a season's match list page.
-   *
-   * Extracts `mid=XXXX` values from score links alongside round numbers.
-   *
-   * @param year - The season year.
-   * @returns Array of match ID + round number pairs.
-   */
-  async fetchSeasonMatchIds(
-    year: number,
-  ): Promise<Result<Array<{ matchId: string; roundNumber: number }>, ScrapeError>> {
-    const url = `${FOOTYWIRE_BASE}/ft_match_list?year=${year}`;
-    const htmlResult = await this.fetchHtml(url);
-
-    if (!htmlResult.success) return htmlResult;
-
-    try {
-      const $ = parseHtml(htmlResult.data);
-      const entries: Array<{ matchId: string; roundNumber: number }> = [];
-      let currentRound = 0;
-      let lastHARound = 0;
-
-      $("tr").each((_i, row) => {
-        const roundHeader = $(row).find("td[colspan='7']");
-
-        if (roundHeader.length > 0) {
-          const text = roundHeader.text().trim();
-          const roundMatch = /Round\s+(\d+)/i.exec(text);
-
-          if (roundMatch?.[1]) {
-            currentRound = Number.parseInt(roundMatch[1], 10);
-
-            if (inferRoundType(text) === "HomeAndAway") {
-              lastHARound = currentRound;
-            }
-          } else if (inferRoundType(text) === "Finals") {
-            currentRound = finalsRoundNumber(text, lastHARound);
-          }
-
-          return;
-        }
-
-        const scoreLink = $(row).find(".data:nth-child(5) a");
-
-        if (scoreLink.length === 0) return;
-
-        const href = scoreLink.attr("href") ?? "";
-        const midMatch = /mid=(\d+)/.exec(href);
-
-        if (midMatch?.[1]) {
-          entries.push({ matchId: midMatch[1], roundNumber: currentRound });
-        }
-      });
-
-      return ok(entries);
-    } catch (cause) {
-      return err(
-        new ScrapeError(
-          `Failed to parse match IDs: ${cause instanceof Error ? cause.message : String(cause)}`,
-          "footywire",
-        ),
-      );
-    }
-  }
-
-  /**
-   * Fetch player list (team history) from FootyWire.
-   *
-   * Scrapes the team history page (e.g. `th-hawthorn-hawks`) which lists
-   * all players who have played for that team.
-   *
-   * @param teamName - Canonical team name (e.g. "Hawthorn").
-   * @returns Array of player details (without source/competition fields).
-   */
-  async fetchPlayerList(
-    teamName: string,
-  ): Promise<Result<Omit<PlayerDetails, "source" | "competition">[], ScrapeError>> {
-    const slug = teamNameToFootyWireSlug(teamName);
-
-    if (!slug) {
-      return err(new ScrapeError(`No FootyWire slug mapping for team: ${teamName}`, "footywire"));
-    }
-
-    const url = `${FOOTYWIRE_BASE}/tp-${slug}`;
-    const htmlResult = await this.fetchHtml(url);
-
-    if (!htmlResult.success) return htmlResult;
-
-    try {
-      const players = parseFootyWirePlayerList(htmlResult.data, teamName);
-
-      return ok(players);
-    } catch (cause) {
-      return err(
-        new ScrapeError(
-          `Failed to parse player list: ${cause instanceof Error ? cause.message : String(cause)}`,
-          "footywire",
-        ),
-      );
-    }
-  }
-
-  /**
-   * Fetch fixture data from FootyWire.
-   *
-   * Parses the match list page to extract scheduled matches with dates and venues.
-   *
-   * @param year - The season year.
-   * @param competition - Used to roll cross-calendar dates to year + 1 when
-   *   the parsed month precedes the season opener. Defaults to AFLM (no
-   *   rollover triggers for calendar-year-aligned seasons).
-   * @returns Array of fixture entries.
-   */
-  async fetchSeasonFixture(
-    year: number,
-    competition: CompetitionCode = "AFLM",
-  ): Promise<Result<Match[], ScrapeError>> {
-    const url = `${FOOTYWIRE_BASE}/ft_match_list?year=${year}`;
-    const htmlResult = await this.fetchHtml(url);
-
-    if (!htmlResult.success) return htmlResult;
-
-    try {
-      const fixtures = parseFixtureList(htmlResult.data, year, competition);
-
-      return ok(fixtures);
-    } catch (cause) {
-      return err(
-        new ScrapeError(
-          `Failed to parse fixture list: ${cause instanceof Error ? cause.message : String(cause)}`,
-          "footywire",
-        ),
-      );
-    }
-  }
-
-  /**
-   * Fetch team statistics from FootyWire.
-   *
-   * Scrapes team-level aggregate stats (totals or averages) for a season.
-   *
-   * @param year - The season year.
-   * @param summaryType - "totals" or "averages" (default "totals").
-   * @returns Array of team stats entries.
-   */
-  async fetchTeamStats(
-    year: number,
-    summaryType: "totals" | "averages" = "totals",
-  ): Promise<Result<TeamStatsEntry[], ScrapeError>> {
-    const teamType = summaryType === "averages" ? "TA" : "TT";
-    const oppType = summaryType === "averages" ? "OA" : "OT";
-    const teamUrl = `${FOOTYWIRE_BASE}/ft_team_rankings?year=${year}&type=${teamType}&sby=2`;
-    const oppUrl = `${FOOTYWIRE_BASE}/ft_team_rankings?year=${year}&type=${oppType}&sby=2`;
-
-    const [teamResult, oppResult] = await Promise.all([
-      this.fetchHtml(teamUrl),
-      this.fetchHtml(oppUrl),
-    ]);
-
-    if (!teamResult.success) return teamResult;
-
-    if (!oppResult.success) return oppResult;
-
-    try {
-      const teamStats = parseFootyWireTeamStats(teamResult.data, year);
-      const oppStats = parseFootyWireTeamStats(oppResult.data, year);
-
-      // Merge into canonical for/against TeamStatsEntry per team
-      const merged = mergeTeamAndOppStats(teamStats, oppStats, year);
-
-      return ok(merged);
-    } catch (cause) {
-      return err(
-        new ScrapeError(
-          `Failed to parse team stats: ${cause instanceof Error ? cause.message : String(cause)}`,
-          "footywire",
-        ),
-      );
-    }
-  }
+  return entries;
 }
 
 /**
@@ -347,11 +337,13 @@ export class FootyWireClient {
  *
  * @param html - Raw HTML from the FootyWire match list page.
  * @param year - The season year used for date parsing and metadata.
- * @returns Array of match results extracted from the page.
+ * @returns The match results extracted from the page, or a `ScrapeError`
+ *   for the first row whose required date does not parse.
  */
-export function parseMatchList(html: string, year: number): Match[] {
+export function parseMatchList(html: string, year: number): Result.Result<Match[], ScrapeError> {
   const $ = parseHtml(html);
   const results: Match[] = [];
+  let failure: ScrapeError | undefined;
   let currentRound = 0;
   let lastHARound = 0;
   let currentRoundType: RoundType = "HomeAndAway";
@@ -421,7 +413,9 @@ export function parseMatchList(html: string, year: number): Match[] {
     const date = parseDate(dateText, { defaultYear: year, venue: canonicalVenue });
 
     if (!date) {
-      throw new Error(`Unable to parse required FootyWire match date: ${JSON.stringify(dateText)}`);
+      failure = unparseableDate(dateText);
+
+      return false;
     }
 
     // FootyWire's match-list page only carries total points — goals/behinds
@@ -473,7 +467,7 @@ export function parseMatchList(html: string, year: number): Match[] {
     });
   });
 
-  return results;
+  return failure ? Result.fail(failure) : Result.succeed(results);
 }
 
 /**
@@ -505,15 +499,18 @@ const SEASON_OPENER_MONTH: Record<CompetitionCode, number> = {
  *   parsed month is before the season opener are rolled to `year + 1`.
  * @param competition - Used to look up the season opener month. Defaults
  *   to AFLM since FootyWire AFLW coverage is not yet wired up.
+ * @returns The fixtures, or a `ScrapeError` for the first row whose
+ *   required date does not parse.
  */
 export function parseFixtureList(
   html: string,
   year: number,
   competition: CompetitionCode = "AFLM",
-): Match[] {
+): Result.Result<Match[], ScrapeError> {
   const openerMonth = SEASON_OPENER_MONTH[competition];
   const $ = parseHtml(html);
   const fixtures: Match[] = [];
+  let failure: ScrapeError | undefined;
   let currentRound = 0;
   let lastHARound = 0;
   let currentRoundType: RoundType = "HomeAndAway";
@@ -560,7 +557,9 @@ export function parseFixtureList(
     const initialDate = parseDate(dateText, { defaultYear: year, venue: canonicalVenue });
 
     if (!initialDate) {
-      throw new Error(`Unable to parse required FootyWire match date: ${JSON.stringify(dateText)}`);
+      failure = unparseableDate(dateText);
+
+      return false;
     }
 
     // Cross-calendar rollover: parseDate used `year` as the default. If the
@@ -643,8 +642,40 @@ export function parseFixtureList(
     });
   });
 
-  return fixtures;
+  return failure ? Result.fail(failure) : Result.succeed(fixtures);
 }
+
+/** Intermediate per-direction parse result before for/against merge. */
+interface FootyWireDirectionEntry {
+  readonly team: string;
+  readonly gamesPlayed: number | null;
+  readonly metrics: TeamMetricSet;
+}
+
+/**
+ * Canonical TeamMetricSet fields in FootyWire column order (0-indexed
+ * columns 3-19): K, HB, D, M, G, GA, I50, BH, T, HO, FF, FA, CL, CG, R50,
+ * AF, SC.
+ */
+const FOOTYWIRE_METRIC_COLUMNS = [
+  "kicks",
+  "handballs",
+  "disposals",
+  "marks",
+  "goals",
+  "goalAssists",
+  "inside50s",
+  "behinds",
+  "tackles",
+  "hitouts",
+  "freesFor",
+  "freesAgainst",
+  "clearances",
+  "clangers",
+  "rebound50s",
+  "fantasyPoints",
+  "supercoachPoints",
+] as const satisfies ReadonlyArray<keyof TeamMetricSet>;
 
 /**
  * Parse FootyWire team statistics HTML into TeamStatsEntry objects.
@@ -658,41 +689,10 @@ export function parseFixtureList(
  *
  * @param html - Raw HTML from the FootyWire team rankings page.
  * @param year - The season year.
- * @param suffix - "for" or "against" to prefix stat keys.
- * @returns Array of team stats entries.
+ *   The year is retained for API symmetry (callers may want to pass it for
+ *   future per-year branching) even though the canonical entry is built later.
+ * @returns One per-direction entry per team.
  */
-/** Intermediate per-direction parse result before for/against merge. */
-interface FootyWireDirectionEntry {
-  readonly team: string;
-  readonly gamesPlayed: number | null;
-  readonly metrics: TeamMetricSet;
-}
-
-/** FootyWire short-code → canonical TeamMetricSet field. */
-const FOOTYWIRE_METRIC_MAP: Readonly<Record<string, keyof TeamMetricSet>> = {
-  K: "kicks",
-  HB: "handballs",
-  D: "disposals",
-  M: "marks",
-  G: "goals",
-  GA: "goalAssists",
-  I50: "inside50s",
-  BH: "behinds",
-  T: "tackles",
-  HO: "hitouts",
-  FF: "freesFor",
-  FA: "freesAgainst",
-  CL: "clearances",
-  CG: "clangers",
-  R50: "rebound50s",
-  AF: "fantasyPoints",
-  SC: "supercoachPoints",
-};
-
-const FOOTYWIRE_STAT_KEYS = Object.keys(FOOTYWIRE_METRIC_MAP);
-
-// year retained for API symmetry (callers may want to pass it for future
-// per-year branching) even though the canonical entry is built later.
 export function parseFootyWireTeamStats(html: string, _year: number): FootyWireDirectionEntry[] {
   const $ = parseHtml(html);
   const entries: FootyWireDirectionEntry[] = [];
@@ -725,16 +725,10 @@ export function parseFootyWireTeamStats(html: string, _year: number): FootyWireD
     const gamesPlayed = Number.isFinite(parsedGamesPlayed) ? parsedGamesPlayed : null;
     const metrics = emptyMetricSet();
 
-    // Columns 3-19 (0-indexed) map to FOOTYWIRE_STAT_KEYS
-    for (let i = 0; i < FOOTYWIRE_STAT_KEYS.length; i++) {
-      const shortCode = FOOTYWIRE_STAT_KEYS[i];
-
-      if (shortCode == null) continue;
-      const canonical = FOOTYWIRE_METRIC_MAP[shortCode];
-
-      if (canonical == null) continue;
+    // Columns 3-19 (0-indexed) map to FOOTYWIRE_METRIC_COLUMNS
+    FOOTYWIRE_METRIC_COLUMNS.forEach((canonical, i) => {
       metrics[canonical] = parseNum($(cells[i + 3]));
-    }
+    });
 
     entries.push({
       team: teamName,
@@ -842,24 +836,20 @@ function parseFootyWirePlayerList(
   // The R package finds the table whose first row contains "Age".
   // Columns: No(0), Name(1), Games(2), Age(3), Date of Birth(4), Height(5), Origin(6), Position(7)
   // Name is "Surname, FirstName" format.
-  let dataRows: ReturnType<typeof $> | null = null;
+  const dataTable = $("table")
+    .filter((_i, table) => {
+      const firstRow = $(table).find("tr").first();
+      const cells = firstRow.find("td, th");
+      // Match the R package: look for a row with an "Age" cell specifically
+      const cellTexts = cells.map((_j, c) => $(c).text().trim()).get();
 
-  $("table").each((_i, table) => {
-    const firstRow = $(table).find("tr").first();
-    const cells = firstRow.find("td, th");
-    // Match the R package: look for a row with an "Age" cell specifically
-    const cellTexts = cells.map((_j, c) => $(c).text().trim()).get();
+      return cellTexts.includes("Age") && cellTexts.includes("Name");
+    })
+    .first();
 
-    if (cellTexts.includes("Age") && cellTexts.includes("Name")) {
-      dataRows = $(table).find("tr");
+  if (dataTable.length === 0) return players;
 
-      return false; // break
-    }
-  });
-
-  if (!dataRows) return players;
-
-  (dataRows as ReturnType<typeof $>).each((_rowIdx, row) => {
+  dataTable.find("tr").each((_rowIdx, row) => {
     const cells = $(row).find("td");
 
     if (cells.length < 6) return;

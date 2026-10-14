@@ -1,3 +1,4 @@
+import { Effect } from "effect";
 import { fetchSeasons } from "../../api/season";
 import { defineFitzroyCommand } from "../command-builder";
 import { COMPETITION_FLAG, OUTPUT_FLAGS } from "../flags";
@@ -13,5 +14,6 @@ export const seasonsCommand = defineFitzroyCommand({
     { key: "displayName", label: "Name" },
     { key: "providerSeasonId", label: "Provider ID" },
   ],
-  run: (args) => fetchSeasons(validateCompetition(String(args.competition))),
+  run: (args) =>
+    Effect.fromResult(validateCompetition(args.competition)).pipe(Effect.flatMap(fetchSeasons)),
 });

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { defineCommand, runMain } from "citty";
+import { Cause } from "effect";
 import { resolveAliases } from "./cli/alias-resolution";
-import { formatError } from "./cli/error-boundary";
+import { formatCause } from "./cli/error-boundary";
 
 resolveAliases();
 
@@ -24,7 +25,9 @@ const main = defineCommand({
   },
 });
 
-runMain(main).catch((error: unknown) => {
-  console.error(formatError(error));
+// Command failures are handled by each command's `runCommand` boundary; this
+// catches anything Citty itself lets escape.
+runMain(main).catch((cause: unknown) => {
+  console.error(formatCause(Cause.die(cause)));
   process.exit(1);
 });

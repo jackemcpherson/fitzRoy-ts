@@ -6,15 +6,15 @@
  * in-place before citty parses it, mapping `-s` → `--season`, etc.
  */
 
-const SHORT_TO_LONG: Readonly<Record<string, string>> = {
-  "-s": "--season",
-  "-r": "--round",
-  "-c": "--competition",
-  "-j": "--json",
-  "-t": "--team",
-  "-p": "--player",
-  "-o": "--format",
-};
+const SHORT_TO_LONG: ReadonlyMap<string, string> = new Map([
+  ["-s", "--season"],
+  ["-r", "--round"],
+  ["-c", "--competition"],
+  ["-j", "--json"],
+  ["-t", "--team"],
+  ["-p", "--player"],
+  ["-o", "--format"],
+]);
 
 /** Rewrite short flags in `process.argv` to their long equivalents. */
 export function resolveAliases(): void {
@@ -22,7 +22,7 @@ export function resolveAliases(): void {
     const arg = process.argv[i];
 
     if (arg != null) {
-      const long = SHORT_TO_LONG[arg];
+      const long = SHORT_TO_LONG.get(arg);
 
       if (long) {
         process.argv[i] = long;

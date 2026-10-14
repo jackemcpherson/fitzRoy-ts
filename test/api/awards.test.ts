@@ -1,18 +1,21 @@
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import { err, ok } from "../../src/lib/result";
-import { AflCoachesClient } from "../../src/sources/afl-coaches";
-import type { Match, PlayerStats } from "../../src/types";
-
-const { fetchMatchesMock, fetchPlayerStatsMock } = vi.hoisted(() => ({
-  fetchMatchesMock: vi.fn(),
-  fetchPlayerStatsMock: vi.fn(),
-}));
-
-vi.mock("../../src/api/match", () => ({ fetchMatches: fetchMatchesMock }));
-
-vi.mock("../../src/api/player-stats", () => ({ fetchPlayerStats: fetchPlayerStatsMock }));
-
+import { describe, expect, it } from "@effect/vitest";
+import { Effect, Layer } from "effect";
 import { fetchAwards } from "../../src/api/awards";
+import { ScrapeError } from "../../src/lib/errors";
+import type { MatchSource, PlayerStatsSource } from "../../src/sources/adapters/capabilities";
+import { CapabilityRegistry } from "../../src/sources/adapters/registry";
+import { AflCoaches } from "../../src/sources/afl-coaches";
+import type {
+  CoachesVote,
+  CoachesVotesResult,
+  Match,
+  MatchQuery,
+  PlayerStatsQuery,
+  SeasonPlayerStats,
+} from "../../src/types";
+import { matchFixture as match, playerStatsFixture as playerStats } from "../support/domain";
+import { type RequestLog, requestLog } from "../support/http";
+import { FULL_COVERAGE, fixtureFitzroy, stubRegistry, unexpectedCall } from "../support/services";
 
 function brownlowHtml(): string {
   const rows = [
@@ -88,379 +91,300 @@ function risingStarHtml(): string {
   return `<table>${[header, player, ...filler].map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("")}</table>`;
 }
 
-function stubFootyWire(body: string, status = 200): ReturnType<typeof vi.fn> {
-  const fetchStub = vi.fn(() => Promise.resolve(new Response(body, { status })));
-  vi.stubGlobal("fetch", fetchStub);
-
-  return fetchStub;
+/** The library environment with every FootyWire request answered by `body`. */
+function footyWireServing(body: string, log: RequestLog, status = 200) {
+  return fixtureFitzroy([[/./, { body, status }]], log);
 }
 
-function match(matchId: string, roundType: Match["roundType"]): Match {
-  return {
-    matchId,
-    season: 2025,
-    roundNumber: roundType === "HomeAndAway" ? 1 : 25,
-    roundType,
-    roundName: roundType === "HomeAndAway" ? "Round 1" : "Qualifying Final",
-    date: new Date("2025-03-14T08:40:00Z"),
-    venue: "MCG",
-    homeTeam: "Carlton",
-    awayTeam: "Richmond",
-    homeGoals: 10,
-    homeBehinds: 5,
-    homePoints: 65,
-    awayGoals: 8,
-    awayBehinds: 5,
-    awayPoints: 53,
-    margin: 12,
-    q1Home: null,
-    q2Home: null,
-    q3Home: null,
-    q4Home: null,
-    q1Away: null,
-    q2Away: null,
-    q3Away: null,
-    q4Away: null,
-    status: "Complete",
-    livePeriodStatus: null,
-    matchClockPeriods: null,
-    completedQuarter: null,
-    attendance: null,
-    weatherTempCelsius: null,
-    weatherType: null,
-    roundCode: roundType === "HomeAndAway" ? "R1" : "QF",
-    venueState: "VIC",
-    venueTimezone: "Australia/Melbourne",
-    venueLocalDate: "2025-03-14T19:40:00",
-    homeRushedBehinds: null,
-    awayRushedBehinds: null,
-    homeMinutesInFront: null,
-    awayMinutesInFront: null,
-    source: "afl-api",
-    competition: "AFLM",
+/** An AFL Coaches service answering with fixed votes. */
+function coachesServing(service: {
+  readonly scrapeRoundVotes?: () => Effect.Effect<CoachesVote[], ScrapeError>;
+  readonly fetchSeasonVotes?: () => Effect.Effect<CoachesVotesResult, ScrapeError>;
+}) {
+  return Layer.succeed(AflCoaches, {
+    scrapeRoundVotes: service.scrapeRoundVotes ?? unexpectedCall("scrapeRoundVotes"),
+    fetchSeasonVotes: service.fetchSeasonVotes ?? unexpectedCall("fetchSeasonVotes"),
+  });
+}
+
+/** The queries the Coleman adapters received. */
+interface ColemanCalls {
+  readonly matches: MatchQuery[];
+  readonly stats: PlayerStatsQuery[];
+}
+
+/**
+ * A registry with AFL API match and player-stats adapters answering with
+ * fixed data and recording the queries they receive.
+ */
+function colemanRegistry(
+  matches: Effect.Effect<Match[], ScrapeError>,
+  stats: Effect.Effect<SeasonPlayerStats, ScrapeError>,
+  calls?: ColemanCalls,
+) {
+  const matchSource: MatchSource = {
+    id: "afl-api",
+    coverage: FULL_COVERAGE,
+    fetchMatches: (query) => {
+      calls?.matches.push(query);
+
+      return matches;
+    },
   };
-}
 
-function playerStats(
-  matchId: string,
-  playerId: string,
-  displayName: string,
-  goals: number,
-  team = "Carlton",
-): PlayerStats {
-  return {
-    matchId,
-    season: 2025,
-    roundNumber: 1,
-    team,
-    competition: "AFLM",
-    date: null,
-    homeTeam: null,
-    awayTeam: null,
-    playerId,
-    givenName: displayName.split(" ")[0] ?? "",
-    surname: displayName.split(" ")[1] ?? "",
-    displayName,
-    jumperNumber: null,
-    kicks: null,
-    handballs: null,
-    disposals: null,
-    marks: null,
-    goals,
-    behinds: null,
-    tackles: null,
-    hitouts: null,
-    freesFor: null,
-    freesAgainst: null,
-    contestedPossessions: null,
-    uncontestedPossessions: null,
-    contestedMarks: null,
-    intercepts: null,
-    centreClearances: null,
-    stoppageClearances: null,
-    totalClearances: null,
-    inside50s: null,
-    rebound50s: null,
-    clangers: null,
-    turnovers: null,
-    onePercenters: null,
-    bounces: null,
-    goalAssists: null,
-    disposalEfficiency: null,
-    metresGained: null,
-    goalAccuracy: null,
-    marksInside50: null,
-    tacklesInside50: null,
-    shotsAtGoal: null,
-    scoreInvolvements: null,
-    totalPossessions: null,
-    timeOnGroundPercentage: null,
-    ratingPoints: null,
-    position: null,
-    goalEfficiency: null,
-    shotEfficiency: null,
-    interchangeCounts: null,
-    brownlowVotes: null,
-    supercoachScore: null,
-    dreamTeamPoints: null,
-    effectiveDisposals: null,
-    effectiveKicks: null,
-    kickEfficiency: null,
-    kickToHandballRatio: null,
-    pressureActs: null,
-    defHalfPressureActs: null,
-    spoils: null,
-    hitoutsToAdvantage: null,
-    hitoutWinPercentage: null,
-    hitoutToAdvantageRate: null,
-    groundBallGets: null,
-    f50GroundBallGets: null,
-    interceptMarks: null,
-    marksOnLead: null,
-    contestedPossessionRate: null,
-    contestOffOneOnOnes: null,
-    contestOffWins: null,
-    contestOffWinsPercentage: null,
-    contestDefOneOnOnes: null,
-    contestDefLosses: null,
-    contestDefLossPercentage: null,
-    centreBounceAttendances: null,
-    kickins: null,
-    kickinsPlayon: null,
-    ruckContests: null,
-    scoreLaunches: null,
-    source: "afl-api",
+  const statsSource: PlayerStatsSource = {
+    id: "afl-api",
+    coverage: FULL_COVERAGE,
+    fetchPlayerStats: (query) => {
+      calls?.stats.push(query);
+
+      return stats;
+    },
   };
-}
 
-afterEach(() => {
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  fetchMatchesMock.mockReset();
-  fetchPlayerStatsMock.mockReset();
-});
+  return stubRegistry({
+    match: new CapabilityRegistry("afl-api", [matchSource]),
+    playerStats: new CapabilityRegistry("afl-api", [statsSource]),
+  });
+}
 
 describe("fetchAwards FootyWire routing", () => {
-  it.each([
+  it.effect.each([
     ["brownlow", "brownlow_medal", brownlowHtml(), "Blue Leader"],
     ["all-australian", "all_australian_selection", allAustralianHtml(), "Blue Defender"],
     ["rising-star", "rising_star_nominations", risingStarHtml(), "Blue Youngster"],
-  ] as const)("routes and parses %s", async (award, path, html, player) => {
-    const fetchStub = stubFootyWire(html);
+  ] as const)("routes and parses %s", ([award, path, html, player]) => {
+    const log = requestLog();
 
-    const result = await fetchAwards({ award, season: 2025 });
+    return Effect.gen(function* () {
+      const result = yield* fetchAwards({ award, season: 2025 });
 
-    expect(result.success).toBe(true);
-
-    if (!result.success) return;
-    expect(result.data.awards.some((entry) => "player" in entry && entry.player === player)).toBe(
-      true,
-    );
-    expect(result.data.failedRounds).toEqual([]);
-    expect(fetchStub).toHaveBeenCalledOnce();
-    expect(String(fetchStub.mock.calls[0]?.[0])).toContain(`${path}?year=2025`);
+      expect(result.awards.some((entry) => "player" in entry && entry.player === player)).toBe(
+        true,
+      );
+      expect(result.failedRounds).toEqual([]);
+      expect(log.urls).toHaveLength(1);
+      expect(log.urls[0]).toContain(`${path}?year=2025`);
+    }).pipe(Effect.provide(footyWireServing(html, log)));
   });
 
-  it.each(["AFLW", "VFL", "VFLW"] as const)(
+  it.effect.each(["AFLW", "VFL", "VFLW"] as const)(
     "rejects FootyWire awards for %s without fetching",
-    async (competition) => {
-      const fetchStub = stubFootyWire(brownlowHtml());
+    (competition) => {
+      const log = requestLog();
 
-      const result = await fetchAwards({ award: "brownlow", season: 2025, competition });
+      return Effect.gen(function* () {
+        yield* Effect.flip(fetchAwards({ award: "brownlow", season: 2025, competition }));
 
-      expect(result.success).toBe(false);
-      expect(fetchStub).not.toHaveBeenCalled();
+        expect(log.urls).toEqual([]);
+      }).pipe(Effect.provide(footyWireServing(brownlowHtml(), log)));
     },
   );
 
-  it("propagates a non-OK upstream response", async () => {
-    stubFootyWire("upstream unavailable", 503);
+  it.effect("propagates a non-OK upstream response", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(fetchAwards({ award: "brownlow", season: 2025 }));
 
-    const result = await fetchAwards({ award: "brownlow", season: 2025 });
+      expect(error.message).toContain("503");
+    }).pipe(Effect.provide(footyWireServing("upstream unavailable", requestLog(), 503))),
+  );
 
-    expect(result.success).toBe(false);
+  it.effect("fails when parsing yields no rows", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(fetchAwards({ award: "all-australian", season: 2025 }));
 
-    if (!result.success) expect(result.error.message).toContain("503");
-  });
+      expect(error.message).toContain("No All-Australian data");
+    }).pipe(
+      Effect.provide(footyWireServing("<html><body>No award table</body></html>", requestLog())),
+    ),
+  );
 
-  it("returns an error when parsing yields no rows", async () => {
-    stubFootyWire("<html><body>No award table</body></html>");
+  it.effect("applies team filtering before limit", () =>
+    Effect.gen(function* () {
+      const result = yield* fetchAwards({
+        award: "brownlow",
+        season: 2025,
+        team: "Blues",
+        limit: 1,
+      });
 
-    const result = await fetchAwards({ award: "all-australian", season: 2025 });
-
-    expect(result.success).toBe(false);
-
-    if (!result.success) expect(result.error.message).toContain("No All-Australian data");
-  });
-
-  it("applies team filtering before limit", async () => {
-    stubFootyWire(brownlowHtml());
-
-    const result = await fetchAwards({ award: "brownlow", season: 2025, team: "Blues", limit: 1 });
-
-    expect(result.success).toBe(true);
-
-    if (!result.success) return;
-    expect(result.data.awards).toHaveLength(1);
-    expect(result.data.awards[0]).toMatchObject({ player: "Blue Leader", team: "Carlton" });
-  });
+      expect(result.awards).toHaveLength(1);
+      expect(result.awards[0]).toMatchObject({ player: "Blue Leader", team: "Carlton" });
+    }).pipe(Effect.provide(footyWireServing(brownlowHtml(), requestLog()))),
+  );
 });
 
 describe("fetchAwards coaches filtering", () => {
-  it("matches either home or away team and applies the limit", async () => {
-    vi.spyOn(AflCoachesClient.prototype, "fetchSeasonVotes").mockResolvedValue(
-      ok({
-        votes: [
-          {
-            type: "coaches",
-            season: 2025,
-            competition: "AFLM",
-            source: "afl-coaches",
-            round: 1,
-            homeTeam: "Carlton",
-            awayTeam: "Richmond",
-            player: "First Blue",
-            votes: 10,
-          },
-          {
-            type: "coaches",
-            season: 2025,
-            competition: "AFLM",
-            source: "afl-coaches",
-            round: 2,
-            homeTeam: "Collingwood",
-            awayTeam: "Carlton",
-            player: "Second Blue",
-            votes: 9,
-          },
-          {
-            type: "coaches",
-            season: 2025,
-            competition: "AFLM",
-            source: "afl-coaches",
-            round: 3,
-            homeTeam: "Richmond",
-            awayTeam: "Geelong",
-            player: "Tiger",
-            votes: 8,
-          },
-        ],
-        failedRounds: [4],
-      }),
-    );
+  it.effect("matches either home or away team and applies the limit", () =>
+    Effect.gen(function* () {
+      const result = yield* fetchAwards({
+        award: "coaches",
+        season: 2025,
+        team: "Blues",
+        limit: 1,
+      });
 
-    const result = await fetchAwards({ award: "coaches", season: 2025, team: "Blues", limit: 1 });
+      expect(result.awards).toHaveLength(1);
+      expect(result.awards[0]).toMatchObject({ player: "First Blue" });
+      expect(result.failedRounds).toEqual([4]);
+    }).pipe(
+      Effect.provide(
+        coachesServing({
+          fetchSeasonVotes: () =>
+            Effect.succeed({
+              votes: [
+                {
+                  type: "coaches",
+                  season: 2025,
+                  competition: "AFLM",
+                  source: "afl-coaches",
+                  round: 1,
+                  homeTeam: "Carlton",
+                  awayTeam: "Richmond",
+                  player: "First Blue",
+                  votes: 10,
+                },
+                {
+                  type: "coaches",
+                  season: 2025,
+                  competition: "AFLM",
+                  source: "afl-coaches",
+                  round: 2,
+                  homeTeam: "Collingwood",
+                  awayTeam: "Carlton",
+                  player: "Second Blue",
+                  votes: 9,
+                },
+                {
+                  type: "coaches",
+                  season: 2025,
+                  competition: "AFLM",
+                  source: "afl-coaches",
+                  round: 3,
+                  homeTeam: "Richmond",
+                  awayTeam: "Geelong",
+                  player: "Tiger",
+                  votes: 8,
+                },
+              ],
+              failedRounds: [4],
+            }),
+        }),
+      ),
+      Effect.provide(fixtureFitzroy()),
+    ),
+  );
 
-    expect(result.success).toBe(true);
+  it.effect("uses an empty failure list for a successful single-round request", () =>
+    Effect.gen(function* () {
+      const result = yield* fetchAwards({ award: "coaches", season: 2025, round: 2 });
 
-    if (!result.success) return;
-    expect(result.data.awards).toHaveLength(1);
-    expect(result.data.awards[0]).toMatchObject({ player: "First Blue" });
-    expect(result.data.failedRounds).toEqual([4]);
-  });
-
-  it("uses an empty failure list for a successful single-round request", async () => {
-    vi.spyOn(AflCoachesClient.prototype, "scrapeRoundVotes").mockResolvedValue(
-      ok([
-        {
-          type: "coaches",
-          season: 2025,
-          competition: "AFLM",
-          source: "afl-coaches",
-          round: 2,
-          homeTeam: "Carlton",
-          awayTeam: "Richmond",
-          player: "Patrick Cripps",
-          votes: 10,
-        },
-      ]),
-    );
-
-    const result = await fetchAwards({ award: "coaches", season: 2025, round: 2 });
-
-    expect(result.success).toBe(true);
-
-    if (!result.success) return;
-    expect(result.data.awards).toHaveLength(1);
-    expect(result.data.failedRounds).toEqual([]);
-  });
+      expect(result.awards).toHaveLength(1);
+      expect(result.failedRounds).toEqual([]);
+    }).pipe(
+      Effect.provide(
+        coachesServing({
+          scrapeRoundVotes: () =>
+            Effect.succeed([
+              {
+                type: "coaches",
+                season: 2025,
+                competition: "AFLM",
+                source: "afl-coaches",
+                round: 2,
+                homeTeam: "Carlton",
+                awayTeam: "Richmond",
+                player: "Patrick Cripps",
+                votes: 10,
+              },
+            ]),
+        }),
+      ),
+      Effect.provide(fixtureFitzroy()),
+    ),
+  );
 });
 
 describe("fetchAwards Coleman orchestration", () => {
-  it("excludes finals stats by matching home-and-away match IDs", async () => {
-    fetchMatchesMock.mockResolvedValue(ok([match("H1", "HomeAndAway"), match("F1", "Finals")]));
-    fetchPlayerStatsMock.mockResolvedValue(
-      ok({
-        stats: [
-          playerStats("H1", "home-leader", "Home Leader", 5),
-          playerStats("F1", "finals-leader", "Finals Leader", 20),
-        ],
-        failedMatchIds: [],
-      }),
+  it.effect("excludes finals stats by matching home-and-away match IDs", () => {
+    const calls: ColemanCalls = { matches: [], stats: [] };
+
+    return Effect.gen(function* () {
+      const result = yield* fetchAwards({ award: "coleman", season: 2025 });
+
+      expect(result.awards.map((entry) => "player" in entry && entry.player)).toEqual([
+        "Home Leader",
+      ]);
+      expect(result.failedRounds).toEqual([]);
+      expect(calls.matches).toEqual([
+        { source: "afl-api", season: 2025, competition: "AFLM", status: "Complete" },
+      ]);
+      expect(calls.stats).toEqual([{ source: "afl-api", season: 2025, competition: "AFLM" }]);
+    }).pipe(
+      Effect.provide(
+        colemanRegistry(
+          Effect.succeed([match("H1", "HomeAndAway"), match("F1", "Finals")]),
+          Effect.succeed({
+            stats: [
+              playerStats("H1", "home-leader", "Home Leader", 5),
+              playerStats("F1", "finals-leader", "Finals Leader", 20),
+            ],
+            failedMatchIds: [],
+          }),
+          calls,
+        ),
+      ),
+      Effect.provide(fixtureFitzroy()),
     );
-
-    const result = await fetchAwards({ award: "coleman", season: 2025 });
-
-    expect(result.success).toBe(true);
-
-    if (!result.success) return;
-    expect(result.data.awards.map((entry) => "player" in entry && entry.player)).toEqual([
-      "Home Leader",
-    ]);
-    expect(result.data.failedRounds).toEqual([]);
-    expect(fetchMatchesMock).toHaveBeenCalledWith({
-      source: "afl-api",
-      season: 2025,
-      competition: "AFLM",
-      status: "Complete",
-    });
-    expect(fetchPlayerStatsMock).toHaveBeenCalledWith({
-      source: "afl-api",
-      season: 2025,
-      competition: "AFLM",
-    });
   });
 
-  it("filters the full Coleman field by team before applying the limit", async () => {
-    fetchMatchesMock.mockResolvedValue(ok([match("H1", "HomeAndAway")]));
-    fetchPlayerStatsMock.mockResolvedValue(
-      ok({
-        stats: [
-          playerStats("H1", "leader", "League Leader", 8, "Richmond"),
-          playerStats("H1", "blue-one", "First Blue", 6, "Carlton"),
-          playerStats("H1", "blue-two", "Second Blue", 5, "Carlton"),
-        ],
-        failedMatchIds: [],
-      }),
-    );
+  it.effect("filters the full Coleman field by team before applying the limit", () =>
+    Effect.gen(function* () {
+      const result = yield* fetchAwards({
+        award: "coleman",
+        season: 2025,
+        team: "Blues",
+        limit: 1,
+      });
 
-    const result = await fetchAwards({
-      award: "coleman",
-      season: 2025,
-      team: "Blues",
-      limit: 1,
-    });
+      expect(result.awards).toHaveLength(1);
+      expect(result.awards[0]).toMatchObject({ player: "First Blue", team: "Carlton" });
+    }).pipe(
+      Effect.provide(
+        colemanRegistry(
+          Effect.succeed([match("H1", "HomeAndAway")]),
+          Effect.succeed({
+            stats: [
+              playerStats("H1", "leader", "League Leader", 8, "Richmond"),
+              playerStats("H1", "blue-one", "First Blue", 6, "Carlton"),
+              playerStats("H1", "blue-two", "Second Blue", 5, "Carlton"),
+            ],
+            failedMatchIds: [],
+          }),
+        ),
+      ),
+      Effect.provide(fixtureFitzroy()),
+    ),
+  );
 
-    expect(result.success).toBe(true);
+  it.effect.each([
+    ["matches", new ScrapeError({ message: "matches unavailable", source: "afl-api" })],
+    ["stats", new ScrapeError({ message: "stats unavailable", source: "afl-api" })],
+  ] as const)("propagates %s upstream failure", ([failedSource, failure]) =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(fetchAwards({ award: "coleman", season: 2025 }));
 
-    if (!result.success) return;
-    expect(result.data.awards).toHaveLength(1);
-    expect(result.data.awards[0]).toMatchObject({ player: "First Blue", team: "Carlton" });
-  });
-
-  it.each([
-    ["matches", new Error("matches unavailable")],
-    ["stats", new Error("stats unavailable")],
-  ] as const)("propagates %s upstream failure", async (failedSource, failure) => {
-    fetchMatchesMock.mockResolvedValue(failedSource === "matches" ? err(failure) : ok([]));
-    fetchPlayerStatsMock.mockResolvedValue(
-      failedSource === "stats" ? err(failure) : ok({ stats: [], failedMatchIds: [] }),
-    );
-
-    const result = await fetchAwards({ award: "coleman", season: 2025 });
-
-    expect(result.success).toBe(false);
-
-    if (!result.success) expect(result.error).toBe(failure);
-  });
+      expect(error).toBe(failure);
+    }).pipe(
+      Effect.provide(
+        colemanRegistry(
+          failedSource === "matches" ? Effect.fail(failure) : Effect.succeed([]),
+          failedSource === "stats"
+            ? Effect.fail(failure)
+            : Effect.succeed({ stats: [], failedMatchIds: [] }),
+        ),
+      ),
+      Effect.provide(fixtureFitzroy()),
+    ),
+  );
 });

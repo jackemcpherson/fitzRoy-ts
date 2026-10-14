@@ -10,12 +10,14 @@
  */
 
 import { defineCommand } from "citty";
+import { Effect } from "effect";
 import { fetchLineup, fetchSquad, fetchTeams } from "../../index";
 import type { TeamResponse } from "../../types";
 import { rejectUnknownFlags } from "../command-builder";
-import { withErrorBoundary } from "../error-boundary";
+import { runCommand } from "../error-boundary";
 import { COMPETITION_FLAG, OUTPUT_FLAGS, ROUND_FLAG, SOURCE_FLAG, TEAM_FLAG } from "../flags";
 import {
+  type CellRecord,
   type FormatOptions,
   formatJson,
   formatOutput,
@@ -32,6 +34,7 @@ import {
   validateFormat,
   validateOptionalSeason,
   validateRound,
+  usage,
   validateSource,
 } from "../validation";
 
@@ -60,7 +63,7 @@ const LINEUP_COLUMNS: TableColumnConfig[] = [
 
 function printTeamResponse(
   jsonPayload: TeamResponse,
-  tableData: readonly object[],
+  tableData: readonly CellRecord[],
   formatOptions: FormatOptions,
 ): void {
   const resolvedFormat = resolveFormat(formatOptions);
@@ -87,144 +90,145 @@ export const teamCommand = defineCommand({
     description: "Team identity. Add -s for the season squad, -s -r for the match-day lineup.",
   },
   args: TEAM_ARGS,
-  run: withErrorBoundary(async ({ args }) => {
-    rejectUnknownFlags(TEAM_ARGS, process.argv);
-    const season = validateOptionalSeason(args.season);
-    const round = args.round ? validateRound(args.round) : undefined;
-    const source = validateSource(args.source);
-    const competition = validateCompetition(args.competition);
-    const format = validateFormat(args.format);
+  run: runCommand<typeof TEAM_ARGS>((args) =>
+    Effect.gen(function* () {
+      yield* Effect.fromResult(rejectUnknownFlags(TEAM_ARGS, process.argv));
+      const season = yield* Effect.fromResult(validateOptionalSeason(args.season));
+      const round = args.round ? yield* Effect.fromResult(validateRound(args.round)) : undefined;
+      const source = yield* Effect.fromResult(validateSource(args.source));
+      const competition = yield* Effect.fromResult(validateCompetition(args.competition));
+      const format = yield* Effect.fromResult(validateFormat(args.format));
 
-    const mode = validateTeamMode({
-      season,
-      round,
-      name: args.name,
-      team: args.team,
-      match: args.match,
-      matchId: args["match-id"],
-    });
-
-    // Dispatch by flag presence
-    if (mode === "lineup" && season != null && round != null) {
-      // Lineup mode
-      const teamInput = args.name ?? args.team;
-
-      const teamName = teamInput
-        ? await resolveTeamNameOrPrompt(
-            teamInput,
-            competition === "AFLM" || competition === "AFLW" ? undefined : [],
-          )
-        : undefined;
-
-      const matchResolution = await resolveMatchId({
-        matchIdArg: args["match-id"],
-        matchArg: args.match,
-        source,
-        competition,
-        season,
-        round,
-      });
-
-      const result = await withSpinner("Fetching lineups…", () =>
-        fetchLineup({
-          source,
+      const mode = yield* Effect.fromResult(
+        validateTeamMode({
           season,
           round,
-          matchId: matchResolution?.matchId,
-          competition,
+          name: args.name,
+          team: args.team,
+          match: args.match,
+          matchId: args["match-id"],
         }),
       );
 
-      if (!result.success) throw result.error;
+      // Dispatch by flag presence
+      if (mode === "lineup" && season != null && round != null) {
+        // Lineup mode
+        const teamInput = args.name ?? args.team;
 
-      const data = teamName ? filterLineupsByTeam(result.data, teamName) : result.data;
-      showSummary(
-        `Loaded ${data.length} lineup${data.length === 1 ? "" : "s"} for ${season} round ${round}${teamName ? ` (${teamName})` : ""}`,
-      );
+        const teamName = teamInput
+          ? yield* resolveTeamNameOrPrompt(
+              teamInput,
+              competition === "AFLM" || competition === "AFLW" ? undefined : [],
+            )
+          : undefined;
 
-      const formatOptions: FormatOptions = {
-        json: args.json,
-        csv: args.csv,
-        format,
-        full: args.full,
-        columns: LINEUP_COLUMNS,
-      };
+        const matchResolution = yield* resolveMatchId({
+          matchIdArg: args["match-id"],
+          matchArg: args.match,
+          source,
+          competition,
+          season,
+          round,
+        });
 
-      printTeamResponse(
-        { mode: "lineup", lineups: data },
-        flattenLineups(data, teamName ?? undefined),
-        formatOptions,
-      );
+        const lineups = yield* withSpinner(
+          "Fetching lineups…",
+          fetchLineup({
+            source,
+            season,
+            round,
+            matchId: matchResolution?.matchId,
+            competition,
+          }),
+        );
 
-      return;
-    }
+        const data = teamName ? filterLineupsByTeam(lineups, teamName) : lineups;
+        showSummary(
+          `Loaded ${data.length} lineup${data.length === 1 ? "" : "s"} for ${season} round ${round}${teamName ? ` (${teamName})` : ""}`,
+        );
 
-    const teamName = args.name || args.team;
+        const formatOptions: FormatOptions = {
+          json: args.json,
+          csv: args.csv,
+          format,
+          full: args.full,
+          columns: LINEUP_COLUMNS,
+        };
 
-    if (mode === "squad" && season != null && teamName) {
-      // Squad mode. For VFL/VFLW, skip the AFLM-senior allow-list — those
-      // competitions include standalone clubs (Box Hill, Sandringham, …)
-      // that the adapter resolves against the per-competition team list
-      // (#81).
-      const isAfl = competition === "AFLM" || competition === "AFLW";
+        printTeamResponse(
+          { mode: "lineup", lineups: data },
+          flattenLineups(data, teamName ?? undefined),
+          formatOptions,
+        );
 
-      const team = isAfl
-        ? await resolveTeamNameOrPrompt(teamName)
-        : await resolveTeamNameOrPrompt(teamName, []);
+        return;
+      }
 
-      const result = await withSpinner("Fetching squad…", () =>
-        fetchSquad({ source, team, season, competition }),
-      );
+      const teamName = args.name || args.team;
 
-      if (!result.success) throw result.error;
+      if (mode === "squad" && season != null && teamName) {
+        // Squad mode. For VFL/VFLW, skip the AFLM-senior allow-list — those
+        // competitions include standalone clubs (Box Hill, Sandringham, …)
+        // that the adapter resolves against the per-competition team list
+        // (#81).
+        const isAfl = competition === "AFLM" || competition === "AFLW";
 
-      if (result.data.scope === "all-time") {
-        showWarning(
-          `--source ${source} returns an all-time roster. The requested --season ${season} is query context and does not narrow the player list.`,
+        const team = isAfl
+          ? yield* resolveTeamNameOrPrompt(teamName)
+          : yield* resolveTeamNameOrPrompt(teamName, []);
+
+        const squad = yield* withSpinner(
+          "Fetching squad…",
+          fetchSquad({ source, team, season, competition }),
+        );
+
+        if (squad.scope === "all-time") {
+          showWarning(
+            `--source ${source} returns an all-time roster. The requested --season ${season} is query context and does not narrow the player list.`,
+          );
+        }
+
+        showSummary(`Loaded ${squad.players.length} players for ${squad.teamName} ${season}`);
+
+        const formatOptions: FormatOptions = {
+          json: args.json,
+          csv: args.csv,
+          format,
+          full: args.full,
+          columns: SQUAD_COLUMNS,
+        };
+
+        printTeamResponse({ mode: "squad", squad }, squad.players, formatOptions);
+
+        return;
+      }
+
+      // Default: list teams
+      if (source !== "afl-api") {
+        return yield* Effect.fromResult(
+          usage(
+            `--source ${source} is not supported for the team list. The team list is only available from afl-api; add --season (and --name) for squad mode, or --season --round for lineup mode, where other sources apply.`,
+          ),
         );
       }
 
-      showSummary(
-        `Loaded ${result.data.players.length} players for ${result.data.teamName} ${season}`,
-      );
+      const teams = yield* withSpinner("Fetching teams…", fetchTeams({ competition }));
+
+      const filterName = args.name || args.team;
+
+      const data = filterName ? yield* Effect.fromResult(filterTeamList(teams, filterName)) : teams;
+
+      showSummary(`Loaded ${data.length} team${data.length === 1 ? "" : "s"}`);
 
       const formatOptions: FormatOptions = {
         json: args.json,
         csv: args.csv,
         format,
         full: args.full,
-        columns: SQUAD_COLUMNS,
+        columns: TEAMS_COLUMNS,
       };
 
-      printTeamResponse({ mode: "squad", squad: result.data }, result.data.players, formatOptions);
-
-      return;
-    }
-
-    // Default: list teams
-    if (source !== "afl-api") {
-      throw new Error(
-        `--source ${source} is not supported for the team list. The team list is only available from afl-api; add --season (and --name) for squad mode, or --season --round for lineup mode, where other sources apply.`,
-      );
-    }
-
-    const result = await withSpinner("Fetching teams…", () => fetchTeams({ competition }));
-
-    if (!result.success) throw result.error;
-
-    const filterName = args.name || args.team;
-    const data = filterName ? filterTeamList(result.data, filterName) : result.data;
-
-    showSummary(`Loaded ${data.length} team${data.length === 1 ? "" : "s"}`);
-
-    const formatOptions: FormatOptions = {
-      json: args.json,
-      csv: args.csv,
-      format,
-      full: args.full,
-      columns: TEAMS_COLUMNS,
-    };
-
-    printTeamResponse({ mode: "list", teams: data }, data, formatOptions);
-  }),
+      printTeamResponse({ mode: "list", teams: data }, data, formatOptions);
+    }),
+  ),
 });

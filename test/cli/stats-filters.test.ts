@@ -1,6 +1,46 @@
 import { describe, expect, it } from "vite-plus/test";
 import { applyStatsFilters, filterTeamStats } from "../../src/cli/stats-filters";
-import type { PlayerStats, TeamStatsEntry } from "../../src/types";
+import type { PlayerStats, TeamMetricSet, TeamStatsEntry } from "../../src/types";
+
+const EMPTY_METRICS: TeamMetricSet = {
+  kicks: null,
+  handballs: null,
+  disposals: null,
+  marks: null,
+  goals: null,
+  behinds: null,
+  goalAssists: null,
+  tackles: null,
+  hitouts: null,
+  freesFor: null,
+  freesAgainst: null,
+  clearances: null,
+  clangers: null,
+  inside50s: null,
+  rebound50s: null,
+  contestedPossessions: null,
+  uncontestedPossessions: null,
+  contestedMarks: null,
+  marksInside50: null,
+  onePercenters: null,
+  bounces: null,
+  brownlowVotes: null,
+  fantasyPoints: null,
+  supercoachPoints: null,
+};
+
+/** Build a TeamStatsEntry with only the team name set meaningfully. */
+function makeTeamStats(team: string): TeamStatsEntry {
+  return {
+    season: 2025,
+    competition: "AFLM",
+    team,
+    gamesPlayed: null,
+    for: EMPTY_METRICS,
+    against: EMPTY_METRICS,
+    source: "afl-tables",
+  };
+}
 
 /** Build a minimal PlayerStats object with only the filter-relevant fields set. */
 function makeStats(team: string, displayName: string): PlayerStats {
@@ -162,7 +202,7 @@ describe("applyStatsFilters", () => {
 
 describe("filterTeamStats", () => {
   it("uses --team as a canonical team-row filter", () => {
-    const stats = [{ team: "Carlton" } as TeamStatsEntry, { team: "Richmond" } as TeamStatsEntry];
+    const stats = [makeTeamStats("Carlton"), makeTeamStats("Richmond")];
     expect(filterTeamStats(stats, "blues").map((entry) => entry.team)).toEqual(["Carlton"]);
   });
 });

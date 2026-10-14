@@ -7,7 +7,7 @@
  *   3. Does AFL Tables have any VFL/VFLW pages?
  *   4. Does vflstats.com.au exist as a current source for VFL/VFLW?
  *
- * Run: bun run scripts/probe-afl-tables.ts
+ * Run: node --import ./scripts/ts-resolve.mjs scripts/probe-afl-tables.ts
  */
 
 interface ProbeResult {

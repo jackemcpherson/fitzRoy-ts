@@ -3,97 +3,169 @@
  *
  * Define all domain types here before writing implementation code.
  * Types are the single source of truth for the data model.
+ *
+ * Each domain model is an Effect Schema constant (`FooSchema`) and its
+ * TypeScript type is derived from it (`type Foo = typeof FooSchema.Type`).
  */
+
+import { Schema } from "effect";
 
 // ---------------------------------------------------------------------------
 // Enums-as-unions
 // ---------------------------------------------------------------------------
 
 /** AFL competition codes. */
-export type CompetitionCode = "AFLM" | "AFLW" | "VFL" | "VFLW";
+export const CompetitionCodeSchema = Schema.Literals(["AFLM", "AFLW", "VFL", "VFLW"]);
+
+/** AFL competition codes. */
+export type CompetitionCode = typeof CompetitionCodeSchema.Type;
 
 /** Round classification. */
-export type RoundType = "HomeAndAway" | "Finals";
+export const RoundTypeSchema = Schema.Literals(["HomeAndAway", "Finals"]);
+
+/** Round classification. */
+export type RoundType = typeof RoundTypeSchema.Type;
 
 /** Supported data sources mirroring the R package's `source` parameter. */
-export type DataSource =
-  | "afl-api"
-  | "footywire"
-  | "afl-tables"
-  | "squiggle"
-  | "fryzigg"
-  | "afl-coaches";
+export const DataSourceSchema = Schema.Literals([
+  "afl-api",
+  "footywire",
+  "afl-tables",
+  "squiggle",
+  "fryzigg",
+  "afl-coaches",
+]);
+
+/** Supported data sources mirroring the R package's `source` parameter. */
+export type DataSource = typeof DataSourceSchema.Type;
 
 /** Match status as reported by the AFL API. */
-export type MatchStatus = "Upcoming" | "Live" | "Complete" | "Postponed" | "Cancelled";
+export const MatchStatusSchema = Schema.Literals([
+  "Upcoming",
+  "Live",
+  "Complete",
+  "Postponed",
+  "Cancelled",
+]);
+
+/** Match status as reported by the AFL API. */
+export type MatchStatus = typeof MatchStatusSchema.Type;
+
+// ---------------------------------------------------------------------------
+// Season selector
+// ---------------------------------------------------------------------------
+
+/**
+ * Canonical season key or an unambiguous numeric calendar year.
+ *
+ * Kept as a plain TypeScript type because it contains a template-literal
+ * member (`${number}`); {@link SeasonSelectorSchema} mirrors it exactly for
+ * use inside the query schemas.
+ */
+export type SeasonSelector = number | `${number}` | "2022-S6" | "2022-S7";
+
+/** Schema mirroring {@link SeasonSelector} (its `Type` is identical). */
+export const SeasonSelectorSchema = Schema.Union([
+  Schema.Number,
+  Schema.TemplateLiteral([Schema.Number]),
+  Schema.Literals(["2022-S6", "2022-S7"]),
+]);
+
+// ---------------------------------------------------------------------------
+// Match coaches
+// ---------------------------------------------------------------------------
 
 /** Query for source-grounded credited match coaches. */
-export interface MatchCoachesQuery {
-  readonly season: number;
-  readonly source?: DataSource;
-  readonly competition?: CompetitionCode;
-  readonly team?: string;
+export const MatchCoachesQuerySchema = Schema.Struct({
+  season: Schema.Number,
+  source: Schema.optionalKey(DataSourceSchema),
+  competition: Schema.optionalKey(CompetitionCodeSchema),
+  team: Schema.optionalKey(Schema.String),
   /** Optional bounded AFL Tables profile batch. Cursors are opaque and season-specific. */
-  readonly batch?: { readonly limit?: number; readonly cursor?: string };
-}
+  batch: Schema.optionalKey(
+    Schema.Struct({
+      limit: Schema.optionalKey(Schema.Number),
+      cursor: Schema.optionalKey(Schema.String),
+    }),
+  ),
+});
+
+/** Query for source-grounded credited match coaches. */
+export type MatchCoachesQuery = typeof MatchCoachesQuerySchema.Type;
 
 /** A coach credited to one club in one source-identified match. */
-export interface MatchCoachAssignment {
-  readonly competition: CompetitionCode;
-  readonly season: number;
-  readonly team: string;
+export const MatchCoachAssignmentSchema = Schema.Struct({
+  competition: CompetitionCodeSchema,
+  season: Schema.Number,
+  team: Schema.String,
   /** Provider-qualified coach profile key. Treat as opaque. */
-  readonly coachId: string;
-  readonly coachName: string;
-  readonly coachUrl: string;
+  coachId: Schema.String,
+  coachName: Schema.String,
+  coachUrl: Schema.String,
   /** Provider-qualified match key. Treat as opaque. */
-  readonly matchId: string;
-  readonly matchUrl: string;
-  readonly date: string | null;
+  matchId: Schema.String,
+  matchUrl: Schema.String,
+  date: Schema.NullOr(Schema.String),
   /** Participant/score pairs in provider order; reconcile both orientations. */
-  readonly homeTeam: string | null;
-  readonly awayTeam: string | null;
-  readonly homePoints: number | null;
-  readonly awayPoints: number | null;
-  readonly roundName: string | null;
-  readonly source: "afl-tables" | "footywire";
-}
+  homeTeam: Schema.NullOr(Schema.String),
+  awayTeam: Schema.NullOr(Schema.String),
+  homePoints: Schema.NullOr(Schema.Number),
+  awayPoints: Schema.NullOr(Schema.Number),
+  roundName: Schema.NullOr(Schema.String),
+  source: Schema.Literals(["afl-tables", "footywire"]),
+});
+
+/** A coach credited to one club in one source-identified match. */
+export type MatchCoachAssignment = typeof MatchCoachAssignmentSchema.Type;
 
 /** One failed page or match scope during a coaching scrape. */
-export interface MatchCoachFailure {
-  readonly url: string;
-  readonly reason: string;
-  readonly scope: string;
-  readonly matchId?: string;
+export const MatchCoachFailureSchema = Schema.Struct({
+  url: Schema.String,
+  reason: Schema.String,
+  scope: Schema.String,
+  matchId: Schema.optionalKey(Schema.String),
   /** Provider-qualified failed coach profile identity, when known. */
-  readonly coachId?: string;
-}
+  coachId: Schema.optionalKey(Schema.String),
+});
+
+/** One failed page or match scope during a coaching scrape. */
+export type MatchCoachFailure = typeof MatchCoachFailureSchema.Type;
 
 /** Successful rows plus explicit completeness information. */
-export interface MatchCoachesResult {
+export const MatchCoachesResultSchema = Schema.Struct({
   /** Page-batch success never establishes season-wide completeness. */
-  readonly batch?: {
-    readonly scope: "pages";
-    readonly nextCursor: string | null;
-    readonly completedCoachIds: readonly string[];
-  };
-  readonly assignments: MatchCoachAssignment[];
-  readonly completeness: {
-    readonly complete: boolean;
-    readonly failures: MatchCoachFailure[];
-  };
-}
+  batch: Schema.optionalKey(
+    Schema.Struct({
+      scope: Schema.Literal("pages"),
+      nextCursor: Schema.NullOr(Schema.String),
+      completedCoachIds: Schema.Array(Schema.String),
+    }),
+  ),
+  /** Mutable array (callers build it incrementally). */
+  assignments: Schema.mutable(Schema.Array(MatchCoachAssignmentSchema)),
+  completeness: Schema.Struct({
+    complete: Schema.Boolean,
+    /** Mutable array (callers build it incrementally). */
+    failures: Schema.mutable(Schema.Array(MatchCoachFailureSchema)),
+  }),
+});
+
+/** Successful rows plus explicit completeness information. */
+export type MatchCoachesResult = typeof MatchCoachesResultSchema.Type;
 
 // ---------------------------------------------------------------------------
 // Score types
 // ---------------------------------------------------------------------------
 
 /** Goals-behinds-points breakdown for a single quarter. */
-export interface QuarterScore {
-  readonly goals: number;
-  readonly behinds: number;
-  readonly points: number;
-}
+export const QuarterScoreSchema = Schema.Struct({
+  goals: Schema.Number,
+  behinds: Schema.Number,
+  points: Schema.Number,
+});
+
+/** Goals-behinds-points breakdown for a single quarter. */
+export type QuarterScore = typeof QuarterScoreSchema.Type;
 
 /**
  * One quarter's entry in the AFL API's `score.matchClock.periods[]` (#145).
@@ -102,15 +174,18 @@ export interface QuarterScore {
  * is the authoritative signal for quarter boundaries — see
  * {@link Match.matchClockPeriods}.
  */
-export interface MatchClockPeriod {
-  readonly periodNumber: number;
-  readonly periodSeconds: number | null;
-  readonly periodCompleted: boolean;
+export const MatchClockPeriodSchema = Schema.Struct({
+  periodNumber: Schema.Number,
+  periodSeconds: Schema.NullOr(Schema.Number),
+  periodCompleted: Schema.Boolean,
   /** ISO 8601 UTC start of the period, when known. */
-  readonly periodStart: string | null;
+  periodStart: Schema.NullOr(Schema.String),
   /** ISO 8601 UTC scheduled start of the next period, when known. */
-  readonly nextPeriodStart: string | null;
-}
+  nextPeriodStart: Schema.NullOr(Schema.String),
+});
+
+/** One quarter's entry in the AFL API's match clock (#145). */
+export type MatchClockPeriod = typeof MatchClockPeriodSchema.Type;
 
 // ---------------------------------------------------------------------------
 // Match
@@ -124,24 +199,24 @@ export interface MatchClockPeriod {
  * Quarter scores are nullable — historical data from AFL Tables may not
  * include them.
  */
-export interface Match {
+export const MatchSchema = Schema.Struct({
   /** Provider-assigned match identifier (e.g. AFL API `matchProviderId`). */
-  readonly matchId: string;
-  readonly season: number;
+  matchId: Schema.String,
+  season: Schema.Number,
   /** Canonical competition-season identity, populated by public fetch APIs. */
-  readonly seasonKey?: string;
-  readonly roundNumber: number;
-  readonly roundType: RoundType;
+  seasonKey: Schema.optionalKey(Schema.String),
+  roundNumber: Schema.Number,
+  roundType: RoundTypeSchema,
   /**
    * Human-readable round name (e.g. "Round 1", "Qualifying Final"). Populated
    * by AFL API, AFL Tables, and FootyWire; null only for sources that don't
    * expose round labels (e.g. Squiggle).
    */
-  readonly roundName: string | null;
-  readonly date: Date;
-  readonly venue: string;
-  readonly homeTeam: string;
-  readonly awayTeam: string;
+  roundName: Schema.NullOr(Schema.String),
+  date: Schema.Date,
+  venue: Schema.String,
+  homeTeam: Schema.String,
+  awayTeam: Schema.String,
 
   /**
    * Total goals-behinds-points for each team. Null when the match has not
@@ -153,27 +228,27 @@ export interface Match {
    * per-match stats pages (or another source) when you need the
    * goals-behinds breakdown.
    */
-  readonly homeGoals: number | null;
-  readonly homeBehinds: number | null;
-  readonly homePoints: number | null;
-  readonly awayGoals: number | null;
-  readonly awayBehinds: number | null;
-  readonly awayPoints: number | null;
+  homeGoals: Schema.NullOr(Schema.Number),
+  homeBehinds: Schema.NullOr(Schema.Number),
+  homePoints: Schema.NullOr(Schema.Number),
+  awayGoals: Schema.NullOr(Schema.Number),
+  awayBehinds: Schema.NullOr(Schema.Number),
+  awayPoints: Schema.NullOr(Schema.Number),
 
   /** Positive = home win, negative = away win. Null for upcoming matches. */
-  readonly margin: number | null;
+  margin: Schema.NullOr(Schema.Number),
 
   /** Per-quarter scores (null when unavailable). */
-  readonly q1Home: QuarterScore | null;
-  readonly q2Home: QuarterScore | null;
-  readonly q3Home: QuarterScore | null;
-  readonly q4Home: QuarterScore | null;
-  readonly q1Away: QuarterScore | null;
-  readonly q2Away: QuarterScore | null;
-  readonly q3Away: QuarterScore | null;
-  readonly q4Away: QuarterScore | null;
+  q1Home: Schema.NullOr(QuarterScoreSchema),
+  q2Home: Schema.NullOr(QuarterScoreSchema),
+  q3Home: Schema.NullOr(QuarterScoreSchema),
+  q4Home: Schema.NullOr(QuarterScoreSchema),
+  q1Away: Schema.NullOr(QuarterScoreSchema),
+  q2Away: Schema.NullOr(QuarterScoreSchema),
+  q3Away: Schema.NullOr(QuarterScoreSchema),
+  q4Away: Schema.NullOr(QuarterScoreSchema),
 
-  readonly status: MatchStatus;
+  status: MatchStatusSchema,
 
   /**
    * Raw period-level status from the AFL API's score wrapper (`CfsScore.status`),
@@ -194,7 +269,7 @@ export interface Match {
    * as `LIVE`, `QTR_TIME`, `HALF_TIME`, `3QTR_TIME`, `FULL_TIME`. Treat as an
    * opaque string until a stable union is documented.
    */
-  readonly livePeriodStatus: string | null;
+  livePeriodStatus: Schema.NullOr(Schema.String),
 
   /**
    * AFL API match-clock periods (#145). Each entry corresponds to one
@@ -206,7 +281,7 @@ export interface Match {
    * Null for any source other than `afl-api`, and null on `afl-api` rows
    * when the score wrapper is absent (pre-match).
    */
-  readonly matchClockPeriods: ReadonlyArray<MatchClockPeriod> | null;
+  matchClockPeriods: Schema.NullOr(Schema.Array(MatchClockPeriodSchema)),
 
   /**
    * Highest fully-completed quarter according to the AFL match clock (#145).
@@ -214,23 +289,23 @@ export interface Match {
    * `4` means full time. Derived from {@link Match.matchClockPeriods}.
    * Null when the underlying matchClock is unavailable.
    */
-  readonly completedQuarter: 0 | 1 | 2 | 3 | 4 | null;
+  completedQuarter: Schema.NullOr(Schema.Literals([0, 1, 2, 3, 4])),
 
-  readonly attendance: number | null;
+  attendance: Schema.NullOr(Schema.Number),
 
   /** Weather conditions at the venue (null when unavailable). */
-  readonly weatherTempCelsius: number | null;
-  readonly weatherType: string | null;
+  weatherTempCelsius: Schema.NullOr(Schema.Number),
+  weatherType: Schema.NullOr(Schema.String),
 
   /**
    * Normalised round code (e.g. "R1", "QF", "GF"). Populated by AFL API, AFL
    * Tables, and FootyWire; null only for sources that don't expose round
    * labels (e.g. Squiggle).
    */
-  readonly roundCode: string | null;
+  roundCode: Schema.NullOr(Schema.String),
 
   /** Venue metadata (null for scraped sources). */
-  readonly venueState: string | null;
+  venueState: Schema.NullOr(Schema.String),
 
   /**
    * IANA timezone for the venue (e.g. `"Australia/Melbourne"`,
@@ -239,7 +314,7 @@ export interface Match {
    * canonical venue → IANA map ({@link resolveVenueTimezone}). `null`
    * only when the venue isn't in the map (very old or one-off venues).
    */
-  readonly venueTimezone: string | null;
+  venueTimezone: Schema.NullOr(Schema.String),
 
   /**
    * Venue wall-clock start time (#109). The AFL API publishes this as a
@@ -249,19 +324,22 @@ export interface Match {
    * displays without doing your own UTC→tz conversion. `null` when
    * neither the upstream localStartTime nor a venue tz is known.
    */
-  readonly venueLocalDate: string | null;
+  venueLocalDate: Schema.NullOr(Schema.String),
 
   /** Rushed behinds per team (null when unavailable). */
-  readonly homeRushedBehinds: number | null;
-  readonly awayRushedBehinds: number | null;
+  homeRushedBehinds: Schema.NullOr(Schema.Number),
+  awayRushedBehinds: Schema.NullOr(Schema.Number),
 
   /** Minutes each team spent in front (null when unavailable). */
-  readonly homeMinutesInFront: number | null;
-  readonly awayMinutesInFront: number | null;
+  homeMinutesInFront: Schema.NullOr(Schema.Number),
+  awayMinutesInFront: Schema.NullOr(Schema.Number),
 
-  readonly source: DataSource;
-  readonly competition: CompetitionCode;
-}
+  source: DataSourceSchema,
+  competition: CompetitionCodeSchema,
+});
+
+/** An AFL match in any state — scheduled, in-progress, or completed. */
+export type Match = typeof MatchSchema.Type;
 
 // ---------------------------------------------------------------------------
 // Player statistics
@@ -273,116 +351,119 @@ export interface Match {
  * Fields are nullable because not all stats are available for every
  * era or source.
  */
-export interface PlayerStats {
-  readonly matchId: string;
-  readonly season: number;
+export const PlayerStatsSchema = Schema.Struct({
+  matchId: Schema.String,
+  season: Schema.Number,
   /** Canonical competition-season identity, populated by public fetch APIs. */
-  readonly seasonKey?: string;
-  readonly roundNumber: number;
-  readonly team: string;
-  readonly competition: CompetitionCode;
+  seasonKey: Schema.optionalKey(Schema.String),
+  roundNumber: Schema.Number,
+  team: Schema.String,
+  competition: CompetitionCodeSchema,
 
   /** Match context for cross-source joins (null when unavailable). */
-  readonly date: Date | null;
-  readonly homeTeam: string | null;
-  readonly awayTeam: string | null;
+  date: Schema.NullOr(Schema.Date),
+  homeTeam: Schema.NullOr(Schema.String),
+  awayTeam: Schema.NullOr(Schema.String),
 
   /** Player identification. */
-  readonly playerId: string;
-  readonly givenName: string;
-  readonly surname: string;
-  readonly displayName: string;
-  readonly jumperNumber: number | null;
+  playerId: Schema.String,
+  givenName: Schema.String,
+  surname: Schema.String,
+  displayName: Schema.String,
+  jumperNumber: Schema.NullOr(Schema.Number),
 
   /** Core stats. */
-  readonly kicks: number | null;
-  readonly handballs: number | null;
-  readonly disposals: number | null;
-  readonly marks: number | null;
-  readonly goals: number | null;
-  readonly behinds: number | null;
-  readonly tackles: number | null;
-  readonly hitouts: number | null;
-  readonly freesFor: number | null;
-  readonly freesAgainst: number | null;
+  kicks: Schema.NullOr(Schema.Number),
+  handballs: Schema.NullOr(Schema.Number),
+  disposals: Schema.NullOr(Schema.Number),
+  marks: Schema.NullOr(Schema.Number),
+  goals: Schema.NullOr(Schema.Number),
+  behinds: Schema.NullOr(Schema.Number),
+  tackles: Schema.NullOr(Schema.Number),
+  hitouts: Schema.NullOr(Schema.Number),
+  freesFor: Schema.NullOr(Schema.Number),
+  freesAgainst: Schema.NullOr(Schema.Number),
 
   /** Contested/uncontested. */
-  readonly contestedPossessions: number | null;
-  readonly uncontestedPossessions: number | null;
-  readonly contestedMarks: number | null;
-  readonly intercepts: number | null;
+  contestedPossessions: Schema.NullOr(Schema.Number),
+  uncontestedPossessions: Schema.NullOr(Schema.Number),
+  contestedMarks: Schema.NullOr(Schema.Number),
+  intercepts: Schema.NullOr(Schema.Number),
 
   /** Clearances. */
-  readonly centreClearances: number | null;
-  readonly stoppageClearances: number | null;
-  readonly totalClearances: number | null;
+  centreClearances: Schema.NullOr(Schema.Number),
+  stoppageClearances: Schema.NullOr(Schema.Number),
+  totalClearances: Schema.NullOr(Schema.Number),
 
   /** Other stats. */
-  readonly inside50s: number | null;
-  readonly rebound50s: number | null;
-  readonly clangers: number | null;
-  readonly turnovers: number | null;
-  readonly onePercenters: number | null;
-  readonly bounces: number | null;
-  readonly goalAssists: number | null;
-  readonly disposalEfficiency: number | null;
-  readonly metresGained: number | null;
+  inside50s: Schema.NullOr(Schema.Number),
+  rebound50s: Schema.NullOr(Schema.Number),
+  clangers: Schema.NullOr(Schema.Number),
+  turnovers: Schema.NullOr(Schema.Number),
+  onePercenters: Schema.NullOr(Schema.Number),
+  bounces: Schema.NullOr(Schema.Number),
+  goalAssists: Schema.NullOr(Schema.Number),
+  disposalEfficiency: Schema.NullOr(Schema.Number),
+  metresGained: Schema.NullOr(Schema.Number),
 
   /** Additional base stats. */
-  readonly goalAccuracy: number | null;
-  readonly marksInside50: number | null;
-  readonly tacklesInside50: number | null;
-  readonly shotsAtGoal: number | null;
-  readonly scoreInvolvements: number | null;
-  readonly totalPossessions: number | null;
-  readonly timeOnGroundPercentage: number | null;
-  readonly ratingPoints: number | null;
+  goalAccuracy: Schema.NullOr(Schema.Number),
+  marksInside50: Schema.NullOr(Schema.Number),
+  tacklesInside50: Schema.NullOr(Schema.Number),
+  shotsAtGoal: Schema.NullOr(Schema.Number),
+  scoreInvolvements: Schema.NullOr(Schema.Number),
+  totalPossessions: Schema.NullOr(Schema.Number),
+  timeOnGroundPercentage: Schema.NullOr(Schema.Number),
+  ratingPoints: Schema.NullOr(Schema.Number),
 
   /** Position played in this match (e.g. "INT", "MIDFIELD"). Null when unavailable. */
-  readonly position: string | null;
+  position: Schema.NullOr(Schema.String),
 
   /** Efficiency stats. */
-  readonly goalEfficiency: number | null;
-  readonly shotEfficiency: number | null;
-  readonly interchangeCounts: number | null;
+  goalEfficiency: Schema.NullOr(Schema.Number),
+  shotEfficiency: Schema.NullOr(Schema.Number),
+  interchangeCounts: Schema.NullOr(Schema.Number),
 
   /** Brownlow votes received in this match (null when unavailable). */
-  readonly brownlowVotes: number | null;
+  brownlowVotes: Schema.NullOr(Schema.Number),
 
   /** Fantasy. */
-  readonly supercoachScore: number | null;
-  readonly dreamTeamPoints: number | null;
+  supercoachScore: Schema.NullOr(Schema.Number),
+  dreamTeamPoints: Schema.NullOr(Schema.Number),
 
   /** Extended stats. */
-  readonly effectiveDisposals: number | null;
-  readonly effectiveKicks: number | null;
-  readonly kickEfficiency: number | null;
-  readonly kickToHandballRatio: number | null;
-  readonly pressureActs: number | null;
-  readonly defHalfPressureActs: number | null;
-  readonly spoils: number | null;
-  readonly hitoutsToAdvantage: number | null;
-  readonly hitoutWinPercentage: number | null;
-  readonly hitoutToAdvantageRate: number | null;
-  readonly groundBallGets: number | null;
-  readonly f50GroundBallGets: number | null;
-  readonly interceptMarks: number | null;
-  readonly marksOnLead: number | null;
-  readonly contestedPossessionRate: number | null;
-  readonly contestOffOneOnOnes: number | null;
-  readonly contestOffWins: number | null;
-  readonly contestOffWinsPercentage: number | null;
-  readonly contestDefOneOnOnes: number | null;
-  readonly contestDefLosses: number | null;
-  readonly contestDefLossPercentage: number | null;
-  readonly centreBounceAttendances: number | null;
-  readonly kickins: number | null;
-  readonly kickinsPlayon: number | null;
-  readonly ruckContests: number | null;
-  readonly scoreLaunches: number | null;
+  effectiveDisposals: Schema.NullOr(Schema.Number),
+  effectiveKicks: Schema.NullOr(Schema.Number),
+  kickEfficiency: Schema.NullOr(Schema.Number),
+  kickToHandballRatio: Schema.NullOr(Schema.Number),
+  pressureActs: Schema.NullOr(Schema.Number),
+  defHalfPressureActs: Schema.NullOr(Schema.Number),
+  spoils: Schema.NullOr(Schema.Number),
+  hitoutsToAdvantage: Schema.NullOr(Schema.Number),
+  hitoutWinPercentage: Schema.NullOr(Schema.Number),
+  hitoutToAdvantageRate: Schema.NullOr(Schema.Number),
+  groundBallGets: Schema.NullOr(Schema.Number),
+  f50GroundBallGets: Schema.NullOr(Schema.Number),
+  interceptMarks: Schema.NullOr(Schema.Number),
+  marksOnLead: Schema.NullOr(Schema.Number),
+  contestedPossessionRate: Schema.NullOr(Schema.Number),
+  contestOffOneOnOnes: Schema.NullOr(Schema.Number),
+  contestOffWins: Schema.NullOr(Schema.Number),
+  contestOffWinsPercentage: Schema.NullOr(Schema.Number),
+  contestDefOneOnOnes: Schema.NullOr(Schema.Number),
+  contestDefLosses: Schema.NullOr(Schema.Number),
+  contestDefLossPercentage: Schema.NullOr(Schema.Number),
+  centreBounceAttendances: Schema.NullOr(Schema.Number),
+  kickins: Schema.NullOr(Schema.Number),
+  kickinsPlayon: Schema.NullOr(Schema.Number),
+  ruckContests: Schema.NullOr(Schema.Number),
+  scoreLaunches: Schema.NullOr(Schema.Number),
 
-  readonly source: DataSource;
-}
+  source: DataSourceSchema,
+});
+
+/** Per-player statistics for a single match. */
+export type PlayerStats = typeof PlayerStatsSchema.Type;
 
 /**
  * Partial-result envelope returned by season-level player-stats fetches.
@@ -402,79 +483,91 @@ export interface PlayerStats {
  * an error Result. No caller needs to discard successful matches after a
  * different match fails. Adapter loops remain source-specific (ADR-0003).
  */
-export interface SeasonPlayerStats {
+export const SeasonPlayerStatsSchema = Schema.Struct({
   /** Per-player stat lines for every game that was fetched successfully. */
-  readonly stats: readonly PlayerStats[];
+  stats: Schema.Array(PlayerStatsSchema),
   /** Match IDs whose per-game fetch or parse failed (empty when complete). */
-  readonly failedMatchIds: readonly string[];
-}
+  failedMatchIds: Schema.Array(Schema.String),
+});
+
+/** Partial-result envelope returned by season-level player-stats fetches. */
+export type SeasonPlayerStats = typeof SeasonPlayerStatsSchema.Type;
 
 // ---------------------------------------------------------------------------
 // Lineup / roster
 // ---------------------------------------------------------------------------
 
 /** A single player's position in a match lineup. */
-export interface LineupPlayer {
-  readonly playerId: string;
-  readonly givenName: string;
-  readonly surname: string;
-  readonly displayName: string;
-  readonly jumperNumber: number | null;
+export const LineupPlayerSchema = Schema.Struct({
+  playerId: Schema.String,
+  givenName: Schema.String,
+  surname: Schema.String,
+  displayName: Schema.String,
+  jumperNumber: Schema.NullOr(Schema.Number),
   /**
    * On-field role assigned for THIS match (e.g. "Forward Pocket Right",
    * "BACK_POCKET"). Distinct from `Player.position` (career standing
    * role) — renamed in 2.1.0 to disambiguate the two semantics. (#96)
    */
-  readonly matchPosition: string | null;
-  readonly isEmergency: boolean;
-  readonly isSubstitute: boolean;
-}
+  matchPosition: Schema.NullOr(Schema.String),
+  isEmergency: Schema.Boolean,
+  isSubstitute: Schema.Boolean,
+});
+
+/** A single player's position in a match lineup. */
+export type LineupPlayer = typeof LineupPlayerSchema.Type;
 
 /** Full lineup for a match (both teams). */
-export interface Lineup {
-  readonly matchId: string;
-  readonly season: number;
+export const LineupSchema = Schema.Struct({
+  matchId: Schema.String,
+  season: Schema.Number,
   /** Canonical competition-season identity, populated by public fetch APIs. */
-  readonly seasonKey?: string;
-  readonly roundNumber: number;
-  readonly homeTeam: string;
-  readonly awayTeam: string;
-  readonly homePlayers: readonly LineupPlayer[];
-  readonly awayPlayers: readonly LineupPlayer[];
-  readonly competition: CompetitionCode;
+  seasonKey: Schema.optionalKey(Schema.String),
+  roundNumber: Schema.Number,
+  homeTeam: Schema.String,
+  awayTeam: Schema.String,
+  homePlayers: Schema.Array(LineupPlayerSchema),
+  awayPlayers: Schema.Array(LineupPlayerSchema),
+  competition: CompetitionCodeSchema,
   /** Adapter that produced this lineup (#120). */
-  readonly source: DataSource;
-}
+  source: DataSourceSchema,
+});
+
+/** Full lineup for a match (both teams). */
+export type Lineup = typeof LineupSchema.Type;
 
 // ---------------------------------------------------------------------------
 // Ladder
 // ---------------------------------------------------------------------------
 
 /** A single team's standing in the ladder. */
-export interface LadderEntry {
-  readonly position: number;
-  readonly team: string;
-  readonly played: number;
-  readonly wins: number;
-  readonly losses: number;
-  readonly draws: number;
-  readonly pointsFor: number;
-  readonly pointsAgainst: number;
-  readonly percentage: number;
-  readonly premiershipsPoints: number;
-  readonly form: string | null;
-}
+export const LadderEntrySchema = Schema.Struct({
+  position: Schema.Number,
+  team: Schema.String,
+  played: Schema.Number,
+  wins: Schema.Number,
+  losses: Schema.Number,
+  draws: Schema.Number,
+  pointsFor: Schema.Number,
+  pointsAgainst: Schema.Number,
+  percentage: Schema.Number,
+  premiershipsPoints: Schema.Number,
+  form: Schema.NullOr(Schema.String),
+});
+
+/** A single team's standing in the ladder. */
+export type LadderEntry = typeof LadderEntrySchema.Type;
 
 /** Season ladder snapshot (optionally for a specific round). */
-export interface Ladder {
-  readonly season: number;
+export const LadderSchema = Schema.Struct({
+  season: Schema.Number,
   /** Canonical competition-season identity, populated by public fetch APIs. */
-  readonly seasonKey?: string;
-  readonly roundNumber: number | null;
-  readonly entries: readonly LadderEntry[];
-  readonly competition: CompetitionCode;
+  seasonKey: Schema.optionalKey(Schema.String),
+  roundNumber: Schema.NullOr(Schema.Number),
+  entries: Schema.Array(LadderEntrySchema),
+  competition: CompetitionCodeSchema,
   /** Adapter that produced the snapshot (#120). */
-  readonly source: DataSource;
+  source: DataSourceSchema,
   /**
    * Match ID of the most recent completed match the snapshot reflects, when
    * known. Adapters that synthesise the ladder from match results populate
@@ -483,25 +576,34 @@ export interface Ladder {
    * snapshot is round-aligned (no sub-round granularity needed) or when
    * the source doesn't expose it.
    */
-  readonly asOfMatch: string | null;
-}
+  asOfMatch: Schema.NullOr(Schema.String),
+});
+
+/** Season ladder snapshot (optionally for a specific round). */
+export type Ladder = typeof LadderSchema.Type;
 
 // ---------------------------------------------------------------------------
 // Team and squad
 // ---------------------------------------------------------------------------
 
 /** Time scope represented by a squad or player-details response. */
-export type SquadScope = "season" | "all-time";
+export const SquadScopeSchema = Schema.Literals(["season", "all-time"]);
+
+/** Time scope represented by a squad or player-details response. */
+export type SquadScope = typeof SquadScopeSchema.Type;
 
 /** An AFL team. */
-export interface Team {
-  readonly teamId: string;
-  readonly name: string;
-  readonly abbreviation: string;
-  readonly competition: CompetitionCode;
+export const TeamSchema = Schema.Struct({
+  teamId: Schema.String,
+  name: Schema.String,
+  abbreviation: Schema.String,
+  competition: CompetitionCodeSchema,
   /** Adapter that supplied this team row (#120). */
-  readonly source: DataSource;
-}
+  source: DataSourceSchema,
+});
+
+/** An AFL team. */
+export type Team = typeof TeamSchema.Type;
 
 /**
  * Canonical player record. One shape for every operation that returns
@@ -513,50 +615,56 @@ export interface Team {
  * endpoint doesn't carry bio data, so the lineup type stays its own
  * lean record. (#96)
  */
-export interface Player {
-  readonly playerId: string;
-  readonly givenName: string;
-  readonly surname: string;
-  readonly displayName: string;
-  readonly jumperNumber: number | null;
+export const PlayerSchema = Schema.Struct({
+  playerId: Schema.String,
+  givenName: Schema.String,
+  surname: Schema.String,
+  displayName: Schema.String,
+  jumperNumber: Schema.NullOr(Schema.Number),
   /** Career standing position (e.g. `KEY_FORWARD`). Nullable per source. */
-  readonly position: string | null;
+  position: Schema.NullOr(Schema.String),
   /** ISO 8601 date string (`"YYYY-MM-DD"`). Nullable per source. */
-  readonly dateOfBirth: string | null;
-  readonly heightCm: number | null;
-  readonly weightKg: number | null;
-  readonly draftYear: number | null;
-  readonly draftPosition: number | null;
-  readonly draftType: string | null;
-  readonly debutYear: number | null;
-  readonly recruitedFrom: string | null;
+  dateOfBirth: Schema.NullOr(Schema.String),
+  heightCm: Schema.NullOr(Schema.Number),
+  weightKg: Schema.NullOr(Schema.Number),
+  draftYear: Schema.NullOr(Schema.Number),
+  draftPosition: Schema.NullOr(Schema.Number),
+  draftType: Schema.NullOr(Schema.String),
+  debutYear: Schema.NullOr(Schema.Number),
+  recruitedFrom: Schema.NullOr(Schema.String),
   /**
    * Career games played. Populated by FootyWire and AFL Tables (their
    * team-list pages carry career counts). `null` for `afl-api` — the
    * squad endpoint doesn't carry career stats.
    */
-  readonly gamesPlayed: number | null;
+  gamesPlayed: Schema.NullOr(Schema.Number),
   /** Career goals. Populated alongside `gamesPlayed`; same source caveat. */
-  readonly goals: number | null;
-  readonly team: string;
-  readonly source: DataSource;
-  readonly competition: CompetitionCode;
-}
+  goals: Schema.NullOr(Schema.Number),
+  team: Schema.String,
+  source: DataSourceSchema,
+  competition: CompetitionCodeSchema,
+});
+
+/** Canonical player record (squad rosters, biographical details). */
+export type Player = typeof PlayerSchema.Type;
 
 /** A team's squad for a given season. */
-export interface Squad {
-  readonly teamId: string;
-  readonly teamName: string;
-  readonly season: number;
+export const SquadSchema = Schema.Struct({
+  teamId: Schema.String,
+  teamName: Schema.String,
+  season: Schema.Number,
   /** Canonical competition-season identity, populated by public fetch APIs. */
-  readonly seasonKey?: string;
+  seasonKey: Schema.optionalKey(Schema.String),
   /** Whether players belong to the requested season or the source's all-time roster. */
-  readonly scope: SquadScope;
-  readonly players: readonly Player[];
-  readonly competition: CompetitionCode;
+  scope: SquadScopeSchema,
+  players: Schema.Array(PlayerSchema),
+  competition: CompetitionCodeSchema,
   /** Adapter that produced this squad (#120). */
-  readonly source: DataSource;
-}
+  source: DataSourceSchema,
+});
+
+/** A team's squad for a given season. */
+export type Squad = typeof SquadSchema.Type;
 
 /**
  * Discriminated union returned by the `team` CLI verb. Each variant
@@ -567,10 +675,14 @@ export interface Squad {
  * - `squad`: `team --season Y --name X` — a team's roster for a season.
  * - `lineup`: `team --season Y --round R [--name X]` — match-day lineups.
  */
-export type TeamResponse =
-  | { readonly mode: "list"; readonly teams: readonly Team[] }
-  | { readonly mode: "squad"; readonly squad: Squad }
-  | { readonly mode: "lineup"; readonly lineups: readonly Lineup[] };
+export const TeamResponseSchema = Schema.Union([
+  Schema.Struct({ mode: Schema.Literal("list"), teams: Schema.Array(TeamSchema) }),
+  Schema.Struct({ mode: Schema.Literal("squad"), squad: SquadSchema }),
+  Schema.Struct({ mode: Schema.Literal("lineup"), lineups: Schema.Array(LineupSchema) }),
+]);
+
+/** Discriminated union returned by the `team` CLI verb (#99). */
+export type TeamResponse = typeof TeamResponseSchema.Type;
 
 // ---------------------------------------------------------------------------
 // Player details (biographical data)
@@ -580,196 +692,255 @@ export type TeamResponse =
  * Biographical details for a single player. Now an alias for the
  * canonical {@link Player} type — these were converged in 2.1.0. (#96)
  */
+export const PlayerDetailsSchema = PlayerSchema;
+
+/**
+ * Biographical details for a single player. Now an alias for the
+ * canonical {@link Player} type — these were converged in 2.1.0. (#96)
+ */
 export type PlayerDetails = Player;
 
 /** Partial-result envelope for player biographical details. */
-export interface PlayerDetailsResult {
+export const PlayerDetailsResultSchema = Schema.Struct({
   /** Players returned by successful squad requests. */
-  readonly players: readonly PlayerDetails[];
+  players: Schema.Array(PlayerDetailsSchema),
   /** Canonical team names whose squad requests failed, in request order. */
-  readonly failedTeams: readonly string[];
+  failedTeams: Schema.Array(Schema.String),
   /** Time scope shared by the returned squad data. */
-  readonly scope: SquadScope;
-}
+  scope: SquadScopeSchema,
+});
+
+/** Partial-result envelope for player biographical details. */
+export type PlayerDetailsResult = typeof PlayerDetailsResultSchema.Type;
 
 /** Query parameters for fetching player details. */
-export interface PlayerDetailsQuery {
-  readonly source: DataSource;
+export const PlayerDetailsQuerySchema = Schema.Struct({
+  source: DataSourceSchema,
   /** Team name. When omitted, returns details for all teams. */
-  readonly team?: string | undefined;
-  readonly season?: SeasonSelector | undefined;
-  readonly current?: boolean | undefined;
-  readonly competition?: CompetitionCode | undefined;
-}
+  team: Schema.optional(Schema.String),
+  season: Schema.optional(SeasonSelectorSchema),
+  current: Schema.optional(Schema.Boolean),
+  competition: Schema.optional(CompetitionCodeSchema),
+});
+
+/** Query parameters for fetching player details. */
+export type PlayerDetailsQuery = typeof PlayerDetailsQuerySchema.Type;
 
 // ---------------------------------------------------------------------------
 // Awards
 // ---------------------------------------------------------------------------
 
 /** Types of awards available. */
-export type AwardType = "brownlow" | "all-australian" | "rising-star" | "coleman" | "coaches";
+export const AwardTypeSchema = Schema.Literals([
+  "brownlow",
+  "all-australian",
+  "rising-star",
+  "coleman",
+  "coaches",
+]);
+
+/** Types of awards available. */
+export type AwardType = typeof AwardTypeSchema.Type;
 
 /** A Brownlow Medal vote tally for a player. */
-export interface BrownlowVote {
-  readonly type: "brownlow";
-  readonly season: number;
+export const BrownlowVoteSchema = Schema.Struct({
+  type: Schema.Literal("brownlow"),
+  season: Schema.Number,
   /** Canonical competition-season identity, populated by public fetch APIs. */
-  readonly seasonKey?: string;
-  readonly competition: CompetitionCode;
+  seasonKey: Schema.optionalKey(Schema.String),
+  competition: CompetitionCodeSchema,
   /** Adapter that scraped this vote tally (#120). */
-  readonly source: DataSource;
-  readonly player: string;
-  readonly team: string;
-  readonly votes: number;
-  readonly votes3: number;
-  readonly votes2: number;
-  readonly votes1: number;
-  readonly gamesPolled: number | null;
+  source: DataSourceSchema,
+  player: Schema.String,
+  team: Schema.String,
+  votes: Schema.Number,
+  votes3: Schema.Number,
+  votes2: Schema.Number,
+  votes1: Schema.Number,
+  gamesPolled: Schema.NullOr(Schema.Number),
   /**
    * Number of games where this player polled at least 1 vote
    * (R fitzRoy parity — `Polled` column).
    */
-  readonly polledGames: number | null;
+  polledGames: Schema.NullOr(Schema.Number),
   /**
    * True for the Brownlow medallist of the season (R fitzRoy denotes
    * this with a trailing " W" suffix on the player name; the suffix is
    * stripped from `player` and surfaced here as a structured boolean).
    */
-  readonly isMedallist: boolean;
-}
+  isMedallist: Schema.Boolean,
+});
+
+/** A Brownlow Medal vote tally for a player. */
+export type BrownlowVote = typeof BrownlowVoteSchema.Type;
 
 /** An All-Australian team selection. */
-export interface AllAustralianSelection {
-  readonly type: "all-australian";
-  readonly season: number;
+export const AllAustralianSelectionSchema = Schema.Struct({
+  type: Schema.Literal("all-australian"),
+  season: Schema.Number,
   /** Canonical competition-season identity, populated by public fetch APIs. */
-  readonly seasonKey?: string;
-  readonly competition: CompetitionCode;
+  seasonKey: Schema.optionalKey(Schema.String),
+  competition: CompetitionCodeSchema,
   /** Adapter that scraped this selection (#120). */
-  readonly source: DataSource;
+  source: DataSourceSchema,
   /** Footy position (e.g. `FB`, `HBF`, `C`). */
-  readonly position: string;
-  readonly player: string;
-  readonly team: string;
-}
+  position: Schema.String,
+  player: Schema.String,
+  team: Schema.String,
+});
+
+/** An All-Australian team selection. */
+export type AllAustralianSelection = typeof AllAustralianSelectionSchema.Type;
 
 /** A Rising Star nomination with stats. */
-export interface RisingStarNomination {
-  readonly type: "rising-star";
-  readonly season: number;
+export const RisingStarNominationSchema = Schema.Struct({
+  type: Schema.Literal("rising-star"),
+  season: Schema.Number,
   /** Canonical competition-season identity, populated by public fetch APIs. */
-  readonly seasonKey?: string;
-  readonly competition: CompetitionCode;
+  seasonKey: Schema.optionalKey(Schema.String),
+  competition: CompetitionCodeSchema,
   /** Adapter that scraped this nomination (#120). */
-  readonly source: DataSource;
-  readonly round: number;
-  readonly player: string;
-  readonly team: string;
-  readonly opponent: string;
-  readonly kicks: number | null;
-  readonly handballs: number | null;
-  readonly disposals: number | null;
-  readonly marks: number | null;
-  readonly goals: number | null;
-  readonly behinds: number | null;
-  readonly tackles: number | null;
-}
+  source: DataSourceSchema,
+  round: Schema.Number,
+  player: Schema.String,
+  team: Schema.String,
+  opponent: Schema.String,
+  kicks: Schema.NullOr(Schema.Number),
+  handballs: Schema.NullOr(Schema.Number),
+  disposals: Schema.NullOr(Schema.Number),
+  marks: Schema.NullOr(Schema.Number),
+  goals: Schema.NullOr(Schema.Number),
+  behinds: Schema.NullOr(Schema.Number),
+  tackles: Schema.NullOr(Schema.Number),
+});
+
+/** A Rising Star nomination with stats. */
+export type RisingStarNomination = typeof RisingStarNominationSchema.Type;
 
 /** A Coleman Medal leaderboard entry (top goal-kickers per season). */
-export interface ColemanLeader {
-  readonly type: "coleman";
-  readonly season: number;
+export const ColemanLeaderSchema = Schema.Struct({
+  type: Schema.Literal("coleman"),
+  season: Schema.Number,
   /** Canonical competition-season identity, populated by public fetch APIs. */
-  readonly seasonKey?: string;
-  readonly competition: CompetitionCode;
+  seasonKey: Schema.optionalKey(Schema.String),
+  competition: CompetitionCodeSchema,
   /** Adapter that produced this leaderboard entry (#120). */
-  readonly source: DataSource;
+  source: DataSourceSchema,
   /** 1 = season leader, 2 = runner-up, etc. */
-  readonly rank: number;
-  readonly player: string;
-  readonly team: string;
-  readonly goals: number;
-  readonly gamesPlayed: number | null;
-}
+  rank: Schema.Number,
+  player: Schema.String,
+  team: Schema.String,
+  goals: Schema.Number,
+  gamesPlayed: Schema.NullOr(Schema.Number),
+});
 
-/** Discriminated union of award types. */
-export type Award =
-  | BrownlowVote
-  | AllAustralianSelection
-  | RisingStarNomination
-  | ColemanLeader
-  | CoachesVote;
-
-/** Query parameters for fetching awards. */
-export interface AwardQuery {
-  readonly award: AwardType;
-  readonly season: SeasonSelector;
-  /** Coaches votes are competition-scoped; defaults to AFLM. Other awards ignore. */
-  readonly competition?: CompetitionCode | undefined;
-  /** Coaches votes only — narrow to a specific round. */
-  readonly round?: number | undefined;
-  /** Coaches votes only — narrow to matches involving a team. */
-  readonly team?: string | undefined;
-  /** Coleman only — limit to top N goal-kickers (default: all players who scored). */
-  readonly limit?: number | undefined;
-}
-
-/** Partial-result envelope for awards data. */
-export interface AwardResult {
-  /** Award rows that were fetched or computed successfully. */
-  readonly awards: readonly Award[];
-  /** Coaches-vote rounds that failed to fetch or parse, in round order. */
-  readonly failedRounds: readonly number[];
-}
+/** A Coleman Medal leaderboard entry (top goal-kickers per season). */
+export type ColemanLeader = typeof ColemanLeaderSchema.Type;
 
 // ---------------------------------------------------------------------------
 // Coaches votes
 // ---------------------------------------------------------------------------
 
 /** AFLCA coaches votes for a player in a single match. */
-export interface CoachesVote {
-  readonly type: "coaches";
-  readonly season: number;
+export const CoachesVoteSchema = Schema.Struct({
+  type: Schema.Literal("coaches"),
+  season: Schema.Number,
   /** Canonical competition-season identity, populated by public fetch APIs. */
-  readonly seasonKey?: string;
-  readonly competition: CompetitionCode;
+  seasonKey: Schema.optionalKey(Schema.String),
+  competition: CompetitionCodeSchema,
   /** Adapter that scraped this vote line (#120). */
-  readonly source: DataSource;
-  readonly round: number;
-  readonly homeTeam: string;
-  readonly awayTeam: string;
+  source: DataSourceSchema,
+  round: Schema.Number,
+  homeTeam: Schema.String,
+  awayTeam: Schema.String,
   /** Player who received the votes (renamed from `playerName` in 2.1.0 for variant alignment). */
-  readonly player: string;
-  readonly votes: number;
-}
+  player: Schema.String,
+  votes: Schema.Number,
+});
+
+/** AFLCA coaches votes for a player in a single match. */
+export type CoachesVote = typeof CoachesVoteSchema.Type;
 
 /** Query parameters for fetching coaches votes. */
-export interface CoachesVoteQuery {
-  readonly season: number;
-  readonly round?: number | undefined;
-  readonly competition?: CompetitionCode | undefined;
-  readonly team?: string | undefined;
-}
+export const CoachesVoteQuerySchema = Schema.Struct({
+  season: Schema.Number,
+  round: Schema.optional(Schema.Number),
+  competition: Schema.optional(CompetitionCodeSchema),
+  team: Schema.optional(Schema.String),
+});
+
+/** Query parameters for fetching coaches votes. */
+export type CoachesVoteQuery = typeof CoachesVoteQuerySchema.Type;
 
 /** Partial-result envelope for a season of AFL Coaches Association votes. */
-export interface CoachesVotesResult {
+export const CoachesVotesResultSchema = Schema.Struct({
   /** Vote rows retained from successful rounds. */
-  readonly votes: readonly CoachesVote[];
+  votes: Schema.Array(CoachesVoteSchema),
   /** Rounds with network, non-404 HTTP, or parse failures. */
-  readonly failedRounds: readonly number[];
-}
+  failedRounds: Schema.Array(Schema.Number),
+});
+
+/** Partial-result envelope for a season of AFL Coaches Association votes. */
+export type CoachesVotesResult = typeof CoachesVotesResultSchema.Type;
+
+// ---------------------------------------------------------------------------
+// Award union and queries
+// ---------------------------------------------------------------------------
+
+/** Discriminated union of award types. */
+export const AwardSchema = Schema.Union([
+  BrownlowVoteSchema,
+  AllAustralianSelectionSchema,
+  RisingStarNominationSchema,
+  ColemanLeaderSchema,
+  CoachesVoteSchema,
+]);
+
+/** Discriminated union of award types. */
+export type Award = typeof AwardSchema.Type;
+
+/** Query parameters for fetching awards. */
+export const AwardQuerySchema = Schema.Struct({
+  award: AwardTypeSchema,
+  season: SeasonSelectorSchema,
+  /** Coaches votes are competition-scoped; defaults to AFLM. Other awards ignore. */
+  competition: Schema.optional(CompetitionCodeSchema),
+  /** Coaches votes only — narrow to a specific round. */
+  round: Schema.optional(Schema.Number),
+  /** Coaches votes only — narrow to matches involving a team. */
+  team: Schema.optional(Schema.String),
+  /** Coleman only — limit to top N goal-kickers (default: all players who scored). */
+  limit: Schema.optional(Schema.Number),
+});
+
+/** Query parameters for fetching awards. */
+export type AwardQuery = typeof AwardQuerySchema.Type;
+
+/** Partial-result envelope for awards data. */
+export const AwardResultSchema = Schema.Struct({
+  /** Award rows that were fetched or computed successfully. */
+  awards: Schema.Array(AwardSchema),
+  /** Coaches-vote rounds that failed to fetch or parse, in round order. */
+  failedRounds: Schema.Array(Schema.Number),
+});
+
+/** Partial-result envelope for awards data. */
+export type AwardResult = typeof AwardResultSchema.Type;
 
 // ---------------------------------------------------------------------------
 // Query parameter types
 // ---------------------------------------------------------------------------
 
 /** Query for data by season and optional round. */
-export interface SeasonRoundQuery {
-  readonly source: DataSource;
-  readonly season: SeasonSelector;
-  readonly round?: number | undefined;
-  readonly competition?: CompetitionCode | undefined;
-}
+export const SeasonRoundQuerySchema = Schema.Struct({
+  source: DataSourceSchema,
+  season: SeasonSelectorSchema,
+  round: Schema.optional(Schema.Number),
+  competition: Schema.optional(CompetitionCodeSchema),
+});
+
+/** Query for data by season and optional round. */
+export type SeasonRoundQuery = typeof SeasonRoundQuerySchema.Type;
 
 /**
  * Unified query for matches in any temporal scope.
@@ -780,63 +951,84 @@ export interface SeasonRoundQuery {
  * - `team` filters to matches involving the named team (home or away)
  * - `status` filters by match state (e.g. "Upcoming" for fixtures only)
  */
-export interface MatchQuery {
-  readonly source: DataSource;
-  readonly season: SeasonSelector;
-  readonly round?: number | undefined;
-  readonly matchId?: string | undefined;
-  readonly team?: string | undefined;
-  readonly status?: MatchStatus | undefined;
-  readonly competition?: CompetitionCode | undefined;
-}
+export const MatchQuerySchema = Schema.Struct({
+  source: DataSourceSchema,
+  season: SeasonSelectorSchema,
+  round: Schema.optional(Schema.Number),
+  matchId: Schema.optional(Schema.String),
+  team: Schema.optional(Schema.String),
+  status: Schema.optional(MatchStatusSchema),
+  competition: Schema.optional(CompetitionCodeSchema),
+});
+
+/** Unified query for matches in any temporal scope. */
+export type MatchQuery = typeof MatchQuerySchema.Type;
 
 /** Query for player stats (by season/round or specific match). */
-export interface PlayerStatsQuery {
-  readonly source: DataSource;
-  readonly season: SeasonSelector;
-  readonly round?: number | undefined;
-  readonly matchId?: string | undefined;
-  readonly competition?: CompetitionCode | undefined;
-}
+export const PlayerStatsQuerySchema = Schema.Struct({
+  source: DataSourceSchema,
+  season: SeasonSelectorSchema,
+  round: Schema.optional(Schema.Number),
+  matchId: Schema.optional(Schema.String),
+  competition: Schema.optional(CompetitionCodeSchema),
+});
+
+/** Query for player stats (by season/round or specific match). */
+export type PlayerStatsQuery = typeof PlayerStatsQuerySchema.Type;
 
 /** Query for lineup data. */
-export interface LineupQuery {
-  readonly source: DataSource;
-  readonly season: SeasonSelector;
-  readonly round: number;
-  readonly matchId?: string | undefined;
-  readonly competition?: CompetitionCode | undefined;
-}
+export const LineupQuerySchema = Schema.Struct({
+  source: DataSourceSchema,
+  season: SeasonSelectorSchema,
+  round: Schema.Number,
+  matchId: Schema.optional(Schema.String),
+  competition: Schema.optional(CompetitionCodeSchema),
+});
+
+/** Query for lineup data. */
+export type LineupQuery = typeof LineupQuerySchema.Type;
 
 /** Query for ladder standings. */
-export interface LadderQuery {
-  readonly source: DataSource;
-  readonly season: SeasonSelector;
-  readonly round?: number | undefined;
-  readonly competition?: CompetitionCode | undefined;
-}
+export const LadderQuerySchema = Schema.Struct({
+  source: DataSourceSchema,
+  season: SeasonSelectorSchema,
+  round: Schema.optional(Schema.Number),
+  competition: Schema.optional(CompetitionCodeSchema),
+});
+
+/** Query for ladder standings. */
+export type LadderQuery = typeof LadderQuerySchema.Type;
 
 /** Query for team lists. */
-export interface TeamQuery {
-  readonly competition?: CompetitionCode | undefined;
-  readonly teamType?: string | undefined;
-}
+export const TeamQuerySchema = Schema.Struct({
+  competition: Schema.optional(CompetitionCodeSchema),
+  teamType: Schema.optional(Schema.String),
+});
+
+/** Query for team lists. */
+export type TeamQuery = typeof TeamQuerySchema.Type;
 
 /** Query for a team's squad. */
-export interface SquadQuery {
+export const SquadQuerySchema = Schema.Struct({
   /** Canonical team name (e.g. "Carlton"). Adapters handle their own translation. */
-  readonly team: string;
-  readonly season: SeasonSelector;
-  readonly source?: DataSource | undefined;
-  readonly competition?: CompetitionCode | undefined;
-}
+  team: Schema.String,
+  season: SeasonSelectorSchema,
+  source: Schema.optional(DataSourceSchema),
+  competition: Schema.optional(CompetitionCodeSchema),
+});
+
+/** Query for a team's squad. */
+export type SquadQuery = typeof SquadQuerySchema.Type;
 
 // ---------------------------------------------------------------------------
 // Team statistics (aggregate per-team stats)
 // ---------------------------------------------------------------------------
 
 /** Summary type for team statistics. */
-export type TeamStatsSummaryType = "totals" | "averages";
+export const TeamStatsSummaryTypeSchema = Schema.Literals(["totals", "averages"]);
+
+/** Summary type for team statistics. */
+export type TeamStatsSummaryType = typeof TeamStatsSummaryTypeSchema.Type;
 
 /**
  * Canonical, source-portable team-stat metric set. Every metric is
@@ -845,32 +1037,35 @@ export type TeamStatsSummaryType = "totals" | "averages";
  * `supercoachPoints`) round-trips honestly. Adapters handle their
  * source→canonical mapping. (#98)
  */
-export interface TeamMetricSet {
-  readonly kicks: number | null;
-  readonly handballs: number | null;
-  readonly disposals: number | null;
-  readonly marks: number | null;
-  readonly goals: number | null;
-  readonly behinds: number | null;
-  readonly goalAssists: number | null;
-  readonly tackles: number | null;
-  readonly hitouts: number | null;
-  readonly freesFor: number | null;
-  readonly freesAgainst: number | null;
-  readonly clearances: number | null;
-  readonly clangers: number | null;
-  readonly inside50s: number | null;
-  readonly rebound50s: number | null;
-  readonly contestedPossessions: number | null;
-  readonly uncontestedPossessions: number | null;
-  readonly contestedMarks: number | null;
-  readonly marksInside50: number | null;
-  readonly onePercenters: number | null;
-  readonly bounces: number | null;
-  readonly brownlowVotes: number | null;
-  readonly fantasyPoints: number | null;
-  readonly supercoachPoints: number | null;
-}
+export const TeamMetricSetSchema = Schema.Struct({
+  kicks: Schema.NullOr(Schema.Number),
+  handballs: Schema.NullOr(Schema.Number),
+  disposals: Schema.NullOr(Schema.Number),
+  marks: Schema.NullOr(Schema.Number),
+  goals: Schema.NullOr(Schema.Number),
+  behinds: Schema.NullOr(Schema.Number),
+  goalAssists: Schema.NullOr(Schema.Number),
+  tackles: Schema.NullOr(Schema.Number),
+  hitouts: Schema.NullOr(Schema.Number),
+  freesFor: Schema.NullOr(Schema.Number),
+  freesAgainst: Schema.NullOr(Schema.Number),
+  clearances: Schema.NullOr(Schema.Number),
+  clangers: Schema.NullOr(Schema.Number),
+  inside50s: Schema.NullOr(Schema.Number),
+  rebound50s: Schema.NullOr(Schema.Number),
+  contestedPossessions: Schema.NullOr(Schema.Number),
+  uncontestedPossessions: Schema.NullOr(Schema.Number),
+  contestedMarks: Schema.NullOr(Schema.Number),
+  marksInside50: Schema.NullOr(Schema.Number),
+  onePercenters: Schema.NullOr(Schema.Number),
+  bounces: Schema.NullOr(Schema.Number),
+  brownlowVotes: Schema.NullOr(Schema.Number),
+  fantasyPoints: Schema.NullOr(Schema.Number),
+  supercoachPoints: Schema.NullOr(Schema.Number),
+});
+
+/** Canonical, source-portable team-stat metric set (#98). */
+export type TeamMetricSet = typeof TeamMetricSetSchema.Type;
 
 /**
  * Aggregate statistics for a single team in a season. Replaces the
@@ -878,36 +1073,42 @@ export interface TeamMetricSet {
  * `for`/`against` metric sets so the shape is portable across sources.
  * (#98)
  */
-export interface TeamStatsEntry {
-  readonly season: number;
+export const TeamStatsEntrySchema = Schema.Struct({
+  season: Schema.Number,
   /** Canonical competition-season identity, populated by public fetch APIs. */
-  readonly seasonKey?: string;
-  readonly competition: CompetitionCode;
-  readonly team: string;
+  seasonKey: Schema.optionalKey(Schema.String),
+  competition: CompetitionCodeSchema,
+  team: Schema.String,
   /** Games used as the denominator, or `null` when enrichment failed. */
-  readonly gamesPlayed: number | null;
-  readonly for: TeamMetricSet;
-  readonly against: TeamMetricSet;
-  readonly source: DataSource;
-}
+  gamesPlayed: Schema.NullOr(Schema.Number),
+  for: TeamMetricSetSchema,
+  against: TeamMetricSetSchema,
+  source: DataSourceSchema,
+});
+
+/** Aggregate statistics for a single team in a season (#98). */
+export type TeamStatsEntry = typeof TeamStatsEntrySchema.Type;
 
 /** Query parameters for fetching team statistics. */
-export interface TeamStatsQuery {
-  readonly source: DataSource;
-  readonly season: SeasonSelector;
+export const TeamStatsQuerySchema = Schema.Struct({
+  source: DataSourceSchema,
+  season: SeasonSelectorSchema,
   /** Competition to query. Defaults to `AFLM`. */
-  readonly competition?: CompetitionCode | undefined;
-  readonly summaryType?: TeamStatsSummaryType | undefined;
-}
+  competition: Schema.optional(CompetitionCodeSchema),
+  summaryType: Schema.optional(TeamStatsSummaryTypeSchema),
+});
 
-/** Canonical season key or an unambiguous numeric calendar year. */
-export type SeasonSelector = number | `${number}` | "2022-S6" | "2022-S7";
+/** Query parameters for fetching team statistics. */
+export type TeamStatsQuery = typeof TeamStatsQuerySchema.Type;
 
 /** Provider-backed identity of one competition season. */
-export interface CompetitionSeason {
-  readonly competition: CompetitionCode;
-  readonly seasonKey: string;
-  readonly year: number;
-  readonly displayName: string;
-  readonly providerSeasonId: number;
-}
+export const CompetitionSeasonSchema = Schema.Struct({
+  competition: CompetitionCodeSchema,
+  seasonKey: Schema.String,
+  year: Schema.Number,
+  displayName: Schema.String,
+  providerSeasonId: Schema.Number,
+});
+
+/** Provider-backed identity of one competition season. */
+export type CompetitionSeason = typeof CompetitionSeasonSchema.Type;

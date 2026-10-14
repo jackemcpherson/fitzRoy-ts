@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 import type { MatchRoster } from "../../src/lib/validation";
 import { transformMatchRoster } from "../../src/transforms/lineup";
+import type { DeepMutable } from "../support/mutable";
 import capturedRoster from "../fixtures/grand-final-2026-roster.json";
 
-function makeRoster(overrides?: Partial<MatchRoster>): MatchRoster {
+function makeRoster(overrides?: Partial<DeepMutable<MatchRoster>>): DeepMutable<MatchRoster> {
   return {
     match: {
       matchId: "CD_M1",
@@ -150,10 +151,10 @@ describe("transformMatchRoster", () => {
 
   it("handles missing jumper number", () => {
     const roster = makeRoster();
-    const homeTeam = roster.teamPlayers[0];
+    const player = roster.teamPlayers[0]?.players[0];
 
-    if (homeTeam?.players[0]) {
-      (homeTeam.players[0] as Record<string, unknown>).jumperNumber = undefined;
+    if (player) {
+      player.jumperNumber = undefined;
     }
 
     const lineup = transformMatchRoster(roster, 2025, 1, "AFLM");

@@ -1,15 +1,44 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it } from "@effect/vitest";
+import { Effect, Fiber, Layer, Match } from "effect";
+import { TestClock } from "effect/testing";
 import {
-  AflCoachesClient,
+  AflCoaches,
+  AflCoachesLive,
   isFinalsRound,
   parseCoachesVotesHtml,
 } from "../../src/sources/afl-coaches";
+import { fixtureHttp, fixtureText, type RequestLog, type RouteAnswer } from "../support/http";
 
-const FIXTURE_PATH = resolve(__dirname, "../fixtures/afl-coaches-votes.html");
+const fixtureHtml = fixtureText("afl-coaches-votes.html");
 
-const fixtureHtml = readFileSync(FIXTURE_PATH, "utf-8");
+/** The live AFL Coaches client answering every request with `answer`. */
+function coachesWith(answer: RouteAnswer, log?: RequestLog) {
+  return AflCoachesLive.pipe(
+    Layer.provide(fixtureHttp([["aflcoaches.com.au", answer]], log ? { log } : undefined)),
+  );
+}
+
+/**
+ * Run an effect while advancing the test clock, so the 250 ms inter-batch
+ * gaps elapse while fixture responses settle on real timers.
+ */
+function withTicks<A, E, R>(effect: Effect.Effect<A, E, R>) {
+  return Effect.gen(function* () {
+    const fiber = yield* Effect.forkChild(effect);
+
+    while (fiber.pollUnsafe() === undefined) {
+      yield* TestClock.adjust("250 millis");
+      yield* Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 1)));
+    }
+
+    return yield* Fiber.join(fiber);
+  });
+}
+
+/** Round number from the last two digits of an AFLCA leaderboard URL. */
+function roundOf(url: string): number {
+  return Number.parseInt(/(\d{2})$/.exec(url)?.[1] ?? "0", 10);
+}
 
 describe("parseCoachesVotesHtml", () => {
   it("parses the fixture into coaches-vote records with the expected fields", () => {
@@ -104,57 +133,55 @@ describe("parseCoachesVotesHtml", () => {
   });
 });
 
-describe("AflCoachesClient.scrapeRoundVotes", () => {
-  it("builds the AFLCA URL and parses the returned HTML (offline round-trip)", async () => {
-    let capturedUrl = "";
+describe("AflCoaches.scrapeRoundVotes", () => {
+  it.effect("builds the AFLCA URL and parses the returned HTML (offline round-trip)", () => {
+    const log: RequestLog = { urls: [], inits: [] };
 
-    const fetchFn = vi.fn(async (url: string | URL | Request) => {
-      capturedUrl = String(url);
+    return Effect.gen(function* () {
+      const coaches = yield* AflCoaches;
+      const votes = yield* coaches.scrapeRoundVotes(2024, 1, "AFLM", false);
 
-      return new Response(fixtureHtml, { status: 200 });
-    }) as unknown as typeof fetch;
+      expect(votes).toHaveLength(5);
+      expect(votes[0]?.source).toBe("afl-coaches");
 
-    const client = new AflCoachesClient({ fetchFn });
-    const result = await client.scrapeRoundVotes(2024, 1, "AFLM", false);
-
-    expect(result.success).toBe(true);
-
-    if (result.success) {
-      expect(result.data).toHaveLength(5);
-      expect(result.data[0]?.source).toBe("afl-coaches");
-    }
-
-    // For season >= 2023 the path uses season/{season+1}{compSuffix}{roundPad}.
-    expect(capturedUrl).toBe(
-      "https://aflcoaches.com.au/awards/the-aflca-champion-player-of-the-year-award/leaderboard/2024/20250101",
-    );
+      // For season >= 2023 the path uses season/{season+1}{compSuffix}{roundPad}.
+      expect(log.urls).toEqual([
+        "https://aflcoaches.com.au/awards/the-aflca-champion-player-of-the-year-award/leaderboard/2024/20250101",
+      ]);
+    }).pipe(Effect.provide(coachesWith({ body: fixtureHtml }, log)));
   });
 
-  it("returns an error result on a non-OK response", async () => {
-    const fetchFn = vi.fn().mockResolvedValue(new Response("", { status: 404 }));
-    const client = new AflCoachesClient({ fetchFn });
+  it.effect("fails with a ScrapeError on a non-OK response", () =>
+    Effect.gen(function* () {
+      const coaches = yield* AflCoaches;
+      const error = yield* coaches.scrapeRoundVotes(2024, 1, "AFLM", false).pipe(Effect.flip);
 
-    const result = await client.scrapeRoundVotes(2024, 1, "AFLM", false);
-    expect(result.success).toBe(false);
-  });
+      expect(error._tag).toBe("ScrapeError");
+      expect(error.statusCode).toBe(404);
+    }).pipe(Effect.provide(coachesWith({ body: "", status: 404 }))),
+  );
 });
 
-describe("AflCoachesClient.fetchSeasonVotes", () => {
-  it("limits concurrency to three, preserves round order, and skips failed or empty rounds", async () => {
-    vi.useFakeTimers();
-
-    try {
+describe("AflCoaches.fetchSeasonVotes", () => {
+  it.effect(
+    "limits concurrency to three, preserves round order, and skips failed or empty rounds",
+    () => {
       let inFlight = 0;
       let maxInFlight = 0;
 
-      const fetchFn = vi.fn((input: RequestInfo | URL) => {
-        const round = Number.parseInt(/(\d{2})$/.exec(String(input))?.[1] ?? "0", 10);
+      const respond = (url: string) => {
+        const round = roundOf(url);
         inFlight++;
         maxInFlight = Math.max(maxInFlight, inFlight);
 
         return new Promise<Response>((resolve, reject) => {
           // Resolve each batch out of order while keeping later rounds fast.
-          const delay = round % 3 === 1 ? 30 : round % 3 === 2 ? 10 : 20;
+          const delay = Match.value(round % 3).pipe(
+            Match.when(1, () => 30),
+            Match.when(2, () => 10),
+            Match.orElse(() => 20),
+          );
+
           setTimeout(() => {
             inFlight--;
 
@@ -171,61 +198,37 @@ describe("AflCoachesClient.fetchSeasonVotes", () => {
             }
           }, delay);
         });
-      });
+      };
 
-      const resultPromise = new AflCoachesClient({ fetchFn }).fetchSeasonVotes(2024, "AFLM");
+      return Effect.gen(function* () {
+        const coaches = yield* AflCoaches;
+        const result = yield* withTicks(coaches.fetchSeasonVotes(2024, "AFLM"));
 
-      await vi.runAllTimersAsync();
-      const result = await resultPromise;
-
-      expect(maxInFlight).toBe(3);
-      expect(result.success).toBe(true);
-
-      if (result.success) {
-        const rounds = [...new Set(result.data.votes.map((vote) => vote.round))];
+        expect(maxInFlight).toBe(3);
+        const rounds = [...new Set(result.votes.map((vote) => vote.round))];
         expect(rounds).toEqual([1, 3, ...Array.from({ length: 24 }, (_, i) => i + 7)]);
-        expect(result.data.failedRounds).toEqual([2, 6]);
-      }
-    } finally {
-      vi.useRealTimers();
-    }
-  });
+        expect(result.failedRounds).toEqual([2, 6]);
+      }).pipe(Effect.provide(coachesWith({ respond })));
+    },
+  );
 
-  it("returns an error when all rounds fail or contain no votes", async () => {
-    vi.useFakeTimers();
+  it.effect("fails when all rounds fail or contain no votes", () =>
+    Effect.gen(function* () {
+      const coaches = yield* AflCoaches;
+      const error = yield* withTicks(coaches.fetchSeasonVotes(2024, "AFLM")).pipe(Effect.flip);
 
-    try {
-      const fetchFn = vi.fn().mockResolvedValue(new Response("<html></html>", { status: 200 }));
-      const resultPromise = new AflCoachesClient({ fetchFn }).fetchSeasonVotes(2024, "AFLM");
+      expect(error.message).toContain("No coaches votes found for season 2024");
+    }).pipe(Effect.provide(coachesWith({ body: "<html></html>" }))),
+  );
 
-      await vi.runAllTimersAsync();
-      const result = await resultPromise;
+  it.effect("fails when every round has an actual HTTP failure", () =>
+    Effect.gen(function* () {
+      const coaches = yield* AflCoaches;
+      const error = yield* withTicks(coaches.fetchSeasonVotes(2024, "AFLM")).pipe(Effect.flip);
 
-      expect(result.success).toBe(false);
-
-      if (!result.success) {
-        expect(result.error.message).toContain("No coaches votes found for season 2024");
-      }
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("returns an error when every round has an actual HTTP failure", async () => {
-    vi.useFakeTimers();
-
-    try {
-      const fetchFn = vi.fn().mockResolvedValue(new Response("", { status: 503 }));
-      const resultPromise = new AflCoachesClient({ fetchFn }).fetchSeasonVotes(2024, "AFLM");
-
-      await vi.runAllTimersAsync();
-      const result = await resultPromise;
-
-      expect(result.success).toBe(false);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
+      expect(error._tag).toBe("ScrapeError");
+    }).pipe(Effect.provide(coachesWith({ body: "", status: 503 }))),
+  );
 });
 
 describe("isFinalsRound", () => {

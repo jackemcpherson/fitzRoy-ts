@@ -1,185 +1,162 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-
-// `fetchSquad` is wrapped as a spy that calls through to the real
-// implementation by default, so the happy-path test below still exercises the
-// real comp-season → team-id → squad chain (via the stubbed global fetch). The
-// default-season test (#149) overrides it with `mockResolvedValue` to assert
-// which season `fetchPlayerDetails` passed downstream, without re-stubbing the
-// whole chain.
-vi.mock("../../src/api/teams", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../src/api/teams")>();
-
-  return { ...actual, fetchSquad: vi.fn(actual.fetchSquad) };
-});
-
+import { describe, expect, it } from "@effect/vitest";
+import { Effect } from "effect";
 import { fetchPlayerDetails } from "../../src/api/player-details";
-import { fetchSquad } from "../../src/api/teams";
-import { err, ok } from "../../src/lib/result";
+import { ScrapeError, type SourceError } from "../../src/lib/errors";
 import { AFL_SENIOR_TEAMS } from "../../src/lib/team-mapping";
-import type { Player } from "../../src/types";
-
-const COMPSEASONS = readFileSync(
-  resolve(__dirname, "../fixtures/afl-api-compseasons-2024.json"),
-  "utf-8",
-);
-
-const TEAMS = readFileSync(resolve(__dirname, "../fixtures/afl-api-teams-aflm.json"), "utf-8");
-
-const SQUAD = readFileSync(
-  resolve(__dirname, "../fixtures/afl-api-squads-carlton-2024.json"),
-  "utf-8",
-);
+import type { SquadSource } from "../../src/sources/adapters/capabilities";
+import { CapabilityRegistry } from "../../src/sources/adapters/registry";
+import type { DataSource, Player, Squad, SquadQuery } from "../../src/types";
+import { fixtureText, type Route } from "../support/http";
+import { FULL_COVERAGE, fixtureFitzroy, stubRegistry } from "../support/services";
 
 /**
  * `fetchPlayerDetails` is a denormalised view over `fetchSquad`, so the
  * single-team flow makes the same comp-season → team-id → squad chain.
- * The shared `aflApiClient` defers its `globalThis.fetch` lookup to call
- * time, so stubbing the global intercepts the import-time singleton.
  */
-function playerDetailsFetch(): typeof fetch {
-  return vi.fn((input: string | URL | Request) => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+const SQUAD_ROUTES: readonly Route[] = [
+  ["compseasons?pageSize", { body: fixtureText("afl-api-compseasons-2024.json") }],
+  ["/teams?", { body: fixtureText("afl-api-teams-aflm.json") }],
+  ["/squads?", { body: fixtureText("afl-api-squads-carlton-2024.json") }],
+  [
+    /./,
+    {
+      respond: (url) => Promise.reject(new Error(`Unexpected URL in player-details test: ${url}`)),
+    },
+  ],
+];
 
-    if (url.includes("compseasons?pageSize")) {
-      return Promise.resolve(new Response(COMPSEASONS, { status: 200 }));
-    }
+/**
+ * A registry whose only squad adapter is `source`, answering each query
+ * with `answer` and recording every query it receives.
+ */
+function squadRegistry(
+  source: DataSource,
+  answer: (query: SquadQuery) => Effect.Effect<Squad, SourceError>,
+  calls: SquadQuery[] = [],
+) {
+  const adapter: SquadSource = {
+    id: source,
+    coverage: FULL_COVERAGE,
+    fetchSquad: (query) => {
+      calls.push(query);
 
-    if (url.includes("/teams?")) {
-      return Promise.resolve(new Response(TEAMS, { status: 200 }));
-    }
+      return answer(query);
+    },
+  };
 
-    if (url.includes("/squads?")) {
-      return Promise.resolve(new Response(SQUAD, { status: 200 }));
-    }
-
-    return Promise.reject(new Error(`Unexpected URL in player-details test: ${url}`));
-  }) as unknown as typeof fetch;
+  return stubRegistry({ squad: new CapabilityRegistry(source, [adapter]) });
 }
 
+const networkFailure = () =>
+  Effect.fail(new ScrapeError({ message: "network failure", source: "afl-api" }));
+
 describe("fetchPlayerDetails afl-api happy path", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
+  it.effect("projects a single team's squad into flat player-detail rows", () =>
+    Effect.gen(function* () {
+      const result = yield* fetchPlayerDetails({
+        source: "afl-api",
+        team: "Carlton",
+        season: 2024,
+      });
 
-  it("projects a single team's squad into flat player-detail rows", async () => {
-    vi.stubGlobal("fetch", playerDetailsFetch());
+      expect(result.players).toHaveLength(2);
+      expect(result.failedTeams).toEqual([]);
+      expect(result.scope).toBe("season");
 
-    const result = await fetchPlayerDetails({ source: "afl-api", team: "Carlton", season: 2024 });
-
-    expect(result.success).toBe(true);
-
-    if (!result.success) return;
-
-    expect(result.data.players).toHaveLength(2);
-    expect(result.data.failedTeams).toEqual([]);
-    expect(result.data.scope).toBe("season");
-
-    const walsh = result.data.players.find((p) => p.surname === "Walsh");
-    expect(walsh).toBeDefined();
-    expect(walsh?.displayName).toBe("Sam Walsh");
-    expect(walsh?.team).toBe("Carlton");
-    expect(walsh?.jumperNumber).toBe(3);
-    expect(walsh?.draftPosition).toBe(1);
-    expect(walsh?.source).toBe("afl-api");
-    expect(walsh?.competition).toBe("AFLM");
-  });
+      const walsh = result.players.find((p) => p.surname === "Walsh");
+      expect(walsh).toBeDefined();
+      expect(walsh?.displayName).toBe("Sam Walsh");
+      expect(walsh?.team).toBe("Carlton");
+      expect(walsh?.jumperNumber).toBe(3);
+      expect(walsh?.draftPosition).toBe(1);
+      expect(walsh?.source).toBe("afl-api");
+      expect(walsh?.competition).toBe("AFLM");
+    }).pipe(Effect.provide(fixtureFitzroy(SQUAD_ROUTES))),
+  );
 });
 
 describe("fetchPlayerDetails public API dispatch", () => {
-  it("returns error for fryzigg source (player-stats only, no squad capability)", async () => {
+  it.effect("fails for fryzigg source (player-stats only, no squad capability)", () =>
     // Regression guard for #126: before the dispatch guard was added,
     // sources without a squad capability silently returned [] for every
     // team and produced an empty array with exit 0.
-    const result = await fetchPlayerDetails({
-      source: "fryzigg",
-      team: "Carlton",
-      season: 2024,
-    });
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        fetchPlayerDetails({
+          source: "fryzigg",
+          team: "Carlton",
+          season: 2024,
+        }),
+      );
 
-    expect(result.success).toBe(false);
+      expect(error.message).toContain("fryzigg does not provide squad");
+    }).pipe(Effect.provide(fixtureFitzroy())),
+  );
 
-    if (!result.success) {
-      expect(result.error.message).toContain("fryzigg does not provide squad");
-    }
-  });
+  it.effect("fails for squiggle source (no squad capability)", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        fetchPlayerDetails({
+          source: "squiggle",
+          team: "Carlton",
+          season: 2024,
+        }),
+      );
 
-  it("returns error for squiggle source (no squad capability)", async () => {
-    const result = await fetchPlayerDetails({
-      source: "squiggle",
-      team: "Carlton",
-      season: 2024,
-    });
+      expect(error.message).toContain("squiggle does not provide squad");
+    }).pipe(Effect.provide(fixtureFitzroy())),
+  );
 
-    expect(result.success).toBe(false);
+  it.effect("fails for season below afl-api coverage (pre-2012)", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        fetchPlayerDetails({
+          source: "afl-api",
+          team: "Carlton",
+          season: 2010,
+        }),
+      );
 
-    if (!result.success) {
-      expect(result.error.message).toContain("squiggle does not provide squad");
-    }
-  });
-
-  it("returns error for season below afl-api coverage (pre-2012)", async () => {
-    const result = await fetchPlayerDetails({
-      source: "afl-api",
-      team: "Carlton",
-      season: 2010,
-    });
-
-    expect(result.success).toBe(false);
-
-    if (!result.success) {
-      expect(result.error.message).toContain("2010");
-    }
-  });
+      expect(error.message).toContain("2010");
+    }).pipe(Effect.provide(fixtureFitzroy())),
+  );
 });
 
 describe("fetchPlayerDetails default-season resolution (#149)", () => {
-  afterEach(() => {
-    vi.useRealTimers();
-    vi.unstubAllGlobals();
-    vi.mocked(fetchSquad).mockReset();
-  });
+  it.effect("fails with a provider error instead of inventing the omitted season", () => {
+    const calls: SquadQuery[] = [];
 
-  it("returns a provider error instead of inventing the omitted season", async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2025-06-15T00:00:00.000Z"));
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response("", { status: 500, statusText: "Server Error" })),
+    return Effect.gen(function* () {
+      yield* Effect.flip(
+        fetchPlayerDetails({
+          source: "afl-api",
+          team: "Carlton",
+          competition: "AFLW",
+        }),
+      );
+
+      expect(calls).toEqual([]);
+    }).pipe(
+      Effect.provide(squadRegistry("afl-api", networkFailure, calls)),
+      Effect.provide(fixtureFitzroy([[/./, { body: "", status: 500 }]])),
     );
-    vi.mocked(fetchSquad).mockReset();
-
-    const result = await fetchPlayerDetails({
-      source: "afl-api",
-      team: "Carlton",
-      competition: "AFLW",
-    });
-
-    expect(result.success).toBe(false);
-    expect(fetchSquad).not.toHaveBeenCalled();
   });
 });
 
 describe("fetchPlayerDetails all-teams failure modes (#155)", () => {
-  afterEach(() => {
-    vi.mocked(fetchSquad).mockReset();
-  });
+  it.effect("fails when every team squad fetch fails", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(fetchPlayerDetails({ source: "afl-api", season: 2024 }));
 
-  it("returns an error when every team squad fetch fails", async () => {
-    vi.mocked(fetchSquad).mockResolvedValue(err(new Error("network failure")));
+      expect(error.message).toContain("2024");
+      expect(error.message).toContain("afl-api");
+    }).pipe(
+      Effect.provide(squadRegistry("afl-api", networkFailure)),
+      Effect.provide(fixtureFitzroy()),
+    ),
+  );
 
-    const result = await fetchPlayerDetails({ source: "afl-api", season: 2024 });
-
-    expect(result.success).toBe(false);
-
-    if (!result.success) {
-      expect(result.error.message).toContain("2024");
-      expect(result.error.message).toContain("afl-api");
-    }
-  });
-
-  it("returns partial results when some team squad fetches fail", async () => {
+  it.effect("returns partial results when some team squad fetches fail", () => {
     const mockPlayer: Player = {
       playerId: "1",
       givenName: "Sam",
@@ -202,66 +179,63 @@ describe("fetchPlayerDetails all-teams failure modes (#155)", () => {
       competition: "AFLM",
     };
 
-    vi.mocked(fetchSquad).mockImplementation(async (query) => {
-      if (query.team === "Carlton") {
-        return ok({
-          teamId: "1",
-          teamName: "Carlton",
-          season: 2024,
-          scope: "season",
-          players: [mockPlayer],
-          competition: "AFLM",
-          source: "afl-api",
-        });
-      }
+    const carltonOnly = (query: SquadQuery) =>
+      query.team === "Carlton"
+        ? Effect.succeed<Squad>({
+            teamId: "1",
+            teamName: "Carlton",
+            season: 2024,
+            scope: "season",
+            players: [mockPlayer],
+            competition: "AFLM",
+            source: "afl-api",
+          })
+        : networkFailure();
 
-      return err(new Error("network failure"));
-    });
+    return Effect.gen(function* () {
+      const result = yield* fetchPlayerDetails({ source: "afl-api", season: 2024 });
 
-    const result = await fetchPlayerDetails({ source: "afl-api", season: 2024 });
-
-    expect(result.success).toBe(true);
-
-    if (!result.success) return;
-    // The one successful Carlton squad contributes exactly one player.
-    expect(result.data.players).toHaveLength(1);
-    expect(result.data.players[0]?.displayName).toBe("Sam Walsh");
-    expect(result.data.players[0]?.team).toBe("Carlton");
-    expect(result.data.failedTeams).toEqual(
-      [...AFL_SENIOR_TEAMS].filter((team) => team !== "Carlton"),
+      // The one successful Carlton squad contributes exactly one player.
+      expect(result.players).toHaveLength(1);
+      expect(result.players[0]?.displayName).toBe("Sam Walsh");
+      expect(result.players[0]?.team).toBe("Carlton");
+      expect(result.failedTeams).toEqual(
+        [...AFL_SENIOR_TEAMS].filter((team) => team !== "Carlton"),
+      );
+      expect(result.scope).toBe("season");
+    }).pipe(
+      Effect.provide(squadRegistry("afl-api", carltonOnly)),
+      Effect.provide(fixtureFitzroy()),
     );
-    expect(result.data.scope).toBe("season");
   });
 });
 
 describe("fetchPlayerDetails scope", () => {
-  afterEach(() => {
-    vi.mocked(fetchSquad).mockReset();
-  });
-
-  it("reports all-time scope from scraped player lists", async () => {
-    vi.mocked(fetchSquad).mockResolvedValue(
-      ok({
-        teamId: "Carlton",
-        teamName: "Carlton",
-        season: 2024,
-        scope: "all-time",
-        players: [],
-        competition: "AFLM",
+  it.effect("reports all-time scope from scraped player lists", () =>
+    Effect.gen(function* () {
+      const result = yield* fetchPlayerDetails({
         source: "footywire",
-      }),
-    );
+        team: "Carlton",
+        season: 2024,
+      });
 
-    const result = await fetchPlayerDetails({
-      source: "footywire",
-      team: "Carlton",
-      season: 2024,
-    });
-
-    expect(result.success).toBe(true);
-
-    if (!result.success) return;
-    expect(result.data.scope).toBe("all-time");
-    expect(result.data.failedTeams).toEqual([]);
-  });
+      expect(result.scope).toBe("all-time");
+      expect(result.failedTeams).toEqual([]);
+    }).pipe(
+      Effect.provide(
+        squadRegistry("footywire", () =>
+          Effect.succeed({
+            teamId: "Carlton",
+            teamName: "Carlton",
+            season: 2024,
+            scope: "all-time",
+            players: [],
+            competition: "AFLM",
+            source: "footywire",
+          }),
+        ),
+      ),
+      Effect.provide(fixtureFitzroy()),
+    ),
+  );
 });

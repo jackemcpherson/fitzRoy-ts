@@ -7,7 +7,7 @@
  *   3. Does VFL return rich PlayerStats (kicks, marks, etc.) or just basic match info?
  *   4. What `teamType` value(s) do VFL teams use in /teams?
  *
- * Run: bun run scripts/probe-afl-api.ts
+ * Run: node --import ./scripts/ts-resolve.mjs scripts/probe-afl-api.ts
  */
 
 import {
@@ -18,12 +18,22 @@ import {
   RoundListSchema,
   TeamListSchema,
 } from "../src/lib/validation";
-import { AflApiClient } from "../src/sources/afl-api";
+import { Effect, type Schema, Result } from "effect";
+import { SourcesLive } from "../src/layers";
+import { AflApi } from "../src/sources/afl-api";
 
 const API_BASE = "https://aflapi.afl.com.au/afl/v2";
 const CFS_BASE = "https://api.afl.com.au/cfs/afl";
 
-const client = new AflApiClient();
+/** Run one validated AFL API request and settle it as a `Result`. */
+const client = {
+  fetchJson: <S extends Schema.ConstraintDecoder<unknown>>(url: string, schema: S) =>
+    Effect.runPromise(
+      Effect.result(AflApi.use((aflApi) => aflApi.fetchJson(url, schema))).pipe(
+        Effect.provide(SourcesLive),
+      ),
+    ),
+};
 
 const delay = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
@@ -45,19 +55,19 @@ const compsResult = await client.fetchJson(
   `${API_BASE}/competitions?pageSize=100`,
   CompetitionListSchema,
 );
-if (!compsResult.success) {
-  console.error("FATAL:", compsResult.error.message);
+if (Result.isFailure(compsResult)) {
+  console.error("FATAL:", compsResult.failure.message);
   process.exit(1);
 }
 
-for (const c of compsResult.data.competitions) {
+for (const c of compsResult.success.competitions) {
   console.log(
     `  id=${String(c.id).padStart(3)}  code=${(c.code ?? "(none)").padEnd(8)}  name=${c.name}`,
   );
 }
 
 const targetCodes = ["AFL", "AFLW", "VFL", "VFLW"];
-const targets = compsResult.data.competitions.filter(
+const targets = compsResult.success.competitions.filter(
   (c) => c.code !== undefined && targetCodes.includes(c.code),
 );
 console.log(`\n  Targets found: ${targets.map((c) => c.code).join(", ") || "(none)"}`);
@@ -79,11 +89,11 @@ for (const comp of targets) {
     CompseasonListSchema,
   );
   const code = comp.code ?? `id=${comp.id}`;
-  if (!result.success) {
-    console.log(`  ${code}: ERROR ${result.error.message}`);
+  if (Result.isFailure(result)) {
+    console.log(`  ${code}: ERROR ${result.failure.message}`);
     continue;
   }
-  const seasons = result.data.compSeasons.map((s) => ({
+  const seasons = result.success.compSeasons.map((s) => ({
     id: s.id,
     name: s.name,
     year: yearFromName(s.name),
@@ -129,16 +139,16 @@ async function probePlayerStats(code: string): Promise<void> {
       `${API_BASE}/compseasons/${season.id}/rounds?pageSize=50`,
       RoundListSchema,
     );
-    if (!roundsResult.success) continue;
-    const round1 = roundsResult.data.rounds.find((r) => r.roundNumber === 1);
+    if (Result.isFailure(roundsResult)) continue;
+    const round1 = roundsResult.success.rounds.find((r) => r.roundNumber === 1);
     if (!round1?.providerId) continue;
 
     const matchesResult = await client.fetchJson(
       `${CFS_BASE}/matchItems/round/${round1.providerId}`,
       MatchItemListSchema,
     );
-    if (!matchesResult.success) continue;
-    const concluded = matchesResult.data.items.find(
+    if (Result.isFailure(matchesResult)) continue;
+    const concluded = matchesResult.success.items.find(
       (m) => m.match.status === "CONCLUDED" || m.match.status === "COMPLETE",
     );
     if (!concluded) continue;
@@ -151,12 +161,12 @@ async function probePlayerStats(code: string): Promise<void> {
       `${CFS_BASE}/playerStats/match/${concluded.match.matchId}`,
       PlayerStatsListSchema,
     );
-    if (!statsResult.success) {
-      console.log(`  PlayerStats: ERROR ${statsResult.error.message}`);
+    if (Result.isFailure(statsResult)) {
+      console.log(`  PlayerStats: ERROR ${statsResult.failure.message}`);
       return;
     }
-    const home = statsResult.data.homeTeamPlayerStats ?? [];
-    const away = statsResult.data.awayTeamPlayerStats ?? [];
+    const home = statsResult.success.homeTeamPlayerStats ?? [];
+    const away = statsResult.success.awayTeamPlayerStats ?? [];
     console.log(`  PlayerStats counts: home=${home.length}, away=${away.length}`);
     const first = home[0];
     const stats = first?.playerStats?.stats as Record<string, unknown> | undefined;
@@ -202,12 +212,12 @@ await probePlayerStats("VFL");
 header("[4] Teams — teamType breakdown");
 await delay(500);
 const teamsResult = await client.fetchJson(`${API_BASE}/teams?pageSize=500`, TeamListSchema);
-if (!teamsResult.success) {
-  console.log(`  ERROR: ${teamsResult.error.message}`);
+if (Result.isFailure(teamsResult)) {
+  console.log(`  ERROR: ${teamsResult.failure.message}`);
 } else {
-  console.log(`  Total teams: ${teamsResult.data.teams.length}`);
+  console.log(`  Total teams: ${teamsResult.success.teams.length}`);
   const byType = new Map<string, number>();
-  for (const t of teamsResult.data.teams) {
+  for (const t of teamsResult.success.teams) {
     const k = t.teamType ?? "(none)";
     byType.set(k, (byType.get(k) ?? 0) + 1);
   }
@@ -233,7 +243,7 @@ if (!teamsResult.success) {
   ];
   console.log("\n  Possible VFL/reserves team matches:");
   let any = false;
-  for (const team of teamsResult.data.teams) {
+  for (const team of teamsResult.success.teams) {
     if (vflNames.some((needle) => team.name.includes(needle))) {
       any = true;
       console.log(`    id=${team.id}  name=${team.name}  teamType=${team.teamType ?? "(none)"}`);

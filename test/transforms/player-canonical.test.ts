@@ -45,7 +45,7 @@ describe("canonical Player (#96)", () => {
     expect(first.competition).toBe("AFLM");
     expect(first.source).toBe("afl-api");
     // Bio fields nullable but typed (string ISO 8601, not Date)
-    expect(typeof first.dateOfBirth).toBe("string");
+    expect(first.dateOfBirth).toBeTypeOf("string");
     expect(first.dateOfBirth).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     // Career counters present (nullable for AFL API source)
     expect(first.gamesPlayed).toBeNull();

@@ -2,9 +2,11 @@
  * Public API for fetching team lists and squad rosters.
  */
 
-import { ok, Result } from "../lib/result";
+import { Effect } from "effect";
+import type { SourceError } from "../lib/errors";
 import { AFL_SENIOR_TEAMS, normaliseTeamName } from "../lib/team-mapping";
-import { aflApiClient, dispatch, squadRegistry } from "../sources/adapters/index";
+import { AflApi } from "../sources/afl-api";
+import { dispatch, SourceRegistry } from "../sources/adapters/index";
 import type { CompetitionCode, Squad, SquadQuery, Team, TeamQuery } from "../types";
 
 /**
@@ -69,26 +71,23 @@ function toTeams(
  * @param query - Optional competition filter (defaults to AFLM and AFLW combined).
  * @returns Array of teams.
  */
-export async function fetchTeams(query?: TeamQuery): Promise<Result<Team[], Error>> {
-  // When no competition specified, fetch both AFLM and AFLW teams (the AFL "senior" comps).
-  if (!query?.competition) {
-    const [menResult, womenResult] = await Promise.all([
-      aflApiClient.fetchTeams("AFLM"),
-      aflApiClient.fetchTeams("AFLW"),
-    ]);
+export function fetchTeams(query?: TeamQuery): Effect.Effect<Team[], SourceError, AflApi> {
+  return Effect.gen(function* () {
+    const aflApi = yield* AflApi;
+    const competition = query?.competition;
 
-    if (!menResult.success) return menResult;
+    // When no competition specified, fetch both AFLM and AFLW teams (the AFL "senior" comps).
+    if (!competition) {
+      const [men, women] = yield* Effect.all(
+        [aflApi.fetchTeams("AFLM"), aflApi.fetchTeams("AFLW")],
+        { concurrency: 2 },
+      );
 
-    if (!womenResult.success) return womenResult;
+      return [...toTeams(men, "AFLM"), ...toTeams(women, "AFLW")];
+    }
 
-    return ok([...toTeams(menResult.data, "AFLM"), ...toTeams(womenResult.data, "AFLW")]);
-  }
-
-  const result = await aflApiClient.fetchTeams(query.competition);
-
-  if (!result.success) return result;
-
-  return ok(toTeams(result.data, query.competition));
+    return toTeams(yield* aflApi.fetchTeams(competition), competition);
+  });
 }
 
 /**
@@ -99,16 +98,19 @@ export async function fetchTeams(query?: TeamQuery): Promise<Result<Team[], Erro
  * name directly). When `query.source` is omitted, routes to the default
  * source for the squad capability.
  */
-export async function fetchSquad(query: SquadQuery): Promise<Result<Squad, Error>> {
-  const source = query.source ?? squadRegistry.defaultSource;
+export function fetchSquad(query: SquadQuery): Effect.Effect<Squad, SourceError, SourceRegistry> {
+  return Effect.gen(function* () {
+    const registry = yield* SourceRegistry;
+    const source = query.source ?? registry.squad.defaultSource;
 
-  const adapterR = dispatch(squadRegistry, "squad", {
-    source,
-    competition: query.competition,
-    season: query.season,
+    const adapter = yield* dispatch(registry.squad, "squad", {
+      source,
+      competition: query.competition,
+      season: query.season,
+    });
+
+    const squad = yield* adapter.fetchSquad({ ...query, source });
+
+    return { ...squad, seasonKey: String(query.season) };
   });
-
-  const fetched = await Result.flatMapAsync(adapterR, (a) => a.fetchSquad({ ...query, source }));
-
-  return Result.map(fetched, (row) => ({ ...row, seasonKey: String(query.season) }));
 }

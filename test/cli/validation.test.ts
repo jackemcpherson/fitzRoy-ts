@@ -1,3 +1,4 @@
+import { Result } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import {
   resolveDefaultSeason,
@@ -11,100 +12,103 @@ import {
   validateSeason,
   validateSource,
 } from "../../src/cli/validation";
+import { failureMessage } from "./validated";
 
 describe("validateSeason", () => {
   it("parses valid season year", () => {
-    expect(validateSeason("2025")).toBe(2025);
-    expect(validateSeason("1897")).toBe(1897);
+    expect(Result.getOrThrow(validateSeason("2025"))).toBe(2025);
+    expect(Result.getOrThrow(validateSeason("1897"))).toBe(1897);
   });
 
-  it("throws for non-numeric input", () => {
-    expect(() => validateSeason("abc")).toThrow("Invalid season");
-    expect(() => validateSeason("")).toThrow("Invalid season");
+  it("rejects non-numeric input", () => {
+    expect(failureMessage(validateSeason("abc"))).toContain("Invalid season");
+    expect(failureMessage(validateSeason(""))).toContain("Invalid season");
   });
 
-  it("throws for out of range", () => {
-    expect(() => validateSeason("1800")).toThrow("must be between 1897 and 2100");
+  it("rejects out of range", () => {
+    expect(failureMessage(validateSeason("1800"))).toContain("must be between 1897 and 2100");
   });
 });
 
 describe("validateRound", () => {
   it("parses valid round numbers", () => {
-    expect(validateRound("1")).toBe(1);
-    expect(validateRound("27")).toBe(27);
-    expect(validateRound("0")).toBe(0);
+    expect(Result.getOrThrow(validateRound("1"))).toBe(1);
+    expect(Result.getOrThrow(validateRound("27"))).toBe(27);
+    expect(Result.getOrThrow(validateRound("0"))).toBe(0);
   });
 
-  it("throws for non-numeric input", () => {
-    expect(() => validateRound("abc")).toThrow("Invalid round");
+  it("rejects non-numeric input", () => {
+    expect(failureMessage(validateRound("abc"))).toContain("Invalid round");
   });
 
-  it("throws for negative numbers", () => {
-    expect(() => validateRound("-1")).toThrow("Invalid round");
+  it("rejects negative numbers", () => {
+    expect(failureMessage(validateRound("-1"))).toContain("Invalid round");
   });
 });
 
 describe("validateFormat", () => {
   it("accepts valid formats", () => {
-    expect(validateFormat("table")).toBe("table");
-    expect(validateFormat("json")).toBe("json");
-    expect(validateFormat("csv")).toBe("csv");
+    expect(Result.getOrThrow(validateFormat("table"))).toBe("table");
+    expect(Result.getOrThrow(validateFormat("json"))).toBe("json");
+    expect(Result.getOrThrow(validateFormat("csv"))).toBe("csv");
   });
 
   it("is case-insensitive", () => {
-    expect(validateFormat("JSON")).toBe("json");
-    expect(validateFormat("Table")).toBe("table");
+    expect(Result.getOrThrow(validateFormat("JSON"))).toBe("json");
+    expect(Result.getOrThrow(validateFormat("Table"))).toBe("table");
   });
 
   it("returns undefined when not provided", () => {
-    expect(validateFormat(undefined)).toBeUndefined();
+    expect(Result.getOrThrow(validateFormat(undefined))).toBeUndefined();
   });
 
-  it("throws for invalid format", () => {
-    expect(() => validateFormat("xml")).toThrow("Invalid format");
-    expect(() => validateFormat("invalid")).toThrow("valid formats are: table, json, csv");
+  it("rejects invalid format", () => {
+    expect(failureMessage(validateFormat("xml"))).toContain("Invalid format");
+    expect(failureMessage(validateFormat("invalid"))).toContain(
+      "valid formats are: table, json, csv",
+    );
   });
 });
 
 describe("validateCompetition", () => {
   it("accepts valid competition codes", () => {
-    expect(validateCompetition("AFLM")).toBe("AFLM");
-    expect(validateCompetition("AFLW")).toBe("AFLW");
+    expect(Result.getOrThrow(validateCompetition("AFLM"))).toBe("AFLM");
+    expect(Result.getOrThrow(validateCompetition("AFLW"))).toBe("AFLW");
   });
 
   it("is case-insensitive", () => {
-    expect(validateCompetition("aflm")).toBe("AFLM");
-    expect(validateCompetition("aflw")).toBe("AFLW");
+    expect(Result.getOrThrow(validateCompetition("aflm"))).toBe("AFLM");
+    expect(Result.getOrThrow(validateCompetition("aflw"))).toBe("AFLW");
   });
 
-  it("throws for invalid competition", () => {
-    expect(() => validateCompetition("INVALID")).toThrow("Invalid competition");
-    expect(() => validateCompetition("AFL")).toThrow("valid values are: AFLM, AFLW");
+  it("rejects invalid competition", () => {
+    expect(failureMessage(validateCompetition("INVALID"))).toContain("Invalid competition");
+    expect(failureMessage(validateCompetition("AFL"))).toContain("valid values are: AFLM, AFLW");
   });
 });
 
 describe("validateOptionalCompetition", () => {
   it("returns undefined when not provided", () => {
-    expect(validateOptionalCompetition(undefined)).toBeUndefined();
+    expect(Result.getOrThrow(validateOptionalCompetition(undefined))).toBeUndefined();
   });
 
   it("validates when provided", () => {
-    expect(validateOptionalCompetition("AFLM")).toBe("AFLM");
-    expect(() => validateOptionalCompetition("INVALID")).toThrow("Invalid competition");
+    expect(Result.getOrThrow(validateOptionalCompetition("AFLM"))).toBe("AFLM");
+    expect(failureMessage(validateOptionalCompetition("INVALID"))).toContain("Invalid competition");
   });
 });
 
 describe("validateSource", () => {
   it("accepts valid sources", () => {
-    expect(validateSource("afl-api")).toBe("afl-api");
-    expect(validateSource("footywire")).toBe("footywire");
-    expect(validateSource("afl-tables")).toBe("afl-tables");
-    expect(validateSource("squiggle")).toBe("squiggle");
-    expect(validateSource("fryzigg")).toBe("fryzigg");
+    expect(Result.getOrThrow(validateSource("afl-api"))).toBe("afl-api");
+    expect(Result.getOrThrow(validateSource("footywire"))).toBe("footywire");
+    expect(Result.getOrThrow(validateSource("afl-tables"))).toBe("afl-tables");
+    expect(Result.getOrThrow(validateSource("squiggle"))).toBe("squiggle");
+    expect(Result.getOrThrow(validateSource("fryzigg"))).toBe("fryzigg");
   });
 
-  it("throws for invalid source", () => {
-    expect(() => validateSource("invalid")).toThrow("Invalid source");
+  it("rejects invalid source", () => {
+    expect(failureMessage(validateSource("invalid"))).toContain("Invalid source");
   });
 });
 
@@ -118,7 +122,7 @@ describe("validateMatchId", () => {
     ["squiggle", "SQ_12345"],
     ["fryzigg", "10001"],
   ] as const)("accepts %s identifier %s", (source, matchId) => {
-    expect(validateMatchId(source, matchId)).toBe(matchId);
+    expect(Result.getOrThrow(validateMatchId(source, matchId))).toBe(matchId);
   });
 
   it.each([
@@ -128,18 +132,20 @@ describe("validateMatchId", () => {
     ["squiggle", "SQ_bad"],
     ["fryzigg", "FW_11193"],
   ] as const)("rejects %s identifier %s", (source, matchId) => {
-    expect(() => validateMatchId(source, matchId)).toThrow(`Invalid match ID "${matchId}"`);
+    expect(failureMessage(validateMatchId(source, matchId))).toContain(
+      `Invalid match ID "${matchId}"`,
+    );
   });
 });
 
 describe("validateOptionalSeason", () => {
   it("returns undefined when not provided", () => {
-    expect(validateOptionalSeason(undefined)).toBeUndefined();
+    expect(Result.getOrThrow(validateOptionalSeason(undefined))).toBeUndefined();
   });
 
   it("validates when provided", () => {
-    expect(validateOptionalSeason("2025")).toBe(2025);
-    expect(() => validateOptionalSeason("abc")).toThrow("Invalid season");
+    expect(Result.getOrThrow(validateOptionalSeason("2025"))).toBe(2025);
+    expect(failureMessage(validateOptionalSeason("abc"))).toContain("Invalid season");
   });
 });
 
@@ -165,25 +171,25 @@ describe("resolveTeamIdentifier", () => {
   ];
 
   it("returns numeric ID as-is", () => {
-    expect(resolveTeamIdentifier("5", teams)).toBe("5");
-    expect(resolveTeamIdentifier("10", teams)).toBe("10");
+    expect(Result.getOrThrow(resolveTeamIdentifier("5", teams))).toBe("5");
+    expect(Result.getOrThrow(resolveTeamIdentifier("10", teams))).toBe("10");
   });
 
   it("resolves by name (case-insensitive)", () => {
-    expect(resolveTeamIdentifier("Carlton", teams)).toBe("5");
-    expect(resolveTeamIdentifier("carlton", teams)).toBe("5");
+    expect(Result.getOrThrow(resolveTeamIdentifier("Carlton", teams))).toBe("5");
+    expect(Result.getOrThrow(resolveTeamIdentifier("carlton", teams))).toBe("5");
   });
 
   it("resolves by abbreviation (case-insensitive)", () => {
-    expect(resolveTeamIdentifier("CARL", teams)).toBe("5");
-    expect(resolveTeamIdentifier("rich", teams)).toBe("10");
+    expect(Result.getOrThrow(resolveTeamIdentifier("CARL", teams))).toBe("5");
+    expect(Result.getOrThrow(resolveTeamIdentifier("rich", teams))).toBe("10");
   });
 
   it("resolves by partial name match", () => {
-    expect(resolveTeamIdentifier("GWS", teams)).toBe("15");
+    expect(Result.getOrThrow(resolveTeamIdentifier("GWS", teams))).toBe("15");
   });
 
-  it("throws for unknown team", () => {
-    expect(() => resolveTeamIdentifier("Unknown FC", teams)).toThrow("Unknown team");
+  it("rejects unknown team", () => {
+    expect(failureMessage(resolveTeamIdentifier("Unknown FC", teams))).toContain("Unknown team");
   });
 });

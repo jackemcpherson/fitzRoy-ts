@@ -1,3 +1,4 @@
+import { Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import {
   AflApiTokenSchema,
@@ -20,20 +21,22 @@ import {
 
 describe("Schema rejection tests", () => {
   it("AflApiTokenSchema rejects missing token", () => {
-    expect(() => AflApiTokenSchema.parse({ disclaimer: "text" })).toThrow();
+    expect(() => Schema.decodeUnknownSync(AflApiTokenSchema)({ disclaimer: "text" })).toThrow();
   });
 
   it("CompetitionListSchema rejects missing competitions array", () => {
-    expect(() => CompetitionListSchema.parse({})).toThrow();
+    expect(() => Schema.decodeUnknownSync(CompetitionListSchema)({})).toThrow();
   });
 
   it("RoundListSchema rejects a round without roundNumber", () => {
-    expect(() => RoundListSchema.parse({ rounds: [{ id: 1146, name: "Round 1" }] })).toThrow();
+    expect(() =>
+      Schema.decodeUnknownSync(RoundListSchema)({ rounds: [{ id: 1146, name: "Round 1" }] }),
+    ).toThrow();
   });
 
   it("CfsMatchSchema rejects missing matchId", () => {
     expect(() =>
-      CfsMatchSchema.parse({
+      Schema.decodeUnknownSync(CfsMatchSchema)({
         status: "CONCLUDED",
         utcStartTime: "2025-03-13",
         homeTeamId: "t1",
@@ -45,32 +48,36 @@ describe("Schema rejection tests", () => {
   });
 
   it("MatchRosterSchema rejects missing match", () => {
-    expect(() => MatchRosterSchema.parse({ teamPlayers: [] })).toThrow();
+    expect(() => Schema.decodeUnknownSync(MatchRosterSchema)({ teamPlayers: [] })).toThrow();
   });
 
   it("SquadListSchema rejects missing player object", () => {
-    expect(() => SquadListSchema.parse({ squad: { players: [{ jumperNumber: 4 }] } })).toThrow();
+    expect(() =>
+      Schema.decodeUnknownSync(SquadListSchema)({ squad: { players: [{ jumperNumber: 4 }] } }),
+    ).toThrow();
   });
 
   it("TeamItemSchema rejects missing id", () => {
-    expect(() => TeamItemSchema.parse({ name: "Richmond" })).toThrow();
+    expect(() => Schema.decodeUnknownSync(TeamItemSchema)({ name: "Richmond" })).toThrow();
   });
 
   it("TeamItemSchema rejects wrong type for id", () => {
-    expect(() => TeamItemSchema.parse({ id: "not-a-number", name: "Richmond" })).toThrow();
+    expect(() =>
+      Schema.decodeUnknownSync(TeamItemSchema)({ id: "not-a-number", name: "Richmond" }),
+    ).toThrow();
   });
 });
 
 describe("PlayerGameStatsSchema", () => {
   it("parses with all optional fields missing", () => {
-    expect(PlayerGameStatsSchema.parse({})).toEqual({});
+    expect(Schema.decodeUnknownSync(PlayerGameStatsSchema)({})).toEqual({});
   });
 });
 
 describe("CfsVenueSchema", () => {
   it("accepts null state, venueId, and timeZone (#127)", () => {
     expect(() =>
-      CfsVenueSchema.parse({
+      Schema.decodeUnknownSync(CfsVenueSchema)({
         name: "Stadium",
         venueId: null,
         state: null,
@@ -80,6 +87,6 @@ describe("CfsVenueSchema", () => {
   });
 
   it("rejects missing name", () => {
-    expect(() => CfsVenueSchema.parse({ state: "VIC" })).toThrow();
+    expect(() => Schema.decodeUnknownSync(CfsVenueSchema)({ state: "VIC" })).toThrow();
   });
 });

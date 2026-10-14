@@ -1,5 +1,5 @@
 /**
- * Zod schemas for validating AFL API response shapes at the boundary.
+ * Effect schemas for validating AFL API response shapes at the boundary.
  *
  * Schemas are grouped by upstream sub-surface and re-exported here so
  * the historical `from "../lib/validation"` import path keeps working.

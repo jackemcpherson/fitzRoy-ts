@@ -5,8 +5,9 @@
  * each adapter (see `src/sources/adapters/`).
  */
 
-import { Result } from "../lib/result";
-import { dispatch, ladderRegistry } from "../sources/adapters/index";
+import { Effect } from "effect";
+import type { SourceError } from "../lib/errors";
+import { dispatch, SourceRegistry } from "../sources/adapters/index";
 import type { Ladder, LadderQuery } from "../types";
 
 /**
@@ -17,9 +18,14 @@ import type { Ladder, LadderQuery } from "../types";
  * const result = await fetchLadder({ source: "afl-api", season: 2024, round: 10 });
  * ```
  */
-export async function fetchLadder(query: LadderQuery): Promise<Result<Ladder, Error>> {
-  const adapterR = dispatch(ladderRegistry, "ladder", query);
-  const fetched = await Result.flatMapAsync(adapterR, (a) => a.fetchLadder(query));
+export function fetchLadder(
+  query: LadderQuery,
+): Effect.Effect<Ladder, SourceError, SourceRegistry> {
+  return Effect.gen(function* () {
+    const registry = yield* SourceRegistry;
+    const adapter = yield* dispatch(registry.ladder, "ladder", query);
+    const ladder = yield* adapter.fetchLadder(query);
 
-  return Result.map(fetched, (row) => ({ ...row, seasonKey: String(query.season) }));
+    return { ...ladder, seasonKey: String(query.season) };
+  });
 }

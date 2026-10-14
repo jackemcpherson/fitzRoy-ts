@@ -7,9 +7,10 @@
  * @see https://api.squiggle.com.au/
  */
 
+import { Context, Effect, Layer } from "effect";
+import { decodeJson } from "../lib/decode";
 import { ScrapeError } from "../lib/errors";
-import { err, ok, type Result } from "../lib/result";
-import { createSourceFetch, type SourceFetchOptions } from "../lib/source-fetch";
+import { readJson, SourceHttp } from "../lib/http";
 import {
   type SquiggleGamesResponse,
   SquiggleGamesResponseSchema,
@@ -17,116 +18,101 @@ import {
   SquiggleStandingsResponseSchema,
 } from "../lib/squiggle-validation";
 
+const decodeGames = decodeJson(SquiggleGamesResponseSchema);
+
+const decodeStandings = decodeJson(SquiggleStandingsResponseSchema);
+
 const SQUIGGLE_BASE = "https://api.squiggle.com.au/";
 
 const USER_AGENT = "fitzRoy-ts/1.0 (https://github.com/jackemcpherson/fitzRoy-ts)";
 
-/** Options for constructing a Squiggle client. */
-export interface SquiggleClientOptions extends SourceFetchOptions {
-  readonly fetchFn?: typeof fetch | undefined;
-}
-
 /**
  * Squiggle API client.
  *
- * Wraps the Squiggle JSON API with typed responses validated via Zod.
+ * Wraps the Squiggle JSON API with typed responses validated via Effect Schema.
  */
-export class SquiggleClient {
-  private readonly fetchFn: typeof fetch;
-
-  constructor(options?: SquiggleClientOptions) {
-    this.fetchFn = createSourceFetch(options);
+export class Squiggle extends Context.Service<
+  Squiggle,
+  {
+    /**
+     * Fetch games (match results or fixture) from the Squiggle API.
+     *
+     * @param year - Season year.
+     * @param round - Optional round number.
+     * @param complete - Optional completion filter (100 = complete, omit for all).
+     */
+    readonly fetchGames: (
+      year: number,
+      round?: number,
+      complete?: number,
+    ) => Effect.Effect<SquiggleGamesResponse, ScrapeError>;
+    /**
+     * Fetch standings (ladder) from the Squiggle API.
+     *
+     * @param year - Season year.
+     * @param round - Optional round number.
+     */
+    readonly fetchStandings: (
+      year: number,
+      round?: number,
+    ) => Effect.Effect<SquiggleStandingsResponse, ScrapeError>;
   }
+>()("fitzroy/Squiggle") {}
 
-  /**
-   * Fetch JSON from the Squiggle API.
-   */
-  private async fetchJson(params: URLSearchParams): Promise<Result<unknown, ScrapeError>> {
-    const url = `${SQUIGGLE_BASE}?${params.toString()}`;
+/** The live Squiggle client over {@link SourceHttp}. */
+export const SquiggleLive = Layer.effect(
+  Squiggle,
+  Effect.gen(function* () {
+    const http = yield* SourceHttp;
 
-    try {
-      const response = await this.fetchFn(url, {
-        headers: { "User-Agent": USER_AGENT },
+    const fetchJson = (params: URLSearchParams) => {
+      const url = `${SQUIGGLE_BASE}?${params.toString()}`;
+
+      const requestFailed = (message: string) =>
+        new ScrapeError({ message: `Squiggle request failed: ${message}`, source: "squiggle" });
+
+      return Effect.gen(function* () {
+        const response = yield* http.request(url, { headers: { "User-Agent": USER_AGENT } });
+
+        if (!response.ok) {
+          return yield* Effect.fail(requestFailed(`${response.status} (${url})`));
+        }
+
+        return yield* readJson(response);
+      }).pipe(
+        Effect.catchTag("RequestError", (error) => Effect.fail(requestFailed(error.message))),
+      );
+    };
+
+    const invalid = (kind: string) => (message: string) =>
+      new ScrapeError({
+        message: `Invalid Squiggle ${kind} response: ${message}`,
+        source: "squiggle",
       });
 
-      if (!response.ok) {
-        return err(
-          new ScrapeError(`Squiggle request failed: ${response.status} (${url})`, "squiggle"),
+    return {
+      fetchGames: (year, round, complete) => {
+        const params = new URLSearchParams({ q: "games", year: String(year) });
+
+        if (round != null) params.set("round", String(round));
+
+        if (complete != null) params.set("complete", String(complete));
+
+        return fetchJson(params).pipe(
+          Effect.flatMap((json) => decodeGames(json).pipe(Effect.mapError(invalid("games")))),
         );
-      }
+      },
+      fetchStandings: (year, round) => {
+        const params = new URLSearchParams({ q: "standings", year: String(year) });
 
-      const json: unknown = await response.json();
+        if (round != null) params.set("round", String(round));
 
-      return ok(json);
-    } catch (cause) {
-      return err(
-        new ScrapeError(
-          `Squiggle request failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-          "squiggle",
-        ),
-      );
-    }
-  }
-
-  /**
-   * Fetch games (match results or fixture) from the Squiggle API.
-   *
-   * @param year - Season year.
-   * @param round - Optional round number.
-   * @param complete - Optional completion filter (100 = complete, omit for all).
-   */
-  async fetchGames(
-    year: number,
-    round?: number,
-    complete?: number,
-  ): Promise<Result<SquiggleGamesResponse, ScrapeError>> {
-    const params = new URLSearchParams({ q: "games", year: String(year) });
-
-    if (round != null) params.set("round", String(round));
-
-    if (complete != null) params.set("complete", String(complete));
-
-    const result = await this.fetchJson(params);
-
-    if (!result.success) return result;
-
-    const parsed = SquiggleGamesResponseSchema.safeParse(result.data);
-
-    if (!parsed.success) {
-      return err(
-        new ScrapeError(`Invalid Squiggle games response: ${parsed.error.message}`, "squiggle"),
-      );
-    }
-
-    return ok(parsed.data);
-  }
-
-  /**
-   * Fetch standings (ladder) from the Squiggle API.
-   *
-   * @param year - Season year.
-   * @param round - Optional round number.
-   */
-  async fetchStandings(
-    year: number,
-    round?: number,
-  ): Promise<Result<SquiggleStandingsResponse, ScrapeError>> {
-    const params = new URLSearchParams({ q: "standings", year: String(year) });
-
-    if (round != null) params.set("round", String(round));
-
-    const result = await this.fetchJson(params);
-
-    if (!result.success) return result;
-
-    const parsed = SquiggleStandingsResponseSchema.safeParse(result.data);
-
-    if (!parsed.success) {
-      return err(
-        new ScrapeError(`Invalid Squiggle standings response: ${parsed.error.message}`, "squiggle"),
-      );
-    }
-
-    return ok(parsed.data);
-  }
-}
+        return fetchJson(params).pipe(
+          Effect.flatMap((json) =>
+            decodeStandings(json).pipe(Effect.mapError(invalid("standings"))),
+          ),
+        );
+      },
+    };
+  }),
+);

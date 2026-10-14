@@ -5,8 +5,9 @@
  * each adapter (see `src/sources/adapters/`).
  */
 
-import { Result } from "../lib/result";
-import { dispatch, lineupRegistry } from "../sources/adapters/index";
+import { Effect } from "effect";
+import type { SourceError } from "../lib/errors";
+import { dispatch, SourceRegistry } from "../sources/adapters/index";
 import type { Lineup, LineupQuery } from "../types";
 
 /**
@@ -15,11 +16,14 @@ import type { Lineup, LineupQuery } from "../types";
  * When `matchId` is provided, returns a single-element array for that match.
  * When omitted, returns lineups for all matches in the round.
  */
-export async function fetchLineup(query: LineupQuery): Promise<Result<Lineup[], Error>> {
-  const adapterR = dispatch(lineupRegistry, "lineup", query);
-  const fetched = await Result.flatMapAsync(adapterR, (a) => a.fetchLineup(query));
+export function fetchLineup(
+  query: LineupQuery,
+): Effect.Effect<Lineup[], SourceError, SourceRegistry> {
+  return Effect.gen(function* () {
+    const registry = yield* SourceRegistry;
+    const adapter = yield* dispatch(registry.lineup, "lineup", query);
+    const rows = yield* adapter.fetchLineup(query);
 
-  return Result.map(fetched, (rows) =>
-    rows.map((row) => ({ ...row, seasonKey: String(query.season) })),
-  );
+    return rows.map((row) => ({ ...row, seasonKey: String(query.season) }));
+  });
 }

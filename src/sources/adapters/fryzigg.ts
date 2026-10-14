@@ -1,4 +1,3 @@
-import { seasonYear } from "../../lib/seasons";
 /**
  * Fryzigg source adapter.
  *
@@ -6,11 +5,11 @@ import { seasonYear } from "../../lib/seasons";
  * no match results, ladders, or squads. Coverage: AFLM and AFLW.
  */
 
+import { Effect, Result } from "effect";
 import { UnsupportedSourceError } from "../../lib/errors";
-import { err, Result } from "../../lib/result";
+import { seasonYear } from "../../lib/seasons";
 import { transformFryziggPlayerStats } from "../../transforms/fryzigg-player-stats";
-import type { PlayerStatsQuery, SeasonPlayerStats } from "../../types";
-import { FryziggClient } from "../fryzigg";
+import { Fryzigg } from "../fryzigg";
 import { FRYZIGG_SNAPSHOTS } from "../fryzigg-snapshots";
 import type { PlayerStatsSource } from "./capabilities";
 import type { CoverageMap } from "./coverage";
@@ -33,36 +32,40 @@ const FRYZIGG_PLAYER_STATS_COVERAGE: CoverageMap = new Map([
 ]);
 
 /** Fryzigg as a PlayerStatsSource (AFLM and AFLW only). */
-export class FryziggPlayerStatsSource implements PlayerStatsSource {
-  readonly id = "fryzigg" as const;
-  readonly coverage = FRYZIGG_PLAYER_STATS_COVERAGE;
+export const fryziggPlayerStatsSource: Effect.Effect<PlayerStatsSource, never, Fryzigg> =
+  Effect.gen(function* () {
+    const client = yield* Fryzigg;
 
-  constructor(private readonly client: FryziggClient = new FryziggClient()) {}
+    return {
+      id: "fryzigg",
+      coverage: FRYZIGG_PLAYER_STATS_COVERAGE,
+      fetchPlayerStats: (query) =>
+        Effect.gen(function* () {
+          const competition = query.competition ?? "AFLM";
 
-  async fetchPlayerStats(query: PlayerStatsQuery): Promise<Result<SeasonPlayerStats, Error>> {
-    const competition = query.competition ?? "AFLM";
+          // The pinned AFLW dump was last updated in January 2022, during season six.
+          // Its calendar-year column cannot supply season seven.
+          if (competition === "AFLW" && query.season === "2022-S7")
+            return yield* Effect.fail(
+              new UnsupportedSourceError({
+                message:
+                  "Fryzigg's January 2022 snapshot covers season six only; use afl-api for 2022-S7",
+                source: "fryzigg",
+              }),
+            );
+          const frame = yield* client.fetchPlayerStats(competition);
 
-    // The pinned AFLW dump was last updated in January 2022, during season six.
-    // Its calendar-year column cannot supply season seven.
-    if (competition === "AFLW" && query.season === "2022-S7")
-      return err(
-        new UnsupportedSourceError(
-          "Fryzigg's January 2022 snapshot covers season six only; use afl-api for 2022-S7",
-          "fryzigg",
-        ),
-      );
-    const result = await this.client.fetchPlayerStats(competition);
+          const transformed = transformFryziggPlayerStats(frame, {
+            competition,
+            season: seasonYear(query.season),
+            round: query.round,
+          });
 
-    if (!result.success) return result;
+          if (Result.isFailure(transformed)) return yield* Effect.fail(transformed.failure);
 
-    const transformed = transformFryziggPlayerStats(result.data, {
-      competition,
-      season: seasonYear(query.season),
-      round: query.round,
-    });
-
-    // Fryzigg is a single bulk download — there are no per-game fetches
-    // that can partially fail, so failedMatchIds is always empty.
-    return Result.map(transformed, (stats) => ({ stats, failedMatchIds: [] }));
-  }
-}
+          // Fryzigg is a single bulk download — there are no per-game fetches
+          // that can partially fail, so failedMatchIds is always empty.
+          return { stats: transformed.success, failedMatchIds: [] };
+        }),
+    };
+  });

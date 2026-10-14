@@ -13,7 +13,8 @@
  * ~1965, so per-capability coverage is required).
  */
 
-import type { Result } from "../../lib/result";
+import type { Effect } from "effect";
+import type { SourceError } from "../../lib/errors";
 import type {
   DataSource,
   Ladder,
@@ -47,12 +48,14 @@ export interface CapabilityAdapter {
 
 /** A source that can fetch matches. */
 export interface MatchSource extends CapabilityAdapter {
-  fetchMatches(query: MatchQuery): Promise<Result<Match[], Error>>;
+  readonly fetchMatches: (query: MatchQuery) => Effect.Effect<Match[], SourceError>;
 }
 
 /** A source that can fetch season-level credited match coach assignments. */
 export interface MatchCoachesSource extends CapabilityAdapter {
-  fetchMatchCoaches(query: MatchCoachesQuery): Promise<Result<MatchCoachesResult, Error>>;
+  readonly fetchMatchCoaches: (
+    query: MatchCoachesQuery,
+  ) => Effect.Effect<MatchCoachesResult, SourceError>;
 }
 
 /**
@@ -64,25 +67,27 @@ export interface MatchCoachesSource extends CapabilityAdapter {
  * single-match queries) return an empty `failedMatchIds`.
  */
 export interface PlayerStatsSource extends CapabilityAdapter {
-  fetchPlayerStats(query: PlayerStatsQuery): Promise<Result<SeasonPlayerStats, Error>>;
+  readonly fetchPlayerStats: (
+    query: PlayerStatsQuery,
+  ) => Effect.Effect<SeasonPlayerStats, SourceError>;
 }
 
 /** A source that can fetch season-aggregated team performance. */
 export interface TeamStatsSource extends CapabilityAdapter {
-  fetchTeamStats(query: TeamStatsQuery): Promise<Result<TeamStatsEntry[], Error>>;
+  readonly fetchTeamStats: (query: TeamStatsQuery) => Effect.Effect<TeamStatsEntry[], SourceError>;
 }
 
 /** A source that can fetch a team's seasonal squad. */
 export interface SquadSource extends CapabilityAdapter {
-  fetchSquad(query: SquadQuery): Promise<Result<Squad, Error>>;
+  readonly fetchSquad: (query: SquadQuery) => Effect.Effect<Squad, SourceError>;
 }
 
 /** A source that can fetch match-day lineups. */
 export interface LineupSource extends CapabilityAdapter {
-  fetchLineup(query: LineupQuery): Promise<Result<Lineup[], Error>>;
+  readonly fetchLineup: (query: LineupQuery) => Effect.Effect<Lineup[], SourceError>;
 }
 
 /** A source that can fetch the season ladder/standings. */
 export interface LadderSource extends CapabilityAdapter {
-  fetchLadder(query: LadderQuery): Promise<Result<Ladder, Error>>;
+  readonly fetchLadder: (query: LadderQuery) => Effect.Effect<Ladder, SourceError>;
 }

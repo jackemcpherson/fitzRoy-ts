@@ -9,6 +9,49 @@ The project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 No changes yet.
 
+## [7.0.0] - 2026-10-14
+
+Version 7 moves the library to Effect. See
+[the version 7 migration guide](docs/migration-v7.md).
+
+### Added in 7.0.0
+
+- `FitzroyLive` provides every source service, the source registry, and the
+  shared HTTP policy. `SourceHttpConfig` sets the request timeout and the single
+  5xx retry.
+- Source services with live layers: `AflApi`, `FootyWire`, `AflTables`,
+  `Squiggle`, `Fryzigg` (with `RdsParser` and `FryziggConfig`), `AflCoaches`,
+  and `MatchCoaches`.
+- The package root exports an Effect schema for every domain model, such as
+  `MatchSchema` and `LadderSchema`.
+- `IncompleteDataError` reports a player-details request where every team
+  failed.
+
+### Changed in 7.0.0
+
+- Every `fetch*` function, `fetchSeasons`, and
+  `resolveDefaultSeasonForCompetition` returns an `Effect` instead of a
+  `Promise`. `resolveDefaultSeasonForCompetition` fails instead of throwing.
+- Every error class is a `Schema.TaggedError` with the same name, message, and
+  fields, plus `_tag`. `ScrapeError` gains an optional `statusCode`.
+- `fitzroy/schemas` exports Effect schemas instead of Zod schemas.
+- `localToUtc` returns `Result` from the `effect` package.
+- `effect` 4 is a peer dependency. Install it next to fitzroy so your program
+  and the library share one copy of Effect.
+- The standalone release binaries are Node.js single executable applications
+  built with `vp pack` instead of binaries compiled by Bun. They still need no
+  separate runtime, and they are larger.
+
+### Removed in 7.0.0
+
+- `Result`, `ok`, `err`, `Ok`, and `Err`.
+- The client classes `AflApiClient`, `FootyWireClient`, `AflTablesClient`,
+  `SquiggleClient`, `FryziggClient`, and `AflCoachesClient`, and their
+  `fetchFn`, `timeoutMs`, `signal`, and `retry5xx` options.
+- `SourceFetchOptions`, `FetchRetryOptions`, `FetchTimeoutOptions`, and
+  `aflwUnsupportedError`.
+- The `zod` dependency.
+
 ## [6.0.0] - 2026-10-04
 
 See [the version 6 migration guide](docs/migration-v6.md) for explicit season selectors.

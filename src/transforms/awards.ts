@@ -17,7 +17,13 @@ import type {
  * convention denoting the medallist). Returns the stripped name and a
  * structured `isMedallist` boolean.
  */
-function stripMedallistSuffix(raw: string): { player: string; isMedallist: boolean } {
+/** A Brownlow player name with the medallist suffix removed. */
+interface StrippedPlayerName {
+  readonly player: string;
+  readonly isMedallist: boolean;
+}
+
+function stripMedallistSuffix(raw: string): StrippedPlayerName {
   if (raw.endsWith(" W")) {
     return { player: raw.slice(0, -2).trim(), isMedallist: true };
   }
@@ -187,12 +193,9 @@ export function parseRisingStarNominations(
   const results: RisingStarNomination[] = [];
 
   const tables = $("table");
-  let targetRows: ReturnType<typeof $> | null = null;
 
-  tables.each((_i, table) => {
-    const rows = $(table).find("tr");
-
-    if (rows.length < 5) return;
+  const isNominationTable = (rows: ReturnType<typeof $>): boolean => {
+    if (rows.length < 5) return false;
 
     const firstRow = $(rows[0]);
 
@@ -206,23 +209,24 @@ export function parseRisingStarNominations(
     // the long form and silently returned [] for every season (#91).
     const firstCell = headerCells[0]?.toLowerCase().trim();
 
-    if (
+    return (
       headerCells.length >= 15 &&
       (firstCell === "rd" ||
         firstCell === "rnd" ||
         firstCell === "round" ||
-        firstCell?.startsWith("round") ||
-        firstCell?.startsWith("rnd"))
-    ) {
-      targetRows = rows;
+        firstCell?.startsWith("round") === true ||
+        firstCell?.startsWith("rnd") === true)
+    );
+  };
 
-      return false; // break
-    }
-  });
+  const targetRows = tables
+    .toArray()
+    .map((table) => $(table).find("tr"))
+    .find(isNominationTable);
 
   if (!targetRows) return results;
 
-  (targetRows as ReturnType<typeof $>).each((_j, row) => {
+  targetRows.each((_j, row) => {
     if (_j === 0) return; // skip header
 
     const tds = $(row).find("td");

@@ -1,0 +1,16 @@
+# Vite+ bundles its own Vite core and Vitest; the vite and vitest overrides
+# make every package share those copies. Keep them aligned with vite-plus.
+overrides:
+  vite@*: npm:@voidzero-dev/vite-plus-core@1.1.0
+  vitest@*: 5.0.3
+  fflate: 0.8.3
+  undici: ^8.0.0
+
+minimumReleaseAgeExclude:
+  - "@effect/vitest@4.0.4"
+  - effect@4.0.4
+
+# Vite+ core satisfies Vitest's Vite peer but reports its own version (1.1.0).
+peerDependencyRules:
+  allowedVersions:
+    vite: "*"

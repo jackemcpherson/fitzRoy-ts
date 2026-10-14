@@ -8,10 +8,12 @@
  * the squad into rows.
  */
 
-import { batchedMap } from "../lib/concurrency";
-import { err, ok, type Result } from "../lib/result";
+import { Effect, Result } from "effect";
+import { batched } from "../lib/batched";
+import { IncompleteDataError, type SourceError } from "../lib/errors";
 import { AFL_SENIOR_TEAMS } from "../lib/team-mapping";
-import { dispatch, squadRegistry } from "../sources/adapters/index";
+import type { AflApi } from "../sources/afl-api";
+import { dispatch, SourceRegistry } from "../sources/adapters/index";
 import { squadToPlayerDetails } from "../transforms/player-details";
 import type { PlayerDetails, PlayerDetailsQuery, PlayerDetailsResult } from "../types";
 import { resolveDefaultSeasonForCompetition } from "./season";
@@ -35,99 +37,77 @@ import { fetchSquad } from "./teams";
  * });
  * ```
  */
-export async function fetchPlayerDetails(
+export function fetchPlayerDetails(
   query: PlayerDetailsQuery,
-): Promise<Result<PlayerDetailsResult, Error>> {
-  const competition = query.competition ?? "AFLM";
-  // Resolve once, preserving an explicit competition season. A failed lookup
-  // remains an error rather than substituting a calendar-year approximation.
-  let season = query.season;
+): Effect.Effect<PlayerDetailsResult, SourceError, SourceRegistry | AflApi> {
+  return Effect.gen(function* () {
+    const competition = query.competition ?? "AFLM";
+    // Resolve once, preserving an explicit competition season. A failed lookup
+    // remains an error rather than substituting a calendar-year approximation.
+    const season = query.season ?? (yield* resolveDefaultSeasonForCompetition(competition));
+    const registry = yield* SourceRegistry;
 
-  if (season === undefined) {
-    try {
-      season = await resolveDefaultSeasonForCompetition(competition);
-    } catch (error) {
-      return err(error instanceof Error ? error : new Error(String(error)));
-    }
-  }
+    // Verify the chosen source actually exposes squad data before iterating.
+    // Without this guard, sources like fryzigg (player-stats only) silently
+    // returned [] for every team and the all-teams loop produced an empty
+    // array with exit 0 — masking a configuration error. (#126)
+    yield* dispatch(registry.squad, "squad", { source: query.source, competition, season });
 
-  // Verify the chosen source actually exposes squad data before iterating.
-  // Without this guard, sources like fryzigg (player-stats only) silently
-  // returned [] for every team and the all-teams loop produced an empty
-  // array with exit 0 — masking a configuration error. (#126)
-  const dispatchResult = dispatch(squadRegistry, "squad", {
-    source: query.source,
-    competition,
-    season,
-  });
+    if (query.team) {
+      const squad = yield* fetchSquad({
+        team: query.team,
+        season,
+        source: query.source,
+        competition,
+      });
 
-  if (!dispatchResult.success) return err(dispatchResult.error);
-
-  if (query.team) {
-    const squadR = await fetchSquad({
-      team: query.team,
-      season,
-      source: query.source,
-      competition,
-    });
-
-    if (!squadR.success) return squadR;
-
-    return ok({
-      players: squadToPlayerDetails(squadR.data, query.source),
-      failedTeams: [],
-      scope: squadR.data.scope,
-    });
-  }
-
-  const teamNames = [...AFL_SENIOR_TEAMS];
-
-  const results = await batchedMap(teamNames, async (team) => ({
-    team,
-    result: await fetchSquad({
-      team,
-      season,
-      source: query.source,
-      competition,
-    }),
-  }));
-
-  const failures = results.flatMap(({ result }) => (result.success ? [] : [result.error]));
-
-  if (failures.length === results.length && results.length > 0) {
-    const first = failures[0];
-
-    if (!first) {
-      // Unreachable: failures.length > 0 guarantees an element exists.
-      return err(
-        new Error(`All team squad fetches failed for season ${season} (source: ${query.source})`),
-      );
+      return {
+        players: squadToPlayerDetails(squad, query.source),
+        failedTeams: [],
+        scope: squad.scope,
+      };
     }
 
-    return err(
-      new Error(
-        `All ${results.length} team squad fetches failed for season ${season} (source: ${query.source}); first error: ${first.message}`,
-        { cause: first },
+    const teamNames = [...AFL_SENIOR_TEAMS];
+
+    const results = yield* batched(teamNames, (team) =>
+      Effect.result(fetchSquad({ team, season, source: query.source, competition })).pipe(
+        Effect.map((result) => ({ team, result })),
       ),
     );
-  }
 
-  const allPlayers: PlayerDetails[] = [];
-  const failedTeams: string[] = [];
-  let scope: PlayerDetailsResult["scope"] | undefined;
+    const failures = results.flatMap(({ result }) =>
+      Result.isFailure(result) ? [result.failure] : [],
+    );
 
-  for (const { team, result } of results) {
-    if (result.success) {
-      allPlayers.push(...squadToPlayerDetails(result.data, query.source));
-      scope ??= result.data.scope;
-    } else {
-      failedTeams.push(team);
+    const first = failures[0];
+
+    if (first !== undefined && failures.length === results.length) {
+      return yield* new IncompleteDataError({
+        message: `All ${results.length} team squad fetches failed for season ${season} (source: ${query.source}); first error: ${first.message}`,
+        cause: first,
+      });
     }
-  }
 
-  if (scope === undefined) {
-    return err(new Error(`No player details found for season ${season} (source: ${query.source})`));
-  }
+    const allPlayers: PlayerDetails[] = [];
+    const failedTeams: string[] = [];
+    let scope: PlayerDetailsResult["scope"] | undefined;
 
-  return ok({ players: allPlayers, failedTeams, scope });
+    for (const { team, result } of results) {
+      if (Result.isSuccess(result)) {
+        allPlayers.push(...squadToPlayerDetails(result.success, query.source));
+        scope ??= result.success.scope;
+      } else {
+        failedTeams.push(team);
+      }
+    }
+
+    if (scope === undefined) {
+      return yield* new IncompleteDataError({
+        message: `No player details found for season ${season} (source: ${query.source})`,
+      });
+    }
+
+    return { players: allPlayers, failedTeams, scope };
+  });
 }

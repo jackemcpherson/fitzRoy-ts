@@ -80,7 +80,7 @@ export function resetRequested(): void {
 
 /** Answer a request from the fixture routes. */
 export function goldenFetch(input: string | URL | Request): Promise<Response> {
-  const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+  const url = input instanceof Request ? input.url : input instanceof URL ? input.href : input;
   requested.push(url);
   const route = ROUTES.find(([pattern]) => pattern.test(url));
 

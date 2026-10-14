@@ -44,7 +44,7 @@ describe("ladder JSON envelope (#101)", () => {
       { key: "team", label: "Team", maxWidth: 24 },
     ];
 
-    const table = formatOutput(sampleLadder.entries as readonly object[], {
+    const table = formatOutput(sampleLadder.entries, {
       format: "table",
       columns,
     });
@@ -55,7 +55,7 @@ describe("ladder JSON envelope (#101)", () => {
   });
 
   it("CSV output flattens to entries[] (no envelope keys)", () => {
-    const csv = formatOutput(sampleLadder.entries as readonly object[], {
+    const csv = formatOutput(sampleLadder.entries, {
       format: "csv",
     });
 

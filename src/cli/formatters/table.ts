@@ -5,6 +5,8 @@
  * a subset of fields by default, with --full to show all.
  */
 
+import { Cell, type CellRecord, type CellValue, classifyCell, venueTimezoneOf } from "./cell";
+
 /** Configuration for a table column. */
 export interface TableColumnConfig {
   /** The object key to display. */
@@ -53,34 +55,33 @@ function compactFormatterFor(timeZone: string): Intl.DateTimeFormat {
  * "7:30 pm" in AWST rather than "9:30 pm" in AEST. Falls back to
  * Melbourne when the row has no IANA tz.
  */
-function toDisplayValue(value: unknown, row?: Record<string, unknown>): string {
-  if (value === null || value === undefined) return "-";
-
-  if (value instanceof Date) {
-    const tz =
-      typeof row?.venueTimezone === "string" && row.venueTimezone.length > 0
-        ? row.venueTimezone
-        : DEFAULT_DISPLAY_TZ;
-
-    return compactFormatterFor(tz).format(value);
-  }
-
-  if (typeof value === "object") return JSON.stringify(value);
-
-  return String(value);
+function toDisplayValue(value: CellValue, row: CellRecord): string {
+  return Cell.$match(classifyCell(value), {
+    Empty: () => "-",
+    Date: ({ date }) =>
+      compactFormatterFor(venueTimezoneOf(row) ?? DEFAULT_DISPLAY_TZ).format(date),
+    Scalar: ({ scalar }) => String(scalar),
+    List: ({ items }) => JSON.stringify(items),
+    Record: ({ record }) => JSON.stringify(record),
+  });
 }
 
 /**
  * Read a (possibly dotted) key path from a row. `"for.kicks"` walks
  * `row.for.kicks`. Single-segment keys behave like plain index access.
  */
-function readPath(row: Record<string, unknown>, key: string): unknown {
+function readPath(row: CellRecord, key: string): CellValue {
   if (!key.includes(".")) return row[key];
-  let current: unknown = row;
+  let current: CellValue = row;
 
   for (const segment of key.split(".")) {
-    if (current == null || typeof current !== "object") return undefined;
-    current = (current as Record<string, unknown>)[segment];
+    current = Cell.$match(classifyCell(current), {
+      Empty: () => undefined,
+      Date: () => undefined,
+      Scalar: () => undefined,
+      List: ({ items }) => (/^\d+$/.test(segment) ? items[Number(segment)] : undefined),
+      Record: ({ record }) => record[segment],
+    });
   }
 
   return current;
@@ -95,7 +96,7 @@ function truncate(str: string, maxLen: number): string {
 /**
  * Format an array of flat objects as a padded column table.
  */
-export function formatTable(data: Record<string, unknown>[], options: TableOptions = {}): string {
+export function formatTable(data: readonly CellRecord[], options: TableOptions = {}): string {
   if (data.length === 0) return "No data.";
 
   const firstRow = data[0];

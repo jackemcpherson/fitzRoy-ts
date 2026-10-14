@@ -5,8 +5,9 @@
  * each adapter (see `src/sources/adapters/`).
  */
 
-import { Result } from "../lib/result";
-import { dispatch, playerStatsRegistry } from "../sources/adapters/index";
+import { Effect } from "effect";
+import type { SourceError } from "../lib/errors";
+import { dispatch, SourceRegistry } from "../sources/adapters/index";
 import { filterSeasonPlayerStats } from "../transforms/player-stats-query";
 import type { PlayerStatsQuery, SeasonPlayerStats } from "../types";
 
@@ -33,19 +34,20 @@ import type { PlayerStatsQuery, SeasonPlayerStats } from "../types";
  * }
  * ```
  */
-export async function fetchPlayerStats(
+export function fetchPlayerStats(
   query: PlayerStatsQuery,
-): Promise<Result<SeasonPlayerStats, Error>> {
-  const adapterR = dispatch(playerStatsRegistry, "player stats", query);
-  const fetched = await Result.flatMapAsync(adapterR, (a) => a.fetchPlayerStats(query));
+): Effect.Effect<SeasonPlayerStats, SourceError, SourceRegistry> {
+  return Effect.gen(function* () {
+    const registry = yield* SourceRegistry;
+    const adapter = yield* dispatch(registry.playerStats, "player stats", query);
+    const result = yield* adapter.fetchPlayerStats(query);
 
-  return Result.map(fetched, (result) =>
-    filterSeasonPlayerStats(
+    return filterSeasonPlayerStats(
       {
         ...result,
         stats: result.stats.map((row) => ({ ...row, seasonKey: String(query.season) })),
       },
       query.matchId,
-    ),
-  );
+    );
+  });
 }

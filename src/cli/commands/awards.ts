@@ -12,12 +12,13 @@
  */
 
 import { defineCommand } from "citty";
+import { Effect } from "effect";
 import pc from "picocolors";
 import { fetchAwards } from "../../index";
 import type { AwardType } from "../../types";
 import { rejectUnknownFlags } from "../command-builder";
 import { formatCompletenessOutput } from "../completeness-output";
-import { withErrorBoundary } from "../error-boundary";
+import { runCommand } from "../error-boundary";
 import {
   AWARD_TYPE_FLAG,
   COMPETITION_FLAG,
@@ -96,54 +97,47 @@ export const awardsCommand = defineCommand({
     description: "Fetch season awards (brownlow, coleman, coaches, all-australian, rising-star)",
   },
   args: AWARDS_ARGS,
-  run: withErrorBoundary(async ({ args }) => {
-    rejectUnknownFlags(AWARDS_ARGS, process.argv);
-    const award = validateAwardType(args.type as string);
-    const season = validateSeason(args.season as string);
-    const round = args.round ? validateRound(args.round as string) : undefined;
-    const competition = validateCompetition(args.competition as string);
-    validateAwardsMode(award, round);
-    const team = args.team ? await resolveTeamNameOrPrompt(args.team as string) : undefined;
-    // The Coleman leaderboard is by definition a top-N list — defaulting to
-    // every player who scored a goal (~500 rows for AFLM) is unfriendly at
-    // the CLI surface. Default to a leaderboard depth of 25 unless the user
-    // overrides with --limit. (#125)
-    const requestedLimit = validateLimit(args.limit as string | undefined);
-    const limit = requestedLimit ?? (award === "coleman" ? 25 : undefined);
-    const format = validateFormat(args.format as string | undefined);
+  run: runCommand<typeof AWARDS_ARGS>((args) =>
+    Effect.gen(function* () {
+      yield* Effect.fromResult(rejectUnknownFlags(AWARDS_ARGS, process.argv));
+      const award = yield* Effect.fromResult(validateAwardType(args.type));
+      const season = yield* Effect.fromResult(validateSeason(args.season));
+      const round = args.round ? yield* Effect.fromResult(validateRound(args.round)) : undefined;
+      const competition = yield* Effect.fromResult(validateCompetition(args.competition));
+      yield* Effect.fromResult(validateAwardsMode(award, round));
+      const team = args.team ? yield* resolveTeamNameOrPrompt(args.team) : undefined;
+      // The Coleman leaderboard is by definition a top-N list — defaulting to
+      // every player who scored a goal (~500 rows for AFLM) is unfriendly at
+      // the CLI surface. Default to a leaderboard depth of 25 unless the user
+      // overrides with --limit. (#125)
+      const requestedLimit = yield* Effect.fromResult(validateLimit(args.limit));
+      const limit = requestedLimit ?? (award === "coleman" ? 25 : undefined);
+      const format = yield* Effect.fromResult(validateFormat(args.format));
 
-    const result = await withSpinner("Fetching awards…", () =>
-      fetchAwards({ award, season, round, competition, team, limit }),
-    );
-
-    if (!result.success) throw result.error;
-
-    const { awards: data, failedRounds } = result.data;
-
-    if (failedRounds.length > 0) {
-      console.error(
-        pc.yellow(
-          `Warning: ${failedRounds.length} coaches round(s) failed and are missing from the results: ${failedRounds.join(", ")}`,
-        ),
+      const { awards: data, failedRounds } = yield* withSpinner(
+        "Fetching awards…",
+        fetchAwards({ award, season, round, competition, team, limit }),
       );
-    }
 
-    showSummary(`Loaded ${data.length} ${award} entries for ${season}`);
+      if (failedRounds.length > 0) {
+        console.error(
+          pc.yellow(
+            `Warning: ${failedRounds.length} coaches round(s) failed and are missing from the results: ${failedRounds.join(", ")}`,
+          ),
+        );
+      }
 
-    const formatOptions: FormatOptions = {
-      json: args.json as boolean | undefined,
-      csv: args.csv as boolean | undefined,
-      format,
-      full: args.full as boolean | undefined,
-      columns: COLUMNS_BY_TYPE[award],
-    };
+      showSummary(`Loaded ${data.length} ${award} entries for ${season}`);
 
-    console.log(
-      formatCompletenessOutput(
-        { awards: data, failedRounds },
-        data as readonly object[],
-        formatOptions,
-      ),
-    );
-  }),
+      const formatOptions: FormatOptions = {
+        json: args.json,
+        csv: args.csv,
+        format,
+        full: args.full,
+        columns: COLUMNS_BY_TYPE[award],
+      };
+
+      console.log(formatCompletenessOutput({ awards: data, failedRounds }, data, formatOptions));
+    }),
+  ),
 });

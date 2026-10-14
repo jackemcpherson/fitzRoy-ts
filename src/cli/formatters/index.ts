@@ -1,6 +1,7 @@
 /**
  * Format dispatcher — selects the correct formatter based on CLI flags.
  */
+import type { CellRecord } from "./cell";
 import { formatCsv } from "./csv";
 import { formatJson } from "./json";
 import { formatTable, type TableColumnConfig } from "./table";
@@ -25,8 +26,12 @@ export interface FormatOptions {
  * Resolve which output format to use based on flags and TTY status.
  *
  * Priority: --json > --csv > --format > TTY detection (non-TTY defaults to JSON).
+ * Tests pass `isTTY` explicitly instead of mutating `process.stdout`.
  */
-export function resolveFormat(options: FormatOptions): OutputFormat {
+export function resolveFormat(
+  options: FormatOptions,
+  isTTY = process.stdout.isTTY === true,
+): OutputFormat {
   if (options.json) return "json";
 
   if (options.csv) return "csv";
@@ -36,7 +41,7 @@ export function resolveFormat(options: FormatOptions): OutputFormat {
   }
 
   // Non-TTY defaults to JSON for piping
-  if (!process.stdout.isTTY) return "json";
+  if (!isTTY) return "json";
 
   return "table";
 }
@@ -44,8 +49,7 @@ export function resolveFormat(options: FormatOptions): OutputFormat {
 /**
  * Format data according to the resolved output format.
  */
-export function formatOutput(data: readonly object[], options: FormatOptions): string {
-  const rows = data as Record<string, unknown>[];
+export function formatOutput(rows: readonly CellRecord[], options: FormatOptions): string {
   const format = resolveFormat(options);
 
   switch (format) {
@@ -60,6 +64,8 @@ export function formatOutput(data: readonly object[], options: FormatOptions): s
       });
   }
 }
+
+export type { CellRecord, CellValue } from "./cell";
 
 export { formatCsv } from "./csv";
 

@@ -1,3 +1,4 @@
+import { Result } from "effect";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { DataFrame } from "@jackemcpherson/rds-js";
@@ -32,19 +33,19 @@ describe("transformFryziggPlayerStats", () => {
     const frame = await loadFixture();
     const result = transformFryziggPlayerStats(frame, { competition: "AFLM" });
 
-    expect(result.success).toBe(true);
+    expect(Result.isSuccess(result)).toBe(true);
 
-    if (!result.success) return;
-    expect(result.data.length).toBe(5);
+    if (Result.isFailure(result)) return;
+    expect(result.success.length).toBe(5);
   });
 
   it("maps column names correctly", async () => {
     const frame = await loadFixture();
     const result = transformFryziggPlayerStats(frame, { competition: "AFLM" });
 
-    if (!result.success) return;
+    if (Result.isFailure(result)) return;
 
-    const first = result.data[0];
+    const first = result.success[0];
     expect(first).toBeDefined();
 
     if (!first) return;
@@ -65,9 +66,9 @@ describe("transformFryziggPlayerStats", () => {
     const frame = await loadFixture();
     const result = transformFryziggPlayerStats(frame, { competition: "AFLM" });
 
-    if (!result.success) return;
+    if (Result.isFailure(result)) return;
 
-    const first = result.data[0];
+    const first = result.success[0];
     expect(first).toBeDefined();
 
     if (!first) return;
@@ -90,10 +91,10 @@ describe("transformFryziggPlayerStats", () => {
     const frame = await loadFixture();
     const result = transformFryziggPlayerStats(frame, { competition: "AFLM" });
 
-    if (!result.success) return;
+    if (Result.isFailure(result)) return;
 
     // Row 4 (index 3) is Lance Franklin — all stats are NA in fixture
-    const franklin = result.data[3];
+    const franklin = result.success[3];
     expect(franklin).toBeDefined();
 
     if (!franklin) return;
@@ -114,13 +115,13 @@ describe("transformFryziggPlayerStats", () => {
       season: 2024,
     });
 
-    expect(result.success).toBe(true);
+    expect(Result.isSuccess(result)).toBe(true);
 
-    if (!result.success) return;
+    if (Result.isFailure(result)) return;
     // 4 rows are 2024, 1 row is 2025
-    expect(result.data.length).toBe(4);
+    expect(result.success.length).toBe(4);
 
-    for (const stat of result.data) {
+    for (const stat of result.success) {
       expect(stat.season).toBe(2024);
     }
   });
@@ -134,12 +135,12 @@ describe("transformFryziggPlayerStats", () => {
       round: 1,
     });
 
-    expect(result.success).toBe(true);
+    expect(Result.isSuccess(result)).toBe(true);
 
-    if (!result.success) return;
-    expect(result.data.length).toBe(2);
+    if (Result.isFailure(result)) return;
+    expect(result.success.length).toBe(2);
 
-    for (const stat of result.data) {
+    for (const stat of result.success) {
       expect(stat.roundNumber).toBe(1);
     }
   });
@@ -152,38 +153,38 @@ describe("transformFryziggPlayerStats", () => {
       season: 1900,
     });
 
-    expect(result.success).toBe(true);
+    expect(Result.isSuccess(result)).toBe(true);
 
-    if (!result.success) return;
-    expect(result.data.length).toBe(0);
+    if (Result.isFailure(result)) return;
+    expect(result.success.length).toBe(0);
   });
 
   it("derives season from match_date", async () => {
     const frame = await loadFixture();
     const result = transformFryziggPlayerStats(frame, { competition: "AFLM" });
 
-    if (!result.success) return;
+    if (Result.isFailure(result)) return;
 
-    expect(result.data[0]?.season).toBe(2024);
-    expect(result.data[4]?.season).toBe(2025);
+    expect(result.success[0]?.season).toBe(2024);
+    expect(result.success[4]?.season).toBe(2025);
   });
 
   it("parses date as Date object", async () => {
     const frame = await loadFixture();
     const result = transformFryziggPlayerStats(frame, { competition: "AFLM" });
 
-    if (!result.success) return;
+    if (Result.isFailure(result)) return;
 
-    expect(result.data[0]?.date).toBeInstanceOf(Date);
+    expect(result.success[0]?.date).toBeInstanceOf(Date);
   });
 
   it("sets unmapped fields to null", async () => {
     const frame = await loadFixture();
     const result = transformFryziggPlayerStats(frame, { competition: "AFLM" });
 
-    if (!result.success) return;
+    if (Result.isFailure(result)) return;
 
-    const first = result.data[0];
+    const first = result.success[0];
     expect(first).toBeDefined();
 
     if (!first) return;
@@ -199,10 +200,10 @@ describe("transformFryziggPlayerStats", () => {
     const badFrame: DataFrame = { names: ["foo", "bar"], columns: [[], []] };
     const result = transformFryziggPlayerStats(badFrame, { competition: "AFLM" });
 
-    expect(result.success).toBe(false);
+    expect(Result.isFailure(result)).toBe(true);
 
-    if (result.success) return;
-    expect(result.error.message).toContain("missing required column");
+    if (Result.isSuccess(result)) return;
+    expect(result.failure.message).toContain("missing required column");
   });
 
   it.each([
@@ -216,10 +217,10 @@ describe("transformFryziggPlayerStats", () => {
         round: 1,
       });
 
-      expect(result.success).toBe(false);
+      expect(Result.isFailure(result)).toBe(true);
 
-      if (result.success) return;
-      expect(result.error.message).toContain(roundColumn);
+      if (Result.isSuccess(result)) return;
+      expect(result.failure.message).toContain(roundColumn);
     },
   );
 
@@ -229,19 +230,39 @@ describe("transformFryziggPlayerStats", () => {
       season: 2024,
     });
 
-    expect(result.success).toBe(true);
+    expect(Result.isSuccess(result)).toBe(true);
 
-    if (!result.success) return;
-    expect(result.data).toHaveLength(1);
+    if (Result.isFailure(result)) return;
+    expect(result.success).toHaveLength(1);
+  });
+
+  it("blanks only the stray cell when a numeric column holds a non-number", () => {
+    const frame: DataFrame = {
+      names: ["match_id", "match_date", "player_id", "player_team", "kicks"],
+      columns: [
+        ["1", "1"],
+        ["2024-03-15", "2024-03-15"],
+        ["123", "456"],
+        ["Melbourne", "Melbourne"],
+        [12, "n/a"],
+      ],
+    };
+
+    const result = transformFryziggPlayerStats(frame, { competition: "AFLM" });
+
+    expect(Result.isSuccess(result)).toBe(true);
+
+    if (Result.isFailure(result)) return;
+    expect(result.success.map((row) => row.kicks)).toEqual([12, null]);
   });
 
   it("sets competition from options", async () => {
     const frame = await loadFixture();
     const result = transformFryziggPlayerStats(frame, { competition: "AFLW" });
 
-    if (!result.success) return;
+    if (Result.isFailure(result)) return;
 
-    for (const stat of result.data) {
+    for (const stat of result.success) {
       expect(stat.competition).toBe("AFLW");
     }
   });

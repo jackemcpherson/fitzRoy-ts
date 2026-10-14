@@ -7,6 +7,7 @@
  * tz so a Perth match shows AWST (#109).
  */
 
+import { Cell, type CellValue, classifyCell, venueTimezoneOf } from "./cell";
 import { toVenueIso } from "./date-format";
 
 /**
@@ -15,31 +16,23 @@ import { toVenueIso } from "./date-format";
  * The `venueTimezone` propagated from the enclosing object overrides
  * the default Melbourne tz for any Date deeper in the tree.
  */
-function convertDates(value: unknown, inheritedTz?: string): unknown {
-  if (value instanceof Date) return toVenueIso(value, inheritedTz);
+function convertDates(value: CellValue, inheritedTz: string | undefined): CellValue {
+  return Cell.$match(classifyCell(value), {
+    Empty: () => value,
+    Date: ({ date }) => toVenueIso(date, inheritedTz),
+    Scalar: ({ scalar }) => scalar,
+    List: ({ items }) => items.map((item) => convertDates(item, inheritedTz)),
+    Record: ({ record }) => {
+      const rowTz = venueTimezoneOf(record) ?? inheritedTz;
 
-  if (Array.isArray(value)) return value.map((v) => convertDates(v, inheritedTz));
-
-  if (value !== null && typeof value === "object") {
-    const obj = value as Record<string, unknown>;
-
-    const rowTz =
-      typeof obj.venueTimezone === "string" && obj.venueTimezone.length > 0
-        ? obj.venueTimezone
-        : inheritedTz;
-
-    const out: Record<string, unknown> = {};
-
-    for (const [k, v] of Object.entries(obj)) {
-      out[k] = convertDates(v, rowTz);
-    }
-
-    return out;
-  }
-
-  return value;
+      return Object.fromEntries(
+        Object.entries(record).map(([key, nested]) => [key, convertDates(nested, rowTz)]),
+      );
+    },
+  });
 }
 
-export function formatJson(data: unknown): string {
-  return JSON.stringify(convertDates(data), null, 2);
+/** Pretty-print a value as JSON, with dates as venue-local ISO strings. */
+export function formatJson(data: CellValue): string {
+  return JSON.stringify(convertDates(data, undefined), null, 2);
 }

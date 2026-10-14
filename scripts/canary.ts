@@ -2,10 +2,10 @@
  * Scraper canary (TST-03) — hits ONE cheap live page/endpoint per data
  * source and asserts the parsers still return non-empty Results for the
  * previous season. Run weekly by `.github/workflows/scraper-canary.yml`
- * (and on demand via `bun scripts/canary.ts`).
+ * (and on demand via `vp run canary`).
  *
  * Notes:
- * - Each client keeps its default 30-second timeout — no overrides here.
+ * - Each source service keeps the default 30-second timeout — no overrides here.
  * - Fryzigg is intentionally skipped: its only artefact is an ~11 MB RDS
  *   dump, which is too heavy for a weekly liveness probe.
  * - Exits non-zero when any check fails so the workflow can open (or
@@ -26,10 +26,12 @@
  */
 
 import { readFile, writeFile } from "node:fs/promises";
-import { AflApiClient } from "../src/sources/afl-api";
-import { AflTablesClient } from "../src/sources/afl-tables";
-import { FootyWireClient } from "../src/sources/footywire";
-import { SquiggleClient } from "../src/sources/squiggle";
+import { Effect, Result, Schema } from "effect";
+import { SourcesLive } from "../src/layers";
+import { AflApi } from "../src/sources/afl-api";
+import { AflTables } from "../src/sources/afl-tables";
+import { FootyWire } from "../src/sources/footywire";
+import { Squiggle } from "../src/sources/squiggle";
 import { type Baseline, evaluateCount, promoteBaseline, validateBaseline } from "./canary-baseline";
 
 /** Previous season — guaranteed to have complete published data. */
@@ -38,110 +40,115 @@ const season = new Date().getUTCFullYear() - 1;
 /** Drift threshold — fail if the new count drops below this fraction of the previous count. */
 const DRIFT_THRESHOLD = 0.85;
 
-/** Path to the persisted baseline counts (relative to repo root, where bun is invoked). */
+/** Path to the persisted baseline counts (relative to repo root, where the canary is run). */
 const BASELINE_PATH = "scripts/canary-baseline.json";
+
+/** A canary probe found the source alive but empty. */
+class EmptyResultError extends Schema.TaggedError<EmptyResultError>()("EmptyResultError", {
+  message: Schema.String,
+}) {}
+
+/** One probe's summary line and the row count used for baseline comparison. */
+interface Observation {
+  readonly summary: string;
+  readonly count: number;
+}
+
+type SourceServices = AflApi | AflTables | FootyWire | Squiggle;
 
 interface CanaryCheck {
   readonly name: string;
-  /**
-   * Runs the probe; resolves to `{ summary, count }` or throws on failure.
-   * The `count` is the row/entity count used for baseline comparison.
-   */
-  readonly run: () => Promise<{ summary: string; count: number }>;
+  readonly run: Effect.Effect<Observation, { readonly message: string }, SourceServices>;
+}
+
+/** Fail when a probe parsed nothing. */
+function requireRows(count: number, what: string): Effect.Effect<void, EmptyResultError> {
+  return count === 0
+    ? Effect.fail(new EmptyResultError({ message: `parsed 0 ${what}` }))
+    : Effect.void;
 }
 
 const checks: readonly CanaryCheck[] = [
   {
     // Public no-auth endpoint exercising the CompseasonListSchema parse.
     name: "afl-api",
-    run: async () => {
-      const result = await new AflApiClient().resolveCompSeason("AFLM", season);
-
-      if (!result.success) throw result.error;
-
+    run: AflApi.use((aflApi) => aflApi.resolveCompSeason("AFLM", season)).pipe(
       // resolveCompSeason returns a single id; count is 1 when it resolves.
-      return { summary: `resolved AFLM ${season} to compseason id ${result.data}`, count: 1 };
-    },
+      Effect.map((id) => ({ summary: `resolved AFLM ${season} to compseason id ${id}`, count: 1 })),
+    ),
   },
   {
     name: "afl-tables",
-    run: async () => {
-      const result = await new AflTablesClient().fetchSeasonResults(season);
+    run: Effect.gen(function* () {
+      const matches = yield* AflTables.use((aflTables) => aflTables.fetchSeasonResults(season));
 
-      if (!result.success) throw result.error;
+      yield* requireRows(matches.length, `matches for ${season}`);
 
-      if (result.data.length === 0) throw new Error(`parsed 0 matches for ${season}`);
-
-      return {
-        summary: `parsed ${result.data.length} matches for ${season}`,
-        count: result.data.length,
-      };
-    },
+      return { summary: `parsed ${matches.length} matches for ${season}`, count: matches.length };
+    }),
   },
   {
     name: "footywire",
-    run: async () => {
-      const result = await new FootyWireClient().fetchSeasonResults(season);
+    run: Effect.gen(function* () {
+      const matches = yield* FootyWire.use((footyWire) => footyWire.fetchSeasonResults(season));
 
-      if (!result.success) throw result.error;
+      yield* requireRows(matches.length, `matches for ${season}`);
 
-      if (result.data.length === 0) throw new Error(`parsed 0 matches for ${season}`);
-
-      return {
-        summary: `parsed ${result.data.length} matches for ${season}`,
-        count: result.data.length,
-      };
-    },
+      return { summary: `parsed ${matches.length} matches for ${season}`, count: matches.length };
+    }),
   },
   {
     name: "squiggle",
-    run: async () => {
-      const result = await new SquiggleClient().fetchGames(season, 1);
+    run: Effect.gen(function* () {
+      const { games } = yield* Squiggle.use((squiggle) => squiggle.fetchGames(season, 1));
 
-      if (!result.success) throw result.error;
-
-      if (result.data.games.length === 0) throw new Error(`parsed 0 games for ${season} round 1`);
+      yield* requireRows(games.length, `games for ${season} round 1`);
 
       return {
-        summary: `parsed ${result.data.games.length} games for ${season} round 1`,
-        count: result.data.games.length,
+        summary: `parsed ${games.length} games for ${season} round 1`,
+        count: games.length,
       };
-    },
+    }),
   },
 ];
 
-async function readBaseline(): Promise<Baseline> {
-  try {
-    const raw = await readFile(BASELINE_PATH, "utf8");
-    const parsed: unknown = JSON.parse(raw);
-    const baseline = validateBaseline(parsed);
+/** Read the last known-good baseline; a missing or invalid file is empty. */
+const readBaseline: Effect.Effect<Baseline> = Effect.tryPromise({
+  try: () => readFile(BASELINE_PATH, "utf8"),
+  catch: (cause) => cause,
+}).pipe(
+  Effect.flatMap((raw) =>
+    Effect.try({ try: () => JSON.parse(raw), catch: (cause) => cause }).pipe(
+      Effect.map((parsed) => {
+        const baseline = validateBaseline(parsed);
 
-    if (baseline === undefined) {
-      console.warn(`warn: ${BASELINE_PATH} has an invalid shape; treating as empty`);
+        if (baseline === undefined) {
+          console.warn(`warn: ${BASELINE_PATH} has an invalid shape; treating as empty`);
+
+          return {};
+        }
+
+        return baseline;
+      }),
+    ),
+  ),
+  Effect.catch((cause) =>
+    Effect.sync(() => {
+      const isMissing = cause instanceof Error && "code" in cause && cause.code === "ENOENT";
+
+      if (!isMissing) {
+        const message = cause instanceof Error ? cause.message : String(cause);
+
+        console.warn(`warn: failed to read ${BASELINE_PATH}: ${message}`);
+      }
 
       return {};
-    }
+    }),
+  ),
+);
 
-    return baseline;
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      "code" in error &&
-      (error as { code?: string }).code === "ENOENT"
-    ) {
-      return {};
-    }
-
-    console.warn(
-      `warn: failed to read ${BASELINE_PATH}: ${error instanceof Error ? error.message : String(error)}`,
-    );
-
-    return {};
-  }
-}
-
-async function writeBaseline(baseline: Baseline): Promise<void> {
-  // Stable key order for deterministic diffs.
+/** Write the baseline with a stable key order for deterministic diffs. */
+function writeBaseline(baseline: Baseline): Effect.Effect<void, Error> {
   const sorted: Baseline = {};
 
   for (const key of Object.keys(baseline).sort()) {
@@ -150,18 +157,27 @@ async function writeBaseline(baseline: Baseline): Promise<void> {
     if (value !== undefined) sorted[key] = value;
   }
 
-  await writeFile(BASELINE_PATH, `${JSON.stringify(sorted, null, 2)}\n`, "utf8");
+  return Effect.tryPromise({
+    try: () => writeFile(BASELINE_PATH, `${JSON.stringify(sorted, null, 2)}\n`, "utf8"),
+    catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
+  });
 }
 
-const previousBaseline = await readBaseline();
+const program = Effect.gen(function* () {
+  const previousBaseline = yield* readBaseline;
+  const observedCounts: Baseline = {};
+  let hasFailure = false;
 
-const observedCounts: Baseline = {};
+  for (const check of checks) {
+    const outcome = yield* Effect.result(check.run);
 
-let hasFailure = false;
+    if (Result.isFailure(outcome)) {
+      hasFailure = true;
+      console.error(`FAIL ${check.name}: ${outcome.failure.message}`);
+      continue;
+    }
 
-for (const check of checks) {
-  try {
-    const { summary, count } = await check.run();
+    const { summary, count } = outcome.success;
     const previous = previousBaseline[check.name];
     const evaluation = evaluateCount(count, previous, DRIFT_THRESHOLD);
 
@@ -180,23 +196,20 @@ for (const check of checks) {
     }
 
     observedCounts[check.name] = count;
-  } catch (error) {
-    hasFailure = true;
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(`FAIL ${check.name}: ${message}`);
   }
-}
 
-if (!hasFailure) {
-  try {
-    await writeBaseline(promoteBaseline(previousBaseline, observedCounts, true));
-  } catch (error) {
-    hasFailure = true;
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(`FAIL baseline: failed to write ${BASELINE_PATH}: ${message}`);
+  if (!hasFailure) {
+    const written = yield* Effect.result(
+      writeBaseline(promoteBaseline(previousBaseline, observedCounts, true)),
+    );
+
+    if (Result.isFailure(written)) {
+      hasFailure = true;
+      console.error(`FAIL baseline: failed to write ${BASELINE_PATH}: ${written.failure.message}`);
+    }
   }
-}
 
-if (hasFailure) {
-  process.exitCode = 1;
-}
+  if (hasFailure) process.exitCode = 1;
+});
+
+await Effect.runPromise(program.pipe(Effect.provide(SourcesLive)));

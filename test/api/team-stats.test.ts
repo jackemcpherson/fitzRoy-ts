@@ -1,30 +1,22 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it } from "@effect/vitest";
+import { Effect, Layer } from "effect";
 import { fetchTeamStats } from "../../src/api/team-stats";
-import { err, ok } from "../../src/lib/result";
-import { AflTablesTeamStatsSource } from "../../src/sources/adapters/afl-tables";
-import { teamStatsRegistry } from "../../src/sources/adapters/registry";
-import type { AflTablesClient } from "../../src/sources/afl-tables";
-import { parseAflTablesTeamStats } from "../../src/sources/afl-tables";
-import { FootyWireClient, parseFootyWireTeamStats } from "../../src/sources/footywire";
-import type { TeamStatsEntry } from "../../src/types";
+import { aflTablesTeamStatsSource } from "../../src/sources/adapters/afl-tables";
+import { footyWireTeamStatsSource } from "../../src/sources/adapters/footywire";
+import { CapabilityRegistry } from "../../src/sources/adapters/registry";
+import { AflTables, parseAflTablesTeamStats } from "../../src/sources/afl-tables";
+import { FootyWire, FootyWireLive, parseFootyWireTeamStats } from "../../src/sources/footywire";
+import { ScrapeError } from "../../src/lib/errors";
+import type { Match, TeamStatsEntry } from "../../src/types";
+import { matchFixture } from "../support/domain";
+import { fixtureHttp, fixtureText } from "../support/http";
+import { fixtureFitzroy, stubRegistry, unexpectedCall } from "../support/services";
 
-const FW_FIXTURE = resolve(__dirname, "../fixtures/footywire-team-stats.html");
+const fwHtml = fixtureText("footywire-team-stats.html");
 
-const FW_OPP_FIXTURE = resolve(__dirname, "../fixtures/footywire-team-stats-opp.html");
+const fwOppHtml = fixtureText("footywire-team-stats-opp.html");
 
-const AT_FIXTURE = resolve(__dirname, "../fixtures/afl-tables-team-stats.html");
-
-const fwHtml = readFileSync(FW_FIXTURE, "utf-8");
-
-const fwOppHtml = readFileSync(FW_OPP_FIXTURE, "utf-8");
-
-const atHtml = readFileSync(AT_FIXTURE, "utf-8");
-
-afterEach(() => {
-  vi.restoreAllMocks();
-});
+const atHtml = fixtureText("afl-tables-team-stats.html");
 
 describe("parseFootyWireTeamStats", () => {
   it("returns intermediate per-direction entries with canonical metrics", () => {
@@ -47,8 +39,7 @@ describe("parseFootyWireTeamStats", () => {
     expect(carlton.metrics.disposals).toBe(5300);
     // Behinds canonicalisation also fixes the latent CLI bug where the
     // `B` table column rendered empty because FootyWire emitted `BH`. (#98)
-    expect(carlton.metrics.behinds).not.toBeNull();
-    expect(typeof carlton.metrics.behinds).toBe("number");
+    expect(carlton.metrics.behinds).toEqual(expect.any(Number));
     // FootyWire-only metrics populated; AFL Tables-only stay null
     expect(carlton.metrics.brownlowVotes).toBeNull();
   });
@@ -86,188 +77,232 @@ describe("parseAflTablesTeamStats", () => {
   });
 });
 
-describe("AflTablesTeamStatsSource games-played enrichment", () => {
+describe("aflTablesTeamStatsSource games-played enrichment", () => {
   const missingGames = parseAflTablesTeamStats(atHtml, 2024).map((entry) => ({
     ...entry,
     gamesPlayed: null,
   }));
 
-  it("enriches missing denominators from successful match results", async () => {
-    const client = {
-      fetchTeamStats: vi.fn().mockResolvedValue(ok(missingGames)),
-      fetchSeasonResults: vi.fn().mockResolvedValue(
-        ok([
-          { homeTeam: "Carlton", awayTeam: "Geelong Cats" },
-          { homeTeam: "Carlton", awayTeam: "Richmond" },
-        ]),
+  /** An AFL Tables service serving fixed team stats and season results. */
+  function aflTablesServing(
+    stats: readonly TeamStatsEntry[],
+    results: Effect.Effect<Match[], ScrapeError>,
+    resultCalls: number[] = [],
+  ) {
+    return Layer.succeed(AflTables, {
+      fetchSeasonResults: (year) => {
+        resultCalls.push(year);
+
+        return results;
+      },
+      fetchSeasonPlayerStats: unexpectedCall("fetchSeasonPlayerStats"),
+      fetchTeamStats: () => Effect.succeed([...stats]),
+      fetchPlayerList: unexpectedCall("fetchPlayerList"),
+    });
+  }
+
+  const resultsUnavailable = Effect.fail(
+    new ScrapeError({ message: "results unavailable", source: "afl-tables" }),
+  );
+
+  it.effect("enriches missing denominators from successful match results", () =>
+    Effect.gen(function* () {
+      const source = yield* aflTablesTeamStatsSource;
+
+      const entries = yield* source.fetchTeamStats({ source: "afl-tables", season: 2024 });
+
+      expect(entries.find((entry) => entry.team === "Carlton")?.gamesPlayed).toBe(2);
+      expect(entries.find((entry) => entry.team === "Geelong Cats")?.gamesPlayed).toBe(1);
+    }).pipe(
+      Effect.provide(
+        aflTablesServing(
+          missingGames,
+          Effect.succeed([
+            { ...matchFixture("M1", "HomeAndAway"), homeTeam: "Carlton", awayTeam: "Geelong Cats" },
+            { ...matchFixture("M2", "HomeAndAway"), homeTeam: "Carlton", awayTeam: "Richmond" },
+          ]),
+        ),
       ),
-    } as unknown as AflTablesClient;
+    ),
+  );
 
-    const result = await new AflTablesTeamStatsSource(client).fetchTeamStats({
-      source: "afl-tables",
-      season: 2024,
-    });
+  it.effect("returns totals with null denominators when enrichment fails", () =>
+    Effect.gen(function* () {
+      const source = yield* aflTablesTeamStatsSource;
 
-    expect(result.success).toBe(true);
+      const entries = yield* source.fetchTeamStats({
+        source: "afl-tables",
+        season: 2024,
+        summaryType: "totals",
+      });
 
-    if (!result.success) return;
-    expect(result.data.find((entry) => entry.team === "Carlton")?.gamesPlayed).toBe(2);
-    expect(result.data.find((entry) => entry.team === "Geelong Cats")?.gamesPlayed).toBe(1);
-  });
+      expect(entries.every((entry) => entry.gamesPlayed === null)).toBe(true);
+    }).pipe(Effect.provide(aflTablesServing(missingGames, resultsUnavailable))),
+  );
 
-  it("returns totals with null denominators when enrichment fails", async () => {
-    const client = {
-      fetchTeamStats: vi.fn().mockResolvedValue(ok(missingGames)),
-      fetchSeasonResults: vi.fn().mockResolvedValue(err(new Error("results unavailable"))),
-    } as unknown as AflTablesClient;
+  it.effect("rejects averages when any denominator remains missing", () =>
+    Effect.gen(function* () {
+      const source = yield* aflTablesTeamStatsSource;
 
-    const result = await new AflTablesTeamStatsSource(client).fetchTeamStats({
-      source: "afl-tables",
-      season: 2024,
-      summaryType: "totals",
-    });
+      const error = yield* Effect.flip(
+        source.fetchTeamStats({
+          source: "afl-tables",
+          season: 2024,
+          summaryType: "averages",
+        }),
+      );
 
-    expect(result.success).toBe(true);
+      expect(error.message).toContain("games played");
+    }).pipe(Effect.provide(aflTablesServing(missingGames, resultsUnavailable))),
+  );
 
-    if (!result.success) return;
-    expect(result.data.every((entry) => entry.gamesPlayed === null)).toBe(true);
-  });
-
-  it("rejects averages when any denominator remains missing", async () => {
-    const client = {
-      fetchTeamStats: vi.fn().mockResolvedValue(ok(missingGames)),
-      fetchSeasonResults: vi.fn().mockResolvedValue(err(new Error("results unavailable"))),
-    } as unknown as AflTablesClient;
-
-    const result = await new AflTablesTeamStatsSource(client).fetchTeamStats({
-      source: "afl-tables",
-      season: 2024,
-      summaryType: "averages",
-    });
-
-    expect(result.success).toBe(false);
-
-    if (!result.success) expect(result.error.message).toContain("games played");
-  });
-
-  it("rejects averages when a denominator is non-positive", async () => {
+  it.effect("rejects averages when a denominator is non-positive", () => {
     const zeroGames = missingGames.map((entry, index) => ({
       ...entry,
       gamesPlayed: index === 0 ? 0 : 1,
     }));
 
-    const client = {
-      fetchTeamStats: vi.fn().mockResolvedValue(ok(zeroGames)),
-      fetchSeasonResults: vi.fn(),
-    } as unknown as AflTablesClient;
+    const resultCalls: number[] = [];
 
-    const result = await new AflTablesTeamStatsSource(client).fetchTeamStats({
-      source: "afl-tables",
-      season: 2024,
-      summaryType: "averages",
-    });
+    return Effect.gen(function* () {
+      const source = yield* aflTablesTeamStatsSource;
 
-    expect(result.success).toBe(false);
-    expect(client.fetchSeasonResults).not.toHaveBeenCalled();
+      yield* Effect.flip(
+        source.fetchTeamStats({
+          source: "afl-tables",
+          season: 2024,
+          summaryType: "averages",
+        }),
+      );
+
+      expect(resultCalls).toEqual([]);
+    }).pipe(
+      Effect.provide(aflTablesServing(zeroGames, Effect.die(new Error("unexpected")), resultCalls)),
+    );
   });
 });
 
-describe("FootyWireClient.fetchTeamStats", () => {
-  it("fetches and merges team and opposition stats into canonical for/against", async () => {
-    let callCount = 0;
+describe("FootyWire.fetchTeamStats", () => {
+  it.effect("fetches and merges team and opposition stats into canonical for/against", () =>
+    Effect.gen(function* () {
+      const footyWire = yield* FootyWire;
 
-    const fetchFn = vi.fn().mockImplementation(() => {
-      callCount++;
-      const html = callCount === 1 ? fwHtml : fwOppHtml;
+      const entries = yield* footyWire.fetchTeamStats(2024);
 
-      return Promise.resolve(new Response(html, { status: 200 }));
-    });
-
-    const client = new FootyWireClient({ fetchFn });
-
-    const result = await client.fetchTeamStats(2024);
-
-    expect(result.success).toBe(true);
-
-    if (result.success) {
-      expect(result.data).toHaveLength(3);
-      const carlton = result.data.find((e) => e.team === "Carlton");
+      expect(entries).toHaveLength(3);
+      const carlton = entries.find((e) => e.team === "Carlton");
       expect(carlton?.competition).toBe("AFLM");
       expect(carlton?.for.kicks).toBe(3200);
       expect(carlton?.against.kicks).toBe(3000);
       expect(carlton?.against.handballs).toBe(2000);
-    }
-  });
-
-  it("returns error on non-OK response", async () => {
-    const fetchFn = vi.fn().mockResolvedValue(new Response("", { status: 403 }));
-    const client = new FootyWireClient({ fetchFn });
-
-    const result = await client.fetchTeamStats(2024);
-    expect(result.success).toBe(false);
-  });
-});
-
-describe("fetchTeamStats public API", () => {
-  it.each(["afl-api", "squiggle"] as const)(
-    "returns error for unsupported %s source",
-    async (source) => {
-      const result = await fetchTeamStats({ source, season: 2024 });
-      expect(result.success).toBe(false);
-
-      if (!result.success) {
-        expect(result.error.message).toContain(`${source} does not provide team stats`);
-      }
-    },
+    }).pipe(
+      Effect.provide(
+        FootyWireLive.pipe(
+          Layer.provide(
+            fixtureHttp([
+              ["type=TT", { body: fwHtml }],
+              ["type=OT", { body: fwOppHtml }],
+            ]),
+          ),
+        ),
+      ),
+    ),
   );
 
-  it("rejects an unsupported competition before adapter network access", async () => {
-    const adapter = teamStatsRegistry.get("footywire");
-    expect(adapter).toBeDefined();
+  it.effect("fails on non-OK response", () =>
+    Effect.gen(function* () {
+      const footyWire = yield* FootyWire;
 
-    if (!adapter) return;
-    const fetchSpy = vi.spyOn(adapter, "fetchTeamStats").mockResolvedValue(ok([]));
+      const error = yield* Effect.flip(footyWire.fetchTeamStats(2024));
 
-    const result = await fetchTeamStats({
-      source: "footywire",
-      season: 2024,
-      competition: "AFLW",
-    });
+      expect(error).toBeInstanceOf(ScrapeError);
+    }).pipe(
+      Effect.provide(FootyWireLive.pipe(Layer.provide(fixtureHttp([[/./, { status: 403 }]])))),
+    ),
+  );
+});
 
-    expect(result.success).toBe(false);
-    expect(fetchSpy).not.toHaveBeenCalled();
+/**
+ * A registry whose only team-stats adapter is the real FootyWire adapter
+ * (with its real coverage) over a FootyWire service that records each
+ * `fetchTeamStats` call and returns `entries`.
+ */
+function footyWireTeamStatsRegistry(entries: readonly TeamStatsEntry[], calls: number[]) {
+  const footyWire = Layer.succeed(FootyWire, {
+    fetchPage: unexpectedCall("fetchPage"),
+    fetchSeasonResults: unexpectedCall("fetchSeasonResults"),
+    fetchMatchPlayerStats: unexpectedCall("fetchMatchPlayerStats"),
+    fetchSeasonMatchIds: unexpectedCall("fetchSeasonMatchIds"),
+    fetchPlayerList: unexpectedCall("fetchPlayerList"),
+    fetchSeasonFixture: unexpectedCall("fetchSeasonFixture"),
+    fetchTeamStats: (year) => {
+      calls.push(year);
+
+      return Effect.succeed([...entries]);
+    },
   });
 
-  it("defaults competition coverage to AFLM", async () => {
-    const adapter = teamStatsRegistry.get("footywire");
-    expect(adapter).toBeDefined();
+  return Layer.unwrap(
+    Effect.map(footyWireTeamStatsSource, (adapter) =>
+      stubRegistry({ teamStats: new CapabilityRegistry("afl-tables", [adapter]) }),
+    ),
+  ).pipe(Layer.provide(footyWire));
+}
 
-    if (!adapter) return;
-    const fetchSpy = vi.spyOn(adapter, "fetchTeamStats").mockResolvedValue(ok([]));
+describe("fetchTeamStats public API", () => {
+  it.effect.each(["afl-api", "squiggle"] as const)("fails for unsupported %s source", (source) =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(fetchTeamStats({ source, season: 2024 }));
 
-    const result = await fetchTeamStats({ source: "footywire", season: 2024 });
+      expect(error.message).toContain(`${source} does not provide team stats`);
+    }).pipe(Effect.provide(fixtureFitzroy())),
+  );
 
-    expect(result.success).toBe(true);
-    expect(fetchSpy).toHaveBeenCalledOnce();
+  it.effect("rejects an unsupported competition before adapter network access", () => {
+    const calls: number[] = [];
+
+    return Effect.gen(function* () {
+      yield* Effect.flip(
+        fetchTeamStats({
+          source: "footywire",
+          season: 2024,
+          competition: "AFLW",
+        }),
+      );
+
+      expect(calls).toEqual([]);
+    }).pipe(Effect.provide(footyWireTeamStatsRegistry([], calls)));
   });
 
-  it("rejects averages with a missing denominator from any source", async () => {
-    const adapter = teamStatsRegistry.get("footywire");
-    expect(adapter).toBeDefined();
+  it.effect("defaults competition coverage to AFLM", () => {
+    const calls: number[] = [];
 
-    if (!adapter) return;
-    vi.spyOn(adapter, "fetchTeamStats").mockResolvedValue(
-      ok([{ team: "Carlton", gamesPlayed: null } as TeamStatsEntry]),
+    return Effect.gen(function* () {
+      yield* fetchTeamStats({ source: "footywire", season: 2024 });
+
+      expect(calls).toEqual([2024]);
+    }).pipe(Effect.provide(footyWireTeamStatsRegistry([], calls)));
+  });
+
+  it.effect("rejects averages with a missing denominator from any source", () => {
+    const [carlton] = parseAflTablesTeamStats(atHtml, 2024).filter(
+      (entry) => entry.team === "Carlton",
     );
 
-    const result = await fetchTeamStats({
-      source: "footywire",
-      season: 2024,
-      summaryType: "averages",
-    });
+    const entries = carlton ? [{ ...carlton, gamesPlayed: null }] : [];
 
-    expect(result.success).toBe(false);
+    return Effect.gen(function* () {
+      expect(entries).toHaveLength(1);
 
-    if (!result.success) expect(result.error.message).toContain("games played");
+      const error = yield* Effect.flip(
+        fetchTeamStats({
+          source: "footywire",
+          season: 2024,
+          summaryType: "averages",
+        }),
+      );
+
+      expect(error.message).toContain("games played");
+    }).pipe(Effect.provide(footyWireTeamStatsRegistry(entries, [])));
   });
 });

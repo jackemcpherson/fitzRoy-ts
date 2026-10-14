@@ -1,121 +1,89 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it } from "@effect/vitest";
+import { Effect } from "effect";
 import { fetchSquad } from "../../src/api/teams";
+import { fixtureText, type Route } from "../support/http";
+import { fixtureFitzroy } from "../support/services";
 
-const COMPSEASONS = readFileSync(
-  resolve(__dirname, "../fixtures/afl-api-compseasons-2024.json"),
-  "utf-8",
-);
-
-const TEAMS = readFileSync(resolve(__dirname, "../fixtures/afl-api-teams-aflm.json"), "utf-8");
-
-const SQUAD = readFileSync(
-  resolve(__dirname, "../fixtures/afl-api-squads-carlton-2024.json"),
-  "utf-8",
-);
-
-/**
- * Route each AFL-API URL the squad flow requests to its fixture. The
- * shared `aflApiClient` defers its `globalThis.fetch` lookup to call time
- * (see `createSourceFetch`), so stubbing the global intercepts the
- * import-time singleton used by `fetchSquad`.
- */
-function squadFetch(): typeof fetch {
-  return vi.fn((input: string | URL | Request) => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-
-    if (url.includes("compseasons?pageSize")) {
-      return Promise.resolve(new Response(COMPSEASONS, { status: 200 }));
-    }
-
-    if (url.includes("/teams?")) {
-      return Promise.resolve(new Response(TEAMS, { status: 200 }));
-    }
-
-    if (url.includes("/squads?")) {
-      return Promise.resolve(new Response(SQUAD, { status: 200 }));
-    }
-
-    return Promise.reject(new Error(`Unexpected URL in squad test: ${url}`));
-  }) as unknown as typeof fetch;
-}
+/** Each AFL-API URL the squad flow requests, routed to its fixture. */
+const SQUAD_ROUTES: readonly Route[] = [
+  ["compseasons?pageSize", { body: fixtureText("afl-api-compseasons-2024.json") }],
+  ["/teams?", { body: fixtureText("afl-api-teams-aflm.json") }],
+  ["/squads?", { body: fixtureText("afl-api-squads-carlton-2024.json") }],
+  [
+    /./,
+    {
+      respond: (url) => Promise.reject(new Error(`Unexpected URL in squad test: ${url}`)),
+    },
+  ],
+];
 
 describe("fetchSquad afl-api happy path", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
+  it.effect("resolves comp-season, team id, then squad and maps players", () =>
+    Effect.gen(function* () {
+      const squad = yield* fetchSquad({ team: "Carlton", season: 2024, source: "afl-api" });
 
-  it("resolves comp-season, team id, then squad and maps players", async () => {
-    vi.stubGlobal("fetch", squadFetch());
+      expect(squad.teamName).toBe("Carlton");
+      expect(squad.teamId).toBe("5");
+      expect(squad.season).toBe(2024);
+      expect(squad.scope).toBe("season");
+      expect(squad.competition).toBe("AFLM");
+      expect(squad.source).toBe("afl-api");
+      expect(squad.players).toHaveLength(2);
 
-    const result = await fetchSquad({ team: "Carlton", season: 2024, source: "afl-api" });
-
-    expect(result.success).toBe(true);
-
-    if (!result.success) return;
-
-    expect(result.data.teamName).toBe("Carlton");
-    expect(result.data.teamId).toBe("5");
-    expect(result.data.season).toBe(2024);
-    expect(result.data.scope).toBe("season");
-    expect(result.data.competition).toBe("AFLM");
-    expect(result.data.source).toBe("afl-api");
-    expect(result.data.players).toHaveLength(2);
-
-    const cripps = result.data.players.find((p) => p.surname === "Cripps");
-    expect(cripps).toBeDefined();
-    expect(cripps?.displayName).toBe("Patrick Cripps");
-    expect(cripps?.jumperNumber).toBe(9);
-    expect(cripps?.team).toBe("Carlton");
-    expect(cripps?.playerId).toBe("CD_I1000900");
-    expect(cripps?.draftYear).toBe(2013);
-    expect(cripps?.heightCm).toBe(195);
-    // AFL API squad endpoint carries no career counters.
-    expect(cripps?.gamesPlayed).toBeNull();
-  });
+      const cripps = squad.players.find((p) => p.surname === "Cripps");
+      expect(cripps).toBeDefined();
+      expect(cripps?.displayName).toBe("Patrick Cripps");
+      expect(cripps?.jumperNumber).toBe(9);
+      expect(cripps?.team).toBe("Carlton");
+      expect(cripps?.playerId).toBe("CD_I1000900");
+      expect(cripps?.draftYear).toBe(2013);
+      expect(cripps?.heightCm).toBe(195);
+      // AFL API squad endpoint carries no career counters.
+      expect(cripps?.gamesPlayed).toBeNull();
+    }).pipe(Effect.provide(fixtureFitzroy(SQUAD_ROUTES))),
+  );
 });
 
 describe("fetchSquad public API dispatch", () => {
-  it("returns error for unsupported squiggle source", async () => {
-    const result = await fetchSquad({
-      team: "Carlton",
-      season: 2024,
-      source: "squiggle",
-    });
+  it.effect("fails for unsupported squiggle source", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        fetchSquad({
+          team: "Carlton",
+          season: 2024,
+          source: "squiggle",
+        }),
+      );
 
-    expect(result.success).toBe(false);
+      expect(error.message).toContain("squiggle does not provide squad");
+    }).pipe(Effect.provide(fixtureFitzroy())),
+  );
 
-    if (!result.success) {
-      expect(result.error.message).toContain("squiggle does not provide squad");
-    }
-  });
+  it.effect("fails for fryzigg source (player-stats only, not squad)", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        fetchSquad({
+          team: "Carlton",
+          season: 2024,
+          source: "fryzigg",
+        }),
+      );
 
-  it("returns error for fryzigg source (player-stats only, not squad)", async () => {
-    const result = await fetchSquad({
-      team: "Carlton",
-      season: 2024,
-      source: "fryzigg",
-    });
+      expect(error.message).toContain("fryzigg does not provide squad");
+    }).pipe(Effect.provide(fixtureFitzroy())),
+  );
 
-    expect(result.success).toBe(false);
+  it.effect("fails for season below afl-api coverage (pre-2012)", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        fetchSquad({
+          team: "Carlton",
+          season: 2010,
+          source: "afl-api",
+        }),
+      );
 
-    if (!result.success) {
-      expect(result.error.message).toContain("fryzigg does not provide squad");
-    }
-  });
-
-  it("returns error for season below afl-api coverage (pre-2012)", async () => {
-    const result = await fetchSquad({
-      team: "Carlton",
-      season: 2010,
-      source: "afl-api",
-    });
-
-    expect(result.success).toBe(false);
-
-    if (!result.success) {
-      expect(result.error.message).toContain("2010");
-    }
-  });
+      expect(error.message).toContain("2010");
+    }).pipe(Effect.provide(fixtureFitzroy())),
+  );
 });

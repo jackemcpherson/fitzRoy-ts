@@ -1,90 +1,86 @@
 /**
- * Zod schemas for the AFL API /cfs/ player-level surface.
+ * Effect schemas for the AFL API /cfs/ player-level surface.
  *
  * Covers the player stats and full match roster endpoints behind
  * `api.afl.com.au/cfs/`, plus the shared inner player identity.
  * The match-level wrapper schemas live in `./afl-api-cfs`.
  *
- * Schemas use `.passthrough()` to tolerate extra fields the API may add
+ * Schemas use `open()` to tolerate extra fields the API may add
  * without breaking validation.
  */
 
-import { z } from "zod/v4";
+import { Effect, Schema } from "effect";
 import { CfsMatchSchema } from "./afl-api-cfs";
-import { statNum } from "./shared";
+import { open, statNum } from "./shared";
 
 // ---------------------------------------------------------------------------
 // Shared inner player identity
 // ---------------------------------------------------------------------------
 
 /** Schema for the inner player identity within player stats and roster. */
-const CfsPlayerInnerSchema = z
-  .object({
-    playerId: z.string(),
-    playerName: z
-      .object({
-        givenName: z.string(),
-        surname: z.string(),
-      })
-      .passthrough(),
-    captain: z.boolean().optional(),
-    playerJumperNumber: z.number().nullable().optional(),
-  })
-  .passthrough();
+const CfsPlayerInnerSchema = open({
+  playerId: Schema.String,
+  playerName: open({
+    givenName: Schema.String,
+    surname: Schema.String,
+  }),
+  captain: Schema.optional(Schema.Boolean),
+  playerJumperNumber: Schema.optional(Schema.NullOr(Schema.Number)),
+});
 
 // ---------------------------------------------------------------------------
 // Player stats (/cfs/afl/playerStats/match/{matchProviderId})
 // ---------------------------------------------------------------------------
 
 /** Schema for stat values (clearances is nested). */
-export const PlayerGameStatsSchema = z
-  .object({
-    goals: statNum,
-    behinds: statNum,
-    kicks: statNum,
-    handballs: statNum,
-    disposals: statNum,
-    marks: statNum,
-    bounces: statNum,
-    tackles: statNum,
-    contestedPossessions: statNum,
-    uncontestedPossessions: statNum,
-    totalPossessions: statNum,
-    inside50s: statNum,
-    marksInside50: statNum,
-    contestedMarks: statNum,
-    hitouts: statNum,
-    onePercenters: statNum,
-    disposalEfficiency: statNum,
-    clangers: statNum,
-    freesFor: statNum,
-    freesAgainst: statNum,
-    dreamTeamPoints: statNum,
-    clearances: z
-      .object({
+export const PlayerGameStatsSchema = open({
+  goals: statNum,
+  behinds: statNum,
+  kicks: statNum,
+  handballs: statNum,
+  disposals: statNum,
+  marks: statNum,
+  bounces: statNum,
+  tackles: statNum,
+  contestedPossessions: statNum,
+  uncontestedPossessions: statNum,
+  totalPossessions: statNum,
+  inside50s: statNum,
+  marksInside50: statNum,
+  contestedMarks: statNum,
+  hitouts: statNum,
+  onePercenters: statNum,
+  disposalEfficiency: statNum,
+  clangers: statNum,
+  freesFor: statNum,
+  freesAgainst: statNum,
+  dreamTeamPoints: statNum,
+  clearances: Schema.optional(
+    Schema.NullOr(
+      open({
         centreClearances: statNum,
         stoppageClearances: statNum,
         totalClearances: statNum,
-      })
-      .passthrough()
-      .nullable()
-      .optional(),
-    rebound50s: statNum,
-    goalAssists: statNum,
-    goalAccuracy: statNum,
-    turnovers: statNum,
-    intercepts: statNum,
-    tacklesInside50: statNum,
-    shotsAtGoal: statNum,
-    metresGained: statNum,
-    scoreInvolvements: statNum,
-    ratingPoints: statNum,
-    goalEfficiency: statNum,
-    shotEfficiency: statNum,
-    interchangeCounts: statNum,
-    brownlowVotes: statNum,
-    extendedStats: z
-      .object({
+      }),
+    ),
+  ),
+  rebound50s: statNum,
+  goalAssists: statNum,
+  goalAccuracy: statNum,
+  turnovers: statNum,
+  intercepts: statNum,
+  tacklesInside50: statNum,
+  shotsAtGoal: statNum,
+  metresGained: statNum,
+  scoreInvolvements: statNum,
+  ratingPoints: statNum,
+  goalEfficiency: statNum,
+  shotEfficiency: statNum,
+  interchangeCounts: statNum,
+  brownlowVotes: statNum,
+  extendedStats: Schema.optional(
+    Schema.NullOr(
+      open({
         effectiveDisposals: statNum,
         effectiveKicks: statNum,
         kickEfficiency: statNum,
@@ -111,94 +107,82 @@ export const PlayerGameStatsSchema = z
         kickinsPlayon: statNum,
         ruckContests: statNum,
         scoreLaunches: statNum,
-      })
-      .passthrough()
-      .nullable()
-      .optional(),
-  })
-  .passthrough();
+      }),
+    ),
+  ),
+});
 
 /** Schema for a single player's statistics in a match. */
-export const PlayerStatsItemSchema = z
-  .object({
-    player: z
-      .object({
-        player: z
-          .object({
-            position: z.string().optional(),
-            player: CfsPlayerInnerSchema,
-          })
-          .passthrough(),
-        jumperNumber: z.number().nullable().optional(),
-      })
-      .passthrough(),
-    teamId: z.string(),
-    playerStats: z
-      .object({
+export const PlayerStatsItemSchema = open({
+  player: open({
+    player: open({
+      position: Schema.optional(Schema.String),
+      player: CfsPlayerInnerSchema,
+    }),
+    jumperNumber: Schema.optional(Schema.NullOr(Schema.Number)),
+  }),
+  teamId: Schema.String,
+  playerStats: Schema.optional(
+    Schema.NullOr(
+      open({
         stats: PlayerGameStatsSchema,
         timeOnGroundPercentage: statNum,
-      })
-      .passthrough()
-      .nullable()
-      .optional(),
-  })
-  .passthrough();
+      }),
+    ),
+  ),
+});
+
+/** A team's player stats: missing becomes `[]`, and an explicit `null` stays `null`. */
+const PlayerStatsArray = Schema.NullOr(Schema.Array(PlayerStatsItemSchema)).pipe(
+  Schema.optional,
+  Schema.withDecodingDefault(Effect.succeed([])),
+);
 
 /** Schema for the player stats response. */
-export const PlayerStatsListSchema = z
-  .object({
-    homeTeamPlayerStats: z.array(PlayerStatsItemSchema).nullable().default([]),
-    awayTeamPlayerStats: z.array(PlayerStatsItemSchema).nullable().default([]),
-  })
-  .passthrough();
+export const PlayerStatsListSchema = open({
+  homeTeamPlayerStats: PlayerStatsArray,
+  awayTeamPlayerStats: PlayerStatsArray,
+});
 
 /** Inferred type for a single player stats item. */
-export type PlayerStatsItem = z.infer<typeof PlayerStatsItemSchema>;
+export type PlayerStatsItem = typeof PlayerStatsItemSchema.Type;
 
 /** Inferred type for player game stats. */
-export type PlayerGameStats = z.infer<typeof PlayerGameStatsSchema>;
+export type PlayerGameStats = typeof PlayerGameStatsSchema.Type;
 
 /** Inferred type for the player stats list response. */
-export type PlayerStatsList = z.infer<typeof PlayerStatsListSchema>;
+export type PlayerStatsList = typeof PlayerStatsListSchema.Type;
 
 // ---------------------------------------------------------------------------
 // Match roster (/cfs/afl/matchRoster/full/{matchProviderId})
 // ---------------------------------------------------------------------------
 
 /** Schema for a player entry within a match roster. */
-export const RosterPlayerSchema = z
-  .object({
-    player: z
-      .object({
-        position: z.string().optional(),
-        player: CfsPlayerInnerSchema,
-      })
-      .passthrough(),
-    jumperNumber: z.number().nullable().optional(),
-  })
-  .passthrough();
+export const RosterPlayerSchema = open({
+  player: open({
+    position: Schema.optional(Schema.String),
+    player: CfsPlayerInnerSchema,
+  }),
+  jumperNumber: Schema.optional(Schema.NullOr(Schema.Number)),
+});
 
 /** Schema for a team's player list in the roster. */
-export const TeamPlayersSchema = z
-  .object({
-    teamId: z.string(),
-    players: z.array(RosterPlayerSchema),
-  })
-  .passthrough();
+export const TeamPlayersSchema = open({
+  teamId: Schema.String,
+  players: Schema.Array(RosterPlayerSchema),
+});
 
 /** Schema for the full match roster response. */
-export const MatchRosterSchema = z
-  .object({
-    match: CfsMatchSchema,
-    teamPlayers: z.array(TeamPlayersSchema),
-  })
-  .passthrough();
+export const MatchRosterSchema = open({
+  match: CfsMatchSchema,
+  teamPlayers: Schema.Array(TeamPlayersSchema),
+});
 
 /** Inferred type for a roster player. */
-export type RosterPlayer = z.infer<typeof RosterPlayerSchema>;
+export type RosterPlayer = typeof RosterPlayerSchema.Type;
 
 /** Inferred type for a team's player list. */
-export type TeamPlayers = z.infer<typeof TeamPlayersSchema>;
+export type TeamPlayers = typeof TeamPlayersSchema.Type;
 
 /** Inferred type for the match roster response. */
-export type MatchRoster = z.infer<typeof MatchRosterSchema>;
+export type MatchRoster = typeof MatchRosterSchema.Type;

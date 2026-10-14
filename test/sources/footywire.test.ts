@@ -1,25 +1,35 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { describe, expect, it, vi } from "vite-plus/test";
-import { FootyWireClient, parseFixtureList, parseMatchList } from "../../src/sources/footywire";
+import { describe, expect, it } from "@effect/vitest";
+import { Effect, Layer, Result } from "effect";
+import { ScrapeError } from "../../src/lib/errors";
+import type { Match } from "../../src/types";
+import {
+  FootyWire,
+  FootyWireLive,
+  parseFixtureList as parseFixtureListResult,
+  parseMatchList as parseMatchListResult,
+} from "../../src/sources/footywire";
+import { fixtureHttp, fixtureText, type Route } from "../support/http";
 
-const FIXTURE_PATH = resolve(__dirname, "../fixtures/footywire-match-list.html");
+const fixtureHtml = fixtureText("footywire-match-list.html");
 
-const fixtureHtml = readFileSync(FIXTURE_PATH, "utf-8");
+const basicStatsHtml = fixtureText("footywire-match-stats-basic-11174.html");
 
-const BASIC_STATS_FIXTURE = resolve(
-  __dirname,
-  "../fixtures/footywire-match-stats-basic-11174.html",
-);
+const advancedStatsHtml = fixtureText("footywire-match-stats-advanced-11174.html");
 
-const ADVANCED_STATS_FIXTURE = resolve(
-  __dirname,
-  "../fixtures/footywire-match-stats-advanced-11174.html",
-);
+/** The live FootyWire client over fixture routes. */
+function footyWireWith(routes: readonly Route[]) {
+  return FootyWireLive.pipe(Layer.provide(fixtureHttp(routes)));
+}
 
-const basicStatsHtml = readFileSync(BASIC_STATS_FIXTURE, "utf-8");
+/** Parse a match list that must succeed. */
+function parseMatchList(html: string, year: number): Match[] {
+  return Result.getOrThrow(parseMatchListResult(html, year));
+}
 
-const advancedStatsHtml = readFileSync(ADVANCED_STATS_FIXTURE, "utf-8");
+/** Parse a fixture list that must succeed. */
+function parseFixtureList(...args: Parameters<typeof parseFixtureListResult>): Match[] {
+  return Result.getOrThrow(parseFixtureListResult(...args));
+}
 
 describe("parseMatchList", () => {
   it("parses complete match results from fixture", () => {
@@ -151,7 +161,7 @@ describe("parseFixtureList (#122)", () => {
     expect(fixtures[0]?.matchId).toBe("FW_SYNTH_2025_R5_G1");
   });
 
-  it("uses the provider id for a completed match and matches player-stat ids", async () => {
+  it.effect("uses the provider id for a completed match and matches player-stat ids", () => {
     const html = `<html><body><table>
       <tr><td colspan="7">Round 5</td></tr>
       <tr>
@@ -164,27 +174,22 @@ describe("parseFixtureList (#122)", () => {
 
     const match = parseFixtureList(html, 2025)[0];
 
-    const fetchFn = vi.fn((input: RequestInfo | URL) =>
-      Promise.resolve(
-        new Response(String(input).includes("advv=Y") ? advancedStatsHtml : basicStatsHtml, {
-          status: 200,
-        }),
+    return Effect.gen(function* () {
+      const stats = yield* FootyWire.use((client) =>
+        client.fetchMatchPlayerStats("11174", 2025, 5),
+      );
+
+      expect(match?.matchId).toBe("FW_11174");
+      expect(stats.length).toBeGreaterThan(0);
+      expect(stats[0]?.matchId).toBe(match?.matchId);
+    }).pipe(
+      Effect.provide(
+        footyWireWith([
+          ["advv=Y", { body: advancedStatsHtml }],
+          ["ft_match_statistics", { body: basicStatsHtml }],
+        ]),
       ),
     );
-
-    const statsResult = await new FootyWireClient({ fetchFn }).fetchMatchPlayerStats(
-      "11174",
-      2025,
-      5,
-    );
-
-    expect(match?.matchId).toBe("FW_11174");
-    expect(statsResult.success).toBe(true);
-
-    if (statsResult.success) {
-      expect(statsResult.data.length).toBeGreaterThan(0);
-      expect(statsResult.data[0]?.matchId).toBe(match?.matchId);
-    }
   });
 
   it("rejects an unparseable required date instead of returning January 1", () => {
@@ -194,8 +199,41 @@ describe("parseFixtureList (#122)", () => {
       <td class="data">MCG</td><td class="data"></td><td class="data"><a href="?mid=1">82-69</a></td></tr>
     </table></body></html>`;
 
-    expect(() => parseFixtureList(html, 2025)).toThrow(/required FootyWire match date/);
-    expect(() => parseMatchList(html, 2025)).toThrow(/required FootyWire match date/);
+    const fixtureResult = parseFixtureListResult(html, 2025);
+    const matchResult = parseMatchListResult(html, 2025);
+
+    expect(Result.isFailure(fixtureResult)).toBe(true);
+    expect(Result.isFailure(matchResult)).toBe(true);
+
+    if (Result.isFailure(fixtureResult)) {
+      expect(fixtureResult.failure.message).toMatch(/required FootyWire match date/);
+    }
+
+    if (Result.isFailure(matchResult)) {
+      expect(matchResult.failure.message).toMatch(/required FootyWire match date/);
+    }
+  });
+
+  it.effect("fails fetchSeasonFixture and fetchSeasonResults with the wrapped date message", () => {
+    const html = `<html><body><table>
+      <tr><td colspan="7">Round 5</td></tr>
+      <tr><td class="data"></td><td class="data"><a>Hawthorn</a><a>Geelong Cats</a></td>
+      <td class="data">MCG</td><td class="data"></td><td class="data"><a href="?mid=1">82-69</a></td></tr>
+    </table></body></html>`;
+
+    return Effect.gen(function* () {
+      const client = yield* FootyWire;
+      const fixtureError = yield* Effect.flip(client.fetchSeasonFixture(2025));
+      const resultsError = yield* Effect.flip(client.fetchSeasonResults(2025));
+
+      expect(fixtureError).toBeInstanceOf(ScrapeError);
+      expect(fixtureError.message).toBe(
+        'Failed to parse fixture list: Unable to parse required FootyWire match date: ""',
+      );
+      expect(resultsError.message).toBe(
+        'Failed to parse match list: Unable to parse required FootyWire match date: ""',
+      );
+    }).pipe(Effect.provide(footyWireWith([["ft_match_list", { body: html }]])));
   });
 
   it("rolls a January AFLW row to the next calendar year (#111)", () => {
@@ -258,33 +296,45 @@ describe("parseFixtureList (#122)", () => {
   });
 });
 
-describe("FootyWireClient", () => {
-  it("fetches and parses season results", async () => {
-    const fetchFn = vi.fn().mockResolvedValue(new Response(fixtureHtml, { status: 200 }));
-    const client = new FootyWireClient({ fetchFn });
+describe("FootyWire", () => {
+  it.effect("fetches and parses season results", () =>
+    Effect.gen(function* () {
+      const results = yield* FootyWire.use((client) => client.fetchSeasonResults(2025));
 
-    const result = await client.fetchSeasonResults(2025);
+      expect(results.length).toBeGreaterThanOrEqual(3);
+    }).pipe(Effect.provide(footyWireWith([["ft_match_list", { body: fixtureHtml }]]))),
+  );
 
-    expect(result.success).toBe(true);
+  it.effect("fails with a ScrapeError on non-OK response", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(FootyWire.use((client) => client.fetchSeasonResults(2025)));
 
-    if (result.success) {
-      expect(result.data.length).toBeGreaterThanOrEqual(3);
-    }
-  });
+      expect(error).toBeInstanceOf(ScrapeError);
+      expect(error.message).toBe(
+        "FootyWire request failed: 403 (https://www.footywire.com/afl/footy/ft_match_list?year=2025)",
+      );
+    }).pipe(Effect.provide(footyWireWith([["ft_match_list", { status: 403 }]]))),
+  );
 
-  it("returns error on non-OK response", async () => {
-    const fetchFn = vi.fn().mockResolvedValue(new Response("", { status: 403 }));
-    const client = new FootyWireClient({ fetchFn });
+  it.effect("fails with a ScrapeError on network failure", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(FootyWire.use((client) => client.fetchSeasonResults(2025)));
 
-    const result = await client.fetchSeasonResults(2025);
-    expect(result.success).toBe(false);
-  });
-
-  it("returns error on network failure", async () => {
-    const fetchFn = vi.fn().mockRejectedValue(new Error("Network error"));
-    const client = new FootyWireClient({ fetchFn });
-
-    const result = await client.fetchSeasonResults(2025);
-    expect(result.success).toBe(false);
-  });
+      expect(error).toBeInstanceOf(ScrapeError);
+      expect(error.message).toBe("FootyWire request failed: Network error");
+    }).pipe(
+      Effect.provide(
+        footyWireWith([
+          [
+            "ft_match_list",
+            {
+              respond: () => {
+                throw new Error("Network error");
+              },
+            },
+          ],
+        ]),
+      ),
+    ),
+  );
 });

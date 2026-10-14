@@ -7,10 +7,12 @@
  */
 
 import { isCancel, select } from "@clack/prompts";
+import { Effect, Result } from "effect";
 import { fuzzySearch } from "../lib/fuzzy";
 import { AFL_SENIOR_TEAMS, normaliseTeamName } from "../lib/team-mapping";
 import type { MatchItem } from "../lib/validation";
-import { resolveMatchByTeam, resolveTeamIdentifier } from "./validation";
+import type { CliUsageError } from "./errors";
+import { resolveMatchByTeam, resolveTeamIdentifier, usage } from "./validation";
 
 /** Minimal team shape accepted by the resolver. */
 interface TeamCandidate {
@@ -30,15 +32,14 @@ interface TeamCandidate {
  * @param teams - Available teams to match against.
  * @returns The resolved numeric team ID string.
  */
-export async function resolveTeamOrPrompt(
+export function resolveTeamOrPrompt(
   query: string,
   teams: readonly TeamCandidate[],
-): Promise<string> {
-  try {
-    return resolveTeamIdentifier(query, teams);
-  } catch {
-    // Fall through to fuzzy search
-  }
+): Effect.Effect<string, CliUsageError> {
+  const exact = resolveTeamIdentifier(query, teams);
+
+  if (Result.isSuccess(exact)) return Effect.succeed(exact.success);
+  // Fall through to fuzzy search
 
   const matches = fuzzySearch(query.trim(), teams, (t) => t.name, {
     maxResults: 5,
@@ -84,15 +85,17 @@ export async function resolveTeamOrPrompt(
  * happen at the adapter (#81).
  * @returns The resolved canonical team name.
  */
-export async function resolveTeamNameOrPrompt(
+export function resolveTeamNameOrPrompt(
   query: string,
   teamNames?: readonly string[],
-): Promise<string> {
+): Effect.Effect<string, CliUsageError> {
   const trimmed = query.trim();
 
   if (/^\d+$/.test(trimmed)) {
-    throw new Error(
-      `Team "${query}" is a numeric identifier. Use a team name or abbreviation on this command.`,
+    return Effect.fromResult(
+      usage(
+        `Team "${query}" is a numeric identifier. Use a team name or abbreviation on this command.`,
+      ),
     );
   }
 
@@ -102,13 +105,13 @@ export async function resolveTeamNameOrPrompt(
   // the standalone clubs aren't in AFL_SENIOR_TEAMS. The adapter does the
   // real resolution against the per-competition team list.
   if (teamNames != null && teamNames.length === 0) {
-    return canonical;
+    return Effect.succeed(canonical);
   }
 
   const candidates = teamNames ?? [...AFL_SENIOR_TEAMS];
 
   if (candidates.includes(canonical)) {
-    return canonical;
+    return Effect.succeed(canonical);
   }
 
   const items = candidates.map((name) => ({ name }));
@@ -137,15 +140,14 @@ export async function resolveTeamNameOrPrompt(
  * @param matchItems - Available matches in the round.
  * @returns The resolved match ID.
  */
-export async function resolveMatchOrPrompt(
+export function resolveMatchOrPrompt(
   query: string,
   matchItems: readonly MatchItem[],
-): Promise<string> {
-  try {
-    return resolveMatchByTeam(query, matchItems);
-  } catch {
-    // Fall through to fuzzy search
-  }
+): Effect.Effect<string, CliUsageError> {
+  const exact = resolveMatchByTeam(query, matchItems);
+
+  if (Result.isSuccess(exact)) return Effect.succeed(exact.success);
+  // Fall through to fuzzy search
 
   const labelledItems = matchItems.map((item) => ({
     item,
@@ -228,40 +230,46 @@ interface DisambiguationOption {
  * @param isTTY - Whether the process is running in an interactive terminal.
  * @returns The resolved value string.
  */
-export async function disambiguate(
+export function disambiguate(
   query: string,
   options: readonly DisambiguationOption[],
   allLabels: readonly string[],
   entityName: string,
   isTTY = process.stdout.isTTY === true,
-): Promise<string> {
+): Effect.Effect<string, CliUsageError> {
   const best = options[0];
 
   if (!best) {
-    throw new Error(
-      `No ${entityName} found for "${query}". Valid options: ${allLabels.join(", ")}`,
+    return Effect.fromResult(
+      usage(`No ${entityName} found for "${query}". Valid options: ${allLabels.join(", ")}`),
     );
   }
 
   if (best.score < 0.2 || options.length === 1) {
-    return best.value;
+    return Effect.succeed(best.value);
   }
 
   if (isTTY) {
-    const choice = await select({
-      message: `Multiple ${entityName}s matched "${query}". Which did you mean?`,
-      options: options.map((o) => ({ value: o.value, label: o.label })),
-    });
+    return Effect.promise(() =>
+      select({
+        message: `Multiple ${entityName}s matched "${query}". Which did you mean?`,
+        options: options.map((o) => ({ value: o.value, label: o.label })),
+      }),
+    ).pipe(
+      Effect.map((choice) => {
+        if (isCancel(choice)) {
+          return process.exit(0);
+        }
 
-    if (isCancel(choice)) {
-      process.exit(0);
-    }
-
-    return choice as string;
+        return choice;
+      }),
+    );
   }
 
-  throw new Error(
-    `Multiple ${entityName}s matched "${query}": ${options.map((o) => o.label).join(", ")}. ` +
-      `Re-run with a more specific name (best guess was "${best.label}").`,
+  return Effect.fromResult(
+    usage(
+      `Multiple ${entityName}s matched "${query}": ${options.map((o) => o.label).join(", ")}. ` +
+        `Re-run with a more specific name (best guess was "${best.label}").`,
+    ),
   );
 }

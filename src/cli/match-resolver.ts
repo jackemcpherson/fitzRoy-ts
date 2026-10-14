@@ -1,4 +1,3 @@
-import type { SeasonSelector } from "../types";
 /**
  * Resolve a match identifier from CLI args.
  *
@@ -16,11 +15,21 @@ import type { SeasonSelector } from "../types";
  * `--match requires --round` check uniformly.
  */
 
+import { Effect } from "effect";
+import type { AflApiError, AmbiguousSeasonError, ValidationError } from "../lib/errors";
 import { normaliseTeamName } from "../lib/team-mapping";
-import { AflApiClient } from "../sources/afl-api";
-import type { CompetitionCode, DataSource } from "../types";
+import { AflApi } from "../sources/afl-api";
+import type { CompetitionCode, DataSource, SeasonSelector } from "../types";
+import type { CliUsageError } from "./errors";
 import { resolveMatchOrPrompt } from "./resolvers";
-import { validateMatchId } from "./validation";
+import { usage, validateMatchId } from "./validation";
+
+/** Every failure a match lookup can report. */
+export type MatchResolverError =
+  | CliUsageError
+  | AflApiError
+  | ValidationError
+  | AmbiguousSeasonError;
 
 /** Raw inputs from the command handler. `matchIdArg` short-circuits the fetch. */
 export interface MatchResolverInput {
@@ -77,43 +86,41 @@ export function matchIdForPlayerStatsSource(
  * - `{matchId, participants}` after fuzzy-matching `matchArg` against the
  *   round's matches.
  *
- * Throws when `matchArg` is given without `round` — the round is needed
+ * Fails when `matchArg` is given without `round` — the round is needed
  * to scope the match search.
  */
-export async function resolveMatchId(
+export function resolveMatchId(
   input: MatchResolverInput,
-): Promise<MatchResolution | undefined> {
-  if (input.matchIdArg) {
-    return { matchId: validateMatchId(input.source, input.matchIdArg) };
-  }
+): Effect.Effect<MatchResolution | undefined, MatchResolverError, AflApi> {
+  return Effect.gen(function* () {
+    if (input.matchIdArg) {
+      return { matchId: yield* Effect.fromResult(validateMatchId(input.source, input.matchIdArg)) };
+    }
 
-  if (!input.matchArg) return undefined;
+    if (!input.matchArg) return undefined;
 
-  if (input.round == null) {
-    throw new Error("--match requires --round (-r) to identify which round to search.");
-  }
+    if (input.round == null) {
+      return yield* Effect.fromResult(
+        usage("--match requires --round (-r) to identify which round to search."),
+      );
+    }
 
-  const client = new AflApiClient();
-  const seasonResult = await client.resolveCompSeason(input.competition, input.season);
+    const aflApi = yield* AflApi;
+    const compSeasonId = yield* aflApi.resolveCompSeason(input.competition, input.season);
+    const items = yield* aflApi.fetchRoundMatchItemsByNumber(compSeasonId, input.round);
+    const matchId = yield* resolveMatchOrPrompt(input.matchArg, items);
+    const matched = items.find((item) => item.match.matchId === matchId);
 
-  if (!seasonResult.success) throw seasonResult.error;
+    if (!matched) {
+      return { matchId };
+    }
 
-  const itemsResult = await client.fetchRoundMatchItemsByNumber(seasonResult.data, input.round);
-
-  if (!itemsResult.success) throw itemsResult.error;
-
-  const matchId = await resolveMatchOrPrompt(input.matchArg, itemsResult.data);
-  const matched = itemsResult.data.find((item) => item.match.matchId === matchId);
-
-  if (!matched) {
-    return { matchId };
-  }
-
-  return {
-    matchId,
-    participants: {
-      homeTeam: normaliseTeamName(matched.match.homeTeam.name),
-      awayTeam: normaliseTeamName(matched.match.awayTeam.name),
-    },
-  };
+    return {
+      matchId,
+      participants: {
+        homeTeam: normaliseTeamName(matched.match.homeTeam.name),
+        awayTeam: normaliseTeamName(matched.match.awayTeam.name),
+      },
+    };
+  });
 }
