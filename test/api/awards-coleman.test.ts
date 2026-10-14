@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "@effect/vitest";
 import { rankColemanFromStats } from "../../src/api/awards";
 import type { PlayerStats } from "../../src/types";
 
