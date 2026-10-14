@@ -74,6 +74,7 @@ const DEFAULT_LAST_HA_ROUND = 23;
  */
 export function isFinalsRound(season: number, round: number): boolean {
   const lastHa = AFLM_LAST_HA_ROUND.get(season) ?? DEFAULT_LAST_HA_ROUND;
+
   return round > lastHa;
 }
 
@@ -116,6 +117,7 @@ export class AflCoachesClient {
       }
 
       const html = await response.text();
+
       return ok(html);
     } catch (cause) {
       return err(
@@ -184,6 +186,7 @@ export class AflCoachesClient {
 
     try {
       const votes = parseCoachesVotesHtml(htmlResult.data, season, roundNumber, competition);
+
       return ok(votes);
     } catch (cause) {
       return err(
@@ -210,14 +213,17 @@ export class AflCoachesClient {
     competition: CompetitionCode,
   ): Promise<Result<CoachesVotesResult, ScrapeError>> {
     const rounds = Array.from({ length: 30 }, (_, index) => index + 1);
+
     const roundResults = await batchedMap(
       rounds,
       (round) => this.scrapeRoundVotes(season, round, competition, isFinalsRound(season, round)),
       { batchSize: 3, delayMs: 250 },
     );
+
     const allVotes = roundResults.flatMap((result) =>
       result.success && result.data.length > 0 ? result.data : [],
     );
+
     const failedRounds = roundResults.flatMap((result, index) => {
       if (
         result.success ||
@@ -225,6 +231,7 @@ export class AflCoachesClient {
       ) {
         return [];
       }
+
       return [rounds[index] ?? index + 1];
     });
 
@@ -265,6 +272,7 @@ export function parseCoachesVotesHtml(
 
   clubLogos.each((i, el) => {
     const title = $(el).attr("title") ?? "";
+
     if (i % 2 === 0) {
       homeTeams.push(title);
     } else {
@@ -307,6 +315,7 @@ export function parseCoachesVotesHtml(
     }
 
     const voteCount = Number(voteText);
+
     if (Number.isNaN(voteCount)) {
       continue;
     }

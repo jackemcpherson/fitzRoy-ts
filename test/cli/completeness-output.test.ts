@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { formatCompletenessOutput } from "../../src/cli/completeness-output";
 
 describe("formatCompletenessOutput", () => {
@@ -11,7 +11,10 @@ describe("formatCompletenessOutput", () => {
     ],
     [{ awards: [{ player: "One" }], failedRounds: [2] }, "awards", "failedRounds"],
   ] as const)("preserves the %s JSON envelope", (envelope, rowsKey, failuresKey) => {
-    const rows = envelope[rowsKey] as readonly object[];
+    const rows = Object.entries(envelope).find(
+      ([key]) => key === rowsKey,
+    )?.[1] as readonly object[];
+
     const parsed = JSON.parse(formatCompletenessOutput(envelope, rows, { format: "json" }));
     expect(parsed[rowsKey]).toEqual([{ player: "One" }]);
     expect(parsed[failuresKey]).toBeDefined();
@@ -23,6 +26,7 @@ describe("formatCompletenessOutput", () => {
       [{ player: "One" }],
       { format, columns: [{ key: "player", label: "Player" }] },
     );
+
     expect(output).toContain("One");
     expect(output).not.toContain("failedRounds");
     expect(output).not.toContain("awards");

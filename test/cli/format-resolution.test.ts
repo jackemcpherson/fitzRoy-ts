@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { resolveFormat } from "../../src/cli/formatters/index";
 
 describe("resolveFormat", () => {
@@ -27,6 +27,7 @@ describe("resolveFormat", () => {
 
   it("defaults to json when stdout is not a TTY", () => {
     const origIsTTY = process.stdout.isTTY;
+
     try {
       Object.defineProperty(process.stdout, "isTTY", { value: false, configurable: true });
       expect(resolveFormat({})).toBe("json");
@@ -37,6 +38,7 @@ describe("resolveFormat", () => {
 
   it("defaults to table when stdout is a TTY", () => {
     const origIsTTY = process.stdout.isTTY;
+
     try {
       Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
       expect(resolveFormat({})).toBe("table");
@@ -47,6 +49,7 @@ describe("resolveFormat", () => {
 
   it("ignores invalid --format values and falls through to TTY detection", () => {
     const origIsTTY = process.stdout.isTTY;
+
     try {
       Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
       expect(resolveFormat({ format: "invalid" })).toBe("table");

@@ -16,7 +16,9 @@ import type {
 } from "../types";
 
 const INDEX_URL = "https://afltables.com/afl/stats/coaches/coaches_idx.html";
+
 const AFL_TABLES_ORIGIN = "https://afltables.com";
+
 const FOOTYWIRE_ORIGIN = "https://www.footywire.com";
 
 interface FootyWireCoachMatch {
@@ -54,6 +56,7 @@ export class MatchCoachesClient {
     >
   > {
     const coaches = new Map<string, { name: string; url: string }>();
+
     const cursorSchema = z.object({
       season: z.literal(season),
       pages: z
@@ -62,6 +65,7 @@ export class MatchCoachesClient {
             name: z.string().min(1),
             url: z.url().refine((url) => {
               const parsed = new URL(url);
+
               return (
                 parsed.origin === AFL_TABLES_ORIGIN &&
                 /^\/afl\/stats\/coaches\/[\w-]+_[\w-]+\.html$/.test(parsed.pathname) &&
@@ -72,6 +76,7 @@ export class MatchCoachesClient {
         )
         .max(1000),
     });
+
     if (
       batch?.limit !== undefined &&
       (!Number.isInteger(batch.limit) || batch.limit < 1 || batch.limit > 5)
@@ -79,23 +84,29 @@ export class MatchCoachesClient {
       return err(
         new ScrapeError("Batch limit must be between one and five profiles", "afl-tables"),
       );
+
     if (batch?.cursor) {
       try {
         const cursor = cursorSchema.parse(JSON.parse(batch.cursor));
+
         for (const page of cursor.pages) coaches.set(page.url, page);
       } catch {
         return err(new ScrapeError("Invalid season-specific coaching cursor", "afl-tables"));
       }
     } else {
       const index = await this.readPage(INDEX_URL, "afl-tables");
+
       if (!index.success) return index;
       const $ = parseHtml(index.data);
       $("a[href]").each((_index, element) => {
         const href = $(element).attr("href");
         const name = $(element).text().trim();
+
         if (!href || !name) return;
+
         try {
           const url = new URL(href, INDEX_URL);
+
           if (
             url.origin === AFL_TABLES_ORIGIN &&
             // The captured index also links club pages in this directory.
@@ -108,31 +119,39 @@ export class MatchCoachesClient {
           /* Non-profile navigation links are outside the request scope. */
         }
       });
+
       if (coaches.size === 0)
         return err(
           new ScrapeError("AFL Tables coach index contained no coach profiles", "afl-tables"),
         );
     }
+
     const selected = batch
       ? [...coaches.values()].slice(0, batch.limit ?? 5)
       : [...coaches.values()];
+
     const profiles = await batchedMap(
       selected,
       async (coach) => {
         const page = await this.readPage(coach.url, "afl-tables");
+
         return { coach, page };
       },
       { batchSize: 5 },
     );
+
     const assignments: MatchCoachAssignment[] = [];
     const failures: MatchCoachFailure[] = [];
+
     for (const { coach, page } of profiles) {
       if (!page.success) {
         failures.push({ url: coach.url, reason: page.error.message, scope: `coach:${coach.name}` });
         continue;
       }
+
       const parsed = parseAflTablesCoachProfile(page.data, coach, season);
       assignments.push(...parsed.assignments);
+
       if (parsed.malformed)
         failures.push({
           url: coach.url,
@@ -141,6 +160,7 @@ export class MatchCoachesClient {
           coachId: `afl-tables:${coach.url}`,
         });
     }
+
     if (
       !batch &&
       profiles.length > 0 &&
@@ -148,11 +168,14 @@ export class MatchCoachesClient {
       failures.length === profiles.length
     )
       return err(new ScrapeError("Every AFL Tables coach profile failed", "afl-tables"));
+
     if (batch) {
       const failed = new Set(failures.map((failure) => failure.url));
+
       const remaining = [...coaches.values()]
         .slice(selected.length)
         .concat(selected.filter((page) => failed.has(page.url)));
+
       return ok({
         assignments,
         failures,
@@ -165,6 +188,7 @@ export class MatchCoachesClient {
         },
       });
     }
+
     return ok({ assignments, failures });
   }
 
@@ -178,12 +202,15 @@ export class MatchCoachesClient {
       async (match) => {
         const providerId = match.matchId.replace(/^FW_/, "");
         const url = footyWireMatchUrl(providerId);
+
         return { match, url, page: await this.readPage(url, "footywire") };
       },
       { batchSize: 5 },
     );
+
     const assignments: MatchCoachAssignment[] = [];
     const failures: MatchCoachFailure[] = [];
+
     for (const { match, url, page } of pages) {
       if (!page.success) {
         failures.push({
@@ -194,6 +221,7 @@ export class MatchCoachesClient {
         });
         continue;
       }
+
       const $ = parseHtml(page.data);
       const seen = new Set<string>();
       const firstAssignment = assignments.length;
@@ -202,22 +230,29 @@ export class MatchCoachesClient {
       $("a[href*='/cp-']").each((_index, anchor) => {
         const coachName = $(anchor).text().trim();
         const href = $(anchor).attr("href");
+
         if (!coachName || !href || seen.has(href)) return;
         let coachUrl: string;
+
         try {
           coachUrl = new URL(href, FOOTYWIRE_ORIGIN).href;
         } catch {
           return;
         }
+
         let team = "";
         const row = $(anchor).closest("tr");
         const rowText = row.text().replace(/\s+/g, " ").trim().toLowerCase();
+
         const participants = [match.homeTeam, match.awayTeam].filter((name) =>
           rowText.includes(name.toLowerCase()),
         );
+
         if (participants.length === 1) team = participants[0] ?? "";
+
         if (!team) return;
         seen.add(href);
+
         const parsed = AssignmentSchema.safeParse({
           competition: match.competition,
           season: match.season,
@@ -235,18 +270,23 @@ export class MatchCoachesClient {
           roundName: match.roundName,
           source: "footywire",
         });
+
         if (parsed.success && creditedTeams.has(team)) ambiguousTeams.add(team);
+
         if (parsed.success && !creditedTeams.has(team)) {
           assignments.push(parsed.data);
           creditedTeams.add(team);
         }
       });
+
       if (ambiguousTeams.size > 0) {
         const good = assignments
           .slice(firstAssignment)
           .filter((assignment) => !ambiguousTeams.has(assignment.team));
+
         assignments.splice(firstAssignment, assignments.length - firstAssignment, ...good);
       }
+
       if (creditedTeams.size !== 2 || ambiguousTeams.size > 0)
         failures.push({
           url,
@@ -255,6 +295,7 @@ export class MatchCoachesClient {
           matchId: `footywire:${match.matchId}`,
         });
     }
+
     return { assignments, failures };
   }
 
@@ -265,10 +306,12 @@ export class MatchCoachesClient {
   ): Promise<Result<string, ScrapeError>> {
     try {
       const response = await this.fetchFn(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+
       if (!response.ok)
         return err(
           new ScrapeError(`${source} request failed: ${response.status} (${url})`, source),
         );
+
       return ok(await response.text());
     } catch (cause) {
       return err(
@@ -284,6 +327,7 @@ export class MatchCoachesClient {
 const CoachTeamSchema = z
   .string()
   .refine((team) => AFL_SENIOR_TEAMS.has(team) || team === "Brisbane Bears" || team === "Fitzroy");
+
 const AssignmentSchema = z
   .object({
     competition: z.literal("AFLM"),
@@ -309,6 +353,7 @@ const AssignmentSchema = z
   )
   .refine((row) => {
     const origin = row.source === "afl-tables" ? AFL_TABLES_ORIGIN : FOOTYWIRE_ORIGIN;
+
     return new URL(row.coachUrl).origin === origin && new URL(row.matchUrl).origin === origin;
   });
 
@@ -324,22 +369,29 @@ function parseAflTablesCoachProfile(
   $("tr").each((_index, row) => {
     const gameLink = $(row).find('a[href*="/games/"]').first();
     const href = gameLink.attr("href");
+
     if (!href) return;
     hadGameRows = true;
     let matchUrl: URL;
+
     try {
       matchUrl = new URL(href, coach.url);
     } catch {
       malformed = true;
+
       return;
     }
+
     const game = /\/stats\/games\/(\d{4})\/\d{4}(\d{4})(\d{2})(\d{2})\.html$/.exec(
       matchUrl.pathname,
     );
+
     if (!game || matchUrl.origin !== AFL_TABLES_ORIGIN) {
       malformed = true;
+
       return;
     }
+
     if (Number(game[1]) !== season) return;
     const cells = $(row).children("td").toArray();
     const text = (index: number) => (cells[index] ? $(cells[index]).text().trim() : "");
@@ -347,6 +399,7 @@ function parseAflTablesCoachProfile(
     // Consumers reconcile these participant/score pairs in either orientation.
     const team = normaliseTeamName(text(3));
     const opponent = normaliseTeamName(text(6));
+
     const parsed = AssignmentSchema.safeParse({
       competition: "AFLM",
       season,
@@ -364,12 +417,16 @@ function parseAflTablesCoachProfile(
       roundName: gameLink.text().trim(),
       source: "afl-tables",
     });
+
     if (!parsed.success || game[1] !== game[2]) {
       malformed = true;
+
       return;
     }
+
     assignments.push(parsed.data);
   });
+
   return { assignments, malformed: malformed || !hadGameRows };
 }
 

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, type Mock, vi } from "vite-plus/test";
 import { z } from "zod/v4";
 import { AflApiError, ValidationError } from "../../src/lib/errors";
 import { AflApiLineupSource, AflApiPlayerStatsSource } from "../../src/sources/adapters/afl-api";
@@ -6,10 +6,14 @@ import { AflApiClient } from "../../src/sources/afl-api";
 
 /** Helper to create a mock Response. */
 function mockResponse(body: unknown, init?: ResponseInit): Response {
+  const headers = new Headers({ "Content-Type": "application/json" });
+
+  new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
+
   return new Response(JSON.stringify(body), {
     status: init?.status ?? 200,
     statusText: init?.statusText ?? "OK",
-    headers: { "Content-Type": "application/json", ...init?.headers },
+    headers,
   });
 }
 
@@ -28,11 +32,14 @@ describe("AflApiClient", () => {
       const result = await client.authenticate();
 
       expect(result.success).toBe(true);
+
       if (result.success) {
         expect(result.data).toBe("test-token-123");
       }
+
       expect(fetchFn).toHaveBeenCalledOnce();
-      const [url, init] = fetchFn.mock.calls[0];
+      expect(fetchFn.mock.calls[0]).toBeDefined();
+      const [url, init] = fetchFn.mock.calls[0] ?? [];
       expect(url).toBe("https://api.afl.com.au/cfs/afl/WMCTok");
       expect(init.method).toBe("POST");
       const headers = new Headers(init.headers);
@@ -53,11 +60,13 @@ describe("AflApiClient", () => {
       const fetchFn = vi
         .fn()
         .mockResolvedValue(mockResponse({}, { status: 500, statusText: "Internal Server Error" }));
+
       const client = new AflApiClient({ fetchFn });
 
       const result = await client.authenticate();
 
       expect(result.success).toBe(false);
+
       if (!result.success) {
         expect(result.error).toBeInstanceOf(AflApiError);
         expect(result.error.statusCode).toBe(500);
@@ -71,6 +80,7 @@ describe("AflApiClient", () => {
       const result = await client.authenticate();
 
       expect(result.success).toBe(false);
+
       if (!result.success) {
         expect(result.error).toBeInstanceOf(AflApiError);
         expect(result.error.message).toContain("Invalid token response format");
@@ -84,6 +94,7 @@ describe("AflApiClient", () => {
       const result = await client.authenticate();
 
       expect(result.success).toBe(false);
+
       if (!result.success) {
         expect(result.error.message).toContain("Network unreachable");
       }
@@ -96,7 +107,8 @@ describe("AflApiClient", () => {
       await client.authenticate();
 
       expect(fetchFn).toHaveBeenCalledOnce();
-      const [url] = fetchFn.mock.calls[0];
+      expect(fetchFn.mock.calls[0]).toBeDefined();
+      const [url] = fetchFn.mock.calls[0] ?? [];
       expect(url).toBe("https://custom.token/endpoint");
     });
   });
@@ -107,6 +119,7 @@ describe("AflApiClient", () => {
         .fn()
         .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
         .mockResolvedValueOnce(mockResponse({ data: "test" }));
+
       const client = new AflApiClient({ fetchFn });
 
       const result = await client.authedFetch("https://api.afl.com.au/test");
@@ -120,6 +133,7 @@ describe("AflApiClient", () => {
         .fn()
         .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
         .mockResolvedValueOnce(mockResponse({ data: "test" }));
+
       const client = new AflApiClient({ fetchFn });
 
       await client.authedFetch("https://api.afl.com.au/test");
@@ -131,12 +145,14 @@ describe("AflApiClient", () => {
 
     it("retries once on 401 by re-authenticating", async () => {
       const freshToken = { ...VALID_TOKEN, token: "refreshed-token" };
+
       const fetchFn = vi
         .fn()
         .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
         .mockResolvedValueOnce(mockResponse({}, { status: 401, statusText: "Unauthorized" }))
         .mockResolvedValueOnce(mockResponse(freshToken))
         .mockResolvedValueOnce(mockResponse({ data: "success" }));
+
       const client = new AflApiClient({ fetchFn });
 
       const result = await client.authedFetch("https://api.afl.com.au/test");
@@ -153,6 +169,7 @@ describe("AflApiClient", () => {
         .mockResolvedValueOnce(
           mockResponse({}, { status: 500, statusText: "Internal Server Error" }),
         );
+
       const client = new AflApiClient({ fetchFn });
 
       const result = await client.authedFetch("https://api.afl.com.au/test");
@@ -165,11 +182,13 @@ describe("AflApiClient", () => {
         .fn()
         .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
         .mockResolvedValueOnce(mockResponse({}, { status: 404, statusText: "Not Found" }));
+
       const client = new AflApiClient({ fetchFn });
 
       const result = await client.authedFetch("https://api.afl.com.au/test");
 
       expect(result.success).toBe(false);
+
       if (!result.success) {
         expect(result.error).toBeInstanceOf(AflApiError);
         expect(result.error.statusCode).toBe(404);
@@ -181,11 +200,13 @@ describe("AflApiClient", () => {
         .fn()
         .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
         .mockRejectedValueOnce(new Error("Connection reset"));
+
       const client = new AflApiClient({ fetchFn });
 
       const result = await client.authedFetch("https://api.afl.com.au/test");
 
       expect(result.success).toBe(false);
+
       if (!result.success) {
         expect(result.error.message).toContain("Connection reset");
       }
@@ -200,11 +221,13 @@ describe("AflApiClient", () => {
         .fn()
         .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
         .mockResolvedValueOnce(mockResponse({ value: 42 }));
+
       const client = new AflApiClient({ fetchFn });
 
       const result = await client.fetchJson("https://api.afl.com.au/test", TestSchema);
 
       expect(result.success).toBe(true);
+
       if (result.success) {
         expect(result.data).toEqual({ value: 42 });
       }
@@ -215,11 +238,13 @@ describe("AflApiClient", () => {
         .fn()
         .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
         .mockResolvedValueOnce(mockResponse({ wrong: "shape" }));
+
       const client = new AflApiClient({ fetchFn });
 
       const result = await client.fetchJson("https://api.afl.com.au/test", TestSchema);
 
       expect(result.success).toBe(false);
+
       if (!result.success) {
         expect(result.error).toBeInstanceOf(ValidationError);
       }
@@ -232,11 +257,13 @@ describe("AflApiClient", () => {
         .mockResolvedValueOnce(
           mockResponse({}, { status: 500, statusText: "Internal Server Error" }),
         );
+
       const client = new AflApiClient({ fetchFn });
 
       const result = await client.fetchJson("https://api.afl.com.au/test", TestSchema);
 
       expect(result.success).toBe(false);
+
       if (!result.success) {
         expect(result.error).toBeInstanceOf(AflApiError);
       }
@@ -249,11 +276,13 @@ describe("AflApiClient", () => {
         .mockResolvedValueOnce(
           new Response("not json", { status: 200, headers: { "Content-Type": "text/plain" } }),
         );
+
       const client = new AflApiClient({ fetchFn });
 
       const result = await client.fetchJson("https://api.afl.com.au/test", TestSchema);
 
       expect(result.success).toBe(false);
+
       if (!result.success) {
         expect(result.error).toBeInstanceOf(AflApiError);
         expect(result.error.message).toContain("JSON parse failed");
@@ -288,12 +317,14 @@ describe("AflApiClient", () => {
           { id: 62, name: "2024 Toyota AFL Premiership" },
         ],
       };
+
       const fetchFn = vi.fn().mockResolvedValueOnce(mockResponse(compseasons));
       const client = new AflApiClient({ fetchFn });
 
       const result = await client.resolveSeasonId(1, 2024);
 
       expect(result.success).toBe(true);
+
       if (result.success) {
         expect(result.data).toBe(62);
       }
@@ -306,12 +337,14 @@ describe("AflApiClient", () => {
           { id: 62, name: "2024 Toyota AFL Premiership" },
         ],
       };
+
       const fetchFn = vi.fn().mockResolvedValueOnce(mockResponse(compseasons));
       const client = new AflApiClient({ fetchFn });
 
       const result = await client.resolveSeasonId(1, 2024);
 
       expect(result.success).toBe(true);
+
       if (result.success) {
         expect(result.data).toBe(62);
       }
@@ -321,12 +354,14 @@ describe("AflApiClient", () => {
       const compseasons = {
         compSeasons: [{ id: 52, name: "2023 Toyota AFL Premiership" }],
       };
+
       const fetchFn = vi.fn().mockResolvedValueOnce(mockResponse(compseasons));
       const client = new AflApiClient({ fetchFn });
 
       const result = await client.resolveSeasonId(1, 2024);
 
       expect(result.success).toBe(false);
+
       if (!result.success) {
         expect(result.error).toBeInstanceOf(AflApiError);
         expect(result.error.message).toContain("2024");
@@ -337,6 +372,7 @@ describe("AflApiClient", () => {
       const fetchFn = vi
         .fn()
         .mockResolvedValueOnce(mockResponse({}, { status: 500, statusText: "Server Error" }));
+
       const client = new AflApiClient({ fetchFn });
 
       const result = await client.resolveSeasonId(1, 2024);
@@ -363,12 +399,14 @@ describe("AflApiClient", () => {
           },
         ],
       };
+
       const fetchFn = vi.fn().mockResolvedValueOnce(mockResponse(rounds));
       const client = new AflApiClient({ fetchFn });
 
       const result = await client.resolveRounds(73);
 
       expect(result.success).toBe(true);
+
       if (result.success) {
         expect(result.data).toHaveLength(2);
         expect(result.data[0]?.roundNumber).toBe(1);
@@ -384,6 +422,7 @@ describe("AflApiClient", () => {
       const result = await client.resolveRounds(73);
 
       expect(result.success).toBe(true);
+
       if (result.success) {
         expect(result.data).toHaveLength(0);
       }
@@ -393,6 +432,7 @@ describe("AflApiClient", () => {
       const fetchFn = vi
         .fn()
         .mockResolvedValueOnce(mockResponse({}, { status: 500, statusText: "Server Error" }));
+
       const client = new AflApiClient({ fetchFn });
 
       const result = await client.resolveRounds(73);
@@ -409,14 +449,16 @@ describe("AflApiClient", () => {
     });
 
     /** Builds a fetch stub that serves the compseasons list then a rounds list. */
-    function seasonFetch(compseasons: unknown, rounds: unknown): ReturnType<typeof vi.fn> {
-      return vi.fn().mockImplementation((url: string) => {
+    function seasonFetch(compseasons: unknown, rounds: unknown): Mock<typeof fetch> {
+      return vi.fn<typeof fetch>((url) => {
         if (typeof url === "string" && url.includes("compseasons") && url.includes("/rounds")) {
           return Promise.resolve(mockResponse(rounds));
         }
+
         if (typeof url === "string" && url.includes("compseasons")) {
           return Promise.resolve(mockResponse(compseasons));
         }
+
         return Promise.resolve(mockResponse({}, { status: 404 }));
       });
     }
@@ -431,17 +473,20 @@ describe("AflApiClient", () => {
           { id: 80, name: "2025 Toyota AFL Premiership" },
         ],
       };
+
       const rounds = {
         rounds: [
           { id: 1, name: "Round 1", roundNumber: 1, utcStartTime: "2025-03-13T08:30:00.000Z" },
           { id: 2, name: "Round 2", roundNumber: 2, utcStartTime: "2025-03-20T08:30:00.000Z" },
         ],
       };
+
       const client = new AflApiClient({ fetchFn: seasonFetch(compseasons, rounds) });
 
       const result = await client.resolveCurrentSeason("AFLM");
 
       expect(result.success).toBe(true);
+
       if (result.success) {
         expect(result.data).toBe(2025);
       }
@@ -450,19 +495,23 @@ describe("AflApiClient", () => {
     it("skips every pre-created future season using each season's start", async () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date("2025-06-15T00:00:00.000Z"));
+
       const starts: Record<string, string> = {
         "90": "2024-08-14T08:30:00.000Z",
         "91": "2025-08-14T08:30:00.000Z",
         "92": "2026-08-14T08:30:00.000Z",
       };
+
       const fetchFn = vi.fn().mockImplementation((url: string) => {
         const seasonId = /compseasons\/(\d+)\/rounds/.exec(url)?.[1];
+
         if (seasonId)
           return Promise.resolve(
             mockResponse({
               rounds: [{ id: 1, name: "Round 1", roundNumber: 1, utcStartTime: starts[seasonId] }],
             }),
           );
+
         return Promise.resolve(
           mockResponse({
             compSeasons: [
@@ -473,6 +522,7 @@ describe("AflApiClient", () => {
           }),
         );
       });
+
       const client = new AflApiClient({ fetchFn });
       expect(await client.resolveCurrentSeason("AFLW")).toEqual({ success: true, data: 2024 });
       expect(fetchFn).toHaveBeenCalledTimes(4);
@@ -488,17 +538,20 @@ describe("AflApiClient", () => {
           { id: 80, name: "2025 Toyota AFL Premiership" },
         ],
       };
+
       const rounds = {
         rounds: [
           { id: 1, name: "Round 1", roundNumber: 1 },
           { id: 2, name: "Round 2", roundNumber: 2 },
         ],
       };
+
       const client = new AflApiClient({ fetchFn: seasonFetch(compseasons, rounds) });
 
       const result = await client.resolveCurrentSeason("AFLM");
 
       expect(result.success).toBe(false);
+
       if (!result.success) {
         expect(result.error).toBeInstanceOf(AflApiError);
       }
@@ -508,6 +561,7 @@ describe("AflApiClient", () => {
       const fetchFn = vi
         .fn()
         .mockResolvedValueOnce(mockResponse({}, { status: 500, statusText: "Server Error" }));
+
       const client = new AflApiClient({ fetchFn });
 
       const result = await client.resolveCurrentSeason("AFLM");
@@ -522,15 +576,19 @@ describe("AflApiClient", () => {
           { id: 80, name: "2025 Toyota AFL Premiership" },
         ],
       };
+
       const fetchFn = vi.fn().mockImplementation((url: string) => {
         if (typeof url === "string" && url.includes("compseasons") && url.includes("/rounds")) {
           return Promise.resolve(mockResponse({}, { status: 500, statusText: "Server Error" }));
         }
+
         if (typeof url === "string" && url.includes("compseasons")) {
           return Promise.resolve(mockResponse(compseasons));
         }
+
         return Promise.resolve(mockResponse({}, { status: 404 }));
       });
+
       const client = new AflApiClient({ fetchFn });
 
       const result = await client.resolveCurrentSeason("AFLM");
@@ -569,11 +627,13 @@ describe("AflApiClient", () => {
         .fn()
         .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
         .mockResolvedValueOnce(mockResponse(matchItemsResponse));
+
       const client = new AflApiClient({ fetchFn });
 
       const result = await client.fetchRoundMatchItems("CD_R202501401");
 
       expect(result.success).toBe(true);
+
       if (result.success) {
         expect(result.data).toHaveLength(1);
         expect(result.data[0]?.match.matchId).toBe("CD_M20250140101");
@@ -585,6 +645,7 @@ describe("AflApiClient", () => {
         .fn()
         .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
         .mockResolvedValueOnce(mockResponse({}, { status: 400, statusText: "Bad Request" }));
+
       const client = new AflApiClient({ fetchFn });
 
       const result = await client.fetchRoundMatchItems("invalid");
@@ -598,6 +659,7 @@ describe("AflApiClient", () => {
       const rounds = {
         rounds: [{ id: 1147, providerId: "CD_R202501401", name: "Round 1", roundNumber: 1 }],
       };
+
       const matchItems = {
         roundId: "CD_R202501401",
         items: [
@@ -614,16 +676,19 @@ describe("AflApiClient", () => {
           },
         ],
       };
+
       const fetchFn = vi
         .fn()
         .mockResolvedValueOnce(mockResponse(rounds))
         .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
         .mockResolvedValueOnce(mockResponse(matchItems));
+
       const client = new AflApiClient({ fetchFn });
 
       const result = await client.fetchRoundMatchItemsByNumber(73, 1);
 
       expect(result.success).toBe(true);
+
       if (result.success) {
         expect(result.data).toHaveLength(1);
       }
@@ -633,6 +698,7 @@ describe("AflApiClient", () => {
       const rounds = {
         rounds: [{ id: 1147, providerId: "CD_R1", name: "Round 1", roundNumber: 1 }],
       };
+
       const fetchFn = vi.fn().mockResolvedValueOnce(mockResponse(rounds));
       const client = new AflApiClient({ fetchFn });
 
@@ -650,6 +716,7 @@ describe("AflApiClient", () => {
           { id: 1147, providerId: "CD_R2", name: "Round 2", roundNumber: 2 },
         ],
       };
+
       const round1Items = {
         items: [
           {
@@ -665,6 +732,7 @@ describe("AflApiClient", () => {
           },
         ],
       };
+
       const round2Items = {
         items: [
           {
@@ -680,26 +748,33 @@ describe("AflApiClient", () => {
           },
         ],
       };
+
       const fetchFn = vi.fn().mockImplementation((url: string) => {
         if (typeof url === "string" && url.includes("compseasons")) {
           return Promise.resolve(mockResponse(rounds));
         }
+
         if (typeof url === "string" && url.includes("WMCTok")) {
           return Promise.resolve(mockResponse(VALID_TOKEN));
         }
+
         if (typeof url === "string" && url.includes("CD_R1")) {
           return Promise.resolve(mockResponse(round1Items));
         }
+
         if (typeof url === "string" && url.includes("CD_R2")) {
           return Promise.resolve(mockResponse(round2Items));
         }
+
         return Promise.resolve(mockResponse({}, { status: 404 }));
       });
+
       const client = new AflApiClient({ fetchFn });
 
       const result = await client.fetchSeasonMatchItems(73);
 
       expect(result.success).toBe(true);
+
       if (result.success) {
         expect(result.data).toHaveLength(1);
         expect(result.data[0]?.match.matchId).toBe("CD_M1");
@@ -728,15 +803,18 @@ describe("AflApiClient", () => {
         ],
         awayTeamPlayerStats: [],
       };
+
       const fetchFn = vi
         .fn()
         .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
         .mockResolvedValueOnce(mockResponse(playerStats));
+
       const client = new AflApiClient({ fetchFn });
 
       const result = await client.fetchPlayerStats("CD_M1");
 
       expect(result.success).toBe(true);
+
       if (result.success) {
         expect(result.data.homeTeamPlayerStats).toHaveLength(1);
         expect(result.data.awayTeamPlayerStats).toHaveLength(0);
@@ -761,15 +839,18 @@ describe("AflApiClient", () => {
           { teamId: "CD_T30", players: [] },
         ],
       };
+
       const fetchFn = vi
         .fn()
         .mockResolvedValueOnce(mockResponse(VALID_TOKEN))
         .mockResolvedValueOnce(mockResponse(roster));
+
       const client = new AflApiClient({ fetchFn });
 
       const result = await client.fetchMatchRoster("CD_M1");
 
       expect(result.success).toBe(true);
+
       if (result.success) {
         expect(result.data.teamPlayers).toHaveLength(2);
       }
@@ -784,12 +865,14 @@ describe("AflApiClient", () => {
           { id: 2, name: "Adelaide Crows W", teamType: "WOMEN" },
         ],
       };
+
       const fetchFn = vi.fn().mockResolvedValueOnce(mockResponse(teams));
       const client = new AflApiClient({ fetchFn });
 
       const result = await client.fetchTeams();
 
       expect(result.success).toBe(true);
+
       if (result.success) {
         expect(result.data).toHaveLength(2);
       }
@@ -803,12 +886,14 @@ describe("AflApiClient", () => {
           { id: 3, name: "Footscray Bulldogs", teamType: "VFL_MEN" },
         ],
       };
+
       const fetchFn = vi.fn().mockResolvedValueOnce(mockResponse(teams));
       const client = new AflApiClient({ fetchFn });
 
       const result = await client.fetchTeams("AFLM");
 
       expect(result.success).toBe(true);
+
       if (result.success) {
         expect(result.data).toHaveLength(1);
         expect(result.data[0]?.name).toBe("Adelaide Crows");
@@ -822,12 +907,14 @@ describe("AflApiClient", () => {
           { id: 3, name: "Footscray Bulldogs", teamType: "VFL_MEN" },
         ],
       };
+
       const fetchFn = vi.fn().mockResolvedValueOnce(mockResponse(teams));
       const client = new AflApiClient({ fetchFn });
 
       const result = await client.fetchTeams("VFL");
 
       expect(result.success).toBe(true);
+
       if (result.success) {
         expect(result.data).toHaveLength(1);
         expect(result.data[0]?.name).toBe("Footscray Bulldogs");
@@ -852,12 +939,14 @@ describe("AflApiClient", () => {
           ],
         },
       };
+
       const fetchFn = vi.fn().mockResolvedValueOnce(mockResponse(squad));
       const client = new AflApiClient({ fetchFn });
 
       const result = await client.fetchSquad(1, 73);
 
       expect(result.success).toBe(true);
+
       if (result.success) {
         expect(result.data.squad.players).toHaveLength(1);
       }
@@ -871,6 +960,7 @@ describe("AflApiClient", () => {
         homeTeamPlayerStats: [],
         awayTeamPlayerStats: [],
       };
+
       const rosterResponse = {
         match: {
           matchId: "CD_M1",
@@ -892,17 +982,22 @@ describe("AflApiClient", () => {
       // shared cachedToken means subsequent calls re-use the token without
       // POSTing again.
       let tokenPosts = 0;
+
       const fetchFn = vi.fn().mockImplementation((url: string) => {
         if (typeof url === "string" && url.includes("WMCTok")) {
           tokenPosts += 1;
+
           return Promise.resolve(mockResponse(VALID_TOKEN));
         }
+
         if (typeof url === "string" && url.includes("matchRoster")) {
           return Promise.resolve(mockResponse(rosterResponse));
         }
+
         if (typeof url === "string" && url.includes("playerStats")) {
           return Promise.resolve(mockResponse(playerStatsResponse));
         }
+
         return Promise.resolve(mockResponse({}, { status: 404 }));
       });
 
@@ -910,7 +1005,12 @@ describe("AflApiClient", () => {
       vi.spyOn(sharedClient, "resolveCompSeason").mockResolvedValue({ success: true, data: 73 });
       vi.spyOn(sharedClient, "fetchSeasonMatchItems").mockResolvedValue({
         success: true,
-        data: [{ match: rosterResponse.match, round: { roundNumber: 1 } }],
+        data: [
+          {
+            match: rosterResponse.match,
+            round: { name: "Round 1", roundId: "CD_R202501401", roundNumber: 1 },
+          },
+        ],
       });
       const playerStatsAdapter = new AflApiPlayerStatsSource(sharedClient);
       const lineupAdapter = new AflApiLineupSource(sharedClient);
@@ -920,6 +1020,7 @@ describe("AflApiClient", () => {
         season: 2025,
         matchId: "CD_M1",
       });
+
       const lineupResult = await lineupAdapter.fetchLineup({
         source: "afl-api",
         season: 2025,

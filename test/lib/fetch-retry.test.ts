@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { withRetry5xx } from "../../src/lib/fetch-retry";
 
 describe("withRetry5xx", () => {
@@ -6,6 +6,7 @@ describe("withRetry5xx", () => {
     const inner = vi.fn(
       async () => new Response("down", { status: 503 }),
     ) as unknown as typeof fetch;
+
     const wrapped = withRetry5xx(inner);
     const res = await wrapped("https://example.com/");
     expect(res.status).toBe(503);
@@ -17,6 +18,7 @@ describe("withRetry5xx", () => {
       .fn()
       .mockResolvedValueOnce(new Response("down", { status: 503 }))
       .mockResolvedValueOnce(new Response("ok", { status: 200 })) as unknown as typeof fetch;
+
     const wrapped = withRetry5xx(inner, { retry5xx: true });
     const res = await wrapped("https://example.com/");
     expect(res.status).toBe(200);
@@ -27,6 +29,7 @@ describe("withRetry5xx", () => {
     const inner = vi.fn(
       async () => new Response("down", { status: 502 }),
     ) as unknown as typeof fetch;
+
     const wrapped = withRetry5xx(inner, { retry5xx: true });
     const res = await wrapped("https://example.com/");
     expect(res.status).toBe(502);
@@ -37,6 +40,7 @@ describe("withRetry5xx", () => {
     const inner = vi.fn(
       async () => new Response("nope", { status: 404 }),
     ) as unknown as typeof fetch;
+
     const wrapped = withRetry5xx(inner, { retry5xx: true });
     const res = await wrapped("https://example.com/");
     expect(res.status).toBe(404);

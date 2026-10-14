@@ -4,7 +4,9 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 const repoRoot = resolve(import.meta.dirname, "..");
+
 let consumerDirectory;
+
 let tarballPath;
 
 function run(command, args, cwd) {
@@ -15,6 +17,7 @@ function run(command, args, cwd) {
 
   if (result.status !== 0) {
     if (result.stdout) process.stderr.write(result.stdout);
+
     if (result.stderr) process.stderr.write(result.stderr);
     throw new Error(`${command} ${args.join(" ")} exited with status ${result.status}`);
   }
@@ -27,22 +30,27 @@ try {
   const packOutputLines = packOutput.split(/\r?\n/);
   const arrayStart = packOutputLines.indexOf("[");
   const objectStart = packOutputLines.indexOf("{");
+
   const jsonStart =
     arrayStart === -1
       ? objectStart
       : objectStart === -1
         ? arrayStart
         : Math.min(arrayStart, objectStart);
+
   const closingToken = packOutputLines[jsonStart] === "[" ? "]" : "}";
   const jsonEnd = packOutputLines.lastIndexOf(closingToken);
+
   if (jsonStart === -1 || jsonEnd < jsonStart) {
     throw new Error("npm pack did not return a JSON payload");
   }
 
   const parsedPackOutput = JSON.parse(packOutputLines.slice(jsonStart, jsonEnd + 1).join("\n"));
+
   const packEntries = Array.isArray(parsedPackOutput)
     ? parsedPackOutput
     : Object.values(parsedPackOutput);
+
   const [{ filename }] = packEntries;
   tarballPath = resolve(repoRoot, filename);
 
@@ -54,11 +62,13 @@ try {
     'if (typeof fitzroy.fetchMatches !== "function") process.exit(1);',
     'if (typeof fitzroy.fetchMatchCoaches !== "function") process.exit(1);',
   ].join("\n");
+
   run(process.execPath, ["--input-type=module", "--eval", importCheck], consumerDirectory);
 
   const cliPath = join(consumerDirectory, "node_modules", "fitzroy", "dist", "cli.js");
   run(process.execPath, [cliPath, "--help"], consumerDirectory);
 } finally {
   if (consumerDirectory) await rm(consumerDirectory, { recursive: true, force: true });
+
   if (tarballPath) await rm(tarballPath, { force: true });
 }

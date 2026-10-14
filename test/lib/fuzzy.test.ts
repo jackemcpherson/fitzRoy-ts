@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { fuzzySearch, levenshteinDistance } from "../../src/lib/fuzzy";
 
 describe("levenshteinDistance", () => {
@@ -45,6 +45,7 @@ describe("fuzzySearch", () => {
     { name: "St Kilda" },
     { name: "Sydney Swans" },
   ];
+
   const key = (t: { name: string }) => t.name;
 
   it("finds exact case-insensitive matches with score 0", () => {

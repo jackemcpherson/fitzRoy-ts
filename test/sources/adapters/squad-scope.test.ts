@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { ok } from "../../../src/lib/result";
 import { AflTablesSquadSource } from "../../../src/sources/adapters/afl-tables";
 import { FootyWireSquadSource } from "../../../src/sources/adapters/footywire";
@@ -30,6 +30,7 @@ describe("scraped squad scope", () => {
     });
 
     expect(result.success).toBe(true);
+
     if (!result.success) return;
     expect(result.data.scope).toBe("all-time");
     expect(result.data.season).toBe(2024);

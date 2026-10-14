@@ -67,19 +67,23 @@ export const playerCommand = defineCommand({
     const result = await withSpinner("Fetching player details…", () =>
       fetchPlayerDetails({ source, team, season, competition }),
     );
+
     if (!result.success) throw result.error;
 
     const { players, failedTeams, scope } = result.data;
+
     if (failedTeams.length > 0) {
       showWarning(
         `${failedTeams.length} team squad request(s) failed and are missing: ${failedTeams.join(", ")}`,
       );
     }
+
     if (scope === "all-time") {
       showWarning(
         `--source ${source} returns all-time player data. The requested season ${season} is query context and does not narrow the player list.`,
       );
     }
+
     showSummary(
       team
         ? `Loaded ${players.length} players for ${team} (${source})`
@@ -93,6 +97,7 @@ export const playerCommand = defineCommand({
       full: args.full,
       columns: DEFAULT_COLUMNS,
     };
+
     console.log(formatCompletenessOutput(result.data, players as readonly object[], formatOptions));
   }),
 });

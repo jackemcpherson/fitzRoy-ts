@@ -61,14 +61,18 @@ export class AflApiMatchSource implements MatchSource {
   async fetchMatches(query: MatchQuery): Promise<Result<Match[], Error>> {
     const competition = query.competition ?? "AFLM";
     const seasonResult = await this.client.resolveCompSeason(competition, query.season);
+
     if (!seasonResult.success) return seasonResult;
 
     const includeUpcoming = query.status !== "Complete";
+
     const itemsResult =
       query.round != null
         ? await this.client.fetchRoundMatchItemsByNumber(seasonResult.data, query.round)
         : await this.client.fetchSeasonMatchItems(seasonResult.data, { includeUpcoming });
+
     if (!itemsResult.success) return itemsResult;
+
     return ok(transformMatchItems(itemsResult.data, seasonYear(query.season), competition));
   }
 }
@@ -85,12 +89,16 @@ export class AflApiPlayerStatsSource implements PlayerStatsSource {
 
     if (query.matchId) {
       const scope = await this.client.resolveCompSeason(competition, query.season);
+
       if (!scope.success) return scope;
+
       const inventory = await this.client.fetchSeasonMatchItems(scope.data, {
         includeUpcoming: true,
       });
+
       if (!inventory.success) return inventory;
       const member = inventory.data.find((item) => item.match.matchId === query.matchId);
+
       if (!member || (query.round !== undefined && member.round?.roundNumber !== query.round)) {
         return err(
           new ValidationError(
@@ -103,9 +111,11 @@ export class AflApiPlayerStatsSource implements PlayerStatsSource {
         this.client.fetchMatchRoster(query.matchId),
         this.client.fetchPlayerStats(query.matchId),
       ]);
+
       if (!statsResult.success) return statsResult;
 
       const teamIdMap = new Map<string, string>(AFL_API_TEAM_IDS);
+
       if (rosterResult.success) {
         const match = rosterResult.data.match;
         teamIdMap.set(match.homeTeamId, normaliseTeamName(match.homeTeam.name));
@@ -126,15 +136,18 @@ export class AflApiPlayerStatsSource implements PlayerStatsSource {
     }
 
     const seasonResult = await this.client.resolveCompSeason(competition, query.season);
+
     if (!seasonResult.success) return seasonResult;
 
     const matchItemsResult =
       query.round != null
         ? await this.client.fetchRoundMatchItemsByNumber(seasonResult.data, query.round)
         : await this.client.fetchSeasonMatchItems(seasonResult.data);
+
     if (!matchItemsResult.success) return matchItemsResult;
 
     const teamIdMap = new Map<string, string>();
+
     for (const item of matchItemsResult.data) {
       teamIdMap.set(item.match.homeTeamId, item.match.homeTeam.name);
       teamIdMap.set(item.match.awayTeamId, item.match.awayTeam.name);
@@ -147,14 +160,18 @@ export class AflApiPlayerStatsSource implements PlayerStatsSource {
     // Isolate failed matches and preserve every successful provider response.
     const allStats: PlayerStats[] = [];
     const failedMatchIds: string[] = [];
+
     for (let i = 0; i < statsResults.length; i++) {
       const statsResult = statsResults[i];
       const item = matchItemsResult.data[i];
+
       if (!item) continue;
+
       if (!statsResult?.success) {
         failedMatchIds.push(item.match.matchId);
         continue;
       }
+
       allStats.push(
         ...transformPlayerStats(statsResult.data, {
           matchId: item.match.matchId,
@@ -184,15 +201,19 @@ export class AflApiSquadSource implements SquadSource {
   async fetchSquad(query: SquadQuery): Promise<Result<Squad, Error>> {
     const competition = query.competition ?? "AFLM";
     const seasonResult = await this.client.resolveCompSeason(competition, query.season);
+
     if (!seasonResult.success) return seasonResult;
 
     const teamIdResult = await this.resolveTeamId(query.team, competition);
+
     if (!teamIdResult.success) return teamIdResult;
 
     const squadResult = await this.client.fetchSquad(teamIdResult.data, seasonResult.data);
+
     if (!squadResult.success) return squadResult;
 
     const teamName = normaliseTeamName(squadResult.data.squad.team?.name ?? query.team);
+
     const players: Player[] = squadResult.data.squad.players.map((p) => ({
       playerId: p.player.providerId ?? String(p.player.id),
       givenName: p.player.firstName,
@@ -233,13 +254,16 @@ export class AflApiSquadSource implements SquadSource {
     competition: "AFLM" | "AFLW" | "VFL" | "VFLW",
   ): Promise<Result<number, Error>> {
     const teamsResult = await this.client.fetchTeams(competition);
+
     if (!teamsResult.success) return teamsResult;
 
     const normalised = normaliseTeamName(teamName);
     const match = teamsResult.data.find((t) => normaliseTeamName(t.name) === normalised);
+
     if (!match) {
       return err(new ValidationError(`Team not found in ${competition}: ${teamName}`));
     }
+
     return ok(match.id);
   }
 }
@@ -256,12 +280,16 @@ export class AflApiLineupSource implements LineupSource {
 
     if (query.matchId) {
       const scope = await this.client.resolveCompSeason(competition, query.season);
+
       if (!scope.success) return scope;
+
       const inventory = await this.client.fetchSeasonMatchItems(scope.data, {
         includeUpcoming: true,
       });
+
       if (!inventory.success) return inventory;
       const member = inventory.data.find((item) => item.match.matchId === query.matchId);
+
       if (!member || (query.round !== undefined && member.round?.roundNumber !== query.round)) {
         return err(
           new ValidationError(
@@ -271,19 +299,23 @@ export class AflApiLineupSource implements LineupSource {
       }
 
       const rosterResult = await this.client.fetchMatchRoster(query.matchId);
+
       if (!rosterResult.success) return rosterResult;
+
       return ok([
         transformMatchRoster(rosterResult.data, seasonYear(query.season), query.round, competition),
       ]);
     }
 
     const seasonResult = await this.client.resolveCompSeason(competition, query.season);
+
     if (!seasonResult.success) return seasonResult;
 
     const matchItems = await this.client.fetchRoundMatchItemsByNumber(
       seasonResult.data,
       query.round,
     );
+
     if (!matchItems.success) return matchItems;
 
     if (matchItems.data.length === 0) {
@@ -295,6 +327,7 @@ export class AflApiLineupSource implements LineupSource {
     );
 
     const lineups: Lineup[] = [];
+
     for (const rosterResult of rosterResults) {
       if (!rosterResult.success) return rosterResult;
       lineups.push(
@@ -316,20 +349,25 @@ export class AflApiLadderSource implements LadderSource {
   async fetchLadder(query: LadderQuery): Promise<Result<Ladder, Error>> {
     const competition = query.competition ?? "AFLM";
     const seasonResult = await this.client.resolveCompSeason(competition, query.season);
+
     if (!seasonResult.success) return seasonResult;
 
     const roundsResult = await this.client.resolveRounds(seasonResult.data);
+
     if (!roundsResult.success) return roundsResult;
 
     let roundId: number | undefined;
+
     if (query.round != null) {
       // Honour an explicit round number.
       const round = roundsResult.data.find((r) => r.roundNumber === query.round);
+
       if (!round) {
         return err(
           new AflApiError(`Round ${query.round} was not found for the ${query.season} season`),
         );
       }
+
       roundId = round.id;
     } else {
       // No explicit round — resolve to the latest *completed* H&A round.
@@ -338,21 +376,26 @@ export class AflApiLadderSource implements LadderSource {
       // returns a stale early-season snapshot for completed seasons (#90).
       const haRounds = roundsResult.data.filter((r) => inferRoundType(r.name) === "HomeAndAway");
       const now = Date.now();
+
       const completedHa = haRounds.filter((r) => {
         if (r.utcEndTime == null) return false;
         const end = new Date(r.utcEndTime).getTime();
+
         return Number.isFinite(end) && end <= now;
       });
+
       // Sort by roundNumber descending — pick the latest. If no round has
       // ended yet (very early in a season), pass through with no roundId
       // so the API returns whatever it considers current.
       const latest = completedHa.sort((a, b) => b.roundNumber - a.roundNumber)[0];
+
       if (latest) {
         roundId = latest.id;
       }
     }
 
     const ladderResult = await this.client.fetchLadder(seasonResult.data, roundId);
+
     if (!ladderResult.success) return ladderResult;
 
     const firstLadder = ladderResult.data.ladders[0];

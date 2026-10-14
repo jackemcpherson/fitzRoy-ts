@@ -58,31 +58,42 @@ const aflApiClient = new AflApiClient();
 // Match
 // ---------------------------------------------------------------------------
 matchRegistry.register(new AflApiMatchSource(aflApiClient));
+
 matchRegistry.register(new FootyWireMatchSource());
+
 matchRegistry.register(new AflTablesMatchSource());
+
 matchRegistry.register(new SquiggleMatchSource());
+
 matchCoachesRegistry.register(new AflTablesMatchCoachesSource());
+
 matchCoachesRegistry.register(new FootyWireMatchCoachesSource());
 
 // ---------------------------------------------------------------------------
 // PlayerStats
 // ---------------------------------------------------------------------------
 playerStatsRegistry.register(new AflApiPlayerStatsSource(aflApiClient));
+
 playerStatsRegistry.register(new FootyWirePlayerStatsSource());
+
 playerStatsRegistry.register(new AflTablesPlayerStatsSource());
+
 playerStatsRegistry.register(new FryziggPlayerStatsSource());
 
 // ---------------------------------------------------------------------------
 // TeamStats (no AFL API endpoint — afl-tables is the senior fallback)
 // ---------------------------------------------------------------------------
 teamStatsRegistry.register(new FootyWireTeamStatsSource());
+
 teamStatsRegistry.register(new AflTablesTeamStatsSource());
 
 // ---------------------------------------------------------------------------
 // Squad — AFL API (all comps), FootyWire and AFL Tables (AFLM only).
 // ---------------------------------------------------------------------------
 squadRegistry.register(new AflApiSquadSource(aflApiClient));
+
 squadRegistry.register(new FootyWireSquadSource());
+
 squadRegistry.register(new AflTablesSquadSource());
 
 // ---------------------------------------------------------------------------
@@ -94,7 +105,9 @@ lineupRegistry.register(new AflApiLineupSource(aflApiClient));
 // Ladder
 // ---------------------------------------------------------------------------
 ladderRegistry.register(new AflApiLadderSource(aflApiClient));
+
 ladderRegistry.register(new AflTablesLadderSource());
+
 ladderRegistry.register(new SquiggleLadderSource());
 
 export type {
@@ -107,6 +120,7 @@ export type {
   SquadSource,
   TeamStatsSource,
 } from "./capabilities";
+
 export {
   type CoverageMap,
   type CoverageRequest,
@@ -115,7 +129,9 @@ export {
   type SeasonRange,
   unsupportedSourceForOperation,
 } from "./coverage";
+
 export { type DispatchQuery, dispatch } from "./dispatch";
+
 export {
   CapabilityRegistry,
   ladderRegistry,
@@ -126,6 +142,7 @@ export {
   squadRegistry,
   teamStatsRegistry,
 } from "./registry";
+
 // ---------------------------------------------------------------------------
 // Re-exports — public surface for src/api/*
 // ---------------------------------------------------------------------------

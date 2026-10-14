@@ -17,19 +17,26 @@ import { toVenueIso } from "./date-format";
  */
 function convertDates(value: unknown, inheritedTz?: string): unknown {
   if (value instanceof Date) return toVenueIso(value, inheritedTz);
+
   if (Array.isArray(value)) return value.map((v) => convertDates(v, inheritedTz));
+
   if (value !== null && typeof value === "object") {
     const obj = value as Record<string, unknown>;
+
     const rowTz =
       typeof obj.venueTimezone === "string" && obj.venueTimezone.length > 0
         ? obj.venueTimezone
         : inheritedTz;
+
     const out: Record<string, unknown> = {};
+
     for (const [k, v] of Object.entries(obj)) {
       out[k] = convertDates(v, rowTz);
     }
+
     return out;
   }
+
   return value;
 }
 

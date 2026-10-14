@@ -77,6 +77,7 @@ export class FootyWireClient {
       }
 
       const html = await response.text();
+
       return ok(html);
     } catch (cause) {
       return err(
@@ -104,6 +105,7 @@ export class FootyWireClient {
 
     try {
       const results = parseMatchList(htmlResult.data, year);
+
       return ok(results);
     } catch (cause) {
       return err(
@@ -137,13 +139,16 @@ export class FootyWireClient {
       this.fetchHtml(basicUrl),
       this.fetchHtml(advancedUrl),
     ]);
+
     if (!basicResult.success) return basicResult;
+
     if (!advancedResult.success) return advancedResult;
 
     try {
       const basicTeams = parseBasicStats(basicResult.data);
       const advancedTeams = parseAdvancedStats(advancedResult.data);
       const stats = mergeFootyWireStats(basicTeams, advancedTeams, matchId, season, roundNumber);
+
       return ok(stats);
     } catch (cause) {
       return err(
@@ -168,6 +173,7 @@ export class FootyWireClient {
   ): Promise<Result<Array<{ matchId: string; roundNumber: number }>, ScrapeError>> {
     const url = `${FOOTYWIRE_BASE}/ft_match_list?year=${year}`;
     const htmlResult = await this.fetchHtml(url);
+
     if (!htmlResult.success) return htmlResult;
 
     try {
@@ -178,25 +184,31 @@ export class FootyWireClient {
 
       $("tr").each((_i, row) => {
         const roundHeader = $(row).find("td[colspan='7']");
+
         if (roundHeader.length > 0) {
           const text = roundHeader.text().trim();
           const roundMatch = /Round\s+(\d+)/i.exec(text);
+
           if (roundMatch?.[1]) {
             currentRound = Number.parseInt(roundMatch[1], 10);
+
             if (inferRoundType(text) === "HomeAndAway") {
               lastHARound = currentRound;
             }
           } else if (inferRoundType(text) === "Finals") {
             currentRound = finalsRoundNumber(text, lastHARound);
           }
+
           return;
         }
 
         const scoreLink = $(row).find(".data:nth-child(5) a");
+
         if (scoreLink.length === 0) return;
 
         const href = scoreLink.attr("href") ?? "";
         const midMatch = /mid=(\d+)/.exec(href);
+
         if (midMatch?.[1]) {
           entries.push({ matchId: midMatch[1], roundNumber: currentRound });
         }
@@ -226,16 +238,19 @@ export class FootyWireClient {
     teamName: string,
   ): Promise<Result<Omit<PlayerDetails, "source" | "competition">[], ScrapeError>> {
     const slug = teamNameToFootyWireSlug(teamName);
+
     if (!slug) {
       return err(new ScrapeError(`No FootyWire slug mapping for team: ${teamName}`, "footywire"));
     }
 
     const url = `${FOOTYWIRE_BASE}/tp-${slug}`;
     const htmlResult = await this.fetchHtml(url);
+
     if (!htmlResult.success) return htmlResult;
 
     try {
       const players = parseFootyWirePlayerList(htmlResult.data, teamName);
+
       return ok(players);
     } catch (cause) {
       return err(
@@ -264,10 +279,12 @@ export class FootyWireClient {
   ): Promise<Result<Match[], ScrapeError>> {
     const url = `${FOOTYWIRE_BASE}/ft_match_list?year=${year}`;
     const htmlResult = await this.fetchHtml(url);
+
     if (!htmlResult.success) return htmlResult;
 
     try {
       const fixtures = parseFixtureList(htmlResult.data, year, competition);
+
       return ok(fixtures);
     } catch (cause) {
       return err(
@@ -303,6 +320,7 @@ export class FootyWireClient {
     ]);
 
     if (!teamResult.success) return teamResult;
+
     if (!oppResult.success) return oppResult;
 
     try {
@@ -311,6 +329,7 @@ export class FootyWireClient {
 
       // Merge into canonical for/against TeamStatsEntry per team
       const merged = mergeTeamAndOppStats(teamStats, oppStats, year);
+
       return ok(merged);
     } catch (cause) {
       return err(
@@ -341,23 +360,28 @@ export function parseMatchList(html: string, year: number): Match[] {
   // Each row is either a round header (colspan=7) or a match row
   $("tr").each((_i, row) => {
     const roundHeader = $(row).find("td[colspan='7']");
+
     if (roundHeader.length > 0) {
       const text = roundHeader.text().trim();
       currentRoundName = text;
       currentRoundType = inferRoundType(text);
       const roundMatch = /Round\s+(\d+)/i.exec(text);
+
       if (roundMatch?.[1]) {
         currentRound = Number.parseInt(roundMatch[1], 10);
+
         if (currentRoundType === "HomeAndAway") {
           lastHARound = currentRound;
         }
       } else if (currentRoundType === "Finals") {
         currentRound = finalsRoundNumber(text, lastHARound);
       }
+
       return;
     }
 
     const cells = $(row).find("td.data");
+
     if (cells.length < 5) return;
 
     // Cell 0: date, Cell 1: teams, Cell 2: venue, Cell 3: attendance, Cell 4: score
@@ -372,6 +396,7 @@ export function parseMatchList(html: string, year: number): Match[] {
 
     // Parse teams
     const teamLinks = teamsCell.find("a");
+
     if (teamLinks.length < 2) return;
     const homeTeam = normaliseTeamName($(teamLinks[0]).text().trim());
     const awayTeam = normaliseTeamName($(teamLinks[1]).text().trim());
@@ -379,6 +404,7 @@ export function parseMatchList(html: string, year: number): Match[] {
     // Parse score (format: "82-69")
     const scoreText = scoreCell.text().trim();
     const scoreMatch = /(\d+)-(\d+)/.exec(scoreText);
+
     if (!scoreMatch) return;
 
     const homePoints = Number.parseInt(scoreMatch[1] ?? "0", 10);
@@ -393,6 +419,7 @@ export function parseMatchList(html: string, year: number): Match[] {
     // produce the correct UTC instant.
     const canonicalVenue = normaliseVenueName(venue);
     const date = parseDate(dateText, { defaultYear: year, venue: canonicalVenue });
+
     if (!date) {
       throw new Error(`Unable to parse required FootyWire match date: ${JSON.stringify(dateText)}`);
     }
@@ -494,22 +521,27 @@ export function parseFixtureList(
 
   $("tr").each((_i, row) => {
     const roundHeader = $(row).find("td[colspan='7']");
+
     if (roundHeader.length > 0) {
       const text = roundHeader.text().trim();
       currentRoundType = inferRoundType(text);
       const roundMatch = /Round\s+(\d+)/i.exec(text);
+
       if (roundMatch?.[1]) {
         currentRound = Number.parseInt(roundMatch[1], 10);
+
         if (currentRoundType === "HomeAndAway") {
           lastHARound = currentRound;
         }
       } else if (currentRoundType === "Finals") {
         currentRound = finalsRoundNumber(text, lastHARound);
       }
+
       return;
     }
 
     const cells = $(row).find("td.data");
+
     if (cells.length < 3) return;
 
     const dateText = $(cells[0]).text().trim();
@@ -519,15 +551,18 @@ export function parseFixtureList(
     if (venue === "BYE") return;
 
     const teamLinks = teamsCell.find("a");
+
     if (teamLinks.length < 2) return;
     const homeTeam = normaliseTeamName($(teamLinks[0]).text().trim());
     const awayTeam = normaliseTeamName($(teamLinks[1]).text().trim());
 
     const canonicalVenue = normaliseVenueName(venue);
     const initialDate = parseDate(dateText, { defaultYear: year, venue: canonicalVenue });
+
     if (!initialDate) {
       throw new Error(`Unable to parse required FootyWire match date: ${JSON.stringify(dateText)}`);
     }
+
     // Cross-calendar rollover: parseDate used `year` as the default. If the
     // resulting month is earlier than the season opener, the row actually
     // belongs to year + 1 (#111). For AFLM (opener month 3) this never
@@ -536,6 +571,7 @@ export function parseFixtureList(
       initialDate.getUTCMonth() + 1 < openerMonth
         ? (parseDate(dateText, { defaultYear: year + 1, venue: canonicalVenue }) ?? initialDate)
         : initialDate;
+
     gameNumber++;
 
     // Check if we have a score (match played) or not (upcoming).
@@ -552,6 +588,7 @@ export function parseFixtureList(
     let homePoints: number | null = null;
     let awayPoints: number | null = null;
     let margin: number | null = null;
+
     if (scoreMatch) {
       homePoints = Number.parseInt(scoreMatch[1] ?? "0", 10);
       awayPoints = Number.parseInt(scoreMatch[2] ?? "0", 10);
@@ -664,6 +701,7 @@ export function parseFootyWireTeamStats(html: string, _year: number): FootyWireD
   // The R package uses tables[[11]] (1-indexed) → index 10 in 0-indexed
   // Fallback: look for table with class "sortable" or one containing team data
   const mainTable = tables.length > 10 ? $(tables[10]) : $("table.sortable").first();
+
   if (mainTable.length === 0) return entries;
 
   const rows = mainTable.find("tr");
@@ -671,12 +709,14 @@ export function parseFootyWireTeamStats(html: string, _year: number): FootyWireD
     if (rowIdx === 0) return; // skip header
 
     const cells = $(row).find("td");
+
     if (cells.length < 20) return;
 
     // Column 2 (0-indexed: 1) has team name inside an <a> tag
     const teamLink = $(cells[1]).find("a");
     const teamText = teamLink.length > 0 ? teamLink.text().trim() : $(cells[1]).text().trim();
     const teamName = normaliseTeamName(teamText);
+
     if (!teamName) return;
 
     const parseNum = (cell: ReturnType<typeof $>) => Number.parseFloat(cell.text().trim()) || 0;
@@ -688,8 +728,10 @@ export function parseFootyWireTeamStats(html: string, _year: number): FootyWireD
     // Columns 3-19 (0-indexed) map to FOOTYWIRE_STAT_KEYS
     for (let i = 0; i < FOOTYWIRE_STAT_KEYS.length; i++) {
       const shortCode = FOOTYWIRE_STAT_KEYS[i];
+
       if (shortCode == null) continue;
       const canonical = FOOTYWIRE_METRIC_MAP[shortCode];
+
       if (canonical == null) continue;
       metrics[canonical] = parseNum($(cells[i + 3]));
     }
@@ -714,12 +756,14 @@ function mergeTeamAndOppStats(
   year: number,
 ): TeamStatsEntry[] {
   const againstMap = new Map<string, FootyWireDirectionEntry>();
+
   for (const entry of againstStats) {
     againstMap.set(entry.team, entry);
   }
 
   return forStats.map((forEntry) => {
     const againstEntry = againstMap.get(forEntry.team);
+
     return {
       season: year,
       competition: "AFLM" as const,
@@ -772,7 +816,9 @@ function teamNameToFootyWireSlug(teamName: string): string | undefined {
 function normaliseDob(raw: string): string | null {
   if (!raw) return null;
   const parsed = parseDate(raw);
+
   if (parsed) return parsed.toISOString().slice(0, 10);
+
   return raw; // Return raw string as fallback if parsing fails
 }
 
@@ -803,8 +849,10 @@ function parseFootyWirePlayerList(
     const cells = firstRow.find("td, th");
     // Match the R package: look for a row with an "Age" cell specifically
     const cellTexts = cells.map((_j, c) => $(c).text().trim()).get();
+
     if (cellTexts.includes("Age") && cellTexts.includes("Name")) {
       dataRows = $(table).find("tr");
+
       return false; // break
     }
   });
@@ -813,6 +861,7 @@ function parseFootyWirePlayerList(
 
   (dataRows as ReturnType<typeof $>).each((_rowIdx, row) => {
     const cells = $(row).find("td");
+
     if (cells.length < 6) return;
 
     const jumperText = $(cells[0]).text().trim();
@@ -825,6 +874,7 @@ function parseFootyWirePlayerList(
 
     // Name is "Surname, FirstName" — split and handle "\nR" suffix (R package strips this)
     const cleanedName = nameText.replace(/\nR$/, "").trim();
+
     if (!cleanedName || cleanedName === "Name") return;
 
     const nameParts = cleanedName.split(",").map((s) => s.trim());

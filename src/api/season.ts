@@ -28,9 +28,11 @@ export async function resolveDefaultSeasonForCompetition(
   competition: CompetitionCode = "AFLM",
 ): Promise<SeasonSelector> {
   const result = await aflApiClient.resolveCurrentSeason(competition);
+
   if (result.success) {
     return result.data;
   }
+
   throw result.error;
 }
 

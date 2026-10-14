@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { parseHtml } from "../../src/lib/parse-html";
 import {
   extractGameUrls,
@@ -34,6 +34,7 @@ describe("AFL Tables player stats parsing", () => {
     const stats = parseAflTablesGameStats(html, "111620240307", 2024, 1);
     const blakey = stats.find((s) => s.surname === "Blakey");
     expect(blakey).toBeDefined();
+
     if (blakey) {
       expect(blakey.kicks).toBe(18);
       expect(blakey.marks).toBe(9);
@@ -51,6 +52,7 @@ describe("AFL Tables player stats parsing", () => {
     // explicitly return 0 for scoreless players.
     const amartey = stats.find((s) => s.surname === "Amartey");
     expect(amartey).toBeDefined();
+
     if (amartey) {
       expect(amartey.kicks).toBe(3);
       expect(amartey.handballs).toBe(0);
@@ -69,7 +71,7 @@ describe("AFL Tables player stats parsing", () => {
     const voteRows = stats.filter((s) => s.brownlowVotes != null && s.brownlowVotes > 0);
     const totalVotes = voteRows.reduce((n, s) => n + (s.brownlowVotes ?? 0), 0);
     expect(totalVotes).toBe(6);
-    const voteCounts = voteRows.map((s) => s.brownlowVotes).sort();
+    const voteCounts = voteRows.map((s) => s.brownlowVotes ?? 0).sort((a, b) => a - b);
     expect(voteCounts).toEqual([1, 2, 3]);
   });
 });

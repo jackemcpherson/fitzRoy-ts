@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { parseBrownlowVotes } from "../../src/transforms/awards";
 
 /**
@@ -16,9 +16,11 @@ function buildBrownlowHtml(rows: ReadonlyArray<readonly string[]>): string {
   // data (skips small stub tables). Pad with filler rows past the
   // meaningful ones so test fixtures clear that guard.
   const filler: string[] = [];
+
   for (let i = rows.length + 1; i < 5; i++) {
     filler.push(tr([`Filler ${i}`, "Filler", "0", "0", "0", "0", "1", "0", "0.00"]));
   }
+
   return `<html><body><table>${header}${rows.map(tr).join("")}${filler.join("")}</table></body></html>`;
 }
 
@@ -28,6 +30,7 @@ describe("parseBrownlowVotes", () => {
     const html = buildBrownlowHtml([
       ["Patrick Cripps", "Carlton", "45", "12", "4", "1", "23", "17", "1.96"],
     ]);
+
     const result = parseBrownlowVotes(html, 2024);
     const cripps = result.find((r) => r.player === "Patrick Cripps");
     expect(cripps).toBeDefined();
@@ -39,6 +42,7 @@ describe("parseBrownlowVotes", () => {
     const html = buildBrownlowHtml([
       ["Patrick Cripps", "Carlton", "45", "12", "4", "1", "23", "17", "1.96"],
     ]);
+
     const cripps = parseBrownlowVotes(html, 2024).find((r) => r.player === "Patrick Cripps");
     expect(cripps?.votes).toBe(45);
     expect(cripps?.votes3).toBe(12);
@@ -57,6 +61,7 @@ describe("parseBrownlowVotes", () => {
       ["Nick Daicos", "Collingwood", "38", "7", "6", "5", "23", "18", "1.65"],
       ["Zak Butters", "Port Adelaide", "29", "7", "3", "2", "22", "12", "1.32"],
     ]);
+
     const result = parseBrownlowVotes(html, 2024);
     const cripps = result.find((r) => r.player === "Patrick Cripps");
     expect(cripps?.votes).toBe(45);
@@ -70,6 +75,7 @@ describe("parseBrownlowVotes", () => {
       ["Patrick Cripps W", "Carlton", "45", "12", "4", "1", "23", "17", "1.96"],
       ["Nick Daicos", "Collingwood", "38", "7", "6", "5", "23", "18", "1.65"],
     ]);
+
     const result = parseBrownlowVotes(html, 2024);
     const cripps = result.find((r) => r.player === "Patrick Cripps");
     expect(cripps).toBeDefined();
@@ -83,6 +89,7 @@ describe("parseBrownlowVotes", () => {
       ["Player B", "T2", "30", "10", "0", "0", "23", "10", "1.30"],
       ["Player C", "T3", "15", "5", "0", "0", "23", "5", "0.65"],
     ]);
+
     const result = parseBrownlowVotes(html, 2024);
     expect(result.find((r) => r.player === "Player A")?.isMedallist).toBe(true);
     expect(result.find((r) => r.player === "Player B")?.isMedallist).toBe(true);
@@ -93,6 +100,7 @@ describe("parseBrownlowVotes", () => {
     const html = buildBrownlowHtml([
       ["A Player", "Carlton", "15", "5", "0", "0", "10", "5", "1.50"],
     ]);
+
     const aflmResult = parseBrownlowVotes(html, 2024).find((r) => r.player === "A Player");
     const aflwResult = parseBrownlowVotes(html, 2024, "AFLW").find((r) => r.player === "A Player");
     expect(aflmResult?.competition).toBe("AFLM");

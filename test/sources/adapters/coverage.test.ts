@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { OutOfRangeError, UnsupportedCompetitionError } from "../../../src/lib/errors";
 import {
   type CoverageMap,
@@ -20,6 +20,7 @@ describe("checkCoverage", () => {
       competition: "AFLM",
       season: 2025,
     });
+
     expect(result.success).toBe(true);
   });
 
@@ -30,6 +31,7 @@ describe("checkCoverage", () => {
       competition: "AFLM",
       season: 2012,
     });
+
     expect(result.success).toBe(true);
   });
 
@@ -40,7 +42,9 @@ describe("checkCoverage", () => {
       competition: "VFLW",
       season: 2025,
     });
+
     expect(result.success).toBe(false);
+
     if (!result.success) {
       expect(result.error).toBeInstanceOf(UnsupportedCompetitionError);
       expect(result.error.message).toContain("footywire does not provide match data for VFLW");
@@ -54,7 +58,9 @@ describe("checkCoverage", () => {
       competition: "AFLM",
       season: 2005,
     });
+
     expect(result.success).toBe(false);
+
     if (!result.success) {
       expect(result.error).toBeInstanceOf(OutOfRangeError);
       expect(result.error.message).toContain("from 2012; you asked for 2005");
@@ -68,7 +74,9 @@ describe("checkCoverage", () => {
       competition: "VFL",
       season: 2030,
     });
+
     expect(result.success).toBe(false);
+
     if (!result.success) {
       expect(result.error).toBeInstanceOf(OutOfRangeError);
       expect(result.error.message).toContain("up to 2024; you asked for 2030");
@@ -86,7 +94,9 @@ describe("checkCoverage", () => {
       },
       "--source afl-api",
     );
+
     expect(result.success).toBe(false);
+
     if (!result.success && result.error instanceof UnsupportedCompetitionError) {
       expect(result.error.suggestion).toBe("--source afl-api");
     }
@@ -99,6 +109,7 @@ describe("checkCoverage", () => {
       competition: "VFLW",
       season: 2025,
     });
+
     if (!result.success && result.error instanceof UnsupportedCompetitionError) {
       expect(result.error.suggestion).toBeUndefined();
     }
@@ -112,6 +123,7 @@ describe("unsupportedSourceForOperation", () => {
       "afl-tables",
       "squiggle",
     ]);
+
     expect(error.message).toContain("fryzigg does not provide ladder");
     expect(error.message).toContain("afl-api, afl-tables, squiggle");
   });

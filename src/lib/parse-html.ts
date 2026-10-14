@@ -23,5 +23,6 @@ import { adapter } from "parse5-htmlparser2-tree-adapter";
  */
 export function parseHtml(html: string): cheerio.CheerioAPI {
   const dom = parse5(html, { treeAdapter: adapter });
+
   return cheerio.load(dom);
 }

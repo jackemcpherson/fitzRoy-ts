@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { roundAbbreviation, roundLabel, roundTypeLabel } from "../../src/lib/round-labels";
 
 describe("roundLabel", () => {

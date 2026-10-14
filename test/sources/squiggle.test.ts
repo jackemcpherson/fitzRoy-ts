@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { ScrapeError } from "../../src/lib/errors";
 import { SquiggleClient } from "../../src/sources/squiggle";
 
@@ -53,11 +53,15 @@ const VALID_STANDING = {
 
 function clientWith(response: Response | Error): { client: SquiggleClient; calls: string[] } {
   const calls: string[] = [];
+
   const fetchFn: typeof fetch = async (input, _init) => {
     calls.push(String(input));
+
     if (response instanceof Error) throw response;
+
     return response;
   };
+
   return { client: new SquiggleClient({ fetchFn }), calls };
 }
 
@@ -65,11 +69,14 @@ describe("SquiggleClient.fetchGames", () => {
   it("builds the correct URL and includes fitzRoy-ts User-Agent header", async () => {
     const capturedInits: (RequestInit | undefined)[] = [];
     const capturedUrls: string[] = [];
+
     const fetchFn: typeof fetch = async (input, init) => {
       capturedUrls.push(String(input));
       capturedInits.push(init);
+
       return new Response(JSON.stringify({ games: [VALID_GAME] }), { status: 200 });
     };
+
     const client = new SquiggleClient({ fetchFn });
 
     const result = await client.fetchGames(2025, 3);
@@ -95,6 +102,7 @@ describe("SquiggleClient.fetchGames", () => {
     const result = await client.fetchGames(2024, 1);
 
     expect(result.success).toBe(true);
+
     if (!result.success) return;
     expect(result.data.games).toHaveLength(1);
     expect(result.data.games[0]?.hteam).toBe("Carlton");
@@ -106,6 +114,7 @@ describe("SquiggleClient.fetchGames", () => {
     const result = await client.fetchGames(2024, 1);
 
     expect(result.success).toBe(false);
+
     if (result.success) return;
     expect(result.error).toBeInstanceOf(ScrapeError);
     expect(result.error.message).toContain("500");
@@ -117,6 +126,7 @@ describe("SquiggleClient.fetchGames", () => {
     const result = await client.fetchGames(2024, 1);
 
     expect(result.success).toBe(false);
+
     if (result.success) return;
     expect(result.error).toBeInstanceOf(ScrapeError);
     expect(result.error.message).toContain("ECONNRESET");
@@ -130,6 +140,7 @@ describe("SquiggleClient.fetchGames", () => {
     const result = await client.fetchGames(2024, 1);
 
     expect(result.success).toBe(false);
+
     if (result.success) return;
     expect(result.error).toBeInstanceOf(ScrapeError);
     expect(result.error.message).toMatch(/^Invalid Squiggle games response/);
@@ -145,6 +156,7 @@ describe("SquiggleClient.fetchStandings", () => {
     const result = await client.fetchStandings(2024);
 
     expect(result.success).toBe(true);
+
     if (!result.success) return;
     expect(result.data.standings).toHaveLength(1);
     expect(result.data.standings[0]?.name).toBe("Sydney");
@@ -156,6 +168,7 @@ describe("SquiggleClient.fetchStandings", () => {
     const result = await client.fetchStandings(2024);
 
     expect(result.success).toBe(false);
+
     if (result.success) return;
     expect(result.error).toBeInstanceOf(ScrapeError);
     expect(result.error.message).toContain("404");
@@ -169,6 +182,7 @@ describe("SquiggleClient.fetchStandings", () => {
     const result = await client.fetchStandings(2024);
 
     expect(result.success).toBe(false);
+
     if (result.success) return;
     expect(result.error).toBeInstanceOf(ScrapeError);
     expect(result.error.message).toMatch(/^Invalid Squiggle standings response/);

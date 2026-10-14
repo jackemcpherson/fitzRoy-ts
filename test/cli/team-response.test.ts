@@ -1,10 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { formatJson, formatOutput } from "../../src/cli/formatters/index";
 import type { Lineup, Squad, Team, TeamResponse } from "../../src/types";
 
 const sampleTeams: Team[] = [
-  { teamId: "1", name: "Sydney Swans", abbreviation: "SYD", competition: "AFLM" },
-  { teamId: "2", name: "Carlton", abbreviation: "CAR", competition: "AFLM" },
+  {
+    teamId: "1",
+    name: "Sydney Swans",
+    abbreviation: "SYD",
+    competition: "AFLM",
+    source: "afl-api",
+  },
+  { teamId: "2", name: "Carlton", abbreviation: "CAR", competition: "AFLM", source: "afl-api" },
 ];
 
 const sampleSquad: Squad = {
@@ -29,8 +35,14 @@ const sampleSquad: Squad = {
       draftType: "national",
       debutYear: 2015,
       recruitedFrom: null,
+      gamesPlayed: 200,
+      goals: 250,
+      team: "Sydney Swans",
+      source: "footywire",
+      competition: "AFLM",
     },
   ],
+  source: "footywire",
 };
 
 const sampleLineup: Lineup = {
@@ -42,6 +54,7 @@ const sampleLineup: Lineup = {
   competition: "AFLM",
   homePlayers: [],
   awayPlayers: [],
+  source: "afl-api",
 };
 
 describe("team verb discriminated union (#99)", () => {

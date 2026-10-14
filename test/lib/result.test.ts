@@ -2,7 +2,7 @@
  * Tests for Result composition combinators.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { err, ok, Result } from "../../src/lib/result";
 
 describe("Result.map", () => {
@@ -26,10 +26,13 @@ describe("Result.flatMap", () => {
 
   it("short-circuits on error without calling fn", () => {
     let called = false;
+
     const result = Result.flatMap(err(new Error("boom")) as Result<number, Error>, (n) => {
       called = true;
+
       return ok(n + 1);
     });
+
     expect(called).toBe(false);
     expect(result.success).toBe(false);
   });
@@ -49,13 +52,16 @@ describe("Result.flatMapAsync", () => {
 
   it("short-circuits on error without invoking the async fn", async () => {
     let called = false;
+
     const result = await Result.flatMapAsync(
       err(new Error("boom")) as Result<number, Error>,
       async (n) => {
         called = true;
+
         return ok(n + 1);
       },
     );
+
     expect(called).toBe(false);
     expect(result.success).toBe(false);
   });

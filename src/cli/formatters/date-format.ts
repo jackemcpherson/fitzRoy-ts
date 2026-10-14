@@ -12,7 +12,9 @@ const isoFormatterCache = new Map<string, Intl.DateTimeFormat>();
 
 function isoFormatterFor(timeZone: string): Intl.DateTimeFormat {
   const cached = isoFormatterCache.get(timeZone);
+
   if (cached) return cached;
+
   const fmt = new Intl.DateTimeFormat("en-AU", {
     timeZone,
     year: "numeric",
@@ -24,7 +26,9 @@ function isoFormatterFor(timeZone: string): Intl.DateTimeFormat {
     hour12: false,
     timeZoneName: "shortOffset",
   });
+
   isoFormatterCache.set(timeZone, fmt);
+
   return fmt;
 }
 
@@ -34,14 +38,17 @@ function isoFormatterFor(timeZone: string): Intl.DateTimeFormat {
  */
 export function toVenueIso(date: Date, timeZone: string = DEFAULT_DISPLAY_TZ): string {
   const parts = isoFormatterFor(timeZone).formatToParts(date);
+
   const get = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((p) => p.type === type)?.value ?? "";
+
   const offset = get("timeZoneName"); // "GMT+10" / "GMT+11" / "GMT+08" / "GMT+09:30"
   const sign = offset.includes("-") ? "-" : "+";
   const digits = offset.replace(/[^0-9:]/g, "");
   const [hoursRaw, minutesRaw] = digits.split(":");
   const hours = (hoursRaw ?? "").padStart(2, "0");
   const minutes = (minutesRaw ?? "00").padStart(2, "0");
+
   return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}:${get("second")}${sign}${hours}:${minutes}`;
 }
 

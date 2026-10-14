@@ -48,8 +48,10 @@ const FOOTYWIRE_BASE = "https://www.footywire.com/afl/footy";
  */
 export async function fetchAwards(query: AwardQuery): Promise<Result<AwardResult, Error>> {
   const identity = canonicalSeasonKey(query.competition ?? "AFLM", query.season);
+
   if (!identity.success) return identity;
   const fetched = await fetchAwardsRaw(query);
+
   return Result.map(fetched, (result) => ({
     awards: applyAwardFilters(result.awards, query).map((row) => ({
       ...row,
@@ -64,7 +66,9 @@ async function fetchAwardsRaw(query: AwardQuery): Promise<Result<AwardResult, Er
   // requests up front instead of silently returning AFLM data (#82).
   const isFootyWireScraped =
     query.award === "brownlow" || query.award === "all-australian" || query.award === "rising-star";
+
   const competition = query.competition ?? "AFLM";
+
   if (isFootyWireScraped && competition !== "AFLM") {
     return err(
       new ScrapeError(
@@ -154,12 +158,14 @@ function awardEntryTeamMatches(entry: Award, normalisedTarget: string): boolean 
   if ("team" in entry && entry.team != null) {
     return normaliseTeamName(entry.team) === normalisedTarget;
   }
+
   if ("homeTeam" in entry && "awayTeam" in entry) {
     return (
       normaliseTeamName(entry.homeTeam) === normalisedTarget ||
       normaliseTeamName(entry.awayTeam) === normalisedTarget
     );
   }
+
   return false;
 }
 
@@ -172,12 +178,15 @@ async function fetchFootyWireAward(
 ): Promise<Result<Award[], Error>> {
   const client = new FootyWireClient();
   const htmlResult = await client.fetchPage(url);
+
   if (!htmlResult.success) return htmlResult;
 
   const data = parse(htmlResult.data);
+
   if (data.length === 0) {
     return err(new ScrapeError(`No ${label} data found for season ${season}`, "footywire"));
   }
+
   return ok(data);
 }
 
@@ -192,9 +201,11 @@ async function fetchCoachesVotes(query: AwardQuery): Promise<Result<AwardResult,
   if (seasonYear(query.season) < 2006) {
     return err(new ScrapeError("No coaches votes data available before 2006", "afl-coaches"));
   }
+
   if (competition === "AFLW" && seasonYear(query.season) < 2018) {
     return err(new ScrapeError("No AFLW coaches votes data available before 2018", "afl-coaches"));
   }
+
   if (competition === "VFL" || competition === "VFLW") {
     return err(
       new ScrapeError(`No coaches votes data available for ${competition}`, "afl-coaches"),
@@ -211,6 +222,7 @@ async function fetchCoachesVotes(query: AwardQuery): Promise<Result<AwardResult,
   const client = new AflCoachesClient();
   let votes: readonly CoachesVote[];
   let failedRounds: readonly number[];
+
   if (query.round != null) {
     const result = await client.scrapeRoundVotes(
       seasonYear(query.season),
@@ -218,11 +230,13 @@ async function fetchCoachesVotes(query: AwardQuery): Promise<Result<AwardResult,
       competition,
       isFinalsRound(seasonYear(query.season), query.round),
     );
+
     if (!result.success) return result;
     votes = result.data;
     failedRounds = [];
   } else {
     const result = await client.fetchSeasonVotes(seasonYear(query.season), competition);
+
     if (!result.success) return result;
     votes = result.data.votes;
     failedRounds = result.data.failedRounds;
@@ -234,6 +248,7 @@ async function fetchCoachesVotes(query: AwardQuery): Promise<Result<AwardResult,
       (v) => normaliseTeamName(v.homeTeam) === target || normaliseTeamName(v.awayTeam) === target,
     );
   }
+
   return ok({ awards: votes, failedRounds });
 }
 
@@ -246,6 +261,7 @@ async function fetchCoachesVotes(query: AwardQuery): Promise<Result<AwardResult,
  */
 async function fetchColemanLeaderboard(query: AwardQuery): Promise<Result<Award[], Error>> {
   const competition = query.competition ?? "AFLM";
+
   if (competition === "VFL" || competition === "VFLW") {
     return err(
       new ScrapeError(
@@ -270,6 +286,7 @@ async function fetchColemanLeaderboard(query: AwardQuery): Promise<Result<Award[
   ]);
 
   if (!matchesR.success) return matchesR;
+
   if (!statsR.success) return statsR;
 
   const homeAndAwayMatchIds = new Set(
@@ -277,6 +294,7 @@ async function fetchColemanLeaderboard(query: AwardQuery): Promise<Result<Award[
       .filter((match) => match.roundType === "HomeAndAway")
       .map((match) => match.matchId),
   );
+
   return ok(
     rankColemanFromStats(
       statsR.data.stats.filter((stats) => homeAndAwayMatchIds.has(stats.matchId)),
@@ -302,6 +320,7 @@ export function rankColemanFromStats(
     if (s.goals == null) continue;
     const key = s.playerId;
     const existing = accumulator.get(key);
+
     if (existing) {
       existing.goals += s.goals;
       existing.gamesPlayed += 1;
@@ -321,10 +340,12 @@ export function rankColemanFromStats(
 
   let lastGoals = -1;
   let lastRank = 0;
+
   const leaderboard: ColemanLeader[] = ranked.map((entry, index) => {
     const rank = entry.goals === lastGoals ? lastRank : index + 1;
     lastGoals = entry.goals;
     lastRank = rank;
+
     return {
       type: "coleman" as const,
       season,

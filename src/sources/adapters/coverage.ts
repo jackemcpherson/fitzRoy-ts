@@ -47,6 +47,7 @@ export function checkCoverage(
   suggestion?: string,
 ): Result<undefined, UnsupportedCompetitionError | OutOfRangeError> {
   const range = coverage.get(request.competition);
+
   if (!range) {
     return err(
       new UnsupportedCompetitionError(
@@ -57,6 +58,7 @@ export function checkCoverage(
       ),
     );
   }
+
   if (request.season < range.minSeason) {
     return err(
       new OutOfRangeError(
@@ -68,6 +70,7 @@ export function checkCoverage(
       ),
     );
   }
+
   if (range.maxSeason != null && request.season > range.maxSeason) {
     return err(
       new OutOfRangeError(
@@ -79,6 +82,7 @@ export function checkCoverage(
       ),
     );
   }
+
   return ok(undefined);
 }
 
@@ -117,10 +121,15 @@ export function findAlternativeSource(
   for (const adapter of adapters) {
     if (adapter.id === request.source) continue;
     const range = adapter.coverage.get(request.competition);
+
     if (!range) continue;
+
     if (request.season < range.minSeason) continue;
+
     if (range.maxSeason != null && request.season > range.maxSeason) continue;
+
     return adapter.id;
   }
+
   return undefined;
 }

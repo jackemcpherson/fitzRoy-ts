@@ -84,6 +84,7 @@ const AFL_API_TEAM_TYPES: Record<CompetitionCode, string> = {
  */
 function parseSeasonYear(name: string): number | null {
   const match = name.match(/\b(\d{4})\b/);
+
   return match ? Number(match[1]) : null;
 }
 
@@ -121,11 +122,14 @@ export class AflApiClient {
     const baseFetch = createSourceFetch(options);
     this.fetchFn = (input, init?) => {
       const headers = new Headers(init?.headers);
+
       if (!headers.has("User-Agent")) {
         headers.set("User-Agent", USER_AGENT);
       }
+
       return baseFetch(input, { ...init, headers });
     };
+
     this.tokenUrl = options?.tokenUrl ?? TOKEN_URL;
   }
 
@@ -141,9 +145,11 @@ export class AflApiClient {
     if (this.pendingAuth) {
       return this.pendingAuth;
     }
+
     this.pendingAuth = this.doAuthenticate().finally(() => {
       this.pendingAuth = null;
     });
+
     return this.pendingAuth;
   }
 
@@ -200,6 +206,7 @@ export class AflApiClient {
   async authedFetch(url: string, init?: RequestInit): Promise<Result<Response, AflApiError>> {
     if (!this.isAuthenticated) {
       const authResult = await this.authenticate();
+
       if (!authResult.success) {
         return authResult;
       }
@@ -207,11 +214,14 @@ export class AflApiClient {
 
     const doFetch = async (): Promise<Response> => {
       const token = this.cachedToken;
+
       if (!token) {
         throw new AflApiError("No cached token available");
       }
+
       const headers = new Headers(init?.headers);
       headers.set("x-media-mis-token", token.accessToken);
+
       return this.fetchFn(url, { ...init, headers });
     };
 
@@ -220,9 +230,11 @@ export class AflApiClient {
 
       if (response.status === 401) {
         const authResult = await this.authenticate();
+
         if (!authResult.success) {
           return authResult;
         }
+
         response = await doFetch();
       }
 
@@ -259,9 +271,11 @@ export class AflApiClient {
     const isPublic = url.startsWith(API_BASE);
 
     let response: Response;
+
     if (isPublic) {
       try {
         response = await this.fetchFn(url);
+
         if (!response.ok) {
           return err(
             new AflApiError(
@@ -279,9 +293,11 @@ export class AflApiClient {
       }
     } else {
       const fetchResult = await this.authedFetch(url);
+
       if (!fetchResult.success) {
         return fetchResult;
       }
+
       response = fetchResult.data;
     }
 
@@ -352,15 +368,21 @@ export class AflApiClient {
   /** Discover canonical identities from the competition's provider season list. */
   async fetchSeasons(code: CompetitionCode): Promise<Result<CompetitionSeason[], Error>> {
     const competition = await this.resolveCompetitionId(code);
+
     if (!competition.success) return competition;
     const result = await this.fetchCompseasons(competition.data);
+
     if (!result.success) return result;
     const seasons: CompetitionSeason[] = [];
+
     for (const season of result.data) {
       const year = parseSeasonYear(season.name);
+
       if (year === null) continue;
+
       const suffix =
         code === "AFLW" && year === 2022 ? /Season ([67])\b/.exec(season.name)?.[1] : undefined;
+
       if (code === "AFLW" && year === 2022 && !suffix)
         return err(new ValidationError("Unrecognised AFLW 2022 provider season"));
       seasons.push({
@@ -371,6 +393,7 @@ export class AflApiClient {
         providerSeasonId: season.id,
       });
     }
+
     return ok(seasons);
   }
 
@@ -393,11 +416,13 @@ export class AflApiClient {
 
     const matches = result.data.filter((cs) => parseSeasonYear(cs.name) === seasonYear(year));
     const key = String(year);
+
     const season = key.includes("-S")
       ? matches.find((cs) => new RegExp(`Season ${key.slice(-1)}\\b`).test(cs.name))
       : matches.length === 1
         ? matches[0]
         : undefined;
+
     if (!key.includes("-S") && matches.length > 1) {
       return err(
         new AmbiguousSeasonError(
@@ -409,7 +434,9 @@ export class AflApiClient {
         ),
       );
     }
+
     if (!season) return err(new AflApiError(`Season not found: ${key}`));
+
     return ok(season.id);
   }
 
@@ -439,9 +466,11 @@ export class AflApiClient {
     code: CompetitionCode,
   ): Promise<Result<SeasonSelector, AflApiError | ValidationError>> {
     const compResult = await this.resolveCompetitionId(code);
+
     if (!compResult.success) return compResult;
 
     const seasonsResult = await this.fetchCompseasons(compResult.data);
+
     if (!seasonsResult.success) return seasonsResult;
 
     // Rank by the calendar year embedded in each name, newest first.
@@ -456,24 +485,31 @@ export class AflApiClient {
       );
 
     const newest = dated[0];
+
     if (!newest) {
       return err(new AflApiError(`No dated compseasons found for competition: ${code}`));
     }
+
     for (const candidate of dated) {
       const roundsResult = await this.resolveRounds(candidate.season.id);
+
       if (!roundsResult.success) return roundsResult;
+
       const startInstants = roundsResult.data
         .flatMap((round) => (round.utcStartTime ? [new Date(round.utcStartTime).getTime()] : []))
         .filter((instant) => Number.isFinite(instant));
+
       if (startInstants.length === 0) {
         return err(
           new AflApiError(`Cannot determine season start: no round has utcStartTime (${code})`),
         );
       }
+
       if (Date.now() >= Math.min(...startInstants)) {
         return currentSelector(code, candidate.season, candidate.year);
       }
     }
+
     return err(new AflApiError(`No dated season has started (${code})`));
   }
 
@@ -489,9 +525,12 @@ export class AflApiClient {
     year: SeasonSelector,
   ): Promise<Result<number, Error>> {
     const key = canonicalSeasonKey(code, year);
+
     if (!key.success) return key;
     const compResult = await this.resolveCompetitionId(code);
+
     if (!compResult.success) return compResult;
+
     return this.resolveSeasonId(compResult.data, year);
   }
 
@@ -547,11 +586,13 @@ export class AflApiClient {
     roundNumber: number,
   ): Promise<Result<MatchItem[], AflApiError | ValidationError>> {
     const roundsResult = await this.resolveRounds(seasonId);
+
     if (!roundsResult.success) {
       return roundsResult;
     }
 
     const round = roundsResult.data.find((r) => r.roundNumber === roundNumber);
+
     if (!round?.providerId) {
       return err(new AflApiError(`Round not found or missing providerId: round ${roundNumber}`));
     }
@@ -570,6 +611,7 @@ export class AflApiClient {
     options?: { includeUpcoming?: boolean },
   ): Promise<Result<MatchItem[], AflApiError | ValidationError>> {
     const roundsResult = await this.resolveRounds(seasonId);
+
     if (!roundsResult.success) {
       return roundsResult;
     }
@@ -580,15 +622,18 @@ export class AflApiClient {
 
     const includeUpcoming = options?.includeUpcoming ?? false;
     const allItems: MatchItem[] = [];
+
     for (const result of results) {
       if (!result.success) {
         return result;
       }
+
       const items = includeUpcoming
         ? result.data
         : result.data.filter(
             (item) => item.match.status === "CONCLUDED" || item.match.status === "COMPLETE",
           );
+
       allItems.push(...items);
     }
 
@@ -642,6 +687,7 @@ export class AflApiClient {
 
     if (competition) {
       const teamType = AFL_API_TEAM_TYPES[competition];
+
       return ok(result.data.teams.filter((t) => t.teamType === teamType));
     }
 
@@ -677,9 +723,11 @@ export class AflApiClient {
     roundId?: number,
   ): Promise<Result<LadderResponse, AflApiError | ValidationError>> {
     let url = `${API_BASE}/compseasons/${seasonId}/ladders`;
+
     if (roundId != null) {
       url += `?roundId=${roundId}`;
     }
+
     return this.fetchJson(url, LadderResponseSchema);
   }
 }
@@ -691,8 +739,11 @@ function currentSelector(
 ): Result<SeasonSelector, ValidationError> {
   if (code === "AFLW" && year === 2022) {
     if (/Season 6\b/.test(season.name)) return ok("2022-S6");
+
     if (/Season 7\b/.test(season.name)) return ok("2022-S7");
+
     return err(new ValidationError("Unknown AFLW 2022 provider season"));
   }
+
   return ok(year);
 }

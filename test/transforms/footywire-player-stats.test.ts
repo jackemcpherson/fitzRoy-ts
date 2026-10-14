@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import {
   extractMatchDetails,
   mergeFootyWireStats,
@@ -38,6 +38,7 @@ describe("FootyWire player stats parsing", () => {
       // Find Isaac Heeney (should be first by disposals)
       const heeney = firstTeamRows.find((r) => r.player.includes("Heeney"));
       expect(heeney).toBeDefined();
+
       if (heeney) {
         expect(heeney.kicks).toBe(17);
         expect(heeney.handballs).toBe(9);
@@ -67,6 +68,7 @@ describe("FootyWire player stats parsing", () => {
       // Advanced uses abbreviated names: "I Heeney"
       const heeney = firstTeamRows.find((r) => r.player.includes("Heeney"));
       expect(heeney).toBeDefined();
+
       if (heeney) {
         expect(heeney.contestedPossessions).toBe(18);
         expect(heeney.uncontestedPossessions).toBe(10);
@@ -97,6 +99,7 @@ describe("FootyWire player stats parsing", () => {
 
       const heeney = stats.find((s) => s.displayName.includes("Heeney"));
       expect(heeney).toBeDefined();
+
       if (heeney) {
         // Basic stats
         expect(heeney.kicks).toBe(17);

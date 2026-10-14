@@ -170,8 +170,10 @@ export function transformFryziggPlayerStats(
   options: FryziggTransformOptions,
 ): Result<PlayerStats[], ScrapeError> {
   const colIndex = new Map<string, number>();
+
   for (let i = 0; i < frame.names.length; i++) {
     const name = frame.names[i];
+
     if (name !== undefined) {
       colIndex.set(name, i);
     }
@@ -192,7 +194,9 @@ export function transformFryziggPlayerStats(
   const getCol = (name: string | undefined): unknown[] | undefined => {
     if (name === undefined) return undefined;
     const idx = colIndex.get(name);
+
     if (idx === undefined) return undefined;
+
     return frame.columns[idx] as unknown[] | undefined;
   };
 
@@ -281,36 +285,35 @@ export function transformFryziggPlayerStats(
 
   // Build matching row indices, or iterate all rows when no filters are active
   let rowIndices: number[] | null = null;
-  let rowCount = nRows;
 
   if (hasFilters) {
     const matching: number[] = [];
+
     for (let i = 0; i < nRows; i++) {
       if (options.season !== undefined) {
         const dateStr = dateCol?.[i];
+
         if (typeof dateStr !== "string") continue;
         const year = Number(dateStr.slice(0, 4));
+
         if (year !== options.season) continue;
       }
 
       if (options.round !== undefined && roundCol) {
         const roundVal = roundCol[i];
         const roundNum = typeof roundVal === "string" ? Number(roundVal) : roundVal;
+
         if (roundNum !== options.round) continue;
       }
 
       matching.push(i);
     }
+
     rowIndices = matching;
-    rowCount = matching.length;
   }
 
-  const stats: PlayerStats[] = new Array(rowCount);
-  for (let j = 0; j < rowCount; j++) {
-    // biome-ignore lint/style/noNonNullAssertion: bounded by rowCount
-    const i = rowIndices ? rowIndices[j]! : j;
-    stats[j] = mapRow(i, cols, isAflw, options.competition);
-  }
+  const indices = rowIndices ?? Array.from({ length: nRows }, (_, j) => j);
+  const stats: PlayerStats[] = indices.map((i) => mapRow(i, cols, isAflw, options.competition));
 
   return ok(stats);
 }
@@ -319,6 +322,7 @@ export function transformFryziggPlayerStats(
 function numAt(column: unknown[] | undefined, i: number): number | null {
   if (!column) return null;
   const v = column[i];
+
   return typeof v === "number" ? v : null;
 }
 
@@ -326,6 +330,7 @@ function numAt(column: unknown[] | undefined, i: number): number | null {
 function strAt(column: unknown[] | undefined, i: number): string | null {
   if (!column) return null;
   const v = column[i];
+
   return typeof v === "string" ? v : null;
 }
 
@@ -333,11 +338,15 @@ function strAt(column: unknown[] | undefined, i: number): string | null {
 function roundAt(column: unknown[] | undefined, i: number): number {
   if (!column) return 0;
   const v = column[i];
+
   if (typeof v === "number") return v;
+
   if (typeof v === "string") {
     const n = Number(v);
+
     return Number.isNaN(n) ? 0 : n;
   }
+
   return 0;
 }
 
@@ -352,6 +361,7 @@ function mapRow(
 
   let firstName: string;
   let lastName: string;
+
   if (isAflw) {
     // AFLW player_name is "First, Last" format
     const playerName = strAt(c.playerName, i) ?? "";

@@ -21,6 +21,7 @@ function stripMedallistSuffix(raw: string): { player: string; isMedallist: boole
   if (raw.endsWith(" W")) {
     return { player: raw.slice(0, -2).trim(), isMedallist: true };
   }
+
   return { player: raw, isMedallist: false };
 }
 
@@ -45,11 +46,13 @@ export function parseBrownlowVotes(
 
   $("table").each((_i, table) => {
     const rows = $(table).find("tr");
+
     if (rows.length < 5) return;
 
     // Look for a table with 9 columns (player Brownlow format)
     const firstDataRow = $(rows[1]);
     const cells = firstDataRow.find("td");
+
     if (cells.length !== 9) return;
 
     // Check if first cell looks like a player name (skip header-like rows)
@@ -61,6 +64,7 @@ export function parseBrownlowVotes(
     rows.each((j, row) => {
       if (j < startIdx) return;
       const tds = $(row).find("td");
+
       if (tds.length < 9) return;
 
       const rawPlayer = $(tds[0]).text().trim();
@@ -82,6 +86,7 @@ export function parseBrownlowVotes(
       const polledGames = safeInt($(tds[7]).text());
 
       if (suffixMedallist) anyMarked = true;
+
       if (votes > maxVotes) maxVotes = votes;
 
       results.push({
@@ -130,13 +135,16 @@ export function parseAllAustralian(
   // Look for rows that have position labels and player links with team flags
   rows.each((_i, row) => {
     const tds = $(row).find("td");
+
     if (tds.length < 2) return;
 
     const position = $(tds[0]).text().trim();
+
     if (!position) return;
 
     // Known AA positions
     const validPositions = ["FB", "HB", "C", "HF", "FF", "FOL", "IC", "EMG"];
+
     if (!validPositions.includes(position)) return;
 
     // Each remaining cell may contain a player
@@ -183,9 +191,11 @@ export function parseRisingStarNominations(
 
   tables.each((_i, table) => {
     const rows = $(table).find("tr");
+
     if (rows.length < 5) return;
 
     const firstRow = $(rows[0]);
+
     const headerCells = firstRow
       .find("td, th")
       .map((_, c) => $(c).text().trim())
@@ -195,6 +205,7 @@ export function parseRisingStarNominations(
     // accept any of those leading-cell values. Older parser only accepted
     // the long form and silently returned [] for every season (#91).
     const firstCell = headerCells[0]?.toLowerCase().trim();
+
     if (
       headerCells.length >= 15 &&
       (firstCell === "rd" ||
@@ -204,6 +215,7 @@ export function parseRisingStarNominations(
         firstCell?.startsWith("rnd"))
     ) {
       targetRows = rows;
+
       return false; // break
     }
   });
@@ -214,10 +226,12 @@ export function parseRisingStarNominations(
     if (_j === 0) return; // skip header
 
     const tds = $(row).find("td");
+
     if (tds.length < 15) return;
 
     const roundText = $(tds[0]).text().trim();
     const round = safeInt(roundText);
+
     if (round == null) return;
 
     const player = $(tds[1]).text().trim();

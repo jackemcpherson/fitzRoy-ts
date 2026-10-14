@@ -6,13 +6,15 @@
  * pure-function error assertions.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { disambiguate, resolveTeamNameOrPrompt } from "../../src/cli/resolvers";
 
 const ALL_LABELS = ["Carlton", "Richmond", "Collingwood"];
 
 const OPTION_CARLTON = { value: "5", label: "Carlton", score: 0.05 };
+
 const OPTION_RICHMOND = { value: "10", label: "Richmond", score: 0.25 };
+
 const OPTION_COLLINGWOOD = { value: "4", label: "Collingwood", score: 0.3 };
 
 describe("disambiguate", () => {
@@ -35,6 +37,7 @@ describe("disambiguate", () => {
       "team",
       false,
     );
+
     expect(result).toBe("5");
   });
 

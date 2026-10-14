@@ -21,10 +21,12 @@ export function validateStatsMode(args: StatsModeArgs): void {
   if (args.match !== undefined && args.matchId !== undefined) {
     throw new Error("Use only one of --match and --id.");
   }
+
   if (args.groupBy === "player") {
     if (args.summary !== undefined) {
       throw new Error("--summary is only supported with --by team.");
     }
+
     return;
   }
 
@@ -34,6 +36,7 @@ export function validateStatsMode(args: StatsModeArgs): void {
     args.matchId !== undefined ? "--id" : undefined,
     args.player !== undefined ? "--player" : undefined,
   ].filter((flag): flag is string => flag !== undefined);
+
   if (invalid.length > 0) {
     throw new Error(
       `${invalid.join(", ")} ${invalid.length === 1 ? "is" : "are"} not supported with --by team. Team stats are season-level rows.`,
@@ -55,26 +58,33 @@ export function validateTeamMode(args: TeamModeArgs): TeamCommandMode {
   if (args.name !== undefined && args.team !== undefined) {
     throw new Error("Use only one of --name and --team.");
   }
+
   if (args.match !== undefined && args.matchId !== undefined) {
     throw new Error("Use only one of --match and --match-id.");
   }
+
   if (args.round !== undefined && args.season === undefined) {
     throw new Error("--round requires --season for lineup mode.");
   }
+
   if ((args.match !== undefined || args.matchId !== undefined) && args.round === undefined) {
     throw new Error("--match and --match-id require --season and --round for lineup mode.");
   }
+
   if (args.season !== undefined && args.round !== undefined) return "lineup";
 
   const teamName = args.name ?? args.team;
+
   if (args.season !== undefined) {
     if (teamName === undefined) {
       throw new Error(
         "--season requires --name or --team for squad mode, or --round for lineup mode.",
       );
     }
+
     return "squad";
   }
+
   return "list";
 }
 

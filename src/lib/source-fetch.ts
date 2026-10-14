@@ -21,5 +21,6 @@ export function createSourceFetch(options?: SourceFetchOptions): typeof fetch {
   // global after module load (e.g. via vi.stubGlobal) still take effect for
   // clients constructed at import time (the shared AflApiClient).
   const base: typeof fetch = options?.fetchFn ?? ((input, init) => globalThis.fetch(input, init));
+
   return withRetry5xx(withFetchTimeout(base, options), options);
 }

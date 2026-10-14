@@ -30,7 +30,9 @@ const compactFormatterCache = new Map<string, Intl.DateTimeFormat>();
 
 function compactFormatterFor(timeZone: string): Intl.DateTimeFormat {
   const cached = compactFormatterCache.get(timeZone);
+
   if (cached) return cached;
+
   const fmt = new Intl.DateTimeFormat("en-AU", {
     timeZone,
     day: "numeric",
@@ -39,7 +41,9 @@ function compactFormatterFor(timeZone: string): Intl.DateTimeFormat {
     minute: "2-digit",
     hour12: true,
   });
+
   compactFormatterCache.set(timeZone, fmt);
+
   return fmt;
 }
 
@@ -51,14 +55,18 @@ function compactFormatterFor(timeZone: string): Intl.DateTimeFormat {
  */
 function toDisplayValue(value: unknown, row?: Record<string, unknown>): string {
   if (value === null || value === undefined) return "-";
+
   if (value instanceof Date) {
     const tz =
       typeof row?.venueTimezone === "string" && row.venueTimezone.length > 0
         ? row.venueTimezone
         : DEFAULT_DISPLAY_TZ;
+
     return compactFormatterFor(tz).format(value);
   }
+
   if (typeof value === "object") return JSON.stringify(value);
+
   return String(value);
 }
 
@@ -69,15 +77,18 @@ function toDisplayValue(value: unknown, row?: Record<string, unknown>): string {
 function readPath(row: Record<string, unknown>, key: string): unknown {
   if (!key.includes(".")) return row[key];
   let current: unknown = row;
+
   for (const segment of key.split(".")) {
     if (current == null || typeof current !== "object") return undefined;
     current = (current as Record<string, unknown>)[segment];
   }
+
   return current;
 }
 
 function truncate(str: string, maxLen: number): string {
   if (str.length <= maxLen) return str;
+
   return `${str.slice(0, maxLen - 1)}…`;
 }
 
@@ -88,6 +99,7 @@ export function formatTable(data: Record<string, unknown>[], options: TableOptio
   if (data.length === 0) return "No data.";
 
   const firstRow = data[0];
+
   if (!firstRow) return "No data.";
 
   const termWidth = options.terminalWidth ?? process.stdout.columns ?? 120;
@@ -95,6 +107,7 @@ export function formatTable(data: Record<string, unknown>[], options: TableOptio
 
   // Determine which columns to show
   let columns: TableColumnConfig[];
+
   if (options.full || !options.columns || options.columns.length === 0) {
     columns = allKeys.map((key) => ({ key }));
   } else {
@@ -103,20 +116,25 @@ export function formatTable(data: Record<string, unknown>[], options: TableOptio
 
   // Compute column widths in a single pass over the data
   const colWidths: number[] = columns.map((col) => (col.label ?? col.key).length);
+
   for (const row of data) {
     for (let i = 0; i < columns.length; i++) {
       const col = columns[i];
+
       if (!col) continue;
       const len = toDisplayValue(readPath(row, col.key), row).length;
       const current = colWidths[i];
+
       if (current !== undefined && len > current) {
         colWidths[i] = len;
       }
     }
   }
+
   for (let i = 0; i < columns.length; i++) {
     const col = columns[i];
     const width = colWidths[i];
+
     if (!col || width === undefined) continue;
     colWidths[i] = Math.min(col.maxWidth ?? 30, width);
   }
@@ -125,10 +143,13 @@ export function formatTable(data: Record<string, unknown>[], options: TableOptio
   const gap = 2; // space between columns
   const visibleCols: number[] = [];
   let usedWidth = 0;
+
   for (let i = 0; i < columns.length; i++) {
     const colWidth = colWidths[i];
+
     if (colWidth === undefined) continue;
     const needed = usedWidth > 0 ? colWidth + gap : colWidth;
+
     if (usedWidth + needed > termWidth && visibleCols.length > 0) break;
     visibleCols.push(i);
     usedWidth += needed;
@@ -138,17 +159,22 @@ export function formatTable(data: Record<string, unknown>[], options: TableOptio
   const headerParts = visibleCols.map((i) => {
     const col = columns[i];
     const width = colWidths[i];
+
     if (!col || width === undefined) return "";
     const label = (col.label ?? col.key).toUpperCase();
+
     return truncate(label, width).padEnd(width);
   });
+
   const header = headerParts.join("  ");
 
   // Build separator
   const separator = visibleCols
     .map((i) => {
       const width = colWidths[i];
+
       if (width === undefined) return "";
+
       return "─".repeat(width);
     })
     .join("  ");
@@ -158,10 +184,13 @@ export function formatTable(data: Record<string, unknown>[], options: TableOptio
     const parts = visibleCols.map((i) => {
       const col = columns[i];
       const width = colWidths[i];
+
       if (!col || width === undefined) return "";
       const val = toDisplayValue(readPath(row, col.key), row);
+
       return truncate(val, width).padEnd(width);
     });
+
     return parts.join("  ");
   });
 

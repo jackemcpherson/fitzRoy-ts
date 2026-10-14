@@ -9,16 +9,16 @@ must remain synchronized with it.
 Run the complete quality gate before committing:
 
 ```bash
-npm run typecheck
+npx vp check
 npm run typecheck:portable
-npm run check
-npm run test
+npx vp test
 bun run build
-node scripts/verify-package-install.mjs
+npm run verify:package
 ```
 
-Use `npx vitest run test/path/to/file.test.ts` for a focused test. Bun is the
-package manager and build runner, while npm scripts remain supported.
+Use `npx vp test run test/path/to/file.test.ts` for a focused test. Bun is the
+package manager, and Vite+ (`vp`) runs formatting, linting, type checks, tests,
+and packaging from `vite.config.ts`.
 
 ## Architecture and constraints
 

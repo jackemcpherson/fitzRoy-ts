@@ -34,6 +34,7 @@ export function computeLadder(results: readonly Match[], upToRound?: number): La
 
   for (const match of filtered) {
     if (match.status !== "Complete") continue;
+
     if (match.homePoints === null || match.awayPoints === null) continue;
 
     const homePoints = match.homePoints;
@@ -88,12 +89,14 @@ export function computeLadder(results: readonly Match[], upToRound?: number): La
     if (b.premiershipsPoints !== a.premiershipsPoints) {
       return b.premiershipsPoints - a.premiershipsPoints;
     }
+
     return b.percentage - a.percentage;
   });
 
   // Assign positions
   for (let i = 0; i < entries.length; i++) {
     const entry = entries[i];
+
     if (entry) {
       entries[i] = { ...entry, position: i + 1 };
     }
@@ -104,9 +107,11 @@ export function computeLadder(results: readonly Match[], upToRound?: number): La
 
 function getOrCreate(map: Map<string, TeamAccumulator>, team: string): TeamAccumulator {
   let acc = map.get(team);
+
   if (!acc) {
     acc = { played: 0, wins: 0, losses: 0, draws: 0, pointsFor: 0, pointsAgainst: 0 };
     map.set(team, acc);
   }
+
   return acc;
 }

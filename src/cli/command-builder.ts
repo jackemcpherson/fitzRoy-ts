@@ -32,22 +32,29 @@ type RawArgs = Record<string, unknown>;
  */
 export function rejectUnknownFlags(argsDef: ArgsDef, rawArgv: readonly string[]): void {
   const known = new Set<string>();
+
   for (const [name, def] of Object.entries(argsDef)) {
     known.add(name);
+
     if (def != null && "alias" in def && def.alias != null) {
       const aliases = Array.isArray(def.alias) ? def.alias : [def.alias];
+
       for (const a of aliases) known.add(a);
     }
   }
 
   for (const tok of rawArgv) {
     if (!tok.startsWith("-")) continue;
+
     if (tok === "--" || tok === "-") continue;
+
     // Negative numbers (e.g. `--limit -3` → value `-3`) are not flags.
     if (!tok.startsWith("--") && /^-\d/.test(tok)) continue;
     const stripped = tok.startsWith("--") ? tok.slice(2) : tok.slice(1);
     const flagName = stripped.split("=")[0];
+
     if (flagName == null || flagName === "") continue;
+
     if (!known.has(flagName)) {
       const validList = [...known].sort().join(", ");
       throw new Error(`Unknown flag: "${tok}". Valid flags for this command: ${validList}`);

@@ -63,6 +63,7 @@ export const ladderCommand = defineCommand({
     const result = await withSpinner("Fetching ladder…", () =>
       fetchLadder({ source, season, round, competition }),
     );
+
     if (!result.success) throw result.error;
 
     const ladder = result.data;
@@ -77,6 +78,7 @@ export const ladderCommand = defineCommand({
       full: args.full as boolean | undefined,
       columns: DEFAULT_COLUMNS,
     };
+
     const resolved = resolveFormat(formatOptions);
     console.log(
       resolved === "json"

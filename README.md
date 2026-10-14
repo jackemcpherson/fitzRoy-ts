@@ -198,10 +198,10 @@ output envelopes, and partial-failure behaviour.
 
 1. Clone the repository.
 2. Install dependencies with `bun install`. This command also installs the
-   pre-commit hook that runs `biome check --staged`.
+   pre-commit hook that runs `vp staged`.
 3. Use Bun as the only contributor package manager. `bun.lock` is the sole lock
    file, and a pre-install guard rejects `npm install`.
-4. Run quality checks with `npm run typecheck && npm run check && npm run test`.
+4. Run quality checks with `npx vp check && npx vp test`.
 
 ## License
 

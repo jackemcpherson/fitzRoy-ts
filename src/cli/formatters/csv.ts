@@ -10,6 +10,7 @@ function escapeField(value: string): string {
   // CSV injection defence: prefix formula-trigger first characters with '
   // so spreadsheet apps treat the cell as literal text. OWASP "Formula Injection".
   const first = value.charCodeAt(0);
+
   const guarded =
     first === 0x3d || // =
     first === 0x2b || // +
@@ -18,6 +19,7 @@ function escapeField(value: string): string {
     first === 0x09 // \t
       ? `'${value}`
       : value;
+
   if (
     guarded.includes(",") ||
     guarded.includes('"') ||
@@ -26,11 +28,13 @@ function escapeField(value: string): string {
   ) {
     return `"${guarded.replace(/"/g, '""')}"`;
   }
+
   return guarded;
 }
 
 function toStringValue(value: unknown, row?: Record<string, unknown>): string {
   if (value === null || value === undefined) return "";
+
   if (value instanceof Date) {
     // Per-row venue tz so a Perth match's date column is rendered in
     // AWST rather than AEST/AEDT (#109).
@@ -38,9 +42,12 @@ function toStringValue(value: unknown, row?: Record<string, unknown>): string {
       typeof row?.venueTimezone === "string" && row.venueTimezone.length > 0
         ? row.venueTimezone
         : undefined;
+
     return toVenueIso(value, tz);
   }
+
   if (typeof value === "object") return JSON.stringify(value);
+
   return String(value);
 }
 
@@ -52,6 +59,7 @@ function toStringValue(value: unknown, row?: Record<string, unknown>): string {
  */
 function flattenRow(row: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
+
   for (const [key, value] of Object.entries(row)) {
     if (
       value != null &&
@@ -66,6 +74,7 @@ function flattenRow(row: Record<string, unknown>): Record<string, unknown> {
       out[key] = value;
     }
   }
+
   return out;
 }
 
@@ -79,6 +88,7 @@ export function formatCsv(data: Record<string, unknown>[]): string {
 
   const flattened = data.map(flattenRow);
   const firstRow = flattened[0];
+
   if (!firstRow) return "";
 
   const headers = Object.keys(firstRow);

@@ -104,8 +104,10 @@ export const statsCommand = defineCommand({
       const source: DataSource = args.source
         ? validateSource(args.source)
         : teamStatsRegistry.defaultSource;
+
       const summaryType = args.summary ? validateSummary(args.summary) : undefined;
       const team = args.team ? await resolveTeamNameOrPrompt(args.team) : undefined;
+
       const result = await withSpinner("Fetching team stats…", () =>
         fetchTeamStats({
           source,
@@ -114,11 +116,14 @@ export const statsCommand = defineCommand({
           ...(summaryType !== undefined && { summaryType }),
         }),
       );
+
       if (!result.success) throw result.error;
       const data = filterTeamStats(result.data, team);
+
       const missingGamesPlayed = data
         .filter((entry) => entry.gamesPlayed === null)
         .map((entry) => entry.team);
+
       if (missingGamesPlayed.length > 0) {
         console.error(
           pc.yellow(
@@ -126,9 +131,11 @@ export const statsCommand = defineCommand({
           ),
         );
       }
+
       showSummary(
         `Loaded stats for ${data.length} teams (${season}${summaryType ? `, ${summaryType}` : ""})`,
       );
+
       const formatOptions: FormatOptions = {
         json: args.json,
         csv: args.csv,
@@ -136,13 +143,16 @@ export const statsCommand = defineCommand({
         full: args.full,
         columns: TEAM_COLUMNS,
       };
+
       console.log(formatOutput(data as readonly object[], formatOptions));
+
       return;
     }
 
     const source: DataSource = args.source
       ? validateSource(args.source)
       : playerStatsRegistry.defaultSource;
+
     const teamFilter = args.team ? await resolveTeamNameOrPrompt(args.team) : undefined;
 
     const matchResolution = await resolveMatchId({
@@ -163,12 +173,14 @@ export const statsCommand = defineCommand({
         competition,
       }),
     );
+
     if (!result.success) throw result.error;
 
     // Season scrapes can lose individual games — warn (on stderr, so JSON/CSV
     // stdout output stays clean) rather than silently presenting a partial
     // season as complete.
     const { failedMatchIds } = result.data;
+
     if (failedMatchIds.length > 0) {
       console.error(
         pc.yellow(
@@ -186,6 +198,7 @@ export const statsCommand = defineCommand({
     showSummary(
       `Loaded ${data.length} player stat lines for ${season}${round ? ` round ${round}` : ""}`,
     );
+
     const formatOptions: FormatOptions = {
       json: args.json,
       csv: args.csv,
@@ -193,6 +206,7 @@ export const statsCommand = defineCommand({
       full: args.full,
       columns: PLAYER_COLUMNS,
     };
+
     console.log(formatCompletenessOutput({ stats: data, failedMatchIds }, data, formatOptions));
   }),
 });

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import type { PlayerStatsList } from "../../src/lib/validation";
 import { transformPlayerStats } from "../../src/transforms/player-stats";
 
@@ -92,6 +92,7 @@ describe("transformPlayerStats", () => {
 
     const r = results[0];
     expect(r).toBeDefined();
+
     if (!r) return;
 
     // Player identity
@@ -143,6 +144,7 @@ describe("transformPlayerStats", () => {
       ],
       awayTeamPlayerStats: [],
     };
+
     const results = transformPlayerStats(list, {
       matchId: "CD_M1",
       season: 2025,
@@ -150,6 +152,7 @@ describe("transformPlayerStats", () => {
       competition: "AFLM",
       source: "afl-api",
     });
+
     const r = results[0];
 
     expect(r?.kicks).toBeNull();
@@ -163,6 +166,7 @@ describe("transformPlayerStats", () => {
       homeTeamPlayerStats: [],
       awayTeamPlayerStats: [],
     };
+
     expect(
       transformPlayerStats(list, {
         matchId: "CD_M1",

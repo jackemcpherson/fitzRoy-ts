@@ -13,6 +13,7 @@ export interface FetchRetryOptions {
 }
 
 const RETRY_BASE_DELAY_MS = 250;
+
 const RETRY_JITTER_MS = 500;
 
 /**
@@ -25,13 +26,17 @@ export function withRetry5xx(fetchFn: typeof fetch, options?: FetchRetryOptions)
   if (options?.retry5xx !== true) {
     return fetchFn;
   }
+
   return async (input, init?) => {
     const first = await fetchFn(input, init);
+
     if (first.status < 500 || first.status > 599) {
       return first;
     }
+
     const delay = RETRY_BASE_DELAY_MS + Math.random() * RETRY_JITTER_MS;
     await new Promise((resolve) => setTimeout(resolve, delay));
+
     return fetchFn(input, init);
   };
 }

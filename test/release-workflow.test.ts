@@ -2,11 +2,14 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
 const script = resolve("scripts/resolve-release.sh");
+
 let directory: string;
+
 let checkout: string;
+
 let tagSha: string;
 
 function git(cwd: string, ...args: string[]): string {
@@ -29,6 +32,7 @@ function git(cwd: string, ...args: string[]): string {
 function run(tag: string, ref = "refs/heads/main") {
   const output = join(directory, "output");
   writeFileSync(output, "");
+
   const result = spawnSync("bash", [script], {
     cwd: checkout,
     encoding: "utf8",
@@ -40,6 +44,7 @@ function run(tag: string, ref = "refs/heads/main") {
       GITHUB_OUTPUT: output,
     },
   });
+
   return { status: result.status, output: readFileSync(output, "utf8") };
 }
 

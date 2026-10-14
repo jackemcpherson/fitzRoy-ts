@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 vi.mock("@jackemcpherson/rds-js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@jackemcpherson/rds-js")>();
+
   return { ...actual, parseRds: vi.fn(actual.parseRds) };
 });
 
@@ -28,6 +29,7 @@ describe("FryziggClient", () => {
     const result = await client.fetchPlayerStats("AFLM");
 
     expect(result.success).toBe(true);
+
     if (!result.success) return;
 
     expect(result.data.names).toContain("match_id");
@@ -53,6 +55,7 @@ describe("FryziggClient", () => {
     const result = await client.fetchPlayerStats("AFLM");
 
     expect(result.success).toBe(false);
+
     if (result.success) return;
     expect(result.error).toBeInstanceOf(ScrapeError);
     expect(result.error.message).toContain("404");
@@ -64,6 +67,7 @@ describe("FryziggClient", () => {
     const result = await client.fetchPlayerStats("AFLM");
 
     expect(result.success).toBe(false);
+
     if (result.success) return;
     expect(result.error).toBeInstanceOf(ScrapeError);
     expect(result.error.message).toContain("Network unreachable");
@@ -73,13 +77,16 @@ describe("FryziggClient", () => {
     const badFetch = vi
       .fn()
       .mockResolvedValue(new Response(new Uint8Array([0x00, 0x01, 0x02]), { status: 200 }));
+
     const client = new FryziggClient({
       fetchFn: badFetch,
       sha256: "ae4b3280e56e2faf83f414a6e3dabe9d5fbe18976544c05fed121accb85b53fc",
     });
+
     const result = await client.fetchPlayerStats("AFLM");
 
     expect(result.success).toBe(false);
+
     if (result.success) return;
     expect(result.error).toBeInstanceOf(ScrapeError);
     expect(result.error.source).toBe("fryzigg");
@@ -101,7 +108,13 @@ describe("FryziggClient", () => {
   it("rejects modified bytes before parsing", async () => {
     vi.mocked(parseRds).mockClear();
     const modified = fixtureBuffer.slice();
-    modified[modified.length - 1] ^= 0x01;
+    const lastIndex = modified.length - 1;
+    const lastByte = modified[lastIndex];
+    expect(lastByte).toBeDefined();
+
+    if (lastByte === undefined) return;
+    modified[lastIndex] = lastByte ^ 0x01;
+
     const client = new FryziggClient({
       fetchFn: vi.fn().mockResolvedValue(new Response(modified, { status: 200 })),
       sha256: FIXTURE_SHA256,
@@ -110,6 +123,7 @@ describe("FryziggClient", () => {
     const result = await client.fetchPlayerStats("AFLM");
 
     expect(result.success).toBe(false);
+
     if (result.success) return;
     expect(result.error).toBeInstanceOf(ScrapeError);
     expect(result.error.message).toBe("Fryzigg checksum mismatch for AFLM snapshot");
@@ -122,6 +136,7 @@ describe("FryziggClient", () => {
     const result = await client.fetchPlayerStats("AFLM");
 
     expect(result.success).toBe(false);
+
     if (result.success) return;
     expect(result.error.message).toBe("Fryzigg checksum mismatch for AFLM snapshot");
     expect(FRYZIGG_SNAPSHOTS.AFLM.sha256).toMatch(/^[a-f0-9]{64}$/);
@@ -133,6 +148,7 @@ describe("FryziggClient", () => {
     const result = await client.fetchPlayerStats("VFL");
 
     expect(result.success).toBe(false);
+
     if (result.success) return;
     expect(result.error.message).toContain("does not publish VFL data");
     expect(fetchFn).not.toHaveBeenCalled();

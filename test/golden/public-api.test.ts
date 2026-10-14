@@ -9,7 +9,7 @@
  * from the result envelope, so data and error behaviour cannot drift.
  */
 import { createHash } from "node:crypto";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import {
   fetchAwards,
   fetchLadder,
@@ -38,6 +38,7 @@ const FRYZIGG_FIXTURE_SHA256 = "e41773328a6cd1e926f22a1ed0f54cc18e4d0d21743172bd
 async function withFryziggFixture<T>(call: () => Promise<T>): Promise<T> {
   const reviewed = FRYZIGG_SNAPSHOTS.AFLM.sha256;
   Object.assign(FRYZIGG_SNAPSHOTS.AFLM, { sha256: FRYZIGG_FIXTURE_SHA256 });
+
   try {
     return await call();
   } finally {
@@ -50,7 +51,9 @@ function toJson(value: unknown): unknown {
   return JSON.parse(
     JSON.stringify(value ?? null, function (this: Record<string, unknown>, key, item: unknown) {
       const original = this[key];
+
       if (original instanceof Date) return { $date: original.toISOString() };
+
       return item === undefined ? "$undefined" : item;
     }),
   );
@@ -60,9 +63,11 @@ function toJson(value: unknown): unknown {
 function describeError(error: unknown): unknown {
   if (!(error instanceof Error)) return { thrown: String(error) };
   const fields: Record<string, unknown> = {};
+
   for (const [key, value] of Object.entries(error)) {
     if (key !== "stack" && key !== "cause") fields[key] = value;
   }
+
   return { name: error.name, message: error.message, fields };
 }
 
@@ -76,15 +81,18 @@ const MAX_INLINE_ITEMS = 25;
 function summarise(value: unknown): unknown {
   if (Array.isArray(value)) {
     if (value.length <= MAX_INLINE_ITEMS) return value.map(summarise);
+
     return {
       count: value.length,
       head: value.slice(0, 3).map(summarise),
       sha256: createHash("sha256").update(JSON.stringify(value)).digest("hex"),
     };
   }
+
   if (value !== null && typeof value === "object") {
     return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, summarise(item)]));
   }
+
   return value;
 }
 
@@ -100,8 +108,10 @@ interface Outcome {
 
 async function run(call: () => Promise<unknown>): Promise<Outcome> {
   let outcome: unknown;
+
   try {
     const result = await call();
+
     if (result !== null && typeof result === "object" && "success" in result) {
       const settled = result as { success: boolean; data?: unknown; error?: unknown };
       outcome = settled.success
@@ -113,6 +123,7 @@ async function run(call: () => Promise<unknown>): Promise<Outcome> {
   } catch (error) {
     outcome = { threw: describeError(error) };
   }
+
   return { urls: requested.filter((url) => !isTokenRequest(url)).sort(), outcome };
 }
 

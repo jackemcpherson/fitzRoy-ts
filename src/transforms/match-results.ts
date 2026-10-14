@@ -35,9 +35,12 @@ const ROUND_NUMBER_PATTERN = /^Round\s+(\d+)$/i;
 export function toRoundCode(roundName: string | null | undefined): string | null {
   if (!roundName) return null;
   const mapped = ROUND_CODE_MAP.get(roundName);
+
   if (mapped) return mapped;
   const m = ROUND_NUMBER_PATTERN.exec(roundName);
+
   if (m?.[1]) return `R${m[1]}`;
+
   // Keep non-standard names as-is (e.g. "Opening Round")
   return roundName;
 }
@@ -58,10 +61,15 @@ export function inferRoundType(roundName: string): RoundType {
  */
 export function finalsRoundNumber(headerText: string, lastHARound: number): number {
   const lower = headerText.toLowerCase();
+
   if (lower.includes("qualifying") || lower.includes("elimination")) return lastHARound + 1;
+
   if (lower.includes("semi")) return lastHARound + 2;
+
   if (lower.includes("preliminary")) return lastHARound + 3;
+
   if (lower.includes("grand")) return lastHARound + 4;
+
   // Default: first finals week
   return lastHARound + 1;
 }
@@ -109,6 +117,7 @@ function findPeriod(
 ): QuarterScore | null {
   if (!periods) return null;
   const period = periods.find((p) => p.periodNumber === quarter);
+
   return period ? toQuarterScore(period) : null;
 }
 
@@ -129,11 +138,13 @@ function toMatchClockPeriod(raw: CfsMatchClockPeriod): MatchClockPeriod {
  */
 function deriveCompletedQuarter(periods: ReadonlyArray<MatchClockPeriod>): 0 | 1 | 2 | 3 | 4 {
   let highest = 0;
+
   for (const p of periods) {
     if (p.periodCompleted && p.periodNumber > highest) {
       highest = p.periodNumber;
     }
   }
+
   return Math.min(highest, 4) as 0 | 1 | 2 | 3 | 4;
 }
 

@@ -12,15 +12,25 @@
  */
 
 export { fetchAwards } from "./api/awards";
+
 export { fetchLadder } from "./api/ladder";
+
 export { fetchLineup } from "./api/lineup";
+
 export { fetchMatches } from "./api/match";
+
 export { fetchMatchCoaches } from "./api/match-coaches";
+
 export { fetchPlayerDetails } from "./api/player-details";
+
 export { fetchPlayerStats } from "./api/player-stats";
+
 export { fetchSeasons, resolveDefaultSeasonForCompetition } from "./api/season";
+
 export { fetchTeamStats } from "./api/team-stats";
+
 export { fetchSquad, fetchTeams } from "./api/teams";
+
 export {
   localToUtc,
   type ParseDateOptions,
@@ -28,6 +38,7 @@ export {
   resolveDefaultSeason,
   toAestString,
 } from "./lib/date-utils";
+
 export {
   AflApiError,
   AmbiguousSeasonError,
@@ -38,24 +49,35 @@ export {
   UnsupportedSourceError,
   ValidationError,
 } from "./lib/errors";
+
 export type { FetchRetryOptions } from "./lib/fetch-retry";
+
 export type { FetchTimeoutOptions } from "./lib/fetch-timeout";
+
 export { type Err, err, type Ok, ok, Result } from "./lib/result";
-export {
-  roundAbbreviation,
-  roundLabel,
-  roundTypeLabel,
-} from "./lib/round-labels";
+
+export { roundAbbreviation, roundLabel, roundTypeLabel } from "./lib/round-labels";
+
 export type { SourceFetchOptions } from "./lib/source-fetch";
+
 export { normaliseTeamName } from "./lib/team-mapping";
+
 export { normaliseVenueName } from "./lib/venue-mapping";
+
 export { resolveVenueTimezone } from "./lib/venue-timezones";
+
 export { AflApiClient, type AflApiClientOptions } from "./sources/afl-api";
+
 export { AflCoachesClient, type AflCoachesClientOptions } from "./sources/afl-coaches";
+
 export { AflTablesClient, type AflTablesClientOptions } from "./sources/afl-tables";
+
 export { FootyWireClient, type FootyWireClientOptions } from "./sources/footywire";
+
 export { FryziggClient, type FryziggClientOptions } from "./sources/fryzigg";
+
 export { SquiggleClient, type SquiggleClientOptions } from "./sources/squiggle";
+
 export type {
   AllAustralianSelection,
   Award,

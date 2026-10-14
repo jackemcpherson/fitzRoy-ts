@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { normaliseTeamName } from "../../src/lib/team-mapping";
 
 describe("normaliseTeamName", () => {
@@ -106,6 +106,7 @@ describe("normaliseTeamName", () => {
       "West Coast Eagles",
       "Western Bulldogs",
     ];
+
     for (const team of allTeams) {
       expect(normaliseTeamName(team)).toBe(team);
     }

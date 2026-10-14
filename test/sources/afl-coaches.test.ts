@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 import {
   AflCoachesClient,
   isFinalsRound,
@@ -8,6 +8,7 @@ import {
 } from "../../src/sources/afl-coaches";
 
 const FIXTURE_PATH = resolve(__dirname, "../fixtures/afl-coaches-votes.html");
+
 const fixtureHtml = readFileSync(FIXTURE_PATH, "utf-8");
 
 describe("parseCoachesVotesHtml", () => {
@@ -19,6 +20,7 @@ describe("parseCoachesVotesHtml", () => {
 
     const first = votes[0];
     expect(first).toBeDefined();
+
     if (!first) return;
 
     expect(first.type).toBe("coaches");
@@ -49,6 +51,7 @@ describe("parseCoachesVotesHtml", () => {
     const dangerfield = votes.find((v) => v.player === "Patrick Dangerfield (Geelong)");
 
     expect(dangerfield).toBeDefined();
+
     if (!dangerfield) return;
 
     // The matchIndex must have advanced past match 1 — Geelong/Hawthorn, not Carlton/Richmond.
@@ -104,8 +107,10 @@ describe("parseCoachesVotesHtml", () => {
 describe("AflCoachesClient.scrapeRoundVotes", () => {
   it("builds the AFLCA URL and parses the returned HTML (offline round-trip)", async () => {
     let capturedUrl = "";
+
     const fetchFn = vi.fn(async (url: string | URL | Request) => {
       capturedUrl = String(url);
+
       return new Response(fixtureHtml, { status: 200 });
     }) as unknown as typeof fetch;
 
@@ -113,6 +118,7 @@ describe("AflCoachesClient.scrapeRoundVotes", () => {
     const result = await client.scrapeRoundVotes(2024, 1, "AFLM", false);
 
     expect(result.success).toBe(true);
+
     if (result.success) {
       expect(result.data).toHaveLength(5);
       expect(result.data[0]?.source).toBe("afl-coaches");
@@ -136,9 +142,11 @@ describe("AflCoachesClient.scrapeRoundVotes", () => {
 describe("AflCoachesClient.fetchSeasonVotes", () => {
   it("limits concurrency to three, preserves round order, and skips failed or empty rounds", async () => {
     vi.useFakeTimers();
+
     try {
       let inFlight = 0;
       let maxInFlight = 0;
+
       const fetchFn = vi.fn((input: RequestInfo | URL) => {
         const round = Number.parseInt(/(\d{2})$/.exec(String(input))?.[1] ?? "0", 10);
         inFlight++;
@@ -149,6 +157,7 @@ describe("AflCoachesClient.fetchSeasonVotes", () => {
           const delay = round % 3 === 1 ? 30 : round % 3 === 2 ? 10 : 20;
           setTimeout(() => {
             inFlight--;
+
             if (round === 2) {
               resolve(new Response("", { status: 503 }));
             } else if (round === 4) {
@@ -163,6 +172,7 @@ describe("AflCoachesClient.fetchSeasonVotes", () => {
           }, delay);
         });
       });
+
       const resultPromise = new AflCoachesClient({ fetchFn }).fetchSeasonVotes(2024, "AFLM");
 
       await vi.runAllTimersAsync();
@@ -170,6 +180,7 @@ describe("AflCoachesClient.fetchSeasonVotes", () => {
 
       expect(maxInFlight).toBe(3);
       expect(result.success).toBe(true);
+
       if (result.success) {
         const rounds = [...new Set(result.data.votes.map((vote) => vote.round))];
         expect(rounds).toEqual([1, 3, ...Array.from({ length: 24 }, (_, i) => i + 7)]);
@@ -182,6 +193,7 @@ describe("AflCoachesClient.fetchSeasonVotes", () => {
 
   it("returns an error when all rounds fail or contain no votes", async () => {
     vi.useFakeTimers();
+
     try {
       const fetchFn = vi.fn().mockResolvedValue(new Response("<html></html>", { status: 200 }));
       const resultPromise = new AflCoachesClient({ fetchFn }).fetchSeasonVotes(2024, "AFLM");
@@ -190,6 +202,7 @@ describe("AflCoachesClient.fetchSeasonVotes", () => {
       const result = await resultPromise;
 
       expect(result.success).toBe(false);
+
       if (!result.success) {
         expect(result.error.message).toContain("No coaches votes found for season 2024");
       }
@@ -200,6 +213,7 @@ describe("AflCoachesClient.fetchSeasonVotes", () => {
 
   it("returns an error when every round has an actual HTTP failure", async () => {
     vi.useFakeTimers();
+
     try {
       const fetchFn = vi.fn().mockResolvedValue(new Response("", { status: 503 }));
       const resultPromise = new AflCoachesClient({ fetchFn }).fetchSeasonVotes(2024, "AFLM");

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { localToUtc, parseDate, toAestString } from "../../src/lib/date-utils";
 import { DstGapError } from "../../src/lib/errors";
 
@@ -57,6 +57,7 @@ describe("parseDate — AFL API ISO inputs", () => {
   ])("parses %s", (input, expectedIso) => {
     const date = parseDate(input);
     expect(date).toBeInstanceOf(Date);
+
     if (expectedIso) expect(date?.toISOString()).toBe(expectedIso);
     else expect(date?.getUTCFullYear()).toBe(2024);
   });
@@ -196,12 +197,14 @@ describe("localToUtc (#110)", () => {
   it("converts a regular Melbourne time during AEST", () => {
     const r = localToUtc("Australia/Melbourne", 2024, 6, 13, 19, 30);
     expect(r.success).toBe(true);
+
     if (r.success) expect(r.data.toISOString()).toBe("2024-07-13T09:30:00.000Z");
   });
 
   it("converts a regular Melbourne time during AEDT", () => {
     const r = localToUtc("Australia/Melbourne", 2024, 2, 13, 19, 30);
     expect(r.success).toBe(true);
+
     if (r.success) expect(r.data.toISOString()).toBe("2024-03-13T08:30:00.000Z");
   });
 
@@ -210,6 +213,7 @@ describe("localToUtc (#110)", () => {
     // jumping to 03:00, so 02:30 doesn't exist.
     const r = localToUtc("Australia/Melbourne", 2024, 9, 6, 2, 30);
     expect(r.success).toBe(false);
+
     if (!r.success) {
       expect(r.error).toBeInstanceOf(DstGapError);
       expect(r.error.timezone).toBe("Australia/Melbourne");
@@ -219,12 +223,14 @@ describe("localToUtc (#110)", () => {
   it("converts Perth (AWST, no DST) correctly", () => {
     const r = localToUtc("Australia/Perth", 2024, 6, 13, 19, 30);
     expect(r.success).toBe(true);
+
     if (r.success) expect(r.data.toISOString()).toBe("2024-07-13T11:30:00.000Z");
   });
 
   it("converts Adelaide (ACDT half-hour) correctly", () => {
     const r = localToUtc("Australia/Adelaide", 2024, 2, 15, 16, 10);
     expect(r.success).toBe(true);
+
     if (r.success) expect(r.data.toISOString()).toBe("2024-03-15T05:40:00.000Z");
   });
 });

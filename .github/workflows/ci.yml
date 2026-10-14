@@ -40,20 +40,14 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Typecheck
-        run: npm run typecheck
+      - name: Format, lint, and typecheck
+        run: npx vp check
 
       - name: Typecheck (portable core, no Node types)
         run: npm run typecheck:portable
 
-      - name: Lint and format
-        run: npm run check
-
-      - name: Test
-        run: npm run test
-
-      - name: Coverage (thresholds enforced via vitest.config.ts)
-        run: npm run test:coverage
+      - name: Test with coverage (thresholds enforced via vite.config.ts)
+        run: npx vp test run --coverage
 
       - name: Upload coverage report
         if: always()
@@ -65,8 +59,13 @@ jobs:
       - name: Build
         run: bun run build
 
+      - name: Verify bundled CLI against golden output
+        run: npx vp test run test/golden/cli.test.ts
+        env:
+          FITZROY_CLI_ENTRY: dist/cli.js
+
       - name: Verify npm consumer install
-        run: node scripts/verify-package-install.mjs
+        run: npm run verify:package
 
       - name: Verify package contents
         run: npm pack --dry-run

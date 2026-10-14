@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { formatJson, formatOutput, type TableColumnConfig } from "../../src/cli/formatters/index";
 import type { Ladder } from "../../src/types";
 
@@ -43,10 +43,12 @@ describe("ladder JSON envelope (#101)", () => {
       { key: "position", label: "Pos", maxWidth: 4 },
       { key: "team", label: "Team", maxWidth: 24 },
     ];
+
     const table = formatOutput(sampleLadder.entries as readonly object[], {
       format: "table",
       columns,
     });
+
     expect(table).toContain("Sydney Swans");
     expect(table).not.toContain("competition");
     expect(table).not.toContain("AFLM");
@@ -56,6 +58,7 @@ describe("ladder JSON envelope (#101)", () => {
     const csv = formatOutput(sampleLadder.entries as readonly object[], {
       format: "csv",
     });
+
     const headers = csv.split("\n")[0] ?? "";
     expect(headers).not.toContain("season");
     expect(headers).not.toContain("competition");

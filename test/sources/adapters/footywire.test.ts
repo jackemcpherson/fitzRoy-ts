@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { FootyWirePlayerStatsSource } from "../../../src/sources/adapters/footywire";
 import { FootyWireClient } from "../../../src/sources/footywire";
 
@@ -8,10 +8,12 @@ const matchListHtml = readFileSync(
   resolve(__dirname, "../../fixtures/footywire-match-list.html"),
   "utf-8",
 );
+
 const basicStatsHtml = readFileSync(
   resolve(__dirname, "../../fixtures/footywire-match-stats-basic-11174.html"),
   "utf-8",
 );
+
 const advancedStatsHtml = readFileSync(
   resolve(__dirname, "../../fixtures/footywire-match-stats-advanced-11174.html"),
   "utf-8",
@@ -24,15 +26,19 @@ const advancedStatsHtml = readFileSync(
 function buildFetchFn(failingMids: readonly string[]) {
   return vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
+
     if (url.includes("ft_match_list")) {
       return Promise.resolve(new Response(matchListHtml, { status: 200 }));
     }
+
     if (failingMids.some((mid) => url.includes(`mid=${mid}`))) {
       return Promise.resolve(new Response("", { status: 404 }));
     }
+
     if (url.includes("advv=Y")) {
       return Promise.resolve(new Response(advancedStatsHtml, { status: 200 }));
     }
+
     return Promise.resolve(new Response(basicStatsHtml, { status: 200 }));
   });
 }
@@ -45,6 +51,7 @@ describe("FootyWirePlayerStatsSource (COR-03 partial-result envelope)", () => {
     const result = await source.fetchPlayerStats({ source: "footywire", season: 2025 });
 
     expect(result.success).toBe(true);
+
     if (!result.success) return;
     expect(result.data.stats.length).toBeGreaterThan(0);
     expect(result.data.failedMatchIds).toEqual(["FW_11194"]);
@@ -61,6 +68,7 @@ describe("FootyWirePlayerStatsSource (COR-03 partial-result envelope)", () => {
     const result = await source.fetchPlayerStats({ source: "footywire", season: 2025 });
 
     expect(result.success).toBe(true);
+
     if (!result.success) return;
     expect(result.data.stats.length).toBeGreaterThan(0);
     expect(result.data.failedMatchIds).toEqual([]);

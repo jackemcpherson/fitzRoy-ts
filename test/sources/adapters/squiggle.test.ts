@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { SquiggleMatchSource } from "../../../src/sources/adapters/squiggle";
 import type { SquiggleClient } from "../../../src/sources/squiggle";
 
@@ -7,6 +7,7 @@ function clientSpy() {
     success: true as const,
     data: { games: [] },
   }));
+
   return { fetchGames, client: { fetchGames } as unknown as SquiggleClient };
 }
 

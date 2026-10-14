@@ -88,8 +88,11 @@ export const matchCommand = defineFitzroyCommand<MatchArgs & Record<string, unkn
   },
   summary: (data, args) => {
     const filters: string[] = [String(args.season)];
+
     if (args.round) filters.push(`round ${args.round}`);
+
     if (args.status) filters.push(`status=${args.status}`);
+
     return `Loaded ${data.length} matches (${filters.join(", ")})`;
   },
 });

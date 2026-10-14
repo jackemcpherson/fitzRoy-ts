@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { computeLadder } from "../../src/transforms/computed-ladder";
 import type { Match } from "../../src/types";
 
@@ -35,9 +35,16 @@ function makeMatch(
     q3Away: null,
     q4Away: null,
     status: "Complete",
+    livePeriodStatus: null,
+    matchClockPeriods: null,
+    completedQuarter: null,
     attendance: null,
+    weatherTempCelsius: null,
+    weatherType: null,
+    roundCode: `R${roundNumber}`,
     venueState: null,
     venueTimezone: null,
+    venueLocalDate: null,
     homeRushedBehinds: null,
     awayRushedBehinds: null,
     homeMinutesInFront: null,
@@ -128,6 +135,7 @@ describe("computeLadder", () => {
 
     const sydney = ladder.find((e) => e.team === "Sydney");
     expect(sydney).toBeDefined();
+
     if (sydney) {
       const expected = Math.round((sydney.pointsFor / sydney.pointsAgainst) * 100 * 10) / 10;
       expect(sydney.percentage).toBe(expected);

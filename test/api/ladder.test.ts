@@ -1,13 +1,15 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { fetchLadder } from "../../src/api/ladder";
 
 const COMPSEASONS = readFileSync(
   resolve(__dirname, "../fixtures/afl-api-compseasons-2024.json"),
   "utf-8",
 );
+
 const ROUNDS = readFileSync(resolve(__dirname, "../fixtures/afl-api-rounds-2024.json"), "utf-8");
+
 const LADDER = readFileSync(
   resolve(__dirname, "../fixtures/afl-api-ladder-2024-r10.json"),
   "utf-8",
@@ -23,15 +25,19 @@ function ladderFetch(requestedUrls?: string[]): typeof fetch {
   return vi.fn((input: string | URL | Request) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     requestedUrls?.push(url);
+
     if (url.includes("compseasons?pageSize")) {
       return Promise.resolve(new Response(COMPSEASONS, { status: 200 }));
     }
+
     if (url.includes("/rounds?")) {
       return Promise.resolve(new Response(ROUNDS, { status: 200 }));
     }
+
     if (url.includes("/ladders")) {
       return Promise.resolve(new Response(LADDER, { status: 200 }));
     }
+
     return Promise.reject(new Error(`Unexpected URL in ladder test: ${url}`));
   }) as unknown as typeof fetch;
 }
@@ -47,6 +53,7 @@ describe("fetchLadder afl-api happy path", () => {
     const result = await fetchLadder({ source: "afl-api", season: 2024 });
 
     expect(result.success).toBe(true);
+
     if (!result.success) return;
 
     expect(result.data.season).toBe(2024);
@@ -70,6 +77,7 @@ describe("fetchLadder afl-api happy path", () => {
     const result = await fetchLadder({ source: "afl-api", season: 2024, round: 10 });
 
     expect(result.success).toBe(true);
+
     if (!result.success) return;
     expect(result.data.entries[0]?.team).toBe("Sydney Swans");
   });
@@ -81,6 +89,7 @@ describe("fetchLadder afl-api happy path", () => {
     const result = await fetchLadder({ source: "afl-api", season: 2024, round: 999 });
 
     expect(result.success).toBe(false);
+
     if (result.success) return;
     expect(result.error.message).toContain("999");
     expect(result.error.message).toContain("2024");
@@ -94,7 +103,9 @@ describe("fetchLadder public API dispatch", () => {
       source: "footywire",
       season: 2024,
     });
+
     expect(result.success).toBe(false);
+
     if (!result.success) {
       expect(result.error.message).toContain("footywire does not provide ladder");
     }
@@ -105,7 +116,9 @@ describe("fetchLadder public API dispatch", () => {
       source: "fryzigg",
       season: 2024,
     });
+
     expect(result.success).toBe(false);
+
     if (!result.success) {
       expect(result.error.message).toContain("fryzigg does not provide ladder");
     }
@@ -116,7 +129,9 @@ describe("fetchLadder public API dispatch", () => {
       source: "afl-api",
       season: 2010,
     });
+
     expect(result.success).toBe(false);
+
     if (!result.success) {
       expect(result.error.message).toContain("2010");
     }
@@ -128,7 +143,9 @@ describe("fetchLadder public API dispatch", () => {
       season: 2016,
       competition: "AFLW",
     });
+
     expect(result.success).toBe(false);
+
     if (!result.success) {
       expect(result.error.message).toContain("2016");
     }

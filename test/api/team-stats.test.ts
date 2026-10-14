@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { fetchTeamStats } from "../../src/api/team-stats";
 import { err, ok } from "../../src/lib/result";
 import { AflTablesTeamStatsSource } from "../../src/sources/adapters/afl-tables";
@@ -11,11 +11,15 @@ import { FootyWireClient, parseFootyWireTeamStats } from "../../src/sources/foot
 import type { TeamStatsEntry } from "../../src/types";
 
 const FW_FIXTURE = resolve(__dirname, "../fixtures/footywire-team-stats.html");
+
 const FW_OPP_FIXTURE = resolve(__dirname, "../fixtures/footywire-team-stats-opp.html");
+
 const AT_FIXTURE = resolve(__dirname, "../fixtures/afl-tables-team-stats.html");
 
 const fwHtml = readFileSync(FW_FIXTURE, "utf-8");
+
 const fwOppHtml = readFileSync(FW_OPP_FIXTURE, "utf-8");
+
 const atHtml = readFileSync(AT_FIXTURE, "utf-8");
 
 afterEach(() => {
@@ -34,6 +38,7 @@ describe("parseFootyWireTeamStats", () => {
 
     const carlton = entries.find((e) => e.team === "Carlton");
     expect(carlton).toBeDefined();
+
     if (!carlton) return;
 
     expect(carlton.gamesPlayed).toBe(22);
@@ -64,6 +69,7 @@ describe("parseAflTablesTeamStats", () => {
 
     const carlton = entries.find((e) => e.team === "Carlton");
     expect(carlton).toBeDefined();
+
     if (!carlton) return;
 
     expect(carlton.competition).toBe("AFLM");
@@ -103,6 +109,7 @@ describe("AflTablesTeamStatsSource games-played enrichment", () => {
     });
 
     expect(result.success).toBe(true);
+
     if (!result.success) return;
     expect(result.data.find((entry) => entry.team === "Carlton")?.gamesPlayed).toBe(2);
     expect(result.data.find((entry) => entry.team === "Geelong Cats")?.gamesPlayed).toBe(1);
@@ -121,6 +128,7 @@ describe("AflTablesTeamStatsSource games-played enrichment", () => {
     });
 
     expect(result.success).toBe(true);
+
     if (!result.success) return;
     expect(result.data.every((entry) => entry.gamesPlayed === null)).toBe(true);
   });
@@ -138,6 +146,7 @@ describe("AflTablesTeamStatsSource games-played enrichment", () => {
     });
 
     expect(result.success).toBe(false);
+
     if (!result.success) expect(result.error.message).toContain("games played");
   });
 
@@ -146,6 +155,7 @@ describe("AflTablesTeamStatsSource games-played enrichment", () => {
       ...entry,
       gamesPlayed: index === 0 ? 0 : 1,
     }));
+
     const client = {
       fetchTeamStats: vi.fn().mockResolvedValue(ok(zeroGames)),
       fetchSeasonResults: vi.fn(),
@@ -165,16 +175,20 @@ describe("AflTablesTeamStatsSource games-played enrichment", () => {
 describe("FootyWireClient.fetchTeamStats", () => {
   it("fetches and merges team and opposition stats into canonical for/against", async () => {
     let callCount = 0;
+
     const fetchFn = vi.fn().mockImplementation(() => {
       callCount++;
       const html = callCount === 1 ? fwHtml : fwOppHtml;
+
       return Promise.resolve(new Response(html, { status: 200 }));
     });
+
     const client = new FootyWireClient({ fetchFn });
 
     const result = await client.fetchTeamStats(2024);
 
     expect(result.success).toBe(true);
+
     if (result.success) {
       expect(result.data).toHaveLength(3);
       const carlton = result.data.find((e) => e.team === "Carlton");
@@ -200,6 +214,7 @@ describe("fetchTeamStats public API", () => {
     async (source) => {
       const result = await fetchTeamStats({ source, season: 2024 });
       expect(result.success).toBe(false);
+
       if (!result.success) {
         expect(result.error.message).toContain(`${source} does not provide team stats`);
       }
@@ -209,6 +224,7 @@ describe("fetchTeamStats public API", () => {
   it("rejects an unsupported competition before adapter network access", async () => {
     const adapter = teamStatsRegistry.get("footywire");
     expect(adapter).toBeDefined();
+
     if (!adapter) return;
     const fetchSpy = vi.spyOn(adapter, "fetchTeamStats").mockResolvedValue(ok([]));
 
@@ -225,6 +241,7 @@ describe("fetchTeamStats public API", () => {
   it("defaults competition coverage to AFLM", async () => {
     const adapter = teamStatsRegistry.get("footywire");
     expect(adapter).toBeDefined();
+
     if (!adapter) return;
     const fetchSpy = vi.spyOn(adapter, "fetchTeamStats").mockResolvedValue(ok([]));
 
@@ -237,6 +254,7 @@ describe("fetchTeamStats public API", () => {
   it("rejects averages with a missing denominator from any source", async () => {
     const adapter = teamStatsRegistry.get("footywire");
     expect(adapter).toBeDefined();
+
     if (!adapter) return;
     vi.spyOn(adapter, "fetchTeamStats").mockResolvedValue(
       ok([{ team: "Carlton", gamesPlayed: null } as TeamStatsEntry]),
@@ -249,6 +267,7 @@ describe("fetchTeamStats public API", () => {
     });
 
     expect(result.success).toBe(false);
+
     if (!result.success) expect(result.error.message).toContain("games played");
   });
 });

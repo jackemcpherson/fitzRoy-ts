@@ -64,6 +64,7 @@ export function matchIdForPlayerStatsSource(
   if (source === "afl-api" || resolution?.participants === undefined) {
     return resolution?.matchId;
   }
+
   return undefined;
 }
 
@@ -85,6 +86,7 @@ export async function resolveMatchId(
   if (input.matchIdArg) {
     return { matchId: validateMatchId(input.source, input.matchIdArg) };
   }
+
   if (!input.matchArg) return undefined;
 
   if (input.round == null) {
@@ -93,16 +95,20 @@ export async function resolveMatchId(
 
   const client = new AflApiClient();
   const seasonResult = await client.resolveCompSeason(input.competition, input.season);
+
   if (!seasonResult.success) throw seasonResult.error;
 
   const itemsResult = await client.fetchRoundMatchItemsByNumber(seasonResult.data, input.round);
+
   if (!itemsResult.success) throw itemsResult.error;
 
   const matchId = await resolveMatchOrPrompt(input.matchArg, itemsResult.data);
   const matched = itemsResult.data.find((item) => item.match.matchId === matchId);
+
   if (!matched) {
     return { matchId };
   }
+
   return {
     matchId,
     participants: {

@@ -130,6 +130,7 @@ function parseStatsTable<T>(
 
   $("table").each((_i, table) => {
     const rows = $(table).find("tr");
+
     if (rows.length < 3) return;
 
     // Check if header row matches expected columns
@@ -140,6 +141,7 @@ function parseStatsTable<T>(
 
     // Header should start with "Player" and have our expected stat columns
     if (headerCells[0] !== "Player" || headerCells.length < expectedCols.length) return;
+
     // Verify at least some key column names match
     if (!headerCells.includes(expectedCols[1] as string)) return;
 
@@ -147,9 +149,11 @@ function parseStatsTable<T>(
     let teamName = "";
     const parentTable = $(table).closest("table").parent().closest("table");
     const teamHeader = parentTable.find("td:contains('Match Statistics')").first();
+
     if (teamHeader.length > 0) {
       const headerText = teamHeader.text().trim();
       const match = /^(\w[\w\s]+?)\s+Match Statistics/i.exec(headerText);
+
       if (match?.[1]) {
         teamName = normaliseTeamName(match[1].trim());
       }
@@ -158,12 +162,15 @@ function parseStatsTable<T>(
     const parsed: T[] = [];
     rows.each((j, row) => {
       if (j === 0) return; // skip header
+
       const cells = $(row)
         .find("td")
         .map((_, c) => $(c).text().trim())
         .get();
+
       if (cells.length < expectedCols.length - 1) return;
       const result = rowParser(cells);
+
       if (result) parsed.push(result);
     });
 
@@ -178,6 +185,7 @@ function parseStatsTable<T>(
 /** Parse basic stats rows. */
 function parseBasicRow(cells: string[]): RawBasicRow | null {
   const player = cleanPlayerName(cells[0] ?? "");
+
   if (!player) return null;
 
   return {
@@ -205,6 +213,7 @@ function parseBasicRow(cells: string[]): RawBasicRow | null {
 /** Parse advanced stats rows. */
 function parseAdvancedRow(cells: string[]): RawAdvancedRow | null {
   const player = cleanPlayerName(cells[0] ?? "");
+
   if (!player) return null;
 
   return {
@@ -294,6 +303,7 @@ export function mergeFootyWireStats(
   for (let teamIdx = 0; teamIdx < basicTeams.length; teamIdx++) {
     const basicEntry = basicTeams[teamIdx];
     const advancedEntry = advancedTeams[teamIdx];
+
     if (!basicEntry) continue;
 
     const [teamName, basicRows] = basicEntry;
@@ -301,6 +311,7 @@ export function mergeFootyWireStats(
 
     // Build lookup from abbreviated name to advanced row
     const advancedByName = new Map<string, RawAdvancedRow>();
+
     for (const adv of advancedRows) {
       advancedByName.set(adv.player.toLowerCase(), adv);
     }

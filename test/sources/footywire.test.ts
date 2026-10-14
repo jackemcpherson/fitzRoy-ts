@@ -1,19 +1,24 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { FootyWireClient, parseFixtureList, parseMatchList } from "../../src/sources/footywire";
 
 const FIXTURE_PATH = resolve(__dirname, "../fixtures/footywire-match-list.html");
+
 const fixtureHtml = readFileSync(FIXTURE_PATH, "utf-8");
+
 const BASIC_STATS_FIXTURE = resolve(
   __dirname,
   "../fixtures/footywire-match-stats-basic-11174.html",
 );
+
 const ADVANCED_STATS_FIXTURE = resolve(
   __dirname,
   "../fixtures/footywire-match-stats-advanced-11174.html",
 );
+
 const basicStatsHtml = readFileSync(BASIC_STATS_FIXTURE, "utf-8");
+
 const advancedStatsHtml = readFileSync(ADVANCED_STATS_FIXTURE, "utf-8");
 
 describe("parseMatchList", () => {
@@ -24,6 +29,7 @@ describe("parseMatchList", () => {
 
     const first = results[0];
     expect(first).toBeDefined();
+
     if (!first) return;
 
     // Teams and identity
@@ -51,6 +57,7 @@ describe("parseMatchList", () => {
     const results = parseMatchList(fixtureHtml, 2025);
     const first = results[0];
     expect(first).toBeDefined();
+
     if (!first) return;
 
     expect(first.homePoints).toBe(82);
@@ -89,6 +96,7 @@ describe("parseMatchList", () => {
         <td class="data"><a href="?mid=9999">82-69</a></td>
       </tr>
     </table></body></html>`;
+
     const results = parseMatchList(html, 2025);
     expect(results).toHaveLength(1);
     expect(results[0]?.attendance).toBe(0);
@@ -103,6 +111,7 @@ describe("parseFixtureList (#122)", () => {
 
     const first = completed[0];
     expect(first).toBeDefined();
+
     if (!first) return;
 
     // Same fixture as parseMatchList's first row: Richmond v Carlton 82-69.
@@ -132,6 +141,7 @@ describe("parseFixtureList (#122)", () => {
         <td class="data"></td>
       </tr>
     </table></body></html>`;
+
     const fixtures = parseFixtureList(html, 2025);
     expect(fixtures).toHaveLength(1);
     expect(fixtures[0]?.status).toBe("Upcoming");
@@ -151,7 +161,9 @@ describe("parseFixtureList (#122)", () => {
         <td class="data"><a href="ft_match_statistics?mid=11174">82-69</a></td>
       </tr>
     </table></body></html>`;
+
     const match = parseFixtureList(html, 2025)[0];
+
     const fetchFn = vi.fn((input: RequestInfo | URL) =>
       Promise.resolve(
         new Response(String(input).includes("advv=Y") ? advancedStatsHtml : basicStatsHtml, {
@@ -159,6 +171,7 @@ describe("parseFixtureList (#122)", () => {
         }),
       ),
     );
+
     const statsResult = await new FootyWireClient({ fetchFn }).fetchMatchPlayerStats(
       "11174",
       2025,
@@ -167,6 +180,7 @@ describe("parseFixtureList (#122)", () => {
 
     expect(match?.matchId).toBe("FW_11174");
     expect(statsResult.success).toBe(true);
+
     if (statsResult.success) {
       expect(statsResult.data.length).toBeGreaterThan(0);
       expect(statsResult.data[0]?.matchId).toBe(match?.matchId);
@@ -198,6 +212,7 @@ describe("parseFixtureList (#122)", () => {
         <td class="data"></td>
       </tr>
     </table></body></html>`;
+
     const fixtures = parseFixtureList(html, 2025, "AFLW");
     expect(fixtures).toHaveLength(1);
     expect(fixtures[0]?.competition).toBe("AFLW");
@@ -218,6 +233,7 @@ describe("parseFixtureList (#122)", () => {
         <td class="data"></td>
       </tr>
     </table></body></html>`;
+
     const fixtures = parseFixtureList(html, 2025, "AFLW");
     expect(fixtures).toHaveLength(1);
     expect(fixtures[0]?.date.getUTCFullYear()).toBe(2025);
@@ -234,6 +250,7 @@ describe("parseFixtureList (#122)", () => {
         <td class="data"></td>
       </tr>
     </table></body></html>`;
+
     const fixtures = parseFixtureList(html, 2025);
     expect(fixtures).toHaveLength(1);
     expect(fixtures[0]?.competition).toBe("AFLM");
@@ -249,6 +266,7 @@ describe("FootyWireClient", () => {
     const result = await client.fetchSeasonResults(2025);
 
     expect(result.success).toBe(true);
+
     if (result.success) {
       expect(result.data.length).toBeGreaterThanOrEqual(3);
     }
