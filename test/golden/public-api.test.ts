@@ -11,7 +11,7 @@
  * replaced by the fixture router, so no global `fetch` is stubbed.
  */
 import { createHash } from "node:crypto";
-import { Cause, Effect, Exit, type Layer } from "effect";
+import { Cause, Effect, Exit, type Layer, Predicate, type Schema } from "effect";
 import { FetchHttpClient } from "effect/http";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import {
@@ -33,15 +33,19 @@ import {
 import { goldenFetch, requested, resetRequested } from "./fixture-fetch";
 
 /** Reduce an error to its stable, comparable fields. */
-function describeError(error: unknown): unknown {
-  if (!(error instanceof Error)) return { thrown: String(error) };
-  const fields: Record<string, unknown> = {};
-
-  for (const [key, value] of Object.entries(error)) {
-    if (key !== "stack" && key !== "cause") fields[key] = value;
-  }
+function describeError(error: SourceError | Error) {
+  const fields = Object.fromEntries(
+    Object.entries(error).filter(([key]) => key !== "stack" && key !== "cause"),
+  );
 
   return { name: error.name, message: error.message, fields };
+}
+
+/** Describe the squashed failure of a cause; non-`Error` defects become their string form. */
+function describeCause(cause: Cause.Cause<SourceError>) {
+  const squashed = Cause.squash(cause);
+
+  return squashed instanceof Error ? describeError(squashed) : { thrown: String(squashed) };
 }
 
 /** Arrays longer than this are summarised by count, head, and digest. */
@@ -51,7 +55,7 @@ const MAX_INLINE_ITEMS = 25;
  * Keep snapshots reviewable: long arrays become their length, first three
  * items, and a SHA-256 of the full JSON, so any change still fails.
  */
-function summarise(value: unknown): unknown {
+function summarise(value: Schema.Json): Schema.Json {
   if (Array.isArray(value)) {
     if (value.length <= MAX_INLINE_ITEMS) return value.map(summarise);
 
@@ -62,11 +66,16 @@ function summarise(value: unknown): unknown {
     };
   }
 
-  if (value !== null && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, summarise(item)]));
+  if (
+    value === null ||
+    Predicate.isString(value) ||
+    Predicate.isNumber(value) ||
+    Predicate.isBoolean(value)
+  ) {
+    return value;
   }
 
-  return value;
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, summarise(item)]));
 }
 
 /** The AFL API token request depends on cache state shared across cases. */
@@ -96,8 +105,8 @@ async function run(call: Call): Promise<Outcome> {
   const outcome = Exit.isSuccess(exit)
     ? { ok: summarise(JSON.parse(JSON.stringify(exit.value ?? null))) }
     : Cause.hasFails(exit.cause)
-      ? { err: describeError(Cause.squash(exit.cause)) }
-      : { threw: describeError(Cause.squash(exit.cause)) };
+      ? { err: describeCause(exit.cause) }
+      : { threw: describeCause(exit.cause) };
 
   return { urls: [...new Set(requested.filter((url) => !isTokenRequest(url)))].sort(), outcome };
 }

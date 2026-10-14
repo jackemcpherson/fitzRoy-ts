@@ -1,6 +1,6 @@
 {
   "name": "fitzroy",
-  "version": "6.0.0",
+  "version": "7.0.0",
   "description": "TypeScript port of the fitzRoy R package — programmatic access to AFL data including match results, player stats, fixtures, ladders, and more",
   "keywords": [
     "afl",

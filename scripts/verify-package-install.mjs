@@ -69,7 +69,7 @@ try {
     ");",
     'if (exit._tag !== "Failure") process.exit(1);',
     "const failure = Cause.squash(exit.cause);",
-    'if (!(failure instanceof fitzroy.UnsupportedSourceError)) { console.error(exit.cause); process.exit(1); }',
+    "if (!(failure instanceof fitzroy.UnsupportedSourceError)) { console.error(exit.cause); process.exit(1); }",
   ].join("\n");
 
   run(process.execPath, ["--input-type=module", "--eval", importCheck], consumerDirectory);

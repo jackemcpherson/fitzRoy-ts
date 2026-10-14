@@ -7,10 +7,14 @@ The project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ## [Unreleased]
 
+No changes yet.
+
+## [7.0.0] - 2026-10-14
+
 Version 7 moves the library to Effect. See
 [the version 7 migration guide](docs/migration-v7.md).
 
-### Added in Unreleased
+### Added in 7.0.0
 
 - `FitzroyLive` provides every source service, the source registry, and the
   shared HTTP policy. `SourceHttpConfig` sets the request timeout and the single
@@ -23,7 +27,7 @@ Version 7 moves the library to Effect. See
 - `IncompleteDataError` reports a player-details request where every team
   failed.
 
-### Changed in Unreleased
+### Changed in 7.0.0
 
 - Every `fetch*` function, `fetchSeasons`, and
   `resolveDefaultSeasonForCompetition` returns an `Effect` instead of a
@@ -33,7 +37,7 @@ Version 7 moves the library to Effect. See
 - `fitzroy/schemas` exports Effect schemas instead of Zod schemas.
 - `localToUtc` returns `Result` from the `effect` package.
 
-### Removed in Unreleased
+### Removed in 7.0.0
 
 - `Result`, `ok`, `err`, `Ok`, and `Err`.
 - The client classes `AflApiClient`, `FootyWireClient`, `AflTablesClient`,

@@ -6,7 +6,7 @@
  * discrepancies against the canonical names in src/lib/team-mapping.ts.
  *
  * Polite: a small number of requests with ≥500 ms between each, using the
- * descriptive fitzRoy-ts User-Agent already established in the SquiggleClient.
+ * descriptive fitzRoy-ts User-Agent already established in the Squiggle service.
  *
  * Run: `bun run scripts/probe-squiggle-tips.ts`
  */

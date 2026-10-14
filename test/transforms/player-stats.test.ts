@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { PlayerStatsList } from "../../src/lib/validation";
+import type { PlayerStatsItem, PlayerStatsList } from "../../src/lib/validation";
 import { transformPlayerStats } from "../../src/transforms/player-stats";
 
-function makePlayerStatsItem(overrides?: Record<string, unknown>) {
+function makePlayerStatsItem(overrides?: Partial<PlayerStatsItem>) {
   return {
     player: {
       player: {

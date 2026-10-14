@@ -570,6 +570,22 @@ function parseQuarterScores(text: string): (QuarterScore | undefined)[] {
   });
 }
 
+/** Lower-case three-letter month abbreviation → zero-based month index. */
+const MONTH_INDEX = new Map([
+  ["jan", 0],
+  ["feb", 1],
+  ["mar", 2],
+  ["apr", 3],
+  ["may", 4],
+  ["jun", 5],
+  ["jul", 6],
+  ["aug", 7],
+  ["sep", 8],
+  ["oct", 9],
+  ["nov", 10],
+  ["dec", 11],
+]);
+
 /**
  * Parse date (and, when present, time-of-day) from the info cell text
  * (e.g. `"Thu 07-Mar-2024 7:30 PM Att: ..."`). Time-of-day is interpreted
@@ -595,22 +611,7 @@ function parseDateFromInfo(
   const monthStr = (m[2] ?? "").toLowerCase();
   const yearN = Number.parseInt(m[3] ?? `${year}`, 10);
 
-  const months: Readonly<Record<string, number>> = {
-    jan: 0,
-    feb: 1,
-    mar: 2,
-    apr: 3,
-    may: 4,
-    jun: 5,
-    jul: 6,
-    aug: 7,
-    sep: 8,
-    oct: 9,
-    nov: 10,
-    dec: 11,
-  };
-
-  const monthIndex = months[monthStr];
+  const monthIndex = MONTH_INDEX.get(monthStr);
 
   if (monthIndex == null) {
     const parsed = parseDate(text);
@@ -697,7 +698,7 @@ function parseAttendanceFromInfo(text: string): number | null {
 const GP_HEADERS = new Set(["gm", "gp", "p", "mp", "games"]);
 
 /** AFL Tables raw header → canonical TeamMetricSet field. (#98) */
-const AFL_TABLES_TEAM_METRIC_MAP: Readonly<Record<string, keyof TeamMetricSet>> = {
+const AFL_TABLES_TEAM_METRIC_HEADERS = {
   KI: "kicks",
   MK: "marks",
   HB: "handballs",
@@ -720,7 +721,9 @@ const AFL_TABLES_TEAM_METRIC_MAP: Readonly<Record<string, keyof TeamMetricSet>> 
   BO: "bounces",
   GA: "goalAssists",
   I50: "inside50s",
-};
+} as const satisfies Readonly<Record<string, keyof TeamMetricSet>>;
+
+const AFL_TABLES_TEAM_METRIC_MAP = new Map(Object.entries(AFL_TABLES_TEAM_METRIC_HEADERS));
 
 interface AflTablesTeamData {
   gamesPlayed: number | null;
@@ -791,7 +794,7 @@ export function parseAflTablesTeamStats(html: string, year: number): TeamStatsEn
         const header = headers[ci];
 
         if (!header) continue;
-        const canonical = AFL_TABLES_TEAM_METRIC_MAP[header];
+        const canonical = AFL_TABLES_TEAM_METRIC_MAP.get(header);
 
         if (canonical == null) continue; // unknown header — skip
         const value = Number.parseFloat($(cells[ci]).text().trim().replace(/,/g, "")) || 0;

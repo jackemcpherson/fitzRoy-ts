@@ -49,9 +49,11 @@ function makeMatchItem(overrides?: Partial<DeepMutable<MatchItem>>): DeepMutable
 
 /** Helper to get first result or fail test. */
 function first<T>(arr: T[]): T {
-  expect(arr.length).toBeGreaterThanOrEqual(1);
+  const [head] = arr;
 
-  return arr[0] as T;
+  if (head === undefined) throw new Error("Expected at least one result");
+
+  return head;
 }
 
 describe("transformMatchItems", () => {

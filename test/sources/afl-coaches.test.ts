@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { Effect, Fiber, Layer } from "effect";
+import { Effect, Fiber, Layer, Match } from "effect";
 import { TestClock } from "effect/testing";
 import {
   AflCoaches,
@@ -176,7 +176,12 @@ describe("AflCoaches.fetchSeasonVotes", () => {
 
         return new Promise<Response>((resolve, reject) => {
           // Resolve each batch out of order while keeping later rounds fast.
-          const delay = round % 3 === 1 ? 30 : round % 3 === 2 ? 10 : 20;
+          const delay = Match.value(round % 3).pipe(
+            Match.when(1, () => 30),
+            Match.when(2, () => 10),
+            Match.orElse(() => 20),
+          );
+
           setTimeout(() => {
             inFlight--;
 

@@ -28,7 +28,9 @@ export function canonicalSeasonKey(
     );
 
   if (key.includes("-S") && (competition !== "AFLW" || !["2022-S6", "2022-S7"].includes(key))) {
-    return Result.fail(new ValidationError({ message: `Season ${key} does not belong to ${competition}` }));
+    return Result.fail(
+      new ValidationError({ message: `Season ${key} does not belong to ${competition}` }),
+    );
   }
 
   return Result.succeed(key);

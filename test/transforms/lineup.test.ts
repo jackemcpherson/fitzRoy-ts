@@ -151,10 +151,10 @@ describe("transformMatchRoster", () => {
 
   it("handles missing jumper number", () => {
     const roster = makeRoster();
-    const homeTeam = roster.teamPlayers[0];
+    const player = roster.teamPlayers[0]?.players[0];
 
-    if (homeTeam?.players[0]) {
-      (homeTeam.players[0] as Record<string, unknown>).jumperNumber = undefined;
+    if (player) {
+      player.jumperNumber = undefined;
     }
 
     const lineup = transformMatchRoster(roster, 2025, 1, "AFLM");

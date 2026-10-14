@@ -53,7 +53,9 @@ export interface MatchSource extends CapabilityAdapter {
 
 /** A source that can fetch season-level credited match coach assignments. */
 export interface MatchCoachesSource extends CapabilityAdapter {
-  readonly fetchMatchCoaches: (query: MatchCoachesQuery) => Effect.Effect<MatchCoachesResult, SourceError>;
+  readonly fetchMatchCoaches: (
+    query: MatchCoachesQuery,
+  ) => Effect.Effect<MatchCoachesResult, SourceError>;
 }
 
 /**
@@ -65,7 +67,9 @@ export interface MatchCoachesSource extends CapabilityAdapter {
  * single-match queries) return an empty `failedMatchIds`.
  */
 export interface PlayerStatsSource extends CapabilityAdapter {
-  readonly fetchPlayerStats: (query: PlayerStatsQuery) => Effect.Effect<SeasonPlayerStats, SourceError>;
+  readonly fetchPlayerStats: (
+    query: PlayerStatsQuery,
+  ) => Effect.Effect<SeasonPlayerStats, SourceError>;
 }
 
 /** A source that can fetch season-aggregated team performance. */

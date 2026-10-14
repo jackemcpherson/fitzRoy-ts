@@ -82,13 +82,7 @@ export { AflTables, AflTablesLive } from "./sources/afl-tables";
 
 export { FootyWire, FootyWireLive } from "./sources/footywire";
 
-export {
-  Fryzigg,
-  FryziggConfig,
-  FryziggLive,
-  RdsParser,
-  RdsParserLive,
-} from "./sources/fryzigg";
+export { Fryzigg, FryziggConfig, FryziggLive, RdsParser, RdsParserLive } from "./sources/fryzigg";
 
 export { MatchCoaches, MatchCoachesLive } from "./sources/match-coaches";
 

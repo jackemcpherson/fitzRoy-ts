@@ -14,7 +14,7 @@ import {
 
 const fixturesDir = join(__dirname, "..", "fixtures");
 
-function loadJson(filename: string): unknown {
+function loadJson(filename: string): Schema.Json {
   return JSON.parse(readFileSync(join(fixturesDir, filename), "utf-8"));
 }
 

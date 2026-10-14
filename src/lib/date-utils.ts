@@ -7,7 +7,7 @@
  * @module
  */
 
-import { Result } from "effect";
+import { Predicate, Result } from "effect";
 import type { CompetitionCode } from "../types";
 import { DstGapError } from "./errors";
 
@@ -51,13 +51,12 @@ export function parseDate(
   raw: string | number,
   defaultYearOrOptions?: number | ParseDateOptions,
 ): Date | null {
-  const opts: ParseDateOptions =
-    typeof defaultYearOrOptions === "number"
-      ? { defaultYear: defaultYearOrOptions }
-      : (defaultYearOrOptions ?? {});
+  const opts: ParseDateOptions = Predicate.isNumber(defaultYearOrOptions)
+    ? { defaultYear: defaultYearOrOptions }
+    : (defaultYearOrOptions ?? {});
 
   // Unix timestamp (seconds) — Squiggle
-  if (typeof raw === "number") {
+  if (Predicate.isNumber(raw)) {
     const date = new Date(raw * 1000);
 
     return Number.isNaN(date.getTime()) ? null : date;

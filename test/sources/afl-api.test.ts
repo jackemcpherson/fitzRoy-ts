@@ -8,7 +8,7 @@ import { AflApi, AflApiLive } from "../../src/sources/afl-api";
 import { fixtureHttp, type RequestLog, requestLog, type Route } from "../support/http";
 
 /** Helper to create a mock Response. */
-function mockResponse(body: unknown, init?: ResponseInit): Response {
+function mockResponse(body: Schema.Json, init?: ResponseInit): Response {
   const headers = new Headers({ "Content-Type": "application/json" });
 
   new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
@@ -588,7 +588,7 @@ describe("AflApi", () => {
     }
 
     /** Routes that serve the compseasons list then a rounds list. */
-    function seasonRoutes(compseasons: unknown, rounds: unknown): Route {
+    function seasonRoutes(compseasons: Schema.Json, rounds: Schema.Json): Route {
       return byUrl((url) => {
         if (url.includes("compseasons") && url.includes("/rounds")) return mockResponse(rounds);
 
@@ -626,18 +626,19 @@ describe("AflApi", () => {
       setNow("2025-06-15T00:00:00.000Z");
       const log = requestLog();
 
-      const starts: Record<string, string> = {
-        "90": "2024-08-14T08:30:00.000Z",
-        "91": "2025-08-14T08:30:00.000Z",
-        "92": "2026-08-14T08:30:00.000Z",
-      };
+      const starts = new Map([
+        ["90", "2024-08-14T08:30:00.000Z"],
+        ["91", "2025-08-14T08:30:00.000Z"],
+        ["92", "2026-08-14T08:30:00.000Z"],
+      ]);
 
       const route = byUrl((url) => {
         const seasonId = /compseasons\/(\d+)\/rounds/.exec(url)?.[1];
+        const utcStartTime = seasonId === undefined ? undefined : starts.get(seasonId);
 
-        if (seasonId)
+        if (utcStartTime !== undefined)
           return mockResponse({
-            rounds: [{ id: 1, name: "Round 1", roundNumber: 1, utcStartTime: starts[seasonId] }],
+            rounds: [{ id: 1, name: "Round 1", roundNumber: 1, utcStartTime }],
           });
 
         return mockResponse({
