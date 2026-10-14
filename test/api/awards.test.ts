@@ -107,6 +107,12 @@ function coachesServing(service: {
   });
 }
 
+/** The queries the Coleman adapters received. */
+interface ColemanCalls {
+  readonly matches: MatchQuery[];
+  readonly stats: PlayerStatsQuery[];
+}
+
 /**
  * A registry with AFL API match and player-stats adapters answering with
  * fixed data and recording the queries they receive.
@@ -114,7 +120,7 @@ function coachesServing(service: {
 function colemanRegistry(
   matches: Effect.Effect<Match[], ScrapeError>,
   stats: Effect.Effect<SeasonPlayerStats, ScrapeError>,
-  calls?: { matches: MatchQuery[]; stats: PlayerStatsQuery[] },
+  calls?: ColemanCalls,
 ) {
   const matchSource: MatchSource = {
     id: "afl-api",
@@ -301,7 +307,7 @@ describe("fetchAwards coaches filtering", () => {
 
 describe("fetchAwards Coleman orchestration", () => {
   it.effect("excludes finals stats by matching home-and-away match IDs", () => {
-    const calls: { matches: MatchQuery[]; stats: PlayerStatsQuery[] } = { matches: [], stats: [] };
+    const calls: ColemanCalls = { matches: [], stats: [] };
 
     return Effect.gen(function* () {
       const result = yield* fetchAwards({ award: "coleman", season: 2025 });

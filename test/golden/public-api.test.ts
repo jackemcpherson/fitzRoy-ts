@@ -92,6 +92,7 @@ async function run(call: Call): Promise<Outcome> {
       Effect.provideService(FetchHttpClient.Fetch, goldenFetch),
     ),
   );
+
   const outcome = Exit.isSuccess(exit)
     ? { ok: summarise(JSON.parse(JSON.stringify(exit.value ?? null))) }
     : Cause.hasFails(exit.cause)

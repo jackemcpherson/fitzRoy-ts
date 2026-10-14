@@ -74,12 +74,12 @@
  */
 
 import { parseHtml } from "../src/lib/parse-html";
-import { createSourceFetch } from "../src/lib/source-fetch";
 
 const BASE = "https://afltables.com/afl/stats/games";
 const SEAS = "https://afltables.com/afl/seas";
 
-const fetchFn = createSourceFetch({ minDelayMs: 500 });
+// The v6 `createSourceFetch` helper is gone; this one-off probe uses plain fetch.
+const fetchFn = fetch;
 
 interface SampledGame {
   readonly year: number;

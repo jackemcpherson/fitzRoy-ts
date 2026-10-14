@@ -84,7 +84,9 @@ function fetchAwardsRaw(query: AwardQuery): Effect.Effect<AwardResult, SourceErr
     );
   }
 
-  switch (query.award) {
+  const { award } = query;
+
+  switch (award) {
     case "brownlow":
       return withCompleteAwardResult(
         fetchFootyWireAward(
@@ -124,7 +126,7 @@ function fetchAwardsRaw(query: AwardQuery): Effect.Effect<AwardResult, SourceErr
     default:
       return Effect.fail(
         new ScrapeError({
-          message: `Unknown award type: ${(query as AwardQuery).award}`,
+          message: `Unknown award type: ${String(award)}`,
           source: "footywire",
         }),
       );

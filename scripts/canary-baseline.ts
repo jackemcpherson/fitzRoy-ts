@@ -1,3 +1,5 @@
+import { Option, Schema } from "effect";
+
 export type Baseline = Record<string, number>;
 
 export type CountEvaluation =
@@ -14,23 +16,16 @@ export type CountEvaluation =
       readonly floor: number;
     };
 
+const BaselineSchema = Schema.Record(
+  Schema.String,
+  Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0)),
+);
+
+const decodeBaseline = Schema.decodeUnknownOption(BaselineSchema);
+
 /** Validate the persisted source-name to row-count mapping. */
-export function validateBaseline(value: unknown): Baseline | undefined {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    return undefined;
-  }
-
-  const baseline: Baseline = {};
-
-  for (const [key, count] of Object.entries(value)) {
-    if (typeof count !== "number" || !Number.isFinite(count) || count < 0) {
-      return undefined;
-    }
-
-    baseline[key] = count;
-  }
-
-  return baseline;
+export function validateBaseline(value: Schema.Json): Baseline | undefined {
+  return Option.getOrUndefined(decodeBaseline(value));
 }
 
 /** Compare an observed count with the last successful observation. */
