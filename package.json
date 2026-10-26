@@ -59,12 +59,12 @@
     "@clack/prompts": "^1.7.0",
     "@effect/vitest": "4.0.4",
     "@types/node": "^26.0.0",
-    "@vitest/coverage-v8": "5.0.4",
+    "@vitest/coverage-v8": "5.0.5",
     "citty": "^0.2.2",
     "effect": "4.0.4",
     "picocolors": "^1.1.1",
     "typescript": "^7.0.2",
-    "vite-plus": "1.2.0"
+    "vite-plus": "1.3.0"
   },
   "peerDependencies": {
     "effect": "^4.0.4"

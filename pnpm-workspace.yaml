@@ -1,6 +1,6 @@
 overrides:
-  vite@*: npm:@voidzero-dev/vite-plus-core@1.2.0
-  vitest@*: 5.0.4
+  vite@*: npm:@voidzero-dev/vite-plus-core@1.3.0
+  vitest@*: 5.0.5
   fflate: 0.8.3
   undici: ^8.0.0
 
@@ -8,7 +8,7 @@ minimumReleaseAgeExclude:
   - "@effect/vitest@4.0.4"
   - effect@4.0.4
 
-# Vite+ core satisfies Vitest's Vite peer but reports its own version (1.1.0).
+# Vite+ core satisfies Vitest's Vite peer but reports its own version (1.3.0).
 peerDependencyRules:
   allowedVersions:
     vite: "*"
