@@ -59,7 +59,7 @@
     "@clack/prompts": "^1.7.0",
     "@effect/vitest": "4.0.4",
     "@types/node": "^26.0.0",
-    "@vitest/coverage-v8": "5.0.4",
+    "@vitest/coverage-v8": "5.0.5",
     "citty": "^0.2.2",
     "effect": "4.0.4",
     "picocolors": "^1.1.1",
