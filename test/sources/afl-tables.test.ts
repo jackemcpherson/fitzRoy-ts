@@ -84,6 +84,16 @@ describe("parseSeasonPage", () => {
     expect(results[2]?.roundNumber).toBe(1);
   });
 
+  it("keeps Round 1 as round 1 in a season without an Opening Round, however short", () => {
+    // The same page read as 2027: its four-game first round is a short
+    // Round 1, not an Opening Round, so nothing shifts.
+    const results = parseOk(fixtureHtml, 2027);
+
+    expect(results[0]?.roundNumber).toBe(1);
+    expect(results[0]?.roundName).not.toBe("Opening Round");
+    expect(results.some((match) => match.roundNumber === 0)).toBe(false);
+  });
+
   it("returns empty array for empty HTML", () => {
     expect(parseSeasonPage("<html></html>", 2024)).toEqual(Result.succeed([]));
   });
