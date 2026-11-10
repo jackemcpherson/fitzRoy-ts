@@ -9,6 +9,19 @@ The project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 No changes yet.
 
+## [7.0.1] - 2026-11-10
+
+This patch prepares AFL Tables results for the 2027 season, which has no
+Opening Round.
+
+### Fixed in 7.0.1
+
+- AFL Tables results are renumbered for an Opening Round only in the seasons
+  that had one, 2024 to 2026. The season's first round used to be treated as
+  an Opening Round whenever it had fewer than nine games, so from 2027 a
+  short Round 1 would have become "Opening Round" and shifted every
+  home-and-away round down by one.
+
 ## [7.0.0] - 2026-10-14
 
 Version 7 moves the library to Effect. See

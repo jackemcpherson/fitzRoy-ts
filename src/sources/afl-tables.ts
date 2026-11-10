@@ -483,25 +483,25 @@ function parseSeasonPageGamesFromDoc(
 }
 
 /**
+ * AFLM seasons that began with an Opening Round. The AFL introduced it in
+ * 2024 and dropped it for 2027. The list is explicit, not inferred from the
+ * size of the first round: a season without an Opening Round whose Round 1
+ * is short (byes, a postponement, or a page read mid-round) must keep its
+ * numbering.
+ */
+const OPENING_ROUND_SEASONS: ReadonlySet<number> = new Set([2024, 2025, 2026]);
+
+/**
  * AFL Tables numbers Opening Round as Round 1 (and the actual season opener as
  * Round 2). The other sources adopt the AFL's convention: Opening Round is
- * round 0, and Round 1 is the proper opener. Detect Opening Round (year ≥
- * 2024 and the first H&A round has fewer than 9 games) and shift all H&A
- * round numbers down by one. Finals round numbering is independent.
+ * round 0, and Round 1 is the proper opener. For the seasons in
+ * {@link OPENING_ROUND_SEASONS}, shift all H&A round numbers down by one.
+ * Finals round numbering is independent.
  */
 function remapOpeningRound(matches: readonly Match[], year: number): Match[] {
-  if (year < 2024) return [...matches];
+  if (!OPENING_ROUND_SEASONS.has(year)) return [...matches];
 
-  // Count games in the lowest-numbered H&A round.
-  const haRounds = matches.filter((m) => m.roundType === "HomeAndAway");
-
-  if (haRounds.length === 0) return [...matches];
-  const minRound = Math.min(...haRounds.map((m) => m.roundNumber));
-  const firstRoundGames = haRounds.filter((m) => m.roundNumber === minRound).length;
-
-  if (firstRoundGames >= 9) return [...matches];
-
-  // Opening Round detected — shift all H&A rounds down by 1.
+  // Shift all H&A rounds down by 1.
   return matches.map((m) =>
     m.roundType === "HomeAndAway"
       ? {
