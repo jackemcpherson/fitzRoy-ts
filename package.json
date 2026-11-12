@@ -57,14 +57,14 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
     "@clack/prompts": "^1.7.0",
-    "@effect/vitest": "4.1.1",
+    "@effect/vitest": "4.1.2",
     "@types/node": "^26.0.0",
-    "@vitest/coverage-v8": "5.0.5",
+    "@vitest/coverage-v8": "5.1.0",
     "citty": "^0.2.2",
-    "effect": "4.1.1",
+    "effect": "4.1.2",
     "picocolors": "^1.1.1",
     "typescript": "^7.0.2",
-    "vite-plus": "1.4.0"
+    "vite-plus": "1.5.0"
   },
   "peerDependencies": {
     "effect": "^4.0.4"
@@ -72,5 +72,5 @@
   "engines": {
     "node": ">=20"
   },
-  "packageManager": "pnpm@12.17.0"
+  "packageManager": "pnpm@12.18.0"
 }
